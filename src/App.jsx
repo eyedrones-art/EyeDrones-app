@@ -652,7 +652,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     let y = 20;
 
     if (azienda.logo) {
-      try { doc.addImage(azienda.logo, "PNG", 15, 10, 26, 16, undefined, "FAST"); } catch (e) {}
+      try { doc.addImage(azienda.logo, "PNG", (210 - 26) / 2, 10, 26, 16, undefined, "FAST"); } catch (e) {}
       y = 34;
     }
 
@@ -1001,7 +1001,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
 
           <div style={{ background: "#ffffff", color: "#1a1a1a", width: "100%", maxWidth: 520, borderRadius: 4, padding: "28px 30px", boxShadow: "0 4px 24px rgba(0,0,0,0.35)" }}>
             {azienda.logo && (
-              <img src={azienda.logo} alt="logo" style={{ height: 34, maxWidth: 130, objectFit: "contain", marginBottom: 14, display: "block" }} />
+              <img src={azienda.logo} alt="logo" style={{ height: 34, maxWidth: 130, objectFit: "contain", marginBottom: 14, marginLeft: "auto", marginRight: "auto", display: "block" }} />
             )}
             <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 3px 0", fontFamily: "'IBM Plex Sans', sans-serif" }}>Report ispezione termografica</h2>
             <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 18px 0" }}>{azienda.nome} — ispezioni con drone e termocamera</p>
