@@ -582,6 +582,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
   const [irraggiamento, setIrraggiamento] = useState("");
   const [note, setNote] = useState("");
+  const [operatore, setOperatore] = useState("");
   const [foto, setFoto] = useState([]); // [{ id, dataUrl, blob }]
   const [fotoAttivaId, setFotoAttivaId] = useState(null);
   const [anomalie, setAnomalie] = useState([]); // [{ id, fotoId, x, y, categoria, gravita }]
@@ -604,6 +605,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         ora: ora || null,
         irraggiamento: irraggiamento ? Number(irraggiamento) : null,
         note: note || null,
+        operatore: operatore || null,
       }).select().single();
       if (e1) throw e1;
 
@@ -680,6 +682,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       ["Cliente", impiantoSel?.cliente],
       ["Data ispezione", formatData(new Date())],
       ["Ora ispezione", ora || "—"],
+      ["Eseguita da", operatore || "—"],
       ["Irraggiamento solare", irraggiamento ? `${irraggiamento} W/m²` : "—"],
       ["Anomalie rilevate", String(anomalie.length)],
     ];
@@ -696,6 +699,34 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     doc.line(15, y, 195, y);
     y += 10;
 
+    const disegnaAnomalia = (a, numero) => {
+      const info = CATEGORIE.find((c) => c.key === a.categoria);
+      const sev = SEVERITY.find((s) => s.key === a.gravita);
+      if (y > 265) { doc.addPage(); y = 20; }
+
+      doc.setFillColor(...oranje);
+      doc.circle(17, y - 1.5, 1.4, "F");
+      doc.setFontSize(11.5);
+      doc.setTextColor(20, 20, 20);
+      doc.text(`${numero}. ${a.categoria}`, 22, y);
+      doc.setFontSize(9);
+      doc.setTextColor(sev.color === "#ff4d4d" ? 220 : 150, 90, 60);
+      doc.text(`[${sev.label.toUpperCase()}]`, 165, y);
+      y += 6;
+
+      doc.setFontSize(9.5);
+      doc.setTextColor(...grigio);
+      const descLines = doc.splitTextToSize(info.descrizione, 170);
+      doc.text(descLines, 22, y);
+      y += descLines.length * 4.5 + 2;
+
+      doc.setTextColor(...oranje);
+      const azLines = doc.splitTextToSize(`Azione consigliata: ${info.azione}`, 170);
+      doc.text(azLines, 22, y);
+      y += azLines.length * 4.5 + 8;
+    };
+
+    let contatoreAnomalie = 0;
     foto.forEach((f, idx) => {
       doc.setFontSize(13);
       doc.setTextColor(20, 20, 20);
@@ -716,7 +747,42 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         });
       } catch (e) {}
       y += imgH + 10;
+
+      const anomalieFoto = anomalie.filter((a) => a.fotoId === f.id);
+      if (anomalieFoto.length > 0) {
+        doc.setFontSize(11.5);
+        doc.setTextColor(20, 20, 20);
+        doc.text("Anomalie rilevate in questa foto", 15, y);
+        y += 8;
+        anomalieFoto.forEach((a) => {
+          contatoreAnomalie += 1;
+          disegnaAnomalia(a, contatoreAnomalie);
+        });
+      }
     });
+
+    const anomalieSenzaFoto = anomalie.filter((a) => !foto.some((f) => f.id === a.fotoId));
+    if (anomalieSenzaFoto.length > 0) {
+      doc.setFontSize(13);
+      doc.setTextColor(20, 20, 20);
+      doc.text("Altre anomalie", 15, y);
+      y += 9;
+      anomalieSenzaFoto.forEach((a) => {
+        contatoreAnomalie += 1;
+        disegnaAnomalia(a, contatoreAnomalie);
+      });
+    }
+
+    if (anomalie.length === 0) {
+      doc.setFontSize(13);
+      doc.setTextColor(20, 20, 20);
+      doc.text("Anomalie e raccomandazioni", 15, y);
+      y += 9;
+      doc.setFontSize(10.5);
+      doc.setTextColor(...grigio);
+      doc.text("Nessuna anomalia rilevata durante l'ispezione.", 15, y);
+      y += 7;
+    }
 
     if (note) {
       doc.setFontSize(13);
@@ -730,45 +796,6 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       doc.text(noteLines, 15, y);
       y += noteLines.length * 4.5 + 10;
     }
-
-    doc.setFontSize(13);
-    doc.setTextColor(20, 20, 20);
-    doc.text("Anomalie e raccomandazioni", 15, y);
-    y += 9;
-
-    if (anomalie.length === 0) {
-      doc.setFontSize(10.5);
-      doc.setTextColor(...grigio);
-      doc.text("Nessuna anomalia rilevata durante l'ispezione.", 15, y);
-      y += 7;
-    }
-
-    anomalie.forEach((a, idx) => {
-      const info = CATEGORIE.find((c) => c.key === a.categoria);
-      const sev = SEVERITY.find((s) => s.key === a.gravita);
-      if (y > 265) { doc.addPage(); y = 20; }
-
-      doc.setFillColor(...oranje);
-      doc.circle(17, y - 1.5, 1.4, "F");
-      doc.setFontSize(11.5);
-      doc.setTextColor(20, 20, 20);
-      doc.text(`${idx + 1}. ${a.categoria}`, 22, y);
-      doc.setFontSize(9);
-      doc.setTextColor(sev.color === "#ff4d4d" ? 220 : 150, 90, 60);
-      doc.text(`[${sev.label.toUpperCase()}]`, 165, y);
-      y += 6;
-
-      doc.setFontSize(9.5);
-      doc.setTextColor(...grigio);
-      const descLines = doc.splitTextToSize(info.descrizione, 170);
-      doc.text(descLines, 22, y);
-      y += descLines.length * 4.5 + 2;
-
-      doc.setTextColor(...oranje);
-      const azLines = doc.splitTextToSize(`Azione consigliata: ${info.azione}`, 170);
-      doc.text(azLines, 22, y);
-      y += azLines.length * 4.5 + 8;
-    });
 
     doc.setFontSize(8);
     doc.setTextColor(...grigio);
@@ -903,7 +930,13 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
             </div>
           )}
           {impiantoSel && (
-            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+            <div style={{ marginTop: 14 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Eseguita da (operatore/pilota)</label>
+              <input type="text" placeholder="Nome e cognome" value={operatore} onChange={(e) => setOperatore(e.target.value)} style={inputStyle} />
+            </div>
+          )}
+          {impiantoSel && (
+            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ora ispezione</label>
                 <input type="time" value={ora} onChange={(e) => setOra(e.target.value)} style={inputStyle} />
@@ -1021,6 +1054,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 ["Cliente", impiantoSel?.cliente],
                 ["Data ispezione", formatData(new Date())],
                 ["Ora ispezione", ora || "—"],
+                ["Eseguita da", operatore || "—"],
                 ["Irraggiamento solare", irraggiamento ? `${irraggiamento} W/m²` : "—"],
                 ["Anomalie rilevate", String(anomalie.length)],
               ].map(([label, val]) => (
@@ -1031,18 +1065,48 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               ))}
             </div>
 
-            {foto.map((f, idx) => (
-              <div key={f.id} style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
-                <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>{foto.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica"}</h3>
-                <div style={{ position: "relative", width: "100%" }}>
-                  <img src={f.dataUrl} alt="foto ispezione" style={{ width: "100%", borderRadius: 4, display: "block" }} />
-                  {anomalie.filter((a) => a.fotoId === f.id).map((a) => {
-                    const sev = SEVERITY.find((s) => s.key === a.gravita);
-                    return <div key={a.id} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 11, height: 11, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(-50%,-50%)" }} />;
-                  })}
+            {foto.map((f, idx) => {
+              const anomalieFoto = anomalie.filter((a) => a.fotoId === f.id);
+              return (
+                <div key={f.id} style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
+                  <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>{foto.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica"}</h3>
+                  <div style={{ position: "relative", width: "100%" }}>
+                    <img src={f.dataUrl} alt="foto ispezione" style={{ width: "100%", borderRadius: 4, display: "block" }} />
+                    {anomalieFoto.map((a) => {
+                      const sev = SEVERITY.find((s) => s.key === a.gravita);
+                      return <div key={a.id} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 11, height: 11, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(-50%,-50%)" }} />;
+                    })}
+                  </div>
+                  {anomalieFoto.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      {anomalieFoto.map((a, i) => (
+                        <BloccoAnomalia key={a.id} a={a} numero={i + 1} />
+                      ))}
+                    </div>
+                  )}
                 </div>
+              );
+            })}
+
+            {(() => {
+              const anomalieSenzaFoto = anomalie.filter((a) => !foto.some((f) => f.id === a.fotoId));
+              if (anomalieSenzaFoto.length === 0) return null;
+              return (
+                <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
+                  <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Altre anomalie</h3>
+                  {anomalieSenzaFoto.map((a, i) => (
+                    <BloccoAnomalia key={a.id} a={a} numero={i + 1} />
+                  ))}
+                </div>
+              );
+            })()}
+
+            {anomalie.length === 0 && (
+              <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
+                <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Anomalie e raccomandazioni</h3>
+                <p style={{ fontSize: 12, color: "#6b7480" }}>Nessuna anomalia rilevata durante l'ispezione.</p>
               </div>
-            ))}
+            )}
 
             {note && (
               <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
@@ -1050,25 +1114,6 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 <p style={{ fontSize: 12, color: "#333", margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{note}</p>
               </div>
             )}
-
-            <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
-              <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Anomalie e raccomandazioni</h3>
-              {anomalie.length === 0 && <p style={{ fontSize: 12, color: "#6b7480" }}>Nessuna anomalia rilevata durante l'ispezione.</p>}
-              {anomalie.map((a, idx) => {
-                const info = CATEGORIE.find((c) => c.key === a.categoria);
-                const sev = SEVERITY.find((s) => s.key === a.gravita);
-                return (
-                  <div key={a.id} style={{ marginBottom: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                      <span style={{ fontSize: 12.5, fontWeight: 600 }}>{idx + 1}. {a.categoria}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: sev.color }}>{sev.label.toUpperCase()}</span>
-                    </div>
-                    <p style={{ fontSize: 11.5, color: "#555", margin: "3px 0" }}>{info.descrizione}</p>
-                    <p style={{ fontSize: 11.5, color: "#ff8c42", margin: 0, fontWeight: 500 }}>Azione consigliata: {info.azione}</p>
-                  </div>
-                );
-              })}
-            </div>
 
             <p style={{ fontSize: 9.5, color: "#9aa4b2", marginTop: 18, borderTop: "1px solid #e5e5e5", paddingTop: 10 }}>Generato da {azienda.nome}</p>
           </div>
@@ -1083,6 +1128,21 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function BloccoAnomalia({ a, numero }) {
+  const info = CATEGORIE.find((c) => c.key === a.categoria);
+  const sev = SEVERITY.find((s) => s.key === a.gravita);
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>{numero}. {a.categoria}</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: sev.color }}>{sev.label.toUpperCase()}</span>
+      </div>
+      <p style={{ fontSize: 11.5, color: "#555", margin: "3px 0" }}>{info.descrizione}</p>
+      <p style={{ fontSize: 11.5, color: "#ff8c42", margin: 0, fontWeight: 500 }}>Azione consigliata: {info.azione}</p>
     </div>
   );
 }
@@ -1117,4 +1177,3 @@ function AnomaliaPopup({ onConfirm, onCancel }) {
     </div>
   );
 }
-
