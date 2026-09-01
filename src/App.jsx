@@ -63,7 +63,7 @@ export default function App() {
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, [sb]);
+  useEffect(() => { loadData(); }, []);
 
   // arricchisco ogni impianto con ultima ispezione e numero anomalie, calcolati dai dati reali
   const impiantiConStat = impianti.map((imp) => {
