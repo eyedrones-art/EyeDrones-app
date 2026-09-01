@@ -34,6 +34,30 @@ const CATEGORIE = [
 // --- Shell -----------------------------------------------------------
 
 export default function App() {
+  const [session, setSession] = useState(undefined); // undefined = ancora in caricamento, null = non loggato
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  if (session === undefined) {
+    return (
+      <div style={{ minHeight: "400px", display: "flex", alignItems: "center", justifyContent: "center", background: "#161a1f", color: "#8b95a3", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>
+        Caricamento...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Login />;
+  }
+
+  return <AppShell session={session} />;
+}
+
+function AppShell({ session }) {
   const [page, setPage] = useState("dashboard");
   const [impiantoAttivo, setImpiantoAttivo] = useState(null);
   const [azienda, setAzienda] = useState({ nome: "Eyedrones", logo: null });
@@ -99,7 +123,7 @@ export default function App() {
         }
       `}</style>
 
-      <Sidebar page={page} setPage={setPage} />
+      <Sidebar page={page} setPage={setPage} userEmail={session.user.email} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {dbError && (
@@ -109,7 +133,7 @@ export default function App() {
         )}
         {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} />}
-        {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} onBack={() => setPage("impianti")} />}
+        {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} />}
         {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={setAzienda} />}
       </div>
@@ -117,9 +141,67 @@ export default function App() {
   );
 }
 
+// --- Login / Registrazione -----------------------------------------------------------
+
+function Login() {
+  const [modo, setModo] = useState("login"); // login | registrati
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errore, setErrore] = useState(null);
+  const [caricamento, setCaricamento] = useState(false);
+  const [messaggio, setMessaggio] = useState(null);
+
+  const invia = async (e) => {
+    e.preventDefault();
+    setErrore(null);
+    setMessaggio(null);
+    setCaricamento(true);
+    try {
+      if (modo === "login") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        setMessaggio("Account creato — controlla la tua email per confermare, poi accedi.");
+      }
+    } catch (err) {
+      setErrore(err.message || "Errore durante l'accesso");
+    }
+    setCaricamento(false);
+  };
+
+  return (
+    <div style={{ minHeight: "500px", display: "flex", alignItems: "center", justifyContent: "center", background: "#161a1f", fontFamily: "'IBM Plex Sans', sans-serif", padding: 24 }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');`}</style>
+      <div style={{ width: "100%", maxWidth: 340 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 26 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 7, background: "linear-gradient(135deg, #3d8bfd 0%, #ff8c42 60%, #ff4d4d 100%)" }} />
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 17 }}>Eyedrones</span>
+        </div>
+        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 10, padding: 22 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+            <button type="button" onClick={() => setModo("login")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "login" ? "#ff8c42" : "#262b33", color: modo === "login" ? "#161a1f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Accedi</button>
+            <button type="button" onClick={() => setModo("registrati")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "registrati" ? "#ff8c42" : "#262b33", color: modo === "registrati" ? "#161a1f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Registrati</button>
+          </div>
+          <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+            <input type="password" required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} minLength={6} />
+            {errore && <p style={{ color: "#ff9c9c", fontSize: 12, margin: 0 }}>{errore}</p>}
+            {messaggio && <p style={{ color: "#4ade80", fontSize: 12, margin: 0 }}>{messaggio}</p>}
+            <button type="submit" disabled={caricamento} style={{ marginTop: 4, background: "#ff8c42", color: "#161a1f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+              {caricamento ? "Attendi..." : modo === "login" ? "Accedi" : "Crea account"}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Sidebar -----------------------------------------------------------
 
-function Sidebar({ page, setPage }) {
+function Sidebar({ page, setPage, userEmail }) {
   const items = [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { key: "impianti", label: "Impianti", icon: Sun },
@@ -129,7 +211,27 @@ function Sidebar({ page, setPage }) {
   return (
     <div className="sidebar" style={{ background: "#12151a", borderRight: "1px solid #262b33", padding: "20px 14px", display: "flex", flexShrink: 0 }}>
       <div className="sidebar-brand" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px 22px 8px" }}>
-        <div style={{ width: 26, height: 26, borderRadius: 5, background: "linear-gradient(135deg, #3d8bfd 0%, #ff8c42 60%, #ff4d4d 100%)", flexShrink: 0 }} />
+        <svg width="28" height="28" viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
+          <defs>
+            <linearGradient id="eyedronesLogoGrad" x1="0" y1="0" x2="32" y2="32">
+              <stop offset="0%" stopColor="#3d8bfd" />
+              <stop offset="55%" stopColor="#ff8c42" />
+              <stop offset="100%" stopColor="#ff4d4d" />
+            </linearGradient>
+          </defs>
+          <rect width="32" height="32" rx="7" fill="#161a1f" />
+          <line x1="4" y1="7" x2="10" y2="12" stroke="url(#eyedronesLogoGrad)" strokeWidth="1.6" strokeLinecap="round" />
+          <line x1="28" y1="7" x2="22" y2="12" stroke="url(#eyedronesLogoGrad)" strokeWidth="1.6" strokeLinecap="round" />
+          <line x1="4" y1="25" x2="10" y2="20" stroke="url(#eyedronesLogoGrad)" strokeWidth="1.6" strokeLinecap="round" />
+          <line x1="28" y1="25" x2="22" y2="20" stroke="url(#eyedronesLogoGrad)" strokeWidth="1.6" strokeLinecap="round" />
+          <circle cx="4" cy="7" r="1.6" fill="#3d8bfd" />
+          <circle cx="28" cy="7" r="1.6" fill="#3d8bfd" />
+          <circle cx="4" cy="25" r="1.6" fill="#ff4d4d" />
+          <circle cx="28" cy="25" r="1.6" fill="#ff4d4d" />
+          <path d="M6 16 C6 11.5 10.5 8.5 16 8.5 C21.5 8.5 26 11.5 26 16 C26 20.5 21.5 23.5 16 23.5 C10.5 23.5 6 20.5 6 16 Z" fill="none" stroke="url(#eyedronesLogoGrad)" strokeWidth="1.8" />
+          <circle cx="16" cy="16" r="4.2" fill="url(#eyedronesLogoGrad)" />
+          <circle cx="17.3" cy="14.7" r="1.1" fill="#161a1f" />
+        </svg>
         <span className="sidebar-brand-label" style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>Eyedrones</span>
       </div>
       {items.map((it) => {
@@ -152,6 +254,12 @@ function Sidebar({ page, setPage }) {
           </button>
         );
       })}
+      <div className="sidebar-label" style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid #262b33" }}>
+        <div style={{ fontSize: 11, color: "#6b7480", padding: "0 10px 8px 10px", wordBreak: "break-all" }}>{userEmail}</div>
+        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", background: "transparent", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "7px 10px", fontSize: 12 }}>
+          Esci
+        </button>
+      </div>
     </div>
   );
 }
@@ -302,15 +410,25 @@ const inputStyle = { width: "100%", background: "#161a1f", border: "1px solid #3
 
 // --- Dettaglio impianto -----------------------------------------------------------
 
-function DettaglioImpianto({ impianto, ispezioni, anomalieAll, onBack }) {
+function DettaglioImpianto({ impianto, ispezioni, anomalieAll, onBack, onReload }) {
+  const [eliminandoId, setEliminandoId] = useState(null);
+
   const storico = [...ispezioni]
     .sort((a, b) => new Date(b.data) - new Date(a.data))
     .map((isp) => {
       const anomalieIsp = anomalieAll.filter((a) => a.ispezione_id === isp.id);
       const ordine = ["bassa", "media", "alta", "critica"];
       const gravitaMax = anomalieIsp.reduce((max, a) => (ordine.indexOf(a.gravita) > ordine.indexOf(max) ? a.gravita : max), "bassa");
-      return { data: formatData(isp.data), anomalie: anomalieIsp.length, gravitaMax };
+      return { id: isp.id, data: formatData(isp.data), anomalie: anomalieIsp.length, gravitaMax, fotoUrl: isp.foto_url };
     });
+
+  const eliminaIspezione = async (id) => {
+    if (!window.confirm("Eliminare questa ispezione e le sue anomalie? L'operazione non è reversibile.")) return;
+    setEliminandoId(id);
+    await supabase.from("ispezioni").delete().eq("id", id);
+    setEliminandoId(null);
+    onReload && onReload();
+  };
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
@@ -327,14 +445,20 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, onBack }) {
         <EmptyState text="Nessuna ispezione ancora registrata per questo impianto." />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {storico.map((s, idx) => {
+          {storico.map((s) => {
             const sev = SEVERITY.find((sv) => sv.key === s.gravitaMax);
             return (
-              <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "11px 16px", flexWrap: "wrap", gap: 8 }}>
-                <span style={{ fontSize: 13, color: "#e7eaee" }}>{s.data}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "11px 16px", flexWrap: "wrap", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {s.fotoUrl && <img src={s.fotoUrl} alt="" style={{ width: 40, height: 26, objectFit: "cover", borderRadius: 4 }} />}
+                  <span style={{ fontSize: 13, color: "#e7eaee" }}>{s.data}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                   <span style={{ fontSize: 12.5, color: "#8b95a3" }}>{s.anomalie} anomalie</span>
                   <span style={{ fontSize: 11.5, padding: "3px 9px", borderRadius: 4, background: sev.color + "22", color: sev.color, fontWeight: 600 }}>{sev.label}</span>
+                  <button onClick={() => eliminaIspezione(s.id)} disabled={eliminandoId === s.id} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                    {eliminandoId === s.id ? "..." : "Elimina"}
+                  </button>
                 </div>
               </div>
             );
@@ -397,7 +521,10 @@ function Impostazioni({ azienda, setAzienda }) {
 function NuovaIspezione({ onDone, azienda, impianti, onSaved }) {
   const [step, setStep] = useState(1);
   const [impiantoSel, setImpiantoSel] = useState(null);
+  const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
+  const [irraggiamento, setIrraggiamento] = useState("");
   const [foto, setFoto] = useState(null);
+  const [fotoBlob, setFotoBlob] = useState(null);
   const [anomalie, setAnomalie] = useState([]);
   const [pendingPin, setPendingPin] = useState(null);
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -408,7 +535,22 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved }) {
     if (!impiantoSel) return;
     setSalvataggio("saving");
     try {
-      const { data: isp, error: e1 } = await supabase.from("ispezioni").insert({ impianto_id: impiantoSel.id, data: new Date().toISOString().slice(0, 10) }).select().single();
+      let fotoUrl = null;
+      if (fotoBlob) {
+        const nomeFile = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, fotoBlob, { contentType: "image/png" });
+        if (!eUp) {
+          const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
+          fotoUrl = pub?.publicUrl || null;
+        }
+      }
+      const { data: isp, error: e1 } = await supabase.from("ispezioni").insert({
+        impianto_id: impiantoSel.id,
+        data: new Date().toISOString().slice(0, 10),
+        ora: ora || null,
+        irraggiamento: irraggiamento ? Number(irraggiamento) : null,
+        foto_url: fotoUrl,
+      }).select().single();
       if (e1) throw e1;
       if (anomalie.length > 0) {
         const rows = anomalie.map((a) => ({ ispezione_id: isp.id, categoria: a.categoria, gravita: a.gravita, pos_x: a.x, pos_y: a.y }));
@@ -454,6 +596,8 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved }) {
       ["Potenza installata", `${impiantoSel?.kwp} kWp`],
       ["Cliente", impiantoSel?.cliente],
       ["Data ispezione", formatData(new Date())],
+      ["Ora ispezione", ora || "—"],
+      ["Irraggiamento solare", irraggiamento ? `${irraggiamento} W/m²` : "—"],
       ["Anomalie rilevate", String(anomalie.length)],
     ];
     righe.forEach(([label, val]) => {
@@ -468,6 +612,28 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved }) {
     doc.setDrawColor(230, 230, 230);
     doc.line(15, y, 195, y);
     y += 10;
+
+    if (foto) {
+      doc.setFontSize(13);
+      doc.setTextColor(20, 20, 20);
+      doc.text("Foto termica", 15, y);
+      y += 7;
+      const imgW = 170;
+      const imgH = imgW * (300 / 480);
+      if (y + imgH > 280) { doc.addPage(); y = 20; }
+      try {
+        doc.addImage(foto, "PNG", 15, y, imgW, imgH);
+        anomalie.forEach((a) => {
+          const sev = SEVERITY.find((s) => s.key === a.gravita);
+          const hex = sev.color.replace("#", "");
+          const r = parseInt(hex.substring(0, 2), 16), g = parseInt(hex.substring(2, 4), 16), b = parseInt(hex.substring(4, 6), 16);
+          doc.setFillColor(r, g, b);
+          doc.setDrawColor(255, 255, 255);
+          doc.circle(15 + (a.x / 100) * imgW, y + (a.y / 100) * imgH, 1.8, "FD");
+        });
+      } catch (e) {}
+      y += imgH + 10;
+    }
 
     doc.setFontSize(13);
     doc.setTextColor(20, 20, 20);
@@ -519,7 +685,11 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved }) {
 
   const handleUpload = (e) => {
     const file = e.target.files?.[0];
-    if (file) setFoto(URL.createObjectURL(file));
+    if (!file) return;
+    setFotoBlob(file);
+    const reader = new FileReader();
+    reader.onload = () => setFoto(reader.result);
+    reader.readAsDataURL(file);
   };
 
   const generaFotoDemo = () => {
@@ -550,6 +720,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved }) {
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     });
     setFoto(canvas.toDataURL());
+    canvas.toBlob((blob) => setFotoBlob(blob));
   };
 
   const handleImgClick = (e) => {
@@ -594,6 +765,18 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved }) {
                   {imp.nome} <span style={{ color: "#6b7480", fontSize: 12 }}>&middot; {imp.zona}</span>
                 </button>
               ))}
+            </div>
+          )}
+          {impiantoSel && (
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ora ispezione</label>
+                <input type="time" value={ora} onChange={(e) => setOra(e.target.value)} style={inputStyle} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Irraggiamento (W/m²)</label>
+                <input type="number" placeholder="es. 850" value={irraggiamento} onChange={(e) => setIrraggiamento(e.target.value)} style={inputStyle} />
+              </div>
             </div>
           )}
           <button disabled={!impiantoSel} onClick={() => setStep(2)} style={{ marginTop: 18, background: impiantoSel ? "#ff8c42" : "#333a45", color: impiantoSel ? "#161a1f" : "#6b7480", border: "none", padding: "9px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
@@ -668,6 +851,8 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved }) {
                 ["Potenza installata", `${impiantoSel?.kwp} kWp`],
                 ["Cliente", impiantoSel?.cliente],
                 ["Data ispezione", formatData(new Date())],
+                ["Ora ispezione", ora || "—"],
+                ["Irraggiamento solare", irraggiamento ? `${irraggiamento} W/m²` : "—"],
                 ["Anomalie rilevate", String(anomalie.length)],
               ].map(([label, val]) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
@@ -676,6 +861,19 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved }) {
                 </div>
               ))}
             </div>
+
+            {foto && (
+              <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
+                <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Foto termica</h3>
+                <div style={{ position: "relative", width: "100%" }}>
+                  <img src={foto} alt="foto ispezione" style={{ width: "100%", borderRadius: 4, display: "block" }} />
+                  {anomalie.map((a) => {
+                    const sev = SEVERITY.find((s) => s.key === a.gravita);
+                    return <div key={a.id} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 11, height: 11, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(-50%,-50%)" }} />;
+                  })}
+                </div>
+              </div>
+            )}
 
             <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
               <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Anomalie e raccomandazioni</h3>
