@@ -1,4 +1,4 @@
-        import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
@@ -1039,3 +1039,5 @@ function AnomaliaPopup({ onConfirm, onCancel }) {
     </div>
   );
 }
+
+  
