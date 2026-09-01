@@ -1068,7 +1068,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
 
           <div style={{ maxWidth: 520, marginTop: 16 }}>
             <button onClick={generaPDF}  style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 16px", borderRadius: 6, fontSize: 13 }}>
-              <FileDown size={14} /> Prova a scaricare il PDF
+              <FileDown size={14} /> Scarica PDF
             </button>
             <button onClick={onDone} style={{ display: "block", marginTop: 10, background: "transparent", color: "#8b95a3", border: "none", padding: "8px 0", fontSize: 12.5 }}>
               Torna alla dashboard
