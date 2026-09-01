@@ -14,6 +14,175 @@ function formatData(d) {
   return date.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" });
 }
 
+// converte l'URL remoto di una foto salvata in una dataURL utilizzabile dal PDF
+async function urlToDataUrl(url) {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// costruisce il documento PDF del report, condiviso tra nuova ispezione e visualizzazione di un report salvato
+function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const oranje = [255, 140, 66];
+  const grigio = [110, 120, 130];
+  let y = 20;
+
+  if (azienda.logo) {
+    try { doc.addImage(azienda.logo, "PNG", (210 - 26) / 2, 10, 26, 16, undefined, "FAST"); } catch (e) {}
+    y = 34;
+  }
+
+  doc.setFontSize(18);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Report ispezione termografica", 15, y);
+  y += 6;
+  doc.setFontSize(10);
+  doc.setTextColor(...grigio);
+  doc.text(`${azienda.nome} — ispezioni con drone e termocamera`, 15, y);
+  y += 12;
+
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.setTextColor(20, 20, 20);
+  const righe = [
+    ["Impianto", `${impianto?.nome}`],
+    ["Località", impianto?.zona],
+    ["Potenza installata", `${impianto?.kwp} kWp`],
+    ["Cliente", impianto?.cliente],
+    ["Data ispezione", dati.dataFormattata],
+    ["Ora ispezione", dati.ora || "—"],
+    ["Eseguita da", dati.operatore || "—"],
+    ["Irraggiamento solare", dati.irraggiamento ? `${dati.irraggiamento} W/m²` : "—"],
+    ["Anomalie rilevate", String(anomalieList.length)],
+    ["Prossimo controllo", dati.prossimoControlloFormattato || "—"],
+  ];
+  righe.forEach(([label, val]) => {
+    doc.setTextColor(...grigio);
+    doc.text(label, 15, y);
+    doc.setTextColor(20, 20, 20);
+    doc.text(String(val), 70, y);
+    y += 7;
+  });
+
+  y += 6;
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 10;
+
+  const disegnaAnomalia = (a, numero) => {
+    const info = CATEGORIE.find((c) => c.key === a.categoria);
+    const sev = SEVERITY.find((s) => s.key === a.gravita);
+    if (y > 265) { doc.addPage(); y = 20; }
+
+    doc.setFillColor(...oranje);
+    doc.circle(17, y - 1.5, 1.4, "F");
+    doc.setFontSize(11.5);
+    doc.setTextColor(20, 20, 20);
+    doc.text(`${numero}. ${a.categoria}`, 22, y);
+    doc.setFontSize(9);
+    doc.setTextColor(sev.color === "#ff4d4d" ? 220 : 150, 90, 60);
+    doc.text(`[${sev.label.toUpperCase()}]`, 165, y);
+    y += 6;
+
+    doc.setFontSize(9.5);
+    doc.setTextColor(...grigio);
+    const descLines = doc.splitTextToSize(info.descrizione, 170);
+    doc.text(descLines, 22, y);
+    y += descLines.length * 4.5 + 2;
+
+    doc.setTextColor(...oranje);
+    const azLines = doc.splitTextToSize(`Azione consigliata: ${info.azione}`, 170);
+    doc.text(azLines, 22, y);
+    y += azLines.length * 4.5 + 8;
+  };
+
+  let contatoreAnomalie = 0;
+  fotoConDataUrl.forEach((f, idx) => {
+    doc.setFontSize(13);
+    doc.setTextColor(20, 20, 20);
+    doc.text(fotoConDataUrl.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica", 15, y);
+    y += 7;
+    const imgW = 170;
+    const imgH = imgW * (300 / 480);
+    if (y + imgH > 280) { doc.addPage(); y = 20; }
+    try {
+      doc.addImage(f.dataUrl, "PNG", 15, y, imgW, imgH);
+      anomalieList.filter((a) => a.fotoId === f.id).forEach((a) => {
+        const sev = SEVERITY.find((s) => s.key === a.gravita);
+        const hex = sev.color.replace("#", "");
+        const r = parseInt(hex.substring(0, 2), 16), g = parseInt(hex.substring(2, 4), 16), b = parseInt(hex.substring(4, 6), 16);
+        doc.setFillColor(r, g, b);
+        doc.setDrawColor(255, 255, 255);
+        doc.circle(15 + (a.x / 100) * imgW, y + (a.y / 100) * imgH, 1.8, "FD");
+      });
+    } catch (e) {}
+    y += imgH + 10;
+
+    const anomalieFoto = anomalieList.filter((a) => a.fotoId === f.id);
+    if (anomalieFoto.length > 0) {
+      doc.setFontSize(11.5);
+      doc.setTextColor(20, 20, 20);
+      doc.text("Anomalie rilevate in questa foto", 15, y);
+      y += 8;
+      anomalieFoto.forEach((a) => {
+        contatoreAnomalie += 1;
+        disegnaAnomalia(a, contatoreAnomalie);
+      });
+    }
+  });
+
+  const anomalieSenzaFoto = anomalieList.filter((a) => !fotoConDataUrl.some((f) => f.id === a.fotoId));
+  if (anomalieSenzaFoto.length > 0) {
+    doc.setFontSize(13);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Altre anomalie", 15, y);
+    y += 9;
+    anomalieSenzaFoto.forEach((a) => {
+      contatoreAnomalie += 1;
+      disegnaAnomalia(a, contatoreAnomalie);
+    });
+  }
+
+  if (anomalieList.length === 0) {
+    doc.setFontSize(13);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Anomalie e raccomandazioni", 15, y);
+    y += 9;
+    doc.setFontSize(10.5);
+    doc.setTextColor(...grigio);
+    doc.text("Nessuna anomalia rilevata durante l'ispezione.", 15, y);
+    y += 7;
+  }
+
+  if (dati.note) {
+    doc.setFontSize(13);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Note", 15, y);
+    y += 7;
+    doc.setFontSize(10);
+    doc.setTextColor(...grigio);
+    const noteLines = doc.splitTextToSize(dati.note, 170);
+    if (y + noteLines.length * 4.5 > 280) { doc.addPage(); y = 20; }
+    doc.text(noteLines, 15, y);
+    y += noteLines.length * 4.5 + 10;
+  }
+
+  doc.setFontSize(8);
+  doc.setTextColor(...grigio);
+  doc.text(`Generato da ${azienda.nome}`, 15, 290);
+
+  return doc;
+}
+
 // --- Dati statici (non cambiano tra ispezioni) -----------------------------------------------------------
 
 const SEVERITY = [
@@ -68,6 +237,7 @@ function AppShell({ session }) {
   const [impianti, setImpianti] = useState([]);
   const [ispezioni, setIspezioni] = useState([]);
   const [anomalieAll, setAnomalieAll] = useState([]);
+  const [fotoAll, setFotoAll] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
@@ -93,15 +263,17 @@ function AppShell({ session }) {
     setLoading(true);
     setDbError(null);
     try {
-      const [{ data: imp, error: e1 }, { data: isp, error: e2 }, { data: ano, error: e3 }] = await Promise.all([
+      const [{ data: imp, error: e1 }, { data: isp, error: e2 }, { data: ano, error: e3 }, { data: fot, error: e4 }] = await Promise.all([
         supabase.from("impianti").select("*").order("created_at"),
         supabase.from("ispezioni").select("*").order("data", { ascending: false }),
         supabase.from("anomalie").select("*"),
+        supabase.from("foto").select("*"),
       ]);
-      if (e1 || e2 || e3) throw (e1 || e2 || e3);
+      if (e1 || e2 || e3 || e4) throw (e1 || e2 || e3 || e4);
       setImpianti(imp || []);
       setIspezioni(isp || []);
       setAnomalieAll(ano || []);
+      setFotoAll(fot || []);
     } catch (err) {
       setDbError(err.message || "Errore di connessione al database");
     }
@@ -161,7 +333,7 @@ function AppShell({ session }) {
         )}
         {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} />}
-        {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} onBack={() => setPage("impianti")} onReload={loadData} />}
+        {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} />}
       </div>
@@ -458,8 +630,9 @@ const inputStyle = { width: "100%", background: "#161a1f", border: "1px solid #3
 
 // --- Dettaglio impianto -----------------------------------------------------------
 
-function DettaglioImpianto({ impianto, ispezioni, anomalieAll, onBack, onReload }) {
+function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda, onBack, onReload }) {
   const [eliminandoId, setEliminandoId] = useState(null);
+  const [ispezioneAperta, setIspezioneAperta] = useState(null);
 
   const storico = [...ispezioni]
     .sort((a, b) => new Date(b.data) - new Date(a.data))
@@ -467,7 +640,9 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, onBack, onReload 
       const anomalieIsp = anomalieAll.filter((a) => a.ispezione_id === isp.id);
       const ordine = ["bassa", "media", "alta", "critica"];
       const gravitaMax = anomalieIsp.reduce((max, a) => (ordine.indexOf(a.gravita) > ordine.indexOf(max) ? a.gravita : max), "bassa");
-      return { id: isp.id, data: formatData(isp.data), anomalie: anomalieIsp.length, gravitaMax, fotoUrl: isp.foto_url };
+      const oggi = new Date();
+      const inRitardo = isp.prossimo_controllo && new Date(isp.prossimo_controllo) < oggi;
+      return { id: isp.id, data: formatData(isp.data), anomalie: anomalieIsp.length, gravitaMax, fotoUrl: isp.foto_url, prossimoControllo: isp.prossimo_controllo ? formatData(isp.prossimo_controllo) : null, inRitardo };
     });
 
   const eliminaIspezione = async (id) => {
@@ -478,6 +653,20 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, onBack, onReload 
     if (error) { alert("Eliminazione non riuscita: " + error.message); return; }
     onReload && onReload();
   };
+
+  if (ispezioneAperta) {
+    const ispezione = ispezioni.find((i) => i.id === ispezioneAperta);
+    return (
+      <VisualizzaReport
+        impianto={impianto}
+        ispezione={ispezione}
+        fotoIspezione={fotoAll.filter((f) => f.ispezione_id === ispezioneAperta)}
+        anomalieIspezione={anomalieAll.filter((a) => a.ispezione_id === ispezioneAperta)}
+        azienda={azienda}
+        onBack={() => setIspezioneAperta(null)}
+      />
+    );
+  }
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
@@ -497,23 +686,164 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, onBack, onReload 
           {storico.map((s) => {
             const sev = SEVERITY.find((sv) => sv.key === s.gravitaMax);
             return (
-              <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "11px 16px", flexWrap: "wrap", gap: 8 }}>
+              <div key={s.id} onClick={() => setIspezioneAperta(s.id)} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "11px 16px", flexWrap: "wrap", gap: 8, cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   {s.fotoUrl && <img src={s.fotoUrl} alt="" style={{ width: 40, height: 26, objectFit: "cover", borderRadius: 4 }} />}
-                  <span style={{ fontSize: 13, color: "#e7eaee" }}>{s.data}</span>
+                  <div>
+                    <div style={{ fontSize: 13, color: "#e7eaee" }}>{s.data}</div>
+                    {s.prossimoControllo && (
+                      <div style={{ fontSize: 10.5, color: s.inRitardo ? "#ff9c9c" : "#6b7480", marginTop: 1 }}>
+                        {s.inRitardo ? "Controllo in ritardo dal " : "Prossimo controllo: "}{s.prossimoControllo}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                   <span style={{ fontSize: 12.5, color: "#8b95a3" }}>{s.anomalie} anomalie</span>
                   <span style={{ fontSize: 11.5, padding: "3px 9px", borderRadius: 4, background: sev.color + "22", color: sev.color, fontWeight: 600 }}>{sev.label}</span>
-                  <button onClick={() => eliminaIspezione(s.id)} disabled={eliminandoId === s.id} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  <button onClick={(e) => { e.stopPropagation(); eliminaIspezione(s.id); }} disabled={eliminandoId === s.id} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     {eliminandoId === s.id ? "..." : "Elimina"}
                   </button>
+                  <ChevronRight size={15} color="#6b7480" />
                 </div>
               </div>
             );
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// --- Visualizzazione di un report salvato -----------------------------------------------------------
+
+function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezione, azienda, onBack }) {
+  const [generando, setGenerando] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+
+  const scaricaPDF = async () => {
+    setGenerando(true);
+    try {
+      const fotoConDataUrl = await Promise.all(
+        fotoIspezione.map(async (f) => ({ id: f.id, dataUrl: await urlToDataUrl(f.url) }))
+      );
+      const doc = costruisciPDF({
+        azienda,
+        impianto,
+        dati: {
+          dataFormattata: formatData(ispezione.data),
+          ora: ispezione.ora,
+          operatore: ispezione.operatore,
+          irraggiamento: ispezione.irraggiamento,
+          note: ispezione.note,
+          prossimoControlloFormattato: ispezione.prossimo_controllo ? formatData(ispezione.prossimo_controllo) : null,
+        },
+        fotoConDataUrl,
+        anomalieList: anomalieIspezione,
+      });
+      const url = doc.output("bloburl");
+      setPdfUrl(url);
+      window.open(url, "_blank");
+    } catch (err) {
+      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
+    }
+    setGenerando(false);
+  };
+
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5, marginBottom: 14, padding: 0 }}>&larr; {impianto.nome}</button>
+
+      <div style={{ background: "#ffffff", color: "#1a1a1a", width: "100%", maxWidth: 520, borderRadius: 4, padding: "28px 30px", boxShadow: "0 4px 24px rgba(0,0,0,0.35)" }}>
+        {azienda.logo && (
+          <img src={azienda.logo} alt="logo" style={{ height: 34, maxWidth: 130, objectFit: "contain", marginBottom: 14, marginLeft: "auto", marginRight: "auto", display: "block" }} />
+        )}
+        <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 3px 0", fontFamily: "'IBM Plex Sans', sans-serif" }}>Report ispezione termografica</h2>
+        <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 18px 0" }}>{azienda.nome} — ispezioni con drone e termocamera</p>
+
+        <div style={{ borderTop: "1px solid #e5e5e5", paddingTop: 12 }}>
+          {[
+            ["Impianto", impianto?.nome],
+            ["Località", impianto?.zona],
+            ["Potenza installata", `${impianto?.kwp} kWp`],
+            ["Cliente", impianto?.cliente],
+            ["Data ispezione", formatData(ispezione.data)],
+            ["Ora ispezione", ispezione.ora || "—"],
+            ["Eseguita da", ispezione.operatore || "—"],
+            ["Irraggiamento solare", ispezione.irraggiamento ? `${ispezione.irraggiamento} W/m²` : "—"],
+            ["Anomalie rilevate", String(anomalieIspezione.length)],
+            ["Prossimo controllo", ispezione.prossimo_controllo ? formatData(ispezione.prossimo_controllo) : "—"],
+          ].map(([label, val]) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
+              <span style={{ color: "#6b7480" }}>{label}</span>
+              <span className="mono" style={{ color: "#1a1a1a" }}>{val}</span>
+            </div>
+          ))}
+        </div>
+
+        {fotoIspezione.map((f, idx) => {
+          const anomalieFoto = anomalieIspezione.filter((a) => a.foto_id === f.id);
+          return (
+            <div key={f.id} style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
+              <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>{fotoIspezione.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica"}</h3>
+              <div style={{ position: "relative", width: "100%" }}>
+                <img src={f.url} alt="foto ispezione" style={{ width: "100%", borderRadius: 4, display: "block" }} />
+                {anomalieFoto.map((a) => {
+                  const sev = SEVERITY.find((s) => s.key === a.gravita);
+                  return <div key={a.id} style={{ position: "absolute", left: `${a.pos_x}%`, top: `${a.pos_y}%`, width: 11, height: 11, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(-50%,-50%)" }} />;
+                })}
+              </div>
+              {anomalieFoto.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  {anomalieFoto.map((a, i) => (
+                    <BloccoAnomalia key={a.id} a={{ categoria: a.categoria, gravita: a.gravita }} numero={i + 1} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {(() => {
+          const anomalieSenzaFoto = anomalieIspezione.filter((a) => !fotoIspezione.some((f) => f.id === a.foto_id));
+          if (anomalieSenzaFoto.length === 0) return null;
+          return (
+            <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
+              <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Altre anomalie</h3>
+              {anomalieSenzaFoto.map((a, i) => (
+                <BloccoAnomalia key={a.id} a={{ categoria: a.categoria, gravita: a.gravita }} numero={i + 1} />
+              ))}
+            </div>
+          );
+        })()}
+
+        {anomalieIspezione.length === 0 && (
+          <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
+            <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Anomalie e raccomandazioni</h3>
+            <p style={{ fontSize: 12, color: "#6b7480" }}>Nessuna anomalia rilevata durante l'ispezione.</p>
+          </div>
+        )}
+
+        {ispezione.note && (
+          <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
+            <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 8px 0" }}>Note</h3>
+            <p style={{ fontSize: 12, color: "#333", margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{ispezione.note}</p>
+          </div>
+        )}
+
+        <p style={{ fontSize: 9.5, color: "#9aa4b2", marginTop: 18, borderTop: "1px solid #e5e5e5", paddingTop: 10 }}>Generato da {azienda.nome}</p>
+      </div>
+
+      <div style={{ maxWidth: 520, marginTop: 16 }}>
+        <button onClick={scaricaPDF} disabled={generando} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 16px", borderRadius: 6, fontSize: 13 }}>
+          <FileDown size={14} /> {generando ? "Preparazione..." : "Scarica PDF"}
+        </button>
+        {pdfUrl && (
+          <a href={pdfUrl} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 8, fontSize: 12, color: "#3d8bfd" }}>
+            Se non si è aperto automaticamente, apri il PDF qui
+          </a>
+        )}
+      </div>
     </div>
   );
 }
@@ -582,6 +912,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
   const [irraggiamento, setIrraggiamento] = useState("");
   const [note, setNote] = useState("");
+  const [prossimoControllo, setProssimoControllo] = useState("");
   const [operatore, setOperatore] = useState("");
   const [foto, setFoto] = useState([]); // [{ id, dataUrl, blob }]
   const [fotoAttivaId, setFotoAttivaId] = useState(null);
@@ -606,6 +937,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         irraggiamento: irraggiamento ? Number(irraggiamento) : null,
         note: note || null,
         operatore: operatore || null,
+        prossimo_controllo: prossimoControllo ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(prossimoControllo)); return d.toISOString().slice(0, 10); })() : null,
       }).select().single();
       if (e1) throw e1;
 
@@ -650,161 +982,24 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   };
 
   const generaPDF = () => {
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const oranje = [255, 140, 66];
-    const grigio = [110, 120, 130];
-    let y = 20;
-
-    if (azienda.logo) {
-      try { doc.addImage(azienda.logo, "PNG", (210 - 26) / 2, 10, 26, 16, undefined, "FAST"); } catch (e) {}
-      y = 34;
+    let prossimoControlloFormattato = null;
+    if (prossimoControllo) {
+      const d = new Date();
+      d.setMonth(d.getMonth() + Number(prossimoControllo));
+      prossimoControlloFormattato = formatData(d);
     }
-
-    doc.setFontSize(18);
-    doc.setTextColor(20, 20, 20);
-    doc.text("Report ispezione termografica", 15, y);
-    y += 6;
-    doc.setFontSize(10);
-    doc.setTextColor(...grigio);
-    doc.text(`${azienda.nome} — ispezioni con drone e termocamera`, 15, y);
-    y += 12;
-
-    doc.setDrawColor(230, 230, 230);
-    doc.line(15, y, 195, y);
-    y += 8;
-
-    doc.setFontSize(11);
-    doc.setTextColor(20, 20, 20);
-    const righe = [
-      ["Impianto", `${impiantoSel?.nome}`],
-      ["Località", impiantoSel?.zona],
-      ["Potenza installata", `${impiantoSel?.kwp} kWp`],
-      ["Cliente", impiantoSel?.cliente],
-      ["Data ispezione", formatData(new Date())],
-      ["Ora ispezione", ora || "—"],
-      ["Eseguita da", operatore || "—"],
-      ["Irraggiamento solare", irraggiamento ? `${irraggiamento} W/m²` : "—"],
-      ["Anomalie rilevate", String(anomalie.length)],
-    ];
-    righe.forEach(([label, val]) => {
-      doc.setTextColor(...grigio);
-      doc.text(label, 15, y);
-      doc.setTextColor(20, 20, 20);
-      doc.text(String(val), 70, y);
-      y += 7;
+    const doc = costruisciPDF({
+      azienda,
+      impianto: impiantoSel,
+      dati: { dataFormattata: formatData(new Date()), ora, operatore, irraggiamento, note, prossimoControlloFormattato },
+      fotoConDataUrl: foto,
+      anomalieList: anomalie,
     });
-
-    y += 6;
-    doc.setDrawColor(230, 230, 230);
-    doc.line(15, y, 195, y);
-    y += 10;
-
-    const disegnaAnomalia = (a, numero) => {
-      const info = CATEGORIE.find((c) => c.key === a.categoria);
-      const sev = SEVERITY.find((s) => s.key === a.gravita);
-      if (y > 265) { doc.addPage(); y = 20; }
-
-      doc.setFillColor(...oranje);
-      doc.circle(17, y - 1.5, 1.4, "F");
-      doc.setFontSize(11.5);
-      doc.setTextColor(20, 20, 20);
-      doc.text(`${numero}. ${a.categoria}`, 22, y);
-      doc.setFontSize(9);
-      doc.setTextColor(sev.color === "#ff4d4d" ? 220 : 150, 90, 60);
-      doc.text(`[${sev.label.toUpperCase()}]`, 165, y);
-      y += 6;
-
-      doc.setFontSize(9.5);
-      doc.setTextColor(...grigio);
-      const descLines = doc.splitTextToSize(info.descrizione, 170);
-      doc.text(descLines, 22, y);
-      y += descLines.length * 4.5 + 2;
-
-      doc.setTextColor(...oranje);
-      const azLines = doc.splitTextToSize(`Azione consigliata: ${info.azione}`, 170);
-      doc.text(azLines, 22, y);
-      y += azLines.length * 4.5 + 8;
-    };
-
-    let contatoreAnomalie = 0;
-    foto.forEach((f, idx) => {
-      doc.setFontSize(13);
-      doc.setTextColor(20, 20, 20);
-      doc.text(foto.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica", 15, y);
-      y += 7;
-      const imgW = 170;
-      const imgH = imgW * (300 / 480);
-      if (y + imgH > 280) { doc.addPage(); y = 20; }
-      try {
-        doc.addImage(f.dataUrl, "PNG", 15, y, imgW, imgH);
-        anomalie.filter((a) => a.fotoId === f.id).forEach((a) => {
-          const sev = SEVERITY.find((s) => s.key === a.gravita);
-          const hex = sev.color.replace("#", "");
-          const r = parseInt(hex.substring(0, 2), 16), g = parseInt(hex.substring(2, 4), 16), b = parseInt(hex.substring(4, 6), 16);
-          doc.setFillColor(r, g, b);
-          doc.setDrawColor(255, 255, 255);
-          doc.circle(15 + (a.x / 100) * imgW, y + (a.y / 100) * imgH, 1.8, "FD");
-        });
-      } catch (e) {}
-      y += imgH + 10;
-
-      const anomalieFoto = anomalie.filter((a) => a.fotoId === f.id);
-      if (anomalieFoto.length > 0) {
-        doc.setFontSize(11.5);
-        doc.setTextColor(20, 20, 20);
-        doc.text("Anomalie rilevate in questa foto", 15, y);
-        y += 8;
-        anomalieFoto.forEach((a) => {
-          contatoreAnomalie += 1;
-          disegnaAnomalia(a, contatoreAnomalie);
-        });
-      }
-    });
-
-    const anomalieSenzaFoto = anomalie.filter((a) => !foto.some((f) => f.id === a.fotoId));
-    if (anomalieSenzaFoto.length > 0) {
-      doc.setFontSize(13);
-      doc.setTextColor(20, 20, 20);
-      doc.text("Altre anomalie", 15, y);
-      y += 9;
-      anomalieSenzaFoto.forEach((a) => {
-        contatoreAnomalie += 1;
-        disegnaAnomalia(a, contatoreAnomalie);
-      });
-    }
-
-    if (anomalie.length === 0) {
-      doc.setFontSize(13);
-      doc.setTextColor(20, 20, 20);
-      doc.text("Anomalie e raccomandazioni", 15, y);
-      y += 9;
-      doc.setFontSize(10.5);
-      doc.setTextColor(...grigio);
-      doc.text("Nessuna anomalia rilevata durante l'ispezione.", 15, y);
-      y += 7;
-    }
-
-    if (note) {
-      doc.setFontSize(13);
-      doc.setTextColor(20, 20, 20);
-      doc.text("Note", 15, y);
-      y += 7;
-      doc.setFontSize(10);
-      doc.setTextColor(...grigio);
-      const noteLines = doc.splitTextToSize(note, 170);
-      if (y + noteLines.length * 4.5 > 280) { doc.addPage(); y = 20; }
-      doc.text(noteLines, 15, y);
-      y += noteLines.length * 4.5 + 10;
-    }
-
-    doc.setFontSize(8);
-    doc.setTextColor(...grigio);
-    doc.text(`Generato da ${azienda.nome}`, 15, 290);
-
     const url = doc.output("bloburl");
     setPdfUrl(url);
     window.open(url, "_blank");
   };
+
 
   const aggiungiFotoDaFile = (e) => {
     const file = e.target.files?.[0];
@@ -965,6 +1160,16 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note / commenti (opzionale)</label>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Osservazioni aggiuntive sull'ispezione..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", width: "100%" }} />
               </div>
+              <div style={{ marginTop: 12, maxWidth: 240 }}>
+                <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Prossimo controllo tra</label>
+                <select value={prossimoControllo} onChange={(e) => setProssimoControllo(e.target.value)} style={inputStyle}>
+                  <option value="">Nessuno</option>
+                  <option value="1">1 mese</option>
+                  <option value="3">3 mesi</option>
+                  <option value="6">6 mesi</option>
+                  <option value="12">1 anno</option>
+                </select>
+              </div>
               <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
                 <button onClick={() => setStep(1)} style={{ background: "transparent", border: "1px solid #333a45", color: "#c3cad4", padding: "9px 16px", borderRadius: 6, fontSize: 13 }}>Indietro</button>
                 <button onClick={vaiAlReport} style={{ background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>Genera report</button>
@@ -1006,6 +1211,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 ["Eseguita da", operatore || "—"],
                 ["Irraggiamento solare", irraggiamento ? `${irraggiamento} W/m²` : "—"],
                 ["Anomalie rilevate", String(anomalie.length)],
+                ["Prossimo controllo", prossimoControllo ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(prossimoControllo)); return formatData(d); })() : "—"],
               ].map(([label, val]) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
                   <span style={{ color: "#6b7480" }}>{label}</span>
