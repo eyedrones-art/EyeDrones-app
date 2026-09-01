@@ -819,46 +819,6 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     e.target.value = "";
   };
 
-  const aggiungiFotoDemo = () => {
-    const id = nuovoIdLocale();
-    const canvas = document.createElement("canvas");
-    canvas.width = 480;
-    canvas.height = 300;
-    const ctx = canvas.getContext("2d");
-    const base = ctx.createLinearGradient(0, 0, 480, 300);
-    base.addColorStop(0, "#1a1f6b");
-    base.addColorStop(0.5, "#7a1fa2");
-    base.addColorStop(1, "#2a0845");
-    ctx.fillStyle = base;
-    ctx.fillRect(0, 0, 480, 300);
-    ctx.strokeStyle = "rgba(255,255,255,0.15)";
-    for (let x = 20; x < 460; x += 46) {
-      ctx.beginPath(); ctx.moveTo(x, 20); ctx.lineTo(x, 280); ctx.stroke();
-    }
-    for (let y = 20; y < 280; y += 40) {
-      ctx.beginPath(); ctx.moveTo(20, y); ctx.lineTo(460, y); ctx.stroke();
-    }
-    const variante = foto.length % 3;
-    const setSpots = [
-      [[130, 90, 26], [340, 150, 34], [230, 220, 20]],
-      [[380, 80, 22], [150, 190, 30], [280, 240, 18]],
-      [[100, 150, 28], [300, 100, 24], [200, 230, 32]],
-    ];
-    setSpots[variante].forEach(([x, y, r]) => {
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, "#fff59d");
-      g.addColorStop(0.4, "#ff8c42");
-      g.addColorStop(1, "rgba(255,77,77,0)");
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-    });
-    const dataUrl = canvas.toDataURL();
-    canvas.toBlob((blob) => {
-      setFoto((prev) => [...prev, { id, dataUrl, blob }]);
-      setFotoAttivaId(id);
-    });
-  };
-
   const rimuoviFoto = (id) => {
     setFoto((prev) => prev.filter((f) => f.id !== id));
     setAnomalie((prev) => prev.filter((a) => a.fotoId !== id));
@@ -962,14 +922,6 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 Carica una foto termica dell'impianto
                 <input type="file" accept="image/*" onChange={aggiungiFotoDaFile} style={{ display: "none" }} />
               </label>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "12px 0", width: "100%" }}>
-                <div style={{ flex: 1, height: 1, background: "#262b33" }} />
-                <span style={{ fontSize: 11.5, color: "#6b7480" }}>oppure</span>
-                <div style={{ flex: 1, height: 1, background: "#262b33" }} />
-              </div>
-              <button onClick={aggiungiFotoDemo} style={{ width: "100%", background: "#1b2028", border: "1px solid #333a45", color: "#c3cad4", padding: "10px 0", borderRadius: 8, fontSize: 13 }}>
-                Usa una foto termica demo
-              </button>
             </div>
           ) : (
             <div>
@@ -992,9 +944,6 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                   <Plus size={16} />
                   <input type="file" accept="image/*" onChange={aggiungiFotoDaFile} style={{ display: "none" }} />
                 </label>
-                <button onClick={aggiungiFotoDemo} style={{ width: 64, height: 44, borderRadius: 6, border: "1px dashed #333a45", background: "transparent", color: "#8b95a3", fontSize: 9.5 }} title="Aggiungi foto demo">
-                  + demo
-                </button>
               </div>
 
               {fotoAttiva && (
