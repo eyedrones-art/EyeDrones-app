@@ -582,38 +582,59 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
   const [irraggiamento, setIrraggiamento] = useState("");
   const [note, setNote] = useState("");
-  const [foto, setFoto] = useState(null);
-  const [fotoBlob, setFotoBlob] = useState(null);
-  const [anomalie, setAnomalie] = useState([]);
+  const [foto, setFoto] = useState([]); // [{ id, dataUrl, blob }]
+  const [fotoAttivaId, setFotoAttivaId] = useState(null);
+  const [anomalie, setAnomalie] = useState([]); // [{ id, fotoId, x, y, categoria, gravita }]
   const [pendingPin, setPendingPin] = useState(null);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [salvataggio, setSalvataggio] = useState("idle"); // idle | saving | saved | error
   const imgRef = useRef(null);
 
+  const nuovoIdLocale = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const fotoAttiva = foto.find((f) => f.id === fotoAttivaId) || null;
+
   const salvaSuDb = async () => {
     if (!impiantoSel) return;
     setSalvataggio("saving");
     try {
-      let fotoUrl = null;
-      if (fotoBlob) {
-        const nomeFile = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
-        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, fotoBlob, { contentType: "image/png" });
-        if (!eUp) {
-          const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
-          fotoUrl = pub?.publicUrl || null;
-        }
-      }
       const { data: isp, error: e1 } = await supabase.from("ispezioni").insert({
         impianto_id: impiantoSel.id,
         data: new Date().toISOString().slice(0, 10),
         ora: ora || null,
         irraggiamento: irraggiamento ? Number(irraggiamento) : null,
-        foto_url: fotoUrl,
         note: note || null,
       }).select().single();
       if (e1) throw e1;
+
+      // carico ogni foto e la collego a questa ispezione
+      const mappaIdLocaleADb = {};
+      let primoUrlFoto = null;
+      for (const f of foto) {
+        if (!f.blob) continue;
+        const nomeFile = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, f.blob, { contentType: "image/png" });
+        if (eUp) continue;
+        const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
+        const url = pub?.publicUrl || null;
+        if (!url) continue;
+        const { data: fotoRow, error: eFoto } = await supabase.from("foto").insert({ ispezione_id: isp.id, url }).select().single();
+        if (eFoto) continue;
+        mappaIdLocaleADb[f.id] = fotoRow.id;
+        if (!primoUrlFoto) primoUrlFoto = url;
+      }
+      if (primoUrlFoto) {
+        await supabase.from("ispezioni").update({ foto_url: primoUrlFoto }).eq("id", isp.id);
+      }
+
       if (anomalie.length > 0) {
-        const rows = anomalie.map((a) => ({ ispezione_id: isp.id, categoria: a.categoria, gravita: a.gravita, pos_x: a.x, pos_y: a.y }));
+        const rows = anomalie.map((a) => ({
+          ispezione_id: isp.id,
+          foto_id: mappaIdLocaleADb[a.fotoId] || null,
+          categoria: a.categoria,
+          gravita: a.gravita,
+          pos_x: a.x,
+          pos_y: a.y,
+        }));
         const { error: e2 } = await supabase.from("anomalie").insert(rows);
         if (e2) throw e2;
       }
@@ -673,17 +694,17 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     doc.line(15, y, 195, y);
     y += 10;
 
-    if (foto) {
+    foto.forEach((f, idx) => {
       doc.setFontSize(13);
       doc.setTextColor(20, 20, 20);
-      doc.text("Foto termica", 15, y);
+      doc.text(foto.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica", 15, y);
       y += 7;
       const imgW = 170;
       const imgH = imgW * (300 / 480);
       if (y + imgH > 280) { doc.addPage(); y = 20; }
       try {
-        doc.addImage(foto, "PNG", 15, y, imgW, imgH);
-        anomalie.forEach((a) => {
+        doc.addImage(f.dataUrl, "PNG", 15, y, imgW, imgH);
+        anomalie.filter((a) => a.fotoId === f.id).forEach((a) => {
           const sev = SEVERITY.find((s) => s.key === a.gravita);
           const hex = sev.color.replace("#", "");
           const r = parseInt(hex.substring(0, 2), 16), g = parseInt(hex.substring(2, 4), 16), b = parseInt(hex.substring(4, 6), 16);
@@ -693,7 +714,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         });
       } catch (e) {}
       y += imgH + 10;
-    }
+    });
 
     if (note) {
       doc.setFontSize(13);
@@ -756,16 +777,21 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     window.open(url, "_blank");
   };
 
-  const handleUpload = (e) => {
+  const aggiungiFotoDaFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setFotoBlob(file);
+    const id = nuovoIdLocale();
     const reader = new FileReader();
-    reader.onload = () => setFoto(reader.result);
+    reader.onload = () => {
+      setFoto((prev) => [...prev, { id, dataUrl: reader.result, blob: file }]);
+      setFotoAttivaId(id);
+    };
     reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
-  const generaFotoDemo = () => {
+  const aggiungiFotoDemo = () => {
+    const id = nuovoIdLocale();
     const canvas = document.createElement("canvas");
     canvas.width = 480;
     canvas.height = 300;
@@ -783,8 +809,13 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     for (let y = 20; y < 280; y += 40) {
       ctx.beginPath(); ctx.moveTo(20, y); ctx.lineTo(460, y); ctx.stroke();
     }
-    const spots = [[130, 90, 26], [340, 150, 34], [230, 220, 20]];
-    spots.forEach(([x, y, r]) => {
+    const variante = foto.length % 3;
+    const setSpots = [
+      [[130, 90, 26], [340, 150, 34], [230, 220, 20]],
+      [[380, 80, 22], [150, 190, 30], [280, 240, 18]],
+      [[100, 150, 28], [300, 100, 24], [200, 230, 32]],
+    ];
+    setSpots[variante].forEach(([x, y, r]) => {
       const g = ctx.createRadialGradient(x, y, 0, x, y, r);
       g.addColorStop(0, "#fff59d");
       g.addColorStop(0.4, "#ff8c42");
@@ -792,8 +823,21 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     });
-    setFoto(canvas.toDataURL());
-    canvas.toBlob((blob) => setFotoBlob(blob));
+    const dataUrl = canvas.toDataURL();
+    canvas.toBlob((blob) => {
+      setFoto((prev) => [...prev, { id, dataUrl, blob }]);
+      setFotoAttivaId(id);
+    });
+  };
+
+  const rimuoviFoto = (id) => {
+    setFoto((prev) => prev.filter((f) => f.id !== id));
+    setAnomalie((prev) => prev.filter((a) => a.fotoId !== id));
+    setFotoAttivaId((attuale) => {
+      if (attuale !== id) return attuale;
+      const restanti = foto.filter((f) => f.id !== id);
+      return restanti.length ? restanti[restanti.length - 1].id : null;
+    });
   };
 
   const handleImgClick = (e) => {
@@ -804,7 +848,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   };
 
   const confermaPin = (categoria, gravita) => {
-    setAnomalie([...anomalie, { ...pendingPin, categoria, gravita, id: Date.now() }]);
+    setAnomalie([...anomalie, { ...pendingPin, fotoId: fotoAttivaId, categoria, gravita, id: nuovoIdLocale() }]);
     setPendingPin(null);
   };
 
@@ -876,37 +920,62 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
 
       {step === 2 && (
         <div>
-          {!foto ? (
+          {foto.length === 0 ? (
             <div style={{ maxWidth: 420 }}>
               <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 220, border: "1px dashed #333a45", borderRadius: 10, color: "#8b95a3", fontSize: 13, cursor: "pointer" }}>
                 <Camera size={26} strokeWidth={1.5} />
                 Carica una foto termica dell'impianto
-                <input type="file" accept="image/*" onChange={handleUpload} style={{ display: "none" }} />
+                <input type="file" accept="image/*" onChange={aggiungiFotoDaFile} style={{ display: "none" }} />
               </label>
               <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "12px 0", width: "100%" }}>
                 <div style={{ flex: 1, height: 1, background: "#262b33" }} />
                 <span style={{ fontSize: 11.5, color: "#6b7480" }}>oppure</span>
                 <div style={{ flex: 1, height: 1, background: "#262b33" }} />
               </div>
-              <button onClick={generaFotoDemo} style={{ width: "100%", background: "#1b2028", border: "1px solid #333a45", color: "#c3cad4", padding: "10px 0", borderRadius: 8, fontSize: 13 }}>
+              <button onClick={aggiungiFotoDemo} style={{ width: "100%", background: "#1b2028", border: "1px solid #333a45", color: "#c3cad4", padding: "10px 0", borderRadius: 8, fontSize: 13 }}>
                 Usa una foto termica demo
               </button>
             </div>
           ) : (
             <div>
-              <p style={{ fontSize: 12.5, color: "#8b95a3", marginBottom: 8 }}>Clicca sull'immagine per segnare un'anomalia &middot; {anomalie.length} segnate</p>
-              <div style={{ position: "relative", width: "100%", maxWidth: 480, display: "block" }}>
-                <img ref={imgRef} src={foto} onClick={handleImgClick} style={{ width: "100%", borderRadius: 8, display: "block", cursor: "crosshair" }} />
-                {anomalie.map((a) => {
-                  const sev = SEVERITY.find((s) => s.key === a.gravita);
-                  return <div key={a.id} title={a.categoria} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 12, height: 12, borderRadius: "50%", background: sev.color, border: "2px solid #161a1f", transform: "translate(-50%,-50%)" }} />;
-                })}
-                {pendingPin && (
-                  <div style={{ position: "absolute", left: `${pendingPin.x}%`, top: `${pendingPin.y}%`, transform: "translate(-50%,-50%)" }}>
-                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#fff", border: "2px solid #161a1f" }} />
+              <p style={{ fontSize: 12.5, color: "#8b95a3", marginBottom: 8 }}>
+                {foto.length} {foto.length === 1 ? "foto" : "foto"} &middot; clicca sull'immagine attiva per segnare un'anomalia &middot; {anomalie.filter((a) => a.fotoId === fotoAttivaId).length} segnate su questa foto
+              </p>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                {foto.map((f, idx) => (
+                  <div key={f.id} style={{ position: "relative" }}>
+                    <button onClick={() => setFotoAttivaId(f.id)} style={{ width: 64, height: 44, borderRadius: 6, overflow: "hidden", border: fotoAttivaId === f.id ? "2px solid #ff8c42" : "2px solid #262b33", padding: 0, background: "#000" }}>
+                      <img src={f.dataUrl} alt={`foto ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    </button>
+                    <button onClick={() => rimuoviFoto(f.id)} title="Rimuovi foto" style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#ff4d4d", border: "2px solid #161a1f", color: "#161a1f", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+                      <X size={10} />
+                    </button>
                   </div>
-                )}
+                ))}
+                <label style={{ width: 64, height: 44, borderRadius: 6, border: "1px dashed #333a45", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#8b95a3" }} title="Carica un'altra foto">
+                  <Plus size={16} />
+                  <input type="file" accept="image/*" onChange={aggiungiFotoDaFile} style={{ display: "none" }} />
+                </label>
+                <button onClick={aggiungiFotoDemo} style={{ width: 64, height: 44, borderRadius: 6, border: "1px dashed #333a45", background: "transparent", color: "#8b95a3", fontSize: 9.5 }} title="Aggiungi foto demo">
+                  + demo
+                </button>
               </div>
+
+              {fotoAttiva && (
+                <div style={{ position: "relative", width: "100%", maxWidth: 480, display: "block" }}>
+                  <img ref={imgRef} src={fotoAttiva.dataUrl} onClick={handleImgClick} style={{ width: "100%", borderRadius: 8, display: "block", cursor: "crosshair" }} />
+                  {anomalie.filter((a) => a.fotoId === fotoAttivaId).map((a) => {
+                    const sev = SEVERITY.find((s) => s.key === a.gravita);
+                    return <div key={a.id} title={a.categoria} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 12, height: 12, borderRadius: "50%", background: sev.color, border: "2px solid #161a1f", transform: "translate(-50%,-50%)" }} />;
+                  })}
+                  {pendingPin && (
+                    <div style={{ position: "absolute", left: `${pendingPin.x}%`, top: `${pendingPin.y}%`, transform: "translate(-50%,-50%)" }}>
+                      <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#fff", border: "2px solid #161a1f" }} />
+                    </div>
+                  )}
+                </div>
+              )}
               {pendingPin && <AnomaliaPopup onConfirm={confermaPin} onCancel={() => setPendingPin(null)} />}
               <div style={{ marginTop: 16, maxWidth: 480 }}>
                 <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note / commenti (opzionale)</label>
@@ -955,18 +1024,18 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               ))}
             </div>
 
-            {foto && (
-              <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
-                <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Foto termica</h3>
+            {foto.map((f, idx) => (
+              <div key={f.id} style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
+                <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>{foto.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica"}</h3>
                 <div style={{ position: "relative", width: "100%" }}>
-                  <img src={foto} alt="foto ispezione" style={{ width: "100%", borderRadius: 4, display: "block" }} />
-                  {anomalie.map((a) => {
+                  <img src={f.dataUrl} alt="foto ispezione" style={{ width: "100%", borderRadius: 4, display: "block" }} />
+                  {anomalie.filter((a) => a.fotoId === f.id).map((a) => {
                     const sev = SEVERITY.find((s) => s.key === a.gravita);
                     return <div key={a.id} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 11, height: 11, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(-50%,-50%)" }} />;
                   })}
                 </div>
               </div>
-            )}
+            ))}
 
             {note && (
               <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
