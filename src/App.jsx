@@ -414,8 +414,9 @@ function ListaImpianti({ impianti, loading, onReload, onOpenImpianto }) {
   const eliminaImpianto = async (id, nome) => {
     if (!window.confirm(`Eliminare "${nome}"? Verranno eliminate anche tutte le sue ispezioni e anomalie. L'operazione non è reversibile.`)) return;
     setEliminandoId(id);
-    await supabase.from("impianti").delete().eq("id", id);
+    const { error } = await supabase.from("impianti").delete().eq("id", id);
     setEliminandoId(null);
+    if (error) { alert("Eliminazione non riuscita: " + error.message); return; }
     onReload();
   };
 
@@ -472,8 +473,9 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, onBack, onReload 
   const eliminaIspezione = async (id) => {
     if (!window.confirm("Eliminare questa ispezione e le sue anomalie? L'operazione non è reversibile.")) return;
     setEliminandoId(id);
-    await supabase.from("ispezioni").delete().eq("id", id);
+    const { error } = await supabase.from("ispezioni").delete().eq("id", id);
     setEliminandoId(null);
+    if (error) { alert("Eliminazione non riuscita: " + error.message); return; }
     onReload && onReload();
   };
 
@@ -1039,5 +1041,3 @@ function AnomaliaPopup({ onConfirm, onCancel }) {
     </div>
   );
 }
-
-  
