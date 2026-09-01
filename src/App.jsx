@@ -588,6 +588,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [pendingPin, setPendingPin] = useState(null);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [salvataggio, setSalvataggio] = useState("idle"); // idle | saving | saved | error
+  const [erroreSalvataggio, setErroreSalvataggio] = useState(null);
   const imgRef = useRef(null);
 
   const nuovoIdLocale = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -641,6 +642,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       setSalvataggio("saved");
       onSaved && onSaved();
     } catch (err) {
+      setErroreSalvataggio(err?.message || JSON.stringify(err));
       setSalvataggio("error");
     }
   };
@@ -992,12 +994,17 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
 
       {step === 3 && (
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
             <p style={{ fontSize: 12.5, color: "#8b95a3", margin: 0 }}>Così apparirà il report che riceve il cliente:</p>
             {salvataggio === "saving" && <span style={{ fontSize: 11.5, color: "#8b95a3", display: "flex", alignItems: "center", gap: 4 }}><Loader2 size={12} className="spin" /> salvataggio...</span>}
             {salvataggio === "saved" && <span style={{ fontSize: 11.5, color: "#4ade80" }}>salvato nel database ✓</span>}
             {salvataggio === "error" && <span style={{ fontSize: 11.5, color: "#ff4d4d" }}>errore nel salvataggio</span>}
           </div>
+          {salvataggio === "error" && erroreSalvataggio && (
+            <p style={{ fontSize: 11, color: "#ff9c9c", background: "#2a1616", border: "1px solid #5a2a2a", borderRadius: 6, padding: "8px 10px", marginBottom: 14, maxWidth: 480, wordBreak: "break-word" }}>
+              Dettaglio: {erroreSalvataggio}
+            </p>
+          )}
 
           <div style={{ background: "#ffffff", color: "#1a1a1a", width: "100%", maxWidth: 520, borderRadius: 4, padding: "28px 30px", boxShadow: "0 4px 24px rgba(0,0,0,0.35)" }}>
             {azienda.logo && (
@@ -1110,3 +1117,4 @@ function AnomaliaPopup({ onConfirm, onCancel }) {
     </div>
   );
 }
+
