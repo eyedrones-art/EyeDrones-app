@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2 } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 
@@ -29,7 +29,7 @@ async function urlToDataUrl(url) {
 }
 
 // costruisce il documento PDF del report, condiviso tra nuova ispezione e visualizzazione di un report salvato
-function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList }) {
+function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, piano }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const oranje = [255, 140, 66];
   const grigio = [110, 120, 130];
@@ -178,9 +178,130 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList }
     y += noteLines.length * 4.5 + 10;
   }
 
-  doc.setFontSize(8);
+  if (piano !== "pro") {
+    doc.setFontSize(8);
+    doc.setTextColor(...grigio);
+    doc.text(`Generato da ${azienda.nome}`, 15, 290);
+  }
+
+  return doc;
+}
+
+// costruisce il PDF di un preventivo
+function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const oranje = [255, 140, 66];
+  const grigio = [110, 120, 130];
+  let y = 20;
+
+  if (azienda.logo) {
+    try { doc.addImage(azienda.logo, "PNG", (210 - 26) / 2, 10, 26, 16, undefined, "FAST"); } catch (e) {}
+    y = 34;
+  }
+
+  doc.setFontSize(18);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Preventivo ispezione termografica", 15, y);
+  y += 6;
+  doc.setFontSize(10);
   doc.setTextColor(...grigio);
-  doc.text(`Generato da ${azienda.nome}`, 15, 290);
+  doc.text(`${azienda.nome} — ispezioni con drone e termocamera`, 15, y);
+  y += 12;
+
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.setTextColor(20, 20, 20);
+  const dataEmissione = new Date(preventivo.data);
+  const dataScadenza = new Date(dataEmissione);
+  dataScadenza.setDate(dataScadenza.getDate() + (preventivo.validita_giorni || 30));
+
+  const righe = [
+    ["Cliente", preventivo.cliente],
+    ["Impianto / zona", preventivo.zona || "—"],
+    ["Potenza impianto", preventivo.kwp ? `${preventivo.kwp} kWp` : "—"],
+    ["Data preventivo", formatData(dataEmissione)],
+    ["Valido fino al", formatData(dataScadenza)],
+  ];
+  righe.forEach(([label, val]) => {
+    doc.setTextColor(...grigio);
+    doc.text(label, 15, y);
+    doc.setTextColor(20, 20, 20);
+    doc.text(String(val), 70, y);
+    y += 7;
+  });
+
+  y += 6;
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 12;
+
+  doc.setFontSize(13);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Dettaglio economico", 15, y);
+  y += 10;
+
+  const tariffaBaseVal = Number(azienda.tariffaBase) || 0;
+  const tariffaKwpVal = Number(azienda.tariffaKwp) || 0;
+  const kwpVal = Number(preventivo.kwp) || 0;
+  const imponibile = tariffaBaseVal + kwpVal * tariffaKwpVal;
+  const scontoVal = Number(preventivo.sconto) || 0;
+
+  doc.setFontSize(10.5);
+  doc.setTextColor(60, 65, 72);
+  doc.text("Tariffa base ispezione", 15, y);
+  doc.text(`${tariffaBaseVal.toFixed(2)} €`, 195, y, { align: "right" });
+  y += 7;
+  if (kwpVal > 0) {
+    doc.text(`Tariffa per potenza (${kwpVal} kWp × ${tariffaKwpVal.toFixed(2)} €)`, 15, y);
+    doc.text(`${(kwpVal * tariffaKwpVal).toFixed(2)} €`, 195, y, { align: "right" });
+    y += 7;
+  }
+  if (scontoVal > 0) {
+    doc.setTextColor(...oranje);
+    doc.text(`Sconto (${scontoVal}%)`, 15, y);
+    doc.text(`- ${(imponibile * scontoVal / 100).toFixed(2)} €`, 195, y, { align: "right" });
+    y += 7;
+  }
+
+  y += 4;
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 10;
+
+  doc.setFontSize(14);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Totale preventivato", 15, y);
+  doc.setFontSize(16);
+  doc.setTextColor(...oranje);
+  doc.text(`${Number(preventivo.prezzo).toFixed(2)} €`, 195, y, { align: "right" });
+  y += 16;
+
+  if (preventivo.note) {
+    doc.setFontSize(11);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Note", 15, y);
+    y += 7;
+    doc.setFontSize(10);
+    doc.setTextColor(...grigio);
+    const noteLines = doc.splitTextToSize(preventivo.note, 170);
+    doc.text(noteLines, 15, y);
+    y += noteLines.length * 4.5 + 10;
+  }
+
+  doc.setFontSize(9);
+  doc.setTextColor(...grigio);
+  const condizioni = "Prezzo indicativo, soggetto a conferma dopo sopralluogo. Il preventivo non costituisce impegno contrattuale fino ad accettazione scritta.";
+  const condLines = doc.splitTextToSize(condizioni, 170);
+  doc.text(condLines, 15, y);
+
+  if (piano !== "pro") {
+    doc.setFontSize(8);
+    doc.setTextColor(...grigio);
+    doc.text(`Generato da ${azienda.nome}`, 15, 290);
+  }
 
   return doc;
 }
@@ -209,6 +330,10 @@ export default function App() {
   const [session, setSession] = useState(undefined); // undefined = ancora in caricamento, null = non loggato
 
   useEffect(() => {
+    // memorizzo eventuale provenienza (?ref=nomeaffiliato) per collegarla all'account al momento della registrazione
+    const refParam = new URLSearchParams(window.location.search).get("ref");
+    if (refParam) localStorage.setItem("eyedrones_ref", refParam);
+
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => listener.subscription.unsubscribe();
@@ -232,7 +357,7 @@ export default function App() {
 function AppShell({ session }) {
   const [page, setPage] = useState("dashboard");
   const [impiantoAttivo, setImpiantoAttivo] = useState(null);
-  const [azienda, setAzienda] = useState({ nome: "Eyedrones", logo: LOGO_EYEDRONES });
+  const [azienda, setAzienda] = useState({ nome: "Eyedrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12 });
   const [piano, setPiano] = useState("free");
   const [profiloCaricato, setProfiloCaricato] = useState(false);
 
@@ -240,42 +365,59 @@ function AppShell({ session }) {
   const [ispezioni, setIspezioni] = useState([]);
   const [anomalieAll, setAnomalieAll] = useState([]);
   const [fotoAll, setFotoAll] = useState([]);
+  const [reportLog, setReportLog] = useState([]);
+  const [preventivi, setPreventivi] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
   const caricaProfilo = async () => {
     let { data: profilo } = await supabase.from("profili").select("*").eq("user_id", session.user.id).maybeSingle();
     if (!profilo) {
-      const { data: nuovo } = await supabase.from("profili").insert({ user_id: session.user.id }).select().single();
+      const referral = localStorage.getItem("eyedrones_ref");
+      const { data: nuovo } = await supabase.from("profili").insert({ user_id: session.user.id, referral: referral || null }).select().single();
       profilo = nuovo;
     }
     if (profilo) {
       setPiano(profilo.piano || "free");
-      setAzienda({ nome: profilo.azienda_nome || "Eyedrones", logo: profilo.azienda_logo || LOGO_EYEDRONES });
+      setAzienda({
+        nome: profilo.azienda_nome || "Eyedrones",
+        logo: profilo.azienda_logo || LOGO_EYEDRONES,
+        tariffaBase: profilo.tariffa_base ?? 150,
+        tariffaKwp: profilo.tariffa_kwp ?? 0.12,
+      });
     }
     setProfiloCaricato(true);
   };
 
   const salvaProfiloAzienda = async (nuovaAzienda) => {
     setAzienda(nuovaAzienda);
-    await supabase.from("profili").update({ azienda_nome: nuovaAzienda.nome, azienda_logo: nuovaAzienda.logo }).eq("user_id", session.user.id);
+    await supabase.from("profili").update({
+      azienda_nome: nuovaAzienda.nome,
+      azienda_logo: nuovaAzienda.logo,
+      tariffa_base: nuovaAzienda.tariffaBase,
+      tariffa_kwp: nuovaAzienda.tariffaKwp,
+    }).eq("user_id", session.user.id);
   };
 
   const loadData = async () => {
     setLoading(true);
     setDbError(null);
     try {
-      const [{ data: imp, error: e1 }, { data: isp, error: e2 }, { data: ano, error: e3 }, { data: fot, error: e4 }] = await Promise.all([
+      const [{ data: imp, error: e1 }, { data: isp, error: e2 }, { data: ano, error: e3 }, { data: fot, error: e4 }, { data: log, error: e5 }, { data: prev, error: e6 }] = await Promise.all([
         supabase.from("impianti").select("*").order("created_at"),
         supabase.from("ispezioni").select("*").order("data", { ascending: false }),
         supabase.from("anomalie").select("*"),
         supabase.from("foto").select("*"),
+        supabase.from("report_log").select("*"),
+        supabase.from("preventivi").select("*").order("created_at", { ascending: false }),
       ]);
-      if (e1 || e2 || e3 || e4) throw (e1 || e2 || e3 || e4);
+      if (e1 || e2 || e3 || e4 || e5 || e6) throw (e1 || e2 || e3 || e4 || e5 || e6);
       setImpianti(imp || []);
       setIspezioni(isp || []);
       setAnomalieAll(ano || []);
       setFotoAll(fot || []);
+      setReportLog(log || []);
+      setPreventivi(prev || []);
     } catch (err) {
       setDbError(err.message || "Errore di connessione al database");
     }
@@ -284,10 +426,10 @@ function AppShell({ session }) {
 
   useEffect(() => { caricaProfilo(); loadData(); }, []);
 
-  // quante ispezioni ha gi\u00e0 registrato l'utente nel mese corrente (per il limite del piano free)
+  // quanti report ha gi\u00e0 generato l'utente nel mese corrente (log persistente: non si azzera cancellando impianti/ispezioni)
   const oggi = new Date();
-  const reportQuestoMese = ispezioni.filter((i) => {
-    const d = new Date(i.data);
+  const reportQuestoMese = reportLog.filter((r) => {
+    const d = new Date(r.creato_at);
     return d.getMonth() === oggi.getMonth() && d.getFullYear() === oggi.getFullYear();
   }).length;
 
@@ -335,10 +477,11 @@ function AppShell({ session }) {
         )}
         {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} />}
-        {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} onBack={() => setPage("impianti")} onReload={loadData} />}
+        {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
+        {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} />}
       </div>
     </div>
   );
@@ -430,6 +573,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese }) {
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { key: "impianti", label: "Impianti", icon: Sun },
     { key: "nuova", label: "Nuova ispezione", icon: Plus },
+    { key: "preventivi", label: "Preventivi", icon: FileText },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
   ];
@@ -456,6 +600,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese }) {
           >
             <Icon size={16} strokeWidth={2} />
             <span className="sidebar-label">{it.label}</span>
+            {it.key === "preventivi" && piano !== "pro" && <span className="sidebar-label" style={{ fontSize: 11, marginLeft: "auto" }}>🔒</span>}
           </button>
         );
       })}
@@ -637,7 +782,7 @@ const inputStyle = { width: "100%", background: "#161a1f", border: "1px solid #3
 
 // --- Dettaglio impianto -----------------------------------------------------------
 
-function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda, onBack, onReload }) {
+function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda, piano, onBack, onReload }) {
   const [eliminandoId, setEliminandoId] = useState(null);
   const [ispezioneAperta, setIspezioneAperta] = useState(null);
 
@@ -670,6 +815,7 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda,
         fotoIspezione={fotoAll.filter((f) => f.ispezione_id === ispezioneAperta)}
         anomalieIspezione={anomalieAll.filter((a) => a.ispezione_id === ispezioneAperta)}
         azienda={azienda}
+        piano={piano}
         onBack={() => setIspezioneAperta(null)}
       />
     );
@@ -724,7 +870,7 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda,
 
 // --- Visualizzazione di un report salvato -----------------------------------------------------------
 
-function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezione, azienda, onBack }) {
+function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezione, azienda, piano, onBack }) {
   const [generando, setGenerando] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
 
@@ -747,6 +893,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
         },
         fotoConDataUrl,
         anomalieList: anomalieIspezione,
+        piano,
       });
       const url = doc.output("bloburl");
       setPdfUrl(url);
@@ -838,7 +985,9 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
           </div>
         )}
 
-        <p style={{ fontSize: 9.5, color: "#9aa4b2", marginTop: 18, borderTop: "1px solid #e5e5e5", paddingTop: 10 }}>Generato da {azienda.nome}</p>
+        {piano !== "pro" && (
+          <p style={{ fontSize: 9.5, color: "#9aa4b2", marginTop: 18, borderTop: "1px solid #e5e5e5", paddingTop: 10 }}>Generato da {azienda.nome}</p>
+        )}
       </div>
 
       <div style={{ maxWidth: 520, marginTop: 16 }}>
@@ -872,17 +1021,21 @@ function Abbonamento({ piano }) {
         { testo: "Impianti e ispezioni illimitati", incluso: true },
         { testo: "Foto multiple per ispezione", incluso: true },
         { testo: "Logo personalizzato nei report", incluso: false },
+        { testo: "Calcolatore preventivi", incluso: false },
       ],
     },
     {
       chiave: "pro",
       nome: "Pro",
-      prezzo: "18,90€/mese",
+      prezzoBarrato: "18,90€",
+      prezzo: "13,90€/mese",
+      badge: "Offerta di lancio",
       caratteristiche: [
         { testo: "Report illimitati ogni mese", incluso: true },
         { testo: "Impianti e ispezioni illimitati", incluso: true },
         { testo: "Foto multiple per ispezione", incluso: true },
         { testo: "Logo e nome azienda personalizzati", incluso: true },
+        { testo: "Calcolatore preventivi automatico", incluso: true },
       ],
     },
   ];
@@ -900,8 +1053,14 @@ function Abbonamento({ piano }) {
               {attivo && (
                 <span style={{ position: "absolute", top: -10, left: 16, background: "#ff8c42", color: "#161a1f", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>PIANO ATTUALE</span>
               )}
+              {!attivo && p.badge && (
+                <span style={{ position: "absolute", top: -10, left: 16, background: "#4ade80", color: "#161a1f", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>{p.badge}</span>
+              )}
               <h2 style={{ fontSize: 16, fontWeight: 700, margin: "4px 0 2px 0" }}>{p.nome}</h2>
-              <p className="mono" style={{ fontSize: 20, fontWeight: 600, color: "#ff8c42", margin: "0 0 16px 0" }}>{p.prezzo}</p>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "0 0 16px 0" }}>
+                {p.prezzoBarrato && <span className="mono" style={{ fontSize: 14, color: "#6b7480", textDecoration: "line-through" }}>{p.prezzoBarrato}</span>}
+                <p className="mono" style={{ fontSize: 20, fontWeight: 600, color: "#ff8c42", margin: 0 }}>{p.prezzo}</p>
+              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {p.caratteristiche.map((c) => (
                   <div key={c.testo} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12.5, color: c.incluso ? "#e7eaee" : "#6b7480" }}>
@@ -931,6 +1090,172 @@ function Abbonamento({ piano }) {
           <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: "#3d8bfd" }}>{SUPPORT_EMAIL}</a>
         </p>
       </div>
+    </div>
+  );
+}
+
+// --- Impostazioni (white label) -----------------------------------------------------------
+
+// --- Preventivi -----------------------------------------------------------
+
+const STATI_PREVENTIVO = [
+  { key: "inviato", label: "Inviato", color: "#3d8bfd" },
+  { key: "accettato", label: "Accettato", color: "#4ade80" },
+  { key: "rifiutato", label: "Rifiutato", color: "#ff4d4d" },
+];
+
+function Preventivi({ preventivi, azienda, piano, onReload }) {
+  const [showForm, setShowForm] = useState(false);
+  const [cliente, setCliente] = useState("");
+  const [zona, setZona] = useState("");
+  const [kwp, setKwp] = useState("");
+  const [sconto, setSconto] = useState("");
+  const [prezzo, setPrezzo] = useState("");
+  const [note, setNote] = useState("");
+  const [salvataggio, setSalvataggio] = useState(false);
+  const [cambiandoStato, setCambiandoStato] = useState(null);
+
+  const tariffaBaseVal = Number(azienda.tariffaBase) || 0;
+  const tariffaKwpVal = Number(azienda.tariffaKwp) || 0;
+  const kwpVal = Number(kwp) || 0;
+  const scontoVal = Number(sconto) || 0;
+  const imponibile = tariffaBaseVal + kwpVal * tariffaKwpVal;
+  const prezzoCalcolato = imponibile * (1 - scontoVal / 100);
+
+  const applicaCalcolo = () => setPrezzo(prezzoCalcolato.toFixed(2));
+
+  const resetForm = () => {
+    setCliente(""); setZona(""); setKwp(""); setSconto(""); setPrezzo(""); setNote("");
+  };
+
+  const salvaPreventivo = async () => {
+    if (!cliente || !prezzo) return;
+    setSalvataggio(true);
+    const { error } = await supabase.from("preventivi").insert({
+      cliente,
+      zona: zona || null,
+      kwp: kwp ? Number(kwp) : null,
+      sconto: sconto ? Number(sconto) : 0,
+      prezzo: Number(prezzo),
+      note: note || null,
+    });
+    setSalvataggio(false);
+    if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
+    resetForm();
+    setShowForm(false);
+    onReload();
+  };
+
+  const cambiaStato = async (id, nuovoStato) => {
+    setCambiandoStato(id);
+    await supabase.from("preventivi").update({ stato: nuovoStato }).eq("id", id);
+    setCambiandoStato(null);
+    onReload();
+  };
+
+  const eliminaPreventivo = async (id) => {
+    if (!window.confirm("Eliminare questo preventivo?")) return;
+    await supabase.from("preventivi").delete().eq("id", id);
+    onReload();
+  };
+
+  const scaricaPDF = (p) => {
+    const doc = costruisciPDFPreventivo({ azienda, preventivo: p, piano });
+    const url = doc.output("bloburl");
+    window.open(url, "_blank");
+  };
+
+  if (piano !== "pro") {
+    return (
+      <div style={{ padding: "28px 32px" }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 12px 0" }}>Preventivi</h1>
+        <div style={{ maxWidth: 420, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 10, padding: 20 }}>
+          <p style={{ fontSize: 13.5, color: "#ffb877", margin: "0 0 10px 0", fontWeight: 600 }}>🔒 Funzione riservata al piano Pro</p>
+          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: 0, lineHeight: 1.5 }}>
+            Il calcolatore preventivi (con calcolo automatico del prezzo e PDF pronto da inviare) è disponibile solo con il piano Pro.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Preventivi</h1>
+        <button onClick={() => setShowForm(!showForm)} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          {showForm ? "Annulla" : <><Plus size={14} /> Nuovo preventivo</>}
+        </button>
+      </div>
+
+      {showForm && (
+        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
+          <input placeholder="Nome cliente" value={cliente} onChange={(e) => setCliente(e.target.value)} style={inputStyle} />
+          <input placeholder="Impianto / zona (opzionale)" value={zona} onChange={(e) => setZona(e.target.value)} style={inputStyle} />
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Potenza (kWp)</label>
+              <input type="number" placeholder="es. 70" value={kwp} onChange={(e) => setKwp(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Sconto %</label>
+              <input type="number" placeholder="0" value={sconto} onChange={(e) => setSconto(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+
+          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "8px 10px", fontSize: 11.5, color: "#8b95a3" }}>
+            Prezzo suggerito: <span className="mono" style={{ color: "#e7eaee" }}>{prezzoCalcolato.toFixed(2)} €</span>
+            {" "}<button onClick={applicaCalcolo} style={{ marginLeft: 6, background: "none", border: "1px solid #333a45", color: "#ff8c42", borderRadius: 4, padding: "2px 8px", fontSize: 11 }}>Usa questo</button>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Prezzo finale (€) — modificabile</label>
+            <input type="number" step="0.01" placeholder="0.00" value={prezzo} onChange={(e) => setPrezzo(e.target.value)} style={inputStyle} />
+          </div>
+
+          <textarea placeholder="Note (opzionale)" value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+
+          <button onClick={salvaPreventivo} disabled={!cliente || !prezzo || salvataggio} style={{ marginTop: 4, background: cliente && prezzo ? "#ff8c42" : "#333a45", color: cliente && prezzo ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+            {salvataggio ? "Salvataggio..." : "Salva preventivo"}
+          </button>
+        </div>
+      )}
+
+      {preventivi.length === 0 ? (
+        <EmptyState text="Nessun preventivo ancora. Creane uno con il pulsante qui sopra." />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {preventivi.map((p) => {
+            const stato = STATI_PREVENTIVO.find((s) => s.key === p.stato) || STATI_PREVENTIVO[0];
+            return (
+              <div key={p.id} style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.cliente}</div>
+                  <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
+                    {p.zona && <>{p.zona} &middot; </>}{formatData(p.data)} &middot; <span className="mono">{Number(p.prezzo).toFixed(2)} €</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <select
+                    value={p.stato}
+                    onChange={(e) => cambiaStato(p.id, e.target.value)}
+                    disabled={cambiandoStato === p.id}
+                    style={{ fontSize: 11.5, fontWeight: 600, padding: "4px 8px", borderRadius: 4, background: stato.color + "22", color: stato.color, border: `1px solid ${stato.color}55` }}
+                  >
+                    {STATI_PREVENTIVO.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                  </select>
+                  <button onClick={() => scaricaPDF(p)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                    <FileDown size={12} /> PDF
+                  </button>
+                  <button onClick={() => eliminaPreventivo(p.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                    Elimina
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -987,6 +1312,21 @@ function Impostazioni({ azienda, setAzienda, piano }) {
               <input type="file" accept="image/*" onChange={handleLogo} style={{ display: "none" }} />
             </label>
           )}
+        </div>
+
+        <div style={{ borderTop: "1px solid #262b33", paddingTop: 18 }}>
+          <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Tariffe per i preventivi</h3>
+          <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>Usate per calcolare il prezzo suggerito in "Preventivi" — puoi comunque modificare ogni prezzo a mano.</p>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Tariffa base (€)</label>
+              <input type="number" value={azienda.tariffaBase} onChange={(e) => setAzienda({ ...azienda, tariffaBase: Number(e.target.value) })} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Tariffa per kWp (€)</label>
+              <input type="number" step="0.01" value={azienda.tariffaKwp} onChange={(e) => setAzienda({ ...azienda, tariffaKwp: Number(e.target.value) })} style={inputStyle} />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1060,6 +1400,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         const { error: e2 } = await supabase.from("anomalie").insert(rows);
         if (e2) throw e2;
       }
+      await supabase.from("report_log").insert({});
       setSalvataggio("saved");
       onSaved && onSaved();
     } catch (err) {
@@ -1081,6 +1422,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       dati: { dataFormattata: formatData(new Date()), ora, operatore, irraggiamento, note, prossimoControlloFormattato },
       fotoConDataUrl: foto,
       anomalieList: anomalie,
+      piano,
     });
     const url = doc.output("bloburl");
     setPdfUrl(url);
@@ -1222,11 +1564,18 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                     </button>
                   </div>
                 ))}
-                <label style={{ width: 64, height: 44, borderRadius: 6, border: "1px dashed #333a45", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#8b95a3" }} title="Carica un'altra foto">
-                  <Plus size={16} />
-                  <input type="file" accept="image/*" onChange={aggiungiFotoDaFile} style={{ display: "none" }} />
-                </label>
+                {piano === "pro" && (
+                  <label style={{ width: 64, height: 44, borderRadius: 6, border: "1px dashed #333a45", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#8b95a3" }} title="Carica un'altra foto">
+                    <Plus size={16} />
+                    <input type="file" accept="image/*" onChange={aggiungiFotoDaFile} style={{ display: "none" }} />
+                  </label>
+                )}
               </div>
+              {piano !== "pro" && foto.length >= 1 && (
+                <p style={{ fontSize: 11.5, color: "#8b95a3", marginTop: -6, marginBottom: 12 }}>
+                  Il piano Free include 1 foto per ispezione — <span style={{ color: "#ff8c42" }}>passa a Pro</span> per aggiungerne più di una.
+                </p>
+              )}
 
               {fotoAttiva && (
                 <div style={{ position: "relative", width: "100%", maxWidth: 480, display: "block" }}>
@@ -1357,7 +1706,9 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               </div>
             )}
 
-            <p style={{ fontSize: 9.5, color: "#9aa4b2", marginTop: 18, borderTop: "1px solid #e5e5e5", paddingTop: 10 }}>Generato da {azienda.nome}</p>
+            {piano !== "pro" && (
+              <p style={{ fontSize: 9.5, color: "#9aa4b2", marginTop: 18, borderTop: "1px solid #e5e5e5", paddingTop: 10 }}>Generato da {azienda.nome}</p>
+            )}
           </div>
 
           <div style={{ maxWidth: 520, marginTop: 16 }}>
