@@ -386,6 +386,78 @@ function costruisciPDFRiassuntoImpianto({ azienda, impianto, storico, piano }) {
   return doc;
 }
 
+// costruisce il PDF di una richiesta di permesso
+function costruisciPDFPermesso({ azienda, permesso, dflightDataUrl, piano }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const grigio = [110, 120, 130];
+  let y = 20;
+
+  if (azienda.logo) {
+    try { doc.addImage(azienda.logo, "PNG", (210 - 26) / 2, 10, 26, 16, undefined, "FAST"); } catch (e) {}
+    y = 34;
+  }
+
+  doc.setFontSize(17);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Richiesta permesso di volo", 15, y);
+  y += 6;
+  doc.setFontSize(10);
+  doc.setTextColor(...grigio);
+  doc.text(`${azienda.nome} — ispezioni con drone e termocamera`, 15, y);
+  y += 12;
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 8;
+
+  const scrivi = (label, val) => {
+    if (val === null || val === undefined || val === "") return;
+    if (y > 275) { doc.addPage(); y = 20; }
+    doc.setFontSize(10.5);
+    doc.setTextColor(...grigio);
+    doc.text(label, 15, y);
+    doc.setTextColor(20, 20, 20);
+    const righe = doc.splitTextToSize(String(val), 110);
+    doc.text(righe, 70, y);
+    y += Math.max(7, righe.length * 5);
+  };
+
+  const stati = { in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" };
+
+  scrivi("Impianto / zona", permesso.impianto);
+  scrivi("Ente / soggetto contattato", permesso.ente_contattato);
+  scrivi("Permessi richiesti", permesso.permessi_richiesti);
+  scrivi("Buffer di sicurezza", permesso.buffer_sicurezza ? `${permesso.buffer_sicurezza} m` : null);
+  scrivi("Richiesta inviata", permesso.data_richiesta ? `${formatData(permesso.data_richiesta)}${permesso.ora_richiesta ? " alle " + permesso.ora_richiesta : ""}` : null);
+  scrivi("Esito", stati[permesso.stato] || permesso.stato);
+  if (permesso.stato === "negato") scrivi("Motivo del rifiuto", permesso.motivo_negazione);
+  if (permesso.stato === "autorizzato" && permesso.valido_dal) {
+    scrivi("Permesso valido", `dal ${formatData(permesso.valido_dal)} al ${permesso.valido_al ? formatData(permesso.valido_al) : "—"}${permesso.ora_dalle ? `, dalle ${permesso.ora_dalle} alle ${permesso.ora_alle || "—"}` : ""}`);
+  }
+  scrivi("Note", permesso.note);
+  y += 6;
+
+  if (dflightDataUrl) {
+    if (y > 200) { doc.addPage(); y = 20; }
+    doc.setFontSize(11);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Screenshot D-Flight", 15, y);
+    y += 6;
+    try {
+      const imgW = 120;
+      const imgH = imgW * (300 / 480);
+      if (y + imgH > 280) { doc.addPage(); y = 20; }
+      doc.addImage(dflightDataUrl, "PNG", 15, y, imgW, imgH);
+      y += imgH + 6;
+    } catch (e) {}
+  }
+
+  doc.setFontSize(8);
+  doc.setTextColor(...grigio);
+  doc.text(`Generato da ${azienda.nome} — documento a uso interno`, 15, 290);
+
+  return doc;
+}
+
 function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const oranje = [255, 140, 66];
@@ -685,7 +757,7 @@ function AppShell({ session }) {
         {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} />}
-        {page === "permessi" && <Permessi permessi={permessi} onReload={loadData} />}
+        {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
       </div>
     </div>
   );
@@ -1654,28 +1726,47 @@ const STATI_PERMESSO = [
   { key: "negato", label: "Negato", color: "#ff4d4d" },
 ];
 
-function Permessi({ permessi, onReload }) {
+function Permessi({ permessi, impianti, azienda, piano, onReload }) {
   const [showForm, setShowForm] = useState(false);
+  const [impiantoIdSel, setImpiantoIdSel] = useState("");
   const [impianto, setImpianto] = useState("");
   const [enteContattato, setEnteContattato] = useState("");
   const [permessiRichiesti, setPermessiRichiesti] = useState("");
+  const [bufferSicurezza, setBufferSicurezza] = useState("");
   const [dataRichiesta, setDataRichiesta] = useState("");
   const [oraRichiesta, setOraRichiesta] = useState("");
   const [note, setNote] = useState("");
   const [documento, setDocumento] = useState(null); // { nome, blob }
+  const [dflightShot, setDflightShot] = useState(null); // { dataUrl, blob }
   const [salvataggio, setSalvataggio] = useState(false);
   const [cambiandoId, setCambiandoId] = useState(null);
   const [espansoId, setEspansoId] = useState(null);
 
   const resetForm = () => {
-    setImpianto(""); setEnteContattato(""); setPermessiRichiesti("");
-    setDataRichiesta(""); setOraRichiesta(""); setNote(""); setDocumento(null);
+    setImpiantoIdSel(""); setImpianto(""); setEnteContattato(""); setPermessiRichiesti("");
+    setBufferSicurezza(""); setDataRichiesta(""); setOraRichiesta(""); setNote("");
+    setDocumento(null); setDflightShot(null);
+  };
+
+  const selezionaImpianto = (id) => {
+    setImpiantoIdSel(id);
+    const imp = impianti.find((i) => i.id === id);
+    if (imp) setImpianto(`${imp.nome} — ${imp.zona || ""}`.replace(/ — $/, ""));
   };
 
   const caricaDocumento = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setDocumento({ nome: file.name, blob: file });
+    e.target.value = "";
+  };
+
+  const caricaDflightShot = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setDflightShot({ dataUrl: reader.result, blob: file });
+    reader.readAsDataURL(file);
     e.target.value = "";
   };
 
@@ -1693,14 +1784,26 @@ function Permessi({ permessi, onReload }) {
           documentoUrl = pub?.publicUrl || null;
         }
       }
+      let dflightUrl = null;
+      if (dflightShot?.blob) {
+        const nomeFileD = `dflight-permesso-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+        const { error: eUpD } = await supabase.storage.from("foto-ispezioni").upload(nomeFileD, dflightShot.blob, { contentType: "image/png" });
+        if (!eUpD) {
+          const { data: pubD } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFileD);
+          dflightUrl = pubD?.publicUrl || null;
+        }
+      }
       const { error } = await supabase.from("permessi").insert({
         impianto,
+        impianto_id: impiantoIdSel || null,
         ente_contattato: enteContattato || null,
         permessi_richiesti: permessiRichiesti || null,
+        buffer_sicurezza: bufferSicurezza ? Number(bufferSicurezza) : null,
         data_richiesta: dataRichiesta || null,
         ora_richiesta: oraRichiesta || null,
         note: note || null,
         documento_url: documentoUrl,
+        dflight_screenshot_url: dflightUrl,
       });
       if (error) throw error;
       resetForm();
@@ -1731,6 +1834,13 @@ function Permessi({ permessi, onReload }) {
       {showForm && (
         <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Collega a un impianto esistente (opzionale)</label>
+            <select value={impiantoIdSel} onChange={(e) => selezionaImpianto(e.target.value)} style={inputStyle}>
+              <option value="">— Nessuno / scrivi a mano —</option>
+              {impianti.map((imp) => <option key={imp.id} value={imp.id}>{imp.nome}</option>)}
+            </select>
+          </div>
+          <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Impianto / zona</label>
             <input placeholder="es. Impianto FV Torino Nord" value={impianto} onChange={(e) => setImpianto(e.target.value)} style={inputStyle} />
           </div>
@@ -1741,6 +1851,10 @@ function Permessi({ permessi, onReload }) {
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Permessi richiesti</label>
             <textarea placeholder="es. NOTAM, autorizzazione ENAC, coordinamento torre di controllo..." value={permessiRichiesti} onChange={(e) => setPermessiRichiesti(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Buffer di sicurezza (m)</label>
+            <input type="number" placeholder="es. 5" value={bufferSicurezza} onChange={(e) => setBufferSicurezza(e.target.value)} style={inputStyle} />
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
@@ -1767,6 +1881,20 @@ function Permessi({ permessi, onReload }) {
             )}
           </div>
           <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight (facoltativo)</label>
+            {dflightShot ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 70, height: 46, objectFit: "cover", borderRadius: 4, border: "1px solid #333a45" }} />
+                <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+              </div>
+            ) : (
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+                <Upload size={13} /> Carica screenshot
+                <input type="file" accept="image/*" onChange={caricaDflightShot} style={{ display: "none" }} />
+              </label>
+            )}
+          </div>
+          <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note (opzionale)</label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
@@ -1781,7 +1909,7 @@ function Permessi({ permessi, onReload }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {permessi.map((p) => (
-            <PermessoRow key={p.id} p={p} espanso={espansoId === p.id} onToggle={() => setEspansoId(espansoId === p.id ? null : p.id)} onDelete={() => eliminaPermesso(p.id)} cambiando={cambiandoId === p.id} setCambiando={setCambiandoId} onReload={onReload} />
+            <PermessoRow key={p.id} p={p} azienda={azienda} piano={piano} espanso={espansoId === p.id} onToggle={() => setEspansoId(espansoId === p.id ? null : p.id)} onDelete={() => eliminaPermesso(p.id)} cambiando={cambiandoId === p.id} setCambiando={setCambiandoId} onReload={onReload} />
           ))}
         </div>
       )}
@@ -1789,7 +1917,7 @@ function Permessi({ permessi, onReload }) {
   );
 }
 
-function PermessoRow({ p, espanso, onToggle, onDelete, cambiando, setCambiando, onReload }) {
+function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando, setCambiando, onReload }) {
   const [nuovoStato, setNuovoStato] = useState(p.stato);
   const [nuovoMotivo, setNuovoMotivo] = useState(p.motivo_negazione || "");
   const [nuovoValidoDal, setNuovoValidoDal] = useState(p.valido_dal || "");
@@ -1797,6 +1925,8 @@ function PermessoRow({ p, espanso, onToggle, onDelete, cambiando, setCambiando, 
   const [nuovoOraDalle, setNuovoOraDalle] = useState(p.ora_dalle || "");
   const [nuovoOraAlle, setNuovoOraAlle] = useState(p.ora_alle || "");
   const [modificaStato, setModificaStato] = useState(false);
+  const [generandoPDF, setGenerandoPDF] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
 
   const stato = STATI_PERMESSO.find((s) => s.key === p.stato) || STATI_PERMESSO[0];
 
@@ -1813,6 +1943,23 @@ function PermessoRow({ p, espanso, onToggle, onDelete, cambiando, setCambiando, 
     setCambiando(null);
     setModificaStato(false);
     onReload();
+  };
+
+  const scaricaPDF = async () => {
+    setGenerandoPDF(true);
+    try {
+      let dflightDataUrl = null;
+      if (p.dflight_screenshot_url) {
+        dflightDataUrl = await urlToDataUrl(p.dflight_screenshot_url);
+      }
+      const doc = costruisciPDFPermesso({ azienda, permesso: p, dflightDataUrl, piano });
+      const url = doc.output("bloburl");
+      setPdfUrl(url);
+      window.open(url, "_blank");
+    } catch (err) {
+      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
+    }
+    setGenerandoPDF(false);
   };
 
   return (
@@ -1835,12 +1982,21 @@ function PermessoRow({ p, espanso, onToggle, onDelete, cambiando, setCambiando, 
       {espanso && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #262b33", display: "flex", flexDirection: "column", gap: 6 }}>
           {p.permessi_richiesti && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Permessi: </span>{p.permessi_richiesti}</div>}
+          {p.buffer_sicurezza && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Buffer di sicurezza: </span>{p.buffer_sicurezza} m</div>}
           {p.ora_richiesta && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Ora invio richiesta: </span>{p.ora_richiesta}</div>}
           {p.note && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Note: </span>{p.note}</div>}
           {p.documento_url && (
             <a href={p.documento_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd", display: "inline-flex", alignItems: "center", gap: 5 }}>
               <FileDown size={12} /> Apri il foglio del permesso caricato
             </a>
+          )}
+          {p.dflight_screenshot_url && (
+            <div style={{ marginTop: 4 }}>
+              <span style={{ fontSize: 11, color: "#8b95a3", display: "block", marginBottom: 6 }}>Screenshot D-Flight</span>
+              <a href={p.dflight_screenshot_url} target="_blank" rel="noreferrer">
+                <img src={p.dflight_screenshot_url} alt="D-Flight" style={{ width: "100%", maxWidth: 280, borderRadius: 6, border: "1px solid #333a45" }} />
+              </a>
+            </div>
           )}
           {p.stato === "negato" && p.motivo_negazione && <div style={{ fontSize: 12.5, color: "#ff9c9c" }}>Motivo: {p.motivo_negazione}</div>}
           {p.stato === "autorizzato" && p.valido_dal && (
@@ -1850,11 +2006,23 @@ function PermessoRow({ p, espanso, onToggle, onDelete, cambiando, setCambiando, 
             </div>
           )}
 
-          {!modificaStato ? (
-            <button onClick={() => setModificaStato(true)} style={{ marginTop: 6, alignSelf: "flex-start", background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
-              Modifica esito
+          <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+            {!modificaStato && (
+              <button onClick={() => setModificaStato(true)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                Modifica esito
+              </button>
+            )}
+            <button onClick={scaricaPDF} disabled={generandoPDF} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+              <FileDown size={12} /> {generandoPDF ? "Preparazione..." : "Scarica PDF"}
             </button>
-          ) : (
+          </div>
+          {pdfUrl && (
+            <a href={pdfUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#3d8bfd" }}>
+              Se non si è aperto automaticamente, apri il PDF qui
+            </a>
+          )}
+
+          {modificaStato && (
             <div style={{ marginTop: 8, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
               <div>
                 <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Esito</label>
@@ -2229,29 +2397,29 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
             </div>
           )}
           {impiantoSel && (
-            <div style={{ marginTop: 14 }}>
-              <button type="button" onClick={() => setMostraDatiVolo(!mostraDatiVolo)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12, padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
-                {mostraDatiVolo ? "▾" : "▸"} Dati di volo (per il registro voli) — opzionale
+            <div style={{ marginTop: 18 }}>
+              <button type="button" onClick={() => setMostraDatiVolo(!mostraDatiVolo)} style={{ width: "100%", background: "#1b2028", border: "1px solid #333a45", borderRadius: 8, color: "#e7eaee", fontSize: 14, fontWeight: 600, padding: "12px 16px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <span style={{ fontSize: 16 }}>{mostraDatiVolo ? "▾" : "▸"}</span> 📋 Dati di volo (per il registro voli) <span style={{ fontWeight: 400, color: "#8b95a3", fontSize: 12.5 }}>— opzionale</span>
               </button>
               {mostraDatiVolo && (
-                <div style={{ marginTop: 10, background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ marginTop: 10, background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
                   <div>
-                    <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Drone utilizzato</label>
+                    <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 5, fontWeight: 500 }}>Drone utilizzato</label>
                     <input type="text" placeholder="es. DJI Matrice 4T" value={droneUsato} onChange={(e) => setDroneUsato(e.target.value)} style={inputStyle} />
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ora atterraggio</label>
+                      <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 5, fontWeight: 500 }}>Ora atterraggio</label>
                       <input type="time" value={oraAtterraggio} onChange={(e) => setOraAtterraggio(e.target.value)} style={inputStyle} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Coordinate GPS stazione a terra</label>
+                      <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Coordinate GPS stazione a terra</label>
                       <input type="text" placeholder="es. 45.0703, 7.6869" value={coordinateGps} onChange={(e) => setCoordinateGps(e.target.value)} style={inputStyle} />
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Scenario operativo</label>
+                      <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Scenario operativo</label>
                       <select value={scenarioVolo} onChange={(e) => setScenarioVolo(e.target.value)} style={inputStyle}>
                         <option value="aperta">Categoria Aperta</option>
                         <option value="sts01">STS-01</option>
@@ -2260,21 +2428,21 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                       </select>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Altezza max volo (m)</label>
+                      <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Altezza max volo (m)</label>
                       <input type="number" placeholder="es. 60" value={altezzaVolo} onChange={(e) => setAltezzaVolo(e.target.value)} style={inputStyle} />
                     </div>
                   </div>
                   {(scenarioVolo === "sts01" || scenarioVolo === "sts02") && (
                     <div>
-                      <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Buffer di sicurezza usato (m)</label>
+                      <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Buffer di sicurezza usato (m)</label>
                       <input type="number" placeholder="es. 5" value={bufferSicurezza} onChange={(e) => setBufferSicurezza(e.target.value)} style={inputStyle} />
-                      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0", lineHeight: 1.4 }}>
+                      <p style={{ fontSize: 12, color: "#8b95a3", margin: "4px 0 0 0", lineHeight: 1.4 }}>
                         Il valore minimo dipende da altezza e peso del drone secondo l'Appendice 1 del Regolamento (UE) 2019/947 — verificalo sul tuo manuale operativo, qui lo registriamo solo per lo storico.
                       </p>
                     </div>
                   )}
                   <div>
-                    <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight (facoltativo)</label>
+                    <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Screenshot D-Flight (facoltativo)</label>
                     {dflightShot ? (
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 70, height: 46, objectFit: "cover", borderRadius: 4, border: "1px solid #333a45" }} />
@@ -2289,42 +2457,42 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                   </div>
 
                   <div style={{ borderTop: "1px solid #262b33", paddingTop: 10 }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#e7eaee", cursor: "pointer" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#e7eaee", cursor: "pointer" }}>
                       <input type="checkbox" checked={zonaRossa} onChange={(e) => setZonaRossa(e.target.checked)} />
                       Zona rossa / area soggetta a restrizioni
                     </label>
                     {zonaRossa && (
                       <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
                         <div>
-                          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Permessi richiesti</label>
+                          <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Permessi richiesti</label>
                           <textarea placeholder="es. NOTAM, autorizzazione ENAC, coordinamento torre di controllo..." value={permessiRichiesti} onChange={(e) => setPermessiRichiesti(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
                         </div>
                         <div>
-                          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ente / soggetto contattato</label>
+                          <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Ente / soggetto contattato</label>
                           <input type="text" placeholder="es. Aeroclub Torino, Aeroporto Caselle - Torre" value={enteContattato} onChange={(e) => setEnteContattato(e.target.value)} style={inputStyle} />
                         </div>
                         <div style={{ display: "flex", gap: 10 }}>
                           <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Richiesta inviata il</label>
+                            <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Richiesta inviata il</label>
                             <input type="date" value={dataInizioPermesso} onChange={(e) => setDataInizioPermesso(e.target.value)} style={inputStyle} />
                           </div>
                           <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ora invio</label>
+                            <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Ora invio</label>
                             <input type="time" value={oraInizioPermesso} onChange={(e) => setOraInizioPermesso(e.target.value)} style={inputStyle} />
                           </div>
                         </div>
                         <div style={{ display: "flex", gap: 10 }}>
                           <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Risposta ricevuta il</label>
+                            <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Risposta ricevuta il</label>
                             <input type="date" value={dataFinePermesso} onChange={(e) => setDataFinePermesso(e.target.value)} style={inputStyle} />
                           </div>
                           <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ora risposta</label>
+                            <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Ora risposta</label>
                             <input type="time" value={oraFinePermesso} onChange={(e) => setOraFinePermesso(e.target.value)} style={inputStyle} />
                           </div>
                         </div>
                         <div>
-                          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Esito permesso</label>
+                          <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Esito permesso</label>
                           <select value={statoPermesso} onChange={(e) => setStatoPermesso(e.target.value)} style={inputStyle}>
                             <option value="in_attesa">In attesa</option>
                             <option value="autorizzato">Autorizzato</option>
@@ -2333,21 +2501,21 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                         </div>
                         {statoPermesso === "negato" && (
                           <div>
-                            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Motivo del rifiuto</label>
+                            <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Motivo del rifiuto</label>
                             <textarea placeholder="es. area già impegnata, mancanza requisiti..." value={motivoNegazione} onChange={(e) => setMotivoNegazione(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
                           </div>
                         )}
                         {statoPermesso === "autorizzato" && (
                           <div>
-                            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Permesso valido</label>
+                            <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Permesso valido</label>
                             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                               <input type="date" value={permessoValidoDal} onChange={(e) => setPermessoValidoDal(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                              <span style={{ fontSize: 11, color: "#6b7480" }}>al</span>
+                              <span style={{ fontSize: 13, color: "#8b95a3" }}>al</span>
                               <input type="date" value={permessoValidoAl} onChange={(e) => setPermessoValidoAl(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
                             </div>
                             <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
                               <input type="time" value={permessoOraDalle} onChange={(e) => setPermessoOraDalle(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                              <span style={{ fontSize: 11, color: "#6b7480" }}>alle</span>
+                              <span style={{ fontSize: 13, color: "#8b95a3" }}>alle</span>
                               <input type="time" value={permessoOraAlle} onChange={(e) => setPermessoOraAlle(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
                             </div>
                           </div>
@@ -2414,7 +2582,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               )}
               {pendingPin && <AnomaliaPopup onConfirm={confermaPin} onCancel={() => setPendingPin(null)} />}
               <div style={{ marginTop: 16, maxWidth: 480 }}>
-                <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note / commenti (opzionale)</label>
+                <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Note / commenti (opzionale)</label>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Osservazioni aggiuntive sull'ispezione..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", width: "100%" }} />
               </div>
               <div style={{ marginTop: 12, maxWidth: 240 }}>
