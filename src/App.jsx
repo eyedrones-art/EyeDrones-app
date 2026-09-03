@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 
@@ -539,7 +539,7 @@ export default function App() {
 
   if (session === undefined) {
     return (
-      <div style={{ minHeight: "400px", display: "flex", alignItems: "center", justifyContent: "center", background: "#161a1f", color: "#8b95a3", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#161a1f", color: "#8b95a3", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>
         Caricamento...
       </div>
     );
@@ -565,6 +565,7 @@ function AppShell({ session }) {
   const [fotoAll, setFotoAll] = useState([]);
   const [reportLog, setReportLog] = useState([]);
   const [preventivi, setPreventivi] = useState([]);
+  const [permessi, setPermessi] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
@@ -572,8 +573,10 @@ function AppShell({ session }) {
     let { data: profilo } = await supabase.from("profili").select("*").eq("user_id", session.user.id).maybeSingle();
     if (!profilo) {
       const referral = localStorage.getItem("eyedrones_ref");
-      const { data: nuovo } = await supabase.from("profili").insert({ user_id: session.user.id, referral: referral || null }).select().single();
+      const { data: nuovo } = await supabase.from("profili").insert({ user_id: session.user.id, referral: referral || null, email: session.user.email }).select().single();
       profilo = nuovo;
+    } else if (!profilo.email) {
+      await supabase.from("profili").update({ email: session.user.email }).eq("user_id", session.user.id);
     }
     if (profilo) {
       setPiano(profilo.piano || "free");
@@ -601,21 +604,23 @@ function AppShell({ session }) {
     setLoading(true);
     setDbError(null);
     try {
-      const [{ data: imp, error: e1 }, { data: isp, error: e2 }, { data: ano, error: e3 }, { data: fot, error: e4 }, { data: log, error: e5 }, { data: prev, error: e6 }] = await Promise.all([
+      const [{ data: imp, error: e1 }, { data: isp, error: e2 }, { data: ano, error: e3 }, { data: fot, error: e4 }, { data: log, error: e5 }, { data: prev, error: e6 }, { data: perm, error: e7 }] = await Promise.all([
         supabase.from("impianti").select("*").order("created_at"),
         supabase.from("ispezioni").select("*").order("data", { ascending: false }),
         supabase.from("anomalie").select("*"),
         supabase.from("foto").select("*"),
         supabase.from("report_log").select("*"),
         supabase.from("preventivi").select("*").order("created_at", { ascending: false }),
+        supabase.from("permessi").select("*").order("created_at", { ascending: false }),
       ]);
-      if (e1 || e2 || e3 || e4 || e5 || e6) throw (e1 || e2 || e3 || e4 || e5 || e6);
+      if (e1 || e2 || e3 || e4 || e5 || e6 || e7) throw (e1 || e2 || e3 || e4 || e5 || e6 || e7);
       setImpianti(imp || []);
       setIspezioni(isp || []);
       setAnomalieAll(ano || []);
       setFotoAll(fot || []);
       setReportLog(log || []);
       setPreventivi(prev || []);
+      setPermessi(perm || []);
     } catch (err) {
       setDbError(err.message || "Errore di connessione al database");
     }
@@ -640,7 +645,7 @@ function AppShell({ session }) {
   });
 
   return (
-    <div className="app-shell" style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: "#161a1f", color: "#e7eaee", minHeight: "600px", display: "flex", width: "100%" }}>
+    <div className="app-shell" style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: "#161a1f", color: "#e7eaee", minHeight: "100vh", display: "flex", width: "100%" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
@@ -680,6 +685,7 @@ function AppShell({ session }) {
         {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} />}
+        {page === "permessi" && <Permessi permessi={permessi} onReload={loadData} />}
       </div>
     </div>
   );
@@ -720,7 +726,7 @@ function Login() {
   };
 
   return (
-    <div style={{ minHeight: "500px", display: "flex", alignItems: "center", justifyContent: "center", background: "#161a1f", fontFamily: "'IBM Plex Sans', sans-serif", padding: 24 }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#161a1f", fontFamily: "'IBM Plex Sans', sans-serif", padding: 24 }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');`}</style>
       <div style={{ width: "100%", maxWidth: 340 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 26 }}>
@@ -772,6 +778,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese }) {
     { key: "impianti", label: "Impianti", icon: Sun },
     { key: "nuova", label: "Nuova ispezione", icon: Plus },
     { key: "preventivi", label: "Preventivi", icon: FileText },
+    { key: "permessi", label: "Permessi", icon: ShieldCheck },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
   ];
@@ -1638,6 +1645,259 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
 }
 
 // --- Impostazioni (white label) -----------------------------------------------------------
+
+// --- Permessi -----------------------------------------------------------
+
+const STATI_PERMESSO = [
+  { key: "in_attesa", label: "In attesa", color: "#f5b942" },
+  { key: "autorizzato", label: "Autorizzato", color: "#4ade80" },
+  { key: "negato", label: "Negato", color: "#ff4d4d" },
+];
+
+function Permessi({ permessi, onReload }) {
+  const [showForm, setShowForm] = useState(false);
+  const [impianto, setImpianto] = useState("");
+  const [enteContattato, setEnteContattato] = useState("");
+  const [permessiRichiesti, setPermessiRichiesti] = useState("");
+  const [dataRichiesta, setDataRichiesta] = useState("");
+  const [oraRichiesta, setOraRichiesta] = useState("");
+  const [note, setNote] = useState("");
+  const [documento, setDocumento] = useState(null); // { nome, blob }
+  const [salvataggio, setSalvataggio] = useState(false);
+  const [cambiandoId, setCambiandoId] = useState(null);
+  const [espansoId, setEspansoId] = useState(null);
+
+  const resetForm = () => {
+    setImpianto(""); setEnteContattato(""); setPermessiRichiesti("");
+    setDataRichiesta(""); setOraRichiesta(""); setNote(""); setDocumento(null);
+  };
+
+  const caricaDocumento = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDocumento({ nome: file.name, blob: file });
+    e.target.value = "";
+  };
+
+  const salvaPermesso = async () => {
+    if (!impianto) return;
+    setSalvataggio(true);
+    try {
+      let documentoUrl = null;
+      if (documento?.blob) {
+        const estensione = documento.nome.split(".").pop();
+        const nomeFile = `permesso-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${estensione}`;
+        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, documento.blob);
+        if (!eUp) {
+          const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
+          documentoUrl = pub?.publicUrl || null;
+        }
+      }
+      const { error } = await supabase.from("permessi").insert({
+        impianto,
+        ente_contattato: enteContattato || null,
+        permessi_richiesti: permessiRichiesti || null,
+        data_richiesta: dataRichiesta || null,
+        ora_richiesta: oraRichiesta || null,
+        note: note || null,
+        documento_url: documentoUrl,
+      });
+      if (error) throw error;
+      resetForm();
+      setShowForm(false);
+      onReload();
+    } catch (err) {
+      alert("Salvataggio non riuscito: " + (err?.message || err));
+    }
+    setSalvataggio(false);
+  };
+
+  const eliminaPermesso = async (id) => {
+    if (!window.confirm("Eliminare questo permesso?")) return;
+    await supabase.from("permessi").delete().eq("id", id);
+    onReload();
+  };
+
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Permessi</h1>
+        <button onClick={() => setShowForm(!showForm)} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          {showForm ? "Annulla" : <><Plus size={14} /> Nuova richiesta</>}
+        </button>
+      </div>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Richiedi e traccia i permessi di volo per zone soggette a restrizioni, prima ancora di fare il rilievo.</p>
+
+      {showForm && (
+        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Impianto / zona</label>
+            <input placeholder="es. Impianto FV Torino Nord" value={impianto} onChange={(e) => setImpianto(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ente / soggetto contattato</label>
+            <input placeholder="es. Aeroclub Torino, Aeroporto Caselle - Torre" value={enteContattato} onChange={(e) => setEnteContattato(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Permessi richiesti</label>
+            <textarea placeholder="es. NOTAM, autorizzazione ENAC, coordinamento torre di controllo..." value={permessiRichiesti} onChange={(e) => setPermessiRichiesti(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Richiesta inviata il</label>
+              <input type="date" value={dataRichiesta} onChange={(e) => setDataRichiesta(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ora invio</label>
+              <input type="time" value={oraRichiesta} onChange={(e) => setOraRichiesta(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Foglio del permesso (facoltativo, immagine o PDF)</label>
+            {documento ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, color: "#c3cad4" }}>{documento.nome}</span>
+                <button onClick={() => setDocumento(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+              </div>
+            ) : (
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+                <Upload size={13} /> Carica documento
+                <input type="file" accept="image/*,.pdf" onChange={caricaDocumento} style={{ display: "none" }} />
+              </label>
+            )}
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note (opzionale)</label>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+          </div>
+          <button onClick={salvaPermesso} disabled={!impianto || salvataggio} style={{ marginTop: 4, background: impianto ? "#ff8c42" : "#333a45", color: impianto ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+            {salvataggio ? "Salvataggio..." : "Salva richiesta"}
+          </button>
+        </div>
+      )}
+
+      {permessi.length === 0 ? (
+        <EmptyState text="Nessuna richiesta di permesso ancora registrata." />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {permessi.map((p) => (
+            <PermessoRow key={p.id} p={p} espanso={espansoId === p.id} onToggle={() => setEspansoId(espansoId === p.id ? null : p.id)} onDelete={() => eliminaPermesso(p.id)} cambiando={cambiandoId === p.id} setCambiando={setCambiandoId} onReload={onReload} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PermessoRow({ p, espanso, onToggle, onDelete, cambiando, setCambiando, onReload }) {
+  const [nuovoStato, setNuovoStato] = useState(p.stato);
+  const [nuovoMotivo, setNuovoMotivo] = useState(p.motivo_negazione || "");
+  const [nuovoValidoDal, setNuovoValidoDal] = useState(p.valido_dal || "");
+  const [nuovoValidoAl, setNuovoValidoAl] = useState(p.valido_al || "");
+  const [nuovoOraDalle, setNuovoOraDalle] = useState(p.ora_dalle || "");
+  const [nuovoOraAlle, setNuovoOraAlle] = useState(p.ora_alle || "");
+  const [modificaStato, setModificaStato] = useState(false);
+
+  const stato = STATI_PERMESSO.find((s) => s.key === p.stato) || STATI_PERMESSO[0];
+
+  const salvaStato = async () => {
+    setCambiando(p.id);
+    await supabase.from("permessi").update({
+      stato: nuovoStato,
+      motivo_negazione: nuovoStato === "negato" ? (nuovoMotivo || null) : null,
+      valido_dal: nuovoStato === "autorizzato" ? (nuovoValidoDal || null) : null,
+      valido_al: nuovoStato === "autorizzato" ? (nuovoValidoAl || null) : null,
+      ora_dalle: nuovoStato === "autorizzato" ? (nuovoOraDalle || null) : null,
+      ora_alle: nuovoStato === "autorizzato" ? (nuovoOraAlle || null) : null,
+    }).eq("id", p.id);
+    setCambiando(null);
+    setModificaStato(false);
+    onReload();
+  };
+
+  return (
+    <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px" }}>
+      <div onClick={onToggle} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.impianto}</div>
+          <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
+            {p.ente_contattato && <>{p.ente_contattato} &middot; </>}
+            {p.data_richiesta ? formatData(p.data_richiesta) : "—"}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 4, background: stato.color + "22", color: stato.color }}>{stato.label}</span>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
+          <ChevronRight size={15} color="#6b7480" style={{ transform: espanso ? "rotate(90deg)" : "none" }} />
+        </div>
+      </div>
+
+      {espanso && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #262b33", display: "flex", flexDirection: "column", gap: 6 }}>
+          {p.permessi_richiesti && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Permessi: </span>{p.permessi_richiesti}</div>}
+          {p.ora_richiesta && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Ora invio richiesta: </span>{p.ora_richiesta}</div>}
+          {p.note && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Note: </span>{p.note}</div>}
+          {p.documento_url && (
+            <a href={p.documento_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <FileDown size={12} /> Apri il foglio del permesso caricato
+            </a>
+          )}
+          {p.stato === "negato" && p.motivo_negazione && <div style={{ fontSize: 12.5, color: "#ff9c9c" }}>Motivo: {p.motivo_negazione}</div>}
+          {p.stato === "autorizzato" && p.valido_dal && (
+            <div style={{ fontSize: 12.5, color: "#4ade80" }}>
+              Valido dal {formatData(p.valido_dal)} al {p.valido_al ? formatData(p.valido_al) : "—"}
+              {p.ora_dalle && `, dalle ${p.ora_dalle} alle ${p.ora_alle || "—"}`}
+            </div>
+          )}
+
+          {!modificaStato ? (
+            <button onClick={() => setModificaStato(true)} style={{ marginTop: 6, alignSelf: "flex-start", background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+              Modifica esito
+            </button>
+          ) : (
+            <div style={{ marginTop: 8, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div>
+                <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Esito</label>
+                <select value={nuovoStato} onChange={(e) => setNuovoStato(e.target.value)} style={inputStyle}>
+                  {STATI_PERMESSO.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                </select>
+              </div>
+              {nuovoStato === "negato" && (
+                <div>
+                  <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Motivo del rifiuto</label>
+                  <textarea value={nuovoMotivo} onChange={(e) => setNuovoMotivo(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+                </div>
+              )}
+              {nuovoStato === "autorizzato" && (
+                <div>
+                  <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Permesso valido</label>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input type="date" value={nuovoValidoDal} onChange={(e) => setNuovoValidoDal(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                    <span style={{ fontSize: 11, color: "#6b7480" }}>al</span>
+                    <input type="date" value={nuovoValidoAl} onChange={(e) => setNuovoValidoAl(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+                    <input type="time" value={nuovoOraDalle} onChange={(e) => setNuovoOraDalle(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                    <span style={{ fontSize: 11, color: "#6b7480" }}>alle</span>
+                    <input type="time" value={nuovoOraAlle} onChange={(e) => setNuovoOraAlle(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                  </div>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={salvaStato} disabled={cambiando} style={{ background: "#ff8c42", color: "#161a1f", border: "none", padding: "7px 14px", borderRadius: 5, fontWeight: 600, fontSize: 12 }}>
+                  {cambiando ? "Salvataggio..." : "Salva"}
+                </button>
+                <button onClick={() => setModificaStato(false)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", padding: "7px 14px", borderRadius: 5, fontSize: 12 }}>
+                  Annulla
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Impostazioni({ azienda, setAzienda, piano }) {
   const proAttivo = piano === "pro";
