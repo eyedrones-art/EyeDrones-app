@@ -188,6 +188,204 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
 }
 
 // costruisce il PDF di un preventivo
+// costruisce il PDF del registro voli (dati interni, mai inviati al cliente)
+function costruisciPDFRegistroVolo({ azienda, impianto, ispezione, dflightDataUrl }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const grigio = [110, 120, 130];
+  let y = 20;
+
+  doc.setFontSize(16);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Registro voli — documentazione interna", 15, y);
+  y += 6;
+  doc.setFontSize(9.5);
+  doc.setTextColor(...grigio);
+  doc.text("Non destinato al cliente — solo per la propria documentazione di volo.", 15, y);
+  y += 10;
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 8;
+
+  const scrivi = (label, val) => {
+    if (val === null || val === undefined || val === "" || val === false) return;
+    if (y > 275) { doc.addPage(); y = 20; }
+    doc.setFontSize(10.5);
+    doc.setTextColor(...grigio);
+    doc.text(label, 15, y);
+    doc.setTextColor(20, 20, 20);
+    const testo = String(val);
+    const righe = doc.splitTextToSize(testo, 110);
+    doc.text(righe, 70, y);
+    y += Math.max(7, righe.length * 5);
+  };
+
+  doc.setFontSize(12);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Dati generali", 15, y);
+  y += 8;
+  scrivi("Impianto", impianto?.nome);
+  scrivi("Località", impianto?.zona);
+  scrivi("Data ispezione", formatData(ispezione.data));
+  scrivi("Operatore/pilota", ispezione.operatore);
+  y += 4;
+
+  doc.setFontSize(12);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Dati di volo", 15, y);
+  y += 8;
+  scrivi("Drone utilizzato", ispezione.drone_usato);
+  scrivi("Ora decollo", ispezione.ora);
+  scrivi("Ora atterraggio", ispezione.ora_atterraggio);
+  scrivi("Coordinate GPS stazione a terra", ispezione.coordinate_gps);
+  scrivi("Scenario operativo", { aperta: "Categoria Aperta", sts01: "STS-01", sts02: "STS-02", specifica: "Operazione specifica" }[ispezione.scenario_volo] || ispezione.scenario_volo);
+  scrivi("Altezza massima di volo", ispezione.altezza_volo ? `${ispezione.altezza_volo} m` : null);
+  scrivi("Buffer di sicurezza", ispezione.buffer_sicurezza ? `${ispezione.buffer_sicurezza} m` : null);
+  y += 4;
+
+  if (ispezione.zona_rossa) {
+    doc.setFontSize(12);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Zona rossa / area soggetta a restrizioni", 15, y);
+    y += 8;
+    scrivi("Permessi richiesti", ispezione.permessi_richiesti);
+    scrivi("Ente/soggetto contattato", ispezione.ente_contattato);
+    scrivi("Richiesta inviata", ispezione.data_inizio_permesso ? `${formatData(ispezione.data_inizio_permesso)}${ispezione.ora_inizio_permesso ? " alle " + ispezione.ora_inizio_permesso : ""}` : null);
+    scrivi("Risposta ricevuta", ispezione.data_fine_permesso ? `${formatData(ispezione.data_fine_permesso)}${ispezione.ora_fine_permesso ? " alle " + ispezione.ora_fine_permesso : ""}` : null);
+    scrivi("Esito", { in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[ispezione.stato_permesso] || ispezione.stato_permesso);
+    if (ispezione.stato_permesso === "negato") scrivi("Motivo del rifiuto", ispezione.motivo_negazione);
+    if (ispezione.stato_permesso === "autorizzato" && ispezione.permesso_valido_dal) {
+      scrivi("Permesso valido", `dal ${formatData(ispezione.permesso_valido_dal)} al ${ispezione.permesso_valido_al ? formatData(ispezione.permesso_valido_al) : "—"}${ispezione.permesso_ora_dalle ? `, dalle ${ispezione.permesso_ora_dalle} alle ${ispezione.permesso_ora_alle || "—"}` : ""}`);
+    }
+    y += 4;
+  }
+
+  if (ispezione.dflight_screenshot_url) {
+    if (y > 200) { doc.addPage(); y = 20; }
+    doc.setFontSize(11);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Screenshot D-Flight", 15, y);
+    y += 6;
+    if (dflightDataUrl) {
+      try {
+        const imgW = 120;
+        const imgH = imgW * (300 / 480);
+        if (y + imgH > 280) { doc.addPage(); y = 20; }
+        doc.addImage(dflightDataUrl, "PNG", 15, y, imgW, imgH);
+        y += imgH + 6;
+      } catch (e) {}
+    }
+  }
+
+  doc.setFontSize(8);
+  doc.setTextColor(...grigio);
+  doc.text(`Generato da ${azienda.nome} — documento a uso interno`, 15, 290);
+
+  return doc;
+}
+
+// costruisce il PDF riassuntivo con tutto lo storico ispezioni di un impianto
+function costruisciPDFRiassuntoImpianto({ azienda, impianto, storico, piano }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const oranje = [255, 140, 66];
+  const grigio = [110, 120, 130];
+  let y = 20;
+
+  if (azienda.logo) {
+    try { doc.addImage(azienda.logo, "PNG", (210 - 26) / 2, 10, 26, 16, undefined, "FAST"); } catch (e) {}
+    y = 34;
+  }
+
+  doc.setFontSize(17);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Riepilogo storico ispezioni", 15, y);
+  y += 6;
+  doc.setFontSize(10);
+  doc.setTextColor(...grigio);
+  doc.text(`${azienda.nome} — ispezioni con drone e termocamera`, 15, y);
+  y += 12;
+
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.setTextColor(20, 20, 20);
+  const righeInfo = [
+    ["Impianto", impianto?.nome],
+    ["Località", impianto?.zona],
+    ["Potenza installata", `${impianto?.kwp} kWp`],
+    ["Cliente", impianto?.cliente],
+    ["Ispezioni totali", String(storico.length)],
+    ["Anomalie totali rilevate", String(storico.reduce((s, i) => s + i.anomalie, 0))],
+  ];
+  righeInfo.forEach(([label, val]) => {
+    doc.setTextColor(...grigio);
+    doc.text(label, 15, y);
+    doc.setTextColor(20, 20, 20);
+    doc.text(String(val), 70, y);
+    y += 7;
+  });
+
+  y += 6;
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 10;
+
+  doc.setFontSize(13);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Elenco ispezioni", 15, y);
+  y += 9;
+
+  // intestazione tabella
+  doc.setFontSize(9.5);
+  doc.setTextColor(...grigio);
+  doc.text("Data", 15, y);
+  doc.text("Operatore", 55, y);
+  doc.text("Anomalie", 105, y);
+  doc.text("Gravità max", 135, y);
+  doc.text("Prossimo controllo", 165, y);
+  y += 4;
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 6;
+
+  const coloreGravita = { bassa: [61, 139, 253], media: [245, 185, 66], alta: [255, 140, 66], critica: [255, 77, 77] };
+  const etichettaGravita = { bassa: "Bassa", media: "Media", alta: "Alta", critica: "Critica" };
+
+  storico.forEach((s) => {
+    if (y > 275) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFontSize(9.5);
+    doc.setTextColor(30, 30, 30);
+    doc.text(s.data, 15, y);
+    doc.text(s.operatore || "—", 55, y);
+    doc.text(String(s.anomalie), 105, y);
+    const col = coloreGravita[s.gravitaMax] || grigio;
+    doc.setTextColor(...col);
+    doc.text(s.anomalie > 0 ? (etichettaGravita[s.gravitaMax] || "—") : "—", 135, y);
+    doc.setTextColor(30, 30, 30);
+    doc.text(s.prossimoControllo || "—", 165, y);
+    y += 7;
+  });
+
+  if (storico.length === 0) {
+    doc.setFontSize(10.5);
+    doc.setTextColor(...grigio);
+    doc.text("Nessuna ispezione ancora registrata per questo impianto.", 15, y);
+    y += 7;
+  }
+
+  if (piano !== "pro") {
+    doc.setFontSize(8);
+    doc.setTextColor(...grigio);
+    doc.text(`Generato da ${azienda.nome}`, 15, 290);
+  }
+
+  return doc;
+}
+
 function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const oranje = [255, 140, 66];
@@ -707,6 +905,11 @@ function ImpiantoRow({ imp, onClick, onDelete }) {
         <div style={{ fontSize: 12.5, color: imp.anomalie > 0 ? "#ff8c42" : "#4ade80" }}>{imp.anomalie} anomalie</div>
         <div style={{ fontSize: 12, color: "#6b7480" }}>{imp.ultima}</div>
         {onDelete && (
+          <button onClick={(e) => { e.stopPropagation(); onClick(); }} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+            Apri
+          </button>
+        )}
+        {onDelete && (
           <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
             Elimina
           </button>
@@ -785,6 +988,8 @@ const inputStyle = { width: "100%", background: "#161a1f", border: "1px solid #3
 function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda, piano, onBack, onReload }) {
   const [eliminandoId, setEliminandoId] = useState(null);
   const [ispezioneAperta, setIspezioneAperta] = useState(null);
+  const [generandoRiassunto, setGenerandoRiassunto] = useState(false);
+  const [pdfUrlRiassunto, setPdfUrlRiassunto] = useState(null);
 
   const storico = [...ispezioni]
     .sort((a, b) => new Date(b.data) - new Date(a.data))
@@ -794,8 +999,21 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda,
       const gravitaMax = anomalieIsp.reduce((max, a) => (ordine.indexOf(a.gravita) > ordine.indexOf(max) ? a.gravita : max), "bassa");
       const oggi = new Date();
       const inRitardo = isp.prossimo_controllo && new Date(isp.prossimo_controllo) < oggi;
-      return { id: isp.id, data: formatData(isp.data), anomalie: anomalieIsp.length, gravitaMax, fotoUrl: isp.foto_url, prossimoControllo: isp.prossimo_controllo ? formatData(isp.prossimo_controllo) : null, inRitardo };
+      return { id: isp.id, data: formatData(isp.data), operatore: isp.operatore, anomalie: anomalieIsp.length, gravitaMax, fotoUrl: isp.foto_url, prossimoControllo: isp.prossimo_controllo ? formatData(isp.prossimo_controllo) : null, inRitardo };
     });
+
+  const scaricaRiassuntoPDF = () => {
+    setGenerandoRiassunto(true);
+    try {
+      const doc = costruisciPDFRiassuntoImpianto({ azienda, impianto, storico, piano });
+      const url = doc.output("bloburl");
+      setPdfUrlRiassunto(url);
+      window.open(url, "_blank");
+    } catch (err) {
+      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
+    }
+    setGenerandoRiassunto(false);
+  };
 
   const eliminaIspezione = async (id) => {
     if (!window.confirm("Eliminare questa ispezione e le sue anomalie? L'operazione non è reversibile.")) return;
@@ -830,9 +1048,23 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda,
         <p style={{ color: "#8b95a3", fontSize: 13, margin: "4px 0 0 0" }}>{impianto.zona} &middot; {impianto.cliente} &middot; {impianto.kwp} kWp</p>
       </div>
 
-      <h2 style={{ fontSize: 13, fontWeight: 600, color: "#c3cad4", margin: "0 0 10px 0", display: "flex", alignItems: "center", gap: 6 }}>
-        <TrendingUp size={14} /> Storico ispezioni
-      </h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+        <h2 style={{ fontSize: 13, fontWeight: 600, color: "#c3cad4", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+          <TrendingUp size={14} /> Storico ispezioni
+        </h2>
+        {storico.length > 0 && (
+          <div>
+            <button onClick={scaricaRiassuntoPDF} disabled={generandoRiassunto} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>
+              <FileDown size={13} /> {generandoRiassunto ? "Preparazione..." : "Riepilogo PDF impianto"}
+            </button>
+            {pdfUrlRiassunto && (
+              <a href={pdfUrlRiassunto} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 6, fontSize: 11, color: "#3d8bfd", textAlign: "right" }}>
+                Apri il PDF qui
+              </a>
+            )}
+          </div>
+        )}
+      </div>
       {storico.length === 0 ? (
         <EmptyState text="Nessuna ispezione ancora registrata per questo impianto." />
       ) : (
@@ -882,6 +1114,8 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
   const [nuovoOraDalle, setNuovoOraDalle] = useState(ispezione.permesso_ora_dalle || "");
   const [nuovoOraAlle, setNuovoOraAlle] = useState(ispezione.permesso_ora_alle || "");
   const [salvandoPermesso, setSalvandoPermesso] = useState(false);
+  const [generandoRegistro, setGenerandoRegistro] = useState(false);
+  const [pdfUrlRegistro, setPdfUrlRegistro] = useState(null);
 
   const salvaStatoPermesso = async () => {
     setSalvandoPermesso(true);
@@ -927,6 +1161,23 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
       alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
     }
     setGenerando(false);
+  };
+
+  const scaricaPDFRegistroVolo = async () => {
+    setGenerandoRegistro(true);
+    try {
+      let dflightDataUrl = null;
+      if (ispezione.dflight_screenshot_url) {
+        dflightDataUrl = await urlToDataUrl(ispezione.dflight_screenshot_url);
+      }
+      const doc = costruisciPDFRegistroVolo({ azienda, impianto, ispezione, dflightDataUrl });
+      const url = doc.output("bloburl");
+      setPdfUrlRegistro(url);
+      window.open(url, "_blank");
+    } catch (err) {
+      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
+    }
+    setGenerandoRegistro(false);
   };
 
   return (
@@ -1106,6 +1357,16 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
               )}
             </div>
           )}
+          <div style={{ marginTop: 14, borderTop: "1px solid #262b33", paddingTop: 12 }}>
+            <button onClick={scaricaPDFRegistroVolo} disabled={generandoRegistro} style={{ display: "flex", alignItems: "center", gap: 6, background: "#161a1f", color: "#c3cad4", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 12.5 }}>
+              <FileDown size={13} /> {generandoRegistro ? "Preparazione..." : "Scarica PDF registro voli"}
+            </button>
+            {pdfUrlRegistro && (
+              <a href={pdfUrlRegistro} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 6, fontSize: 11.5, color: "#3d8bfd" }}>
+                Se non si è aperto automaticamente, apri il PDF qui
+              </a>
+            )}
+          </div>
         </div>
       )}
 
@@ -1874,18 +2135,11 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                     </button>
                   </div>
                 ))}
-                {piano === "pro" && (
-                  <label style={{ width: 64, height: 44, borderRadius: 6, border: "1px dashed #333a45", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#8b95a3" }} title="Carica un'altra foto">
-                    <Plus size={16} />
-                    <input type="file" accept="image/*" onChange={aggiungiFotoDaFile} style={{ display: "none" }} />
-                  </label>
-                )}
+                <label style={{ width: 64, height: 44, borderRadius: 6, border: "1px dashed #333a45", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#8b95a3" }} title="Carica un'altra foto">
+                  <Plus size={16} />
+                  <input type="file" accept="image/*" onChange={aggiungiFotoDaFile} style={{ display: "none" }} />
+                </label>
               </div>
-              {piano !== "pro" && foto.length >= 1 && (
-                <p style={{ fontSize: 11.5, color: "#8b95a3", marginTop: -6, marginBottom: 12 }}>
-                  Il piano Free include 1 foto per ispezione — <span style={{ color: "#ff8c42" }}>passa a Pro</span> per aggiungerne più di una.
-                </p>
-              )}
 
               {fotoAttiva && (
                 <div style={{ position: "relative", width: "100%", maxWidth: 480, display: "block" }}>
