@@ -1459,9 +1459,6 @@ function Abbonamento({ piano }) {
           Vuoi passare a Pro? Scrivici
         </a>
       )}
-      <p style={{ fontSize: 11.5, color: "#6b7480", marginTop: 12, maxWidth: 480 }}>
-        L'attivazione del piano Pro avviene ancora manualmente: scrivendoci verrai contattato per completare l'upgrade.
-      </p>
 
       <div style={{ borderTop: "1px solid #262b33", marginTop: 28, paddingTop: 20, maxWidth: 480 }}>
         <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 6px 0" }}>Serve assistenza?</h3>
