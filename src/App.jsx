@@ -254,10 +254,13 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
         const r = parseInt(hex.substring(0, 2), 16), g = parseInt(hex.substring(2, 4), 16), b = parseInt(hex.substring(4, 6), 16);
         const cx = 15 + (a.x / 100) * imgW;
         const cy = y + (a.y / 100) * imgH;
-        // puntino piccolo e preciso esattamente sul punto, così non copre il dettaglio della foto
-        doc.setFillColor(r, g, b);
+        // anello piccolo e vuoto esattamente sul punto, così non copre il dettaglio della foto sotto
         doc.setDrawColor(255, 255, 255);
-        doc.circle(cx, cy, 1, "FD");
+        doc.setLineWidth(0.9);
+        doc.circle(cx, cy, 1.4, "D");
+        doc.setDrawColor(r, g, b);
+        doc.setLineWidth(0.4);
+        doc.circle(cx, cy, 1.4, "D");
         // il numero va in un'etichetta spostata di lato, non sopra al punto stesso
         const ex = cx + 3.5, ey = cy - 3.5;
         doc.setFillColor(r, g, b);
@@ -1717,9 +1720,12 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
                 {anomalieFoto.map((a, i) => {
                   const sev = SEVERITY.find((s) => s.key === a.gravita);
                   return (
-                    <div key={a.id} style={{ position: "absolute", left: `${a.pos_x}%`, top: `${a.pos_y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(-50%,-50%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
-                      {i + 1}
-                    </div>
+                    <React.Fragment key={a.id}>
+                      <div style={{ position: "absolute", left: `${a.pos_x}%`, top: `${a.pos_y}%`, width: 14, height: 14, borderRadius: "50%", border: `2.5px solid ${sev.color}`, boxShadow: "0 0 0 1.5px rgba(0,0,0,0.6)", transform: "translate(-50%,-50%)" }} />
+                      <div style={{ position: "absolute", left: `${a.pos_x}%`, top: `${a.pos_y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(6px, -22px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
+                        {i + 1}
+                      </div>
+                    </React.Fragment>
                   );
                 })}
               </div>
@@ -3725,9 +3731,12 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                   {anomalie.filter((a) => a.fotoId === fotoAttivaId).map((a, i) => {
                     const sev = SEVERITY.find((s) => s.key === a.gravita);
                     return (
-                      <div key={a.id} title={a.categoria} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #161a1f", transform: "translate(-50%,-50%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f" }}>
-                        {i + 1}
-                      </div>
+                      <React.Fragment key={a.id}>
+                        <div title={a.categoria} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 14, height: 14, borderRadius: "50%", border: `2.5px solid ${sev.color}`, boxShadow: "0 0 0 1.5px #161a1f", transform: "translate(-50%,-50%)" }} />
+                        <div style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #161a1f", transform: "translate(6px, -22px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f" }}>
+                          {i + 1}
+                        </div>
+                      </React.Fragment>
                     );
                   })}
                   {suggerimenti.map((s, idx) => (
@@ -3827,9 +3836,12 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                     {anomalieFoto.map((a, i) => {
                       const sev = SEVERITY.find((s) => s.key === a.gravita);
                       return (
-                        <div key={a.id} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(-50%,-50%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
-                          {i + 1}
-                        </div>
+                        <React.Fragment key={a.id}>
+                          <div style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 14, height: 14, borderRadius: "50%", border: `2.5px solid ${sev.color}`, boxShadow: "0 0 0 1.5px rgba(0,0,0,0.6)", transform: "translate(-50%,-50%)" }} />
+                          <div style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(6px, -22px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
+                            {i + 1}
+                          </div>
+                        </React.Fragment>
                       );
                     })}
                   </div>
