@@ -1,5 +1,8 @@
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
+const crypto = require("crypto");
+const { execFileSync } = require("child_process");
 const { PNG } = require("pngjs");
 
 // --- palette termiche: array di tappe [posizione 0-1, [r,g,b]] ---
@@ -44,51 +47,11 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Metodo non consentito" };
   }
+
+  const idTemp = crypto.randomBytes(6).toString("hex");
+  const inputPath = path.join(os.tmpdir(), `termica-in-${idTemp}.jpg`);
+
   try {
-    // provo a elencare cosa c'è davvero nella cartella della funzione, utile per capire dove Netlify mette i file inclusi
-    let elencoCartella = [];
-    try { elencoCartella = fs.readdirSync(__dirname); } catch (e) { elencoCartella = ["(non leggibile: " + e.message + ")"]; }
-
-    // indico dove trovare la libreria di sistema mancante (libgomp.so.1), provando diversi percorsi possibili
-    const percorsiCandidati = [
-      __dirname,
-      path.join(__dirname, "lib"),
-      "/var/task",
-      "/var/task/netlify/functions",
-      path.join(process.env.LAMBDA_TASK_ROOT || "", ""),
-    ].filter(Boolean);
-
-    const cartellaConLib = percorsiCandidati.find((p) => {
-      try { return fs.existsSync(path.join(p, "libgomp.so.1")); } catch (e) { return false; }
-    });
-
-    if (cartellaConLib) {
-      const percorsoCompleto = path.join(cartellaConLib, "libgomp.so.1");
-      process.env.LD_LIBRARY_PATH = process.env.LD_LIBRARY_PATH
-        ? `${cartellaConLib}:${process.env.LD_LIBRARY_PATH}`
-        : cartellaConLib;
-      // LD_PRELOAD forza il caricamento diretto del file, più affidabile della sola ricerca per percorso
-      process.env.LD_PRELOAD = process.env.LD_PRELOAD
-        ? `${percorsoCompleto}:${process.env.LD_PRELOAD}`
-        : percorsoCompleto;
-    }
-
-    let getTemperatureData;
-    try {
-      ({ getTemperatureData } = require("dji-thermal-sdk"));
-    } catch (errSdk) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          errore: "Non sono riuscito a caricare la libreria DJI: " + (errSdk?.message || String(errSdk)) +
-            " | __dirname=" + __dirname +
-            " | file presenti=" + JSON.stringify(elencoCartella) +
-            " | lib trovata in=" + (cartellaConLib || "NESSUNA") +
-            " | LD_LIBRARY_PATH=" + (process.env.LD_LIBRARY_PATH || "(vuoto)"),
-        }),
-      };
-    }
-
     const body = JSON.parse(event.body);
     const { imageBase64, palette } = body;
     if (!imageBase64) {
@@ -96,11 +59,47 @@ exports.handler = async (event) => {
     }
 
     const buffer = Buffer.from(imageBase64, "base64");
+    fs.writeFileSync(inputPath, buffer);
 
-    // estrazione dei dati radiometrici reali con l'SDK ufficiale DJI
-    const { width, height, parameters, data } = getTemperatureData(buffer);
+    // eseguo l'estrazione dei dati radiometrici in un processo separato,
+    // che nasce già con il percorso della libreria mancante impostato correttamente
+    const workerPath = path.join(__dirname, "thermal-worker.js");
+    let output;
+    try {
+      output = execFileSync(process.execPath, [workerPath, inputPath], {
+        env: { ...process.env, LD_LIBRARY_PATH: `${__dirname}:${process.env.LD_LIBRARY_PATH || ""}` },
+        maxBuffer: 40 * 1024 * 1024,
+        timeout: 25000,
+      });
+    } catch (errEsecuzione) {
+      let elencoCartella = [];
+      try { elencoCartella = fs.readdirSync(__dirname); } catch (e) {}
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          errore: "Il processo di lettura dati termici non è partito correttamente: " +
+            (errEsecuzione?.message || String(errEsecuzione)) +
+            " | stdout=" + (errEsecuzione?.stdout ? errEsecuzione.stdout.toString().slice(0, 500) : "") +
+            " | stderr=" + (errEsecuzione?.stderr ? errEsecuzione.stderr.toString().slice(0, 500) : "") +
+            " | file presenti=" + JSON.stringify(elencoCartella),
+        }),
+      };
+    }
 
-    // data è un Uint16Array, ogni valore = temperatura in decimi di grado (es. 234 => 23.4°C)
+    let risultato;
+    try {
+      risultato = JSON.parse(output.toString());
+    } catch (e) {
+      return { statusCode: 500, body: JSON.stringify({ errore: "Risposta del processo dati non valida: " + output.toString().slice(0, 500) }) };
+    }
+
+    if (!risultato.ok) {
+      return { statusCode: 500, body: JSON.stringify({ errore: "Non sono riuscito a leggere i dati radiometrici. Verifica che la foto sia un R-JPEG DJI originale (non modificata/esportata da altri software). Dettaglio: " + risultato.errore }) };
+    }
+
+    const { width, height, parameters, data } = risultato;
+
+    // data è un array, ogni valore = temperatura in decimi di grado (es. 234 => 23.4°C)
     let min = Infinity, max = -Infinity;
     for (let i = 0; i < data.length; i++) {
       const t = data[i] / 10;
@@ -138,7 +137,9 @@ exports.handler = async (event) => {
   } catch (err) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ errore: "Non sono riuscito a leggere i dati radiometrici. Verifica che la foto sia un R-JPEG DJI originale (non modificata/esportata da altri software). Dettaglio: " + (err?.message || String(err)) }),
+      body: JSON.stringify({ errore: "Errore generico durante l'elaborazione. Dettaglio: " + (err?.message || String(err)) }),
     };
+  } finally {
+    try { fs.unlinkSync(inputPath); } catch (e) {}
   }
 };
