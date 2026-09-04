@@ -1962,7 +1962,17 @@ function Attestati({ attestati, onReload }) {
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo attestato</>}
         </button>
       </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Tieni traccia di patentini, attestati e scadenze — utile anche in vista dei nuovi requisiti (4 attestati per scenari Specific dal dicembre 2026).</p>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0" }}>Tieni traccia di patentini, attestati e scadenze — utile anche in vista dei nuovi requisiti (4 attestati per scenari Specific dal dicembre 2026).</p>
+
+      <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: "#c3cad4", margin: "0 0 8px 0" }}>Dove conseguirli</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <a href="https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/come-si-diventa-pilota-uas-drone-open-a1a3/" target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd" }}>Attestato A1/A3 — esame online gratuito su ENAC ↗</a>
+          <a href="https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/come-si-diventa-pilota-uas-drone-open-a2/" target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd" }}>Attestato A2 — via ENAC (centro accreditato in presenza) ↗</a>
+          <a href="https://www.easa.europa.eu/en/light/topics/drones-national-aviation-authorities-resources" target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd" }}>Attestato A2 — alternativa online in altri paesi UE (es. Paesi Bassi, Spagna) ↗</a>
+          <a href="https://www.enac.gov.it/sicurezza-aerea/droni/" target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd" }}>Attestati STS / Specific — elenco ENAC ↗</a>
+        </div>
+      </div>
 
       {showForm && (
         <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
