@@ -1032,7 +1032,6 @@ function AppShell({ session }) {
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} />}
         {page === "droni" && <Droni droni={droni} azienda={azienda} onReload={loadData} />}
-        {page === "analisi-termica" && <AnalisiTermica piano={piano} />}
       </div>
     </div>
   );
@@ -1129,7 +1128,6 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { key: "permessi", label: "Permessi", icon: ShieldCheck },
     { key: "attestati", label: "Attestati", icon: Award },
     { key: "droni", label: "I miei droni", icon: Plane },
-    { key: "analisi-termica", label: "Analisi termica", icon: Thermometer },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
   ];
@@ -1158,7 +1156,6 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
             <Icon size={16} strokeWidth={2} />
             <span className="sidebar-label">{it.label}</span>
             {it.key === "preventivi" && piano !== "pro" && <span className="sidebar-label" style={{ fontSize: 11, marginLeft: "auto" }}>🔒</span>}
-            {it.key === "analisi-termica" && piano !== "pro" && <span className="sidebar-label" style={{ fontSize: 11, marginLeft: "auto" }}>🔒</span>}
             {it.key === "attestati" && attestatiInScadenza > 0 && (
               <span className="sidebar-label" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto", background: "#ff4d4d", color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{attestatiInScadenza}</span>
             )}
