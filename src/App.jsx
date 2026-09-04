@@ -387,6 +387,71 @@ function costruisciPDFRiassuntoImpianto({ azienda, impianto, storico, piano }) {
 }
 
 // costruisce il PDF di una richiesta di permesso
+// costruisce il PDF di un attestato/patentino
+function costruisciPDFAttestato({ azienda, attestato, documentoDataUrl, documentoEImmagine }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const grigio = [110, 120, 130];
+  let y = 20;
+
+  if (azienda.logo) {
+    try { doc.addImage(azienda.logo, "PNG", (210 - 26) / 2, 10, 26, 16, undefined, "FAST"); } catch (e) {}
+    y = 34;
+  }
+
+  doc.setFontSize(17);
+  doc.setTextColor(20, 20, 20);
+  doc.text(attestato.tipo, 15, y);
+  y += 8;
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 10;
+
+  const scrivi = (label, val) => {
+    if (val === null || val === undefined || val === "") return;
+    if (y > 275) { doc.addPage(); y = 20; }
+    doc.setFontSize(10.5);
+    doc.setTextColor(...grigio);
+    doc.text(label, 15, y);
+    doc.setTextColor(20, 20, 20);
+    const righe = doc.splitTextToSize(String(val), 110);
+    doc.text(righe, 70, y);
+    y += Math.max(7, righe.length * 5);
+  };
+
+  scrivi("Numero / riferimento", attestato.numero_riferimento);
+  scrivi("Data conseguimento", attestato.data_conseguimento ? formatData(attestato.data_conseguimento) : null);
+  scrivi("Data scadenza", attestato.data_scadenza ? formatData(attestato.data_scadenza) : null);
+  scrivi("Note", attestato.note);
+  y += 6;
+
+  if (documentoDataUrl && documentoEImmagine) {
+    if (y > 180) { doc.addPage(); y = 20; }
+    doc.setFontSize(11);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Documento allegato", 15, y);
+    y += 6;
+    try {
+      const imgW = 170;
+      const imgProps = doc.getImageProperties(documentoDataUrl);
+      const imgH = Math.min(220, imgW * (imgProps.height / imgProps.width));
+      if (y + imgH > 285) { doc.addPage(); y = 20; }
+      doc.addImage(documentoDataUrl, "PNG", 15, y, imgW, imgH);
+      y += imgH + 6;
+    } catch (e) {}
+  } else if (attestato.documento_url) {
+    doc.setFontSize(9.5);
+    doc.setTextColor(...grigio);
+    doc.text("Documento originale disponibile nell'app (formato non incorporabile in questo PDF).", 15, y);
+    y += 8;
+  }
+
+  doc.setFontSize(8);
+  doc.setTextColor(...grigio);
+  doc.text(`Generato da ${azienda.nome} — documento a uso interno`, 15, 290);
+
+  return doc;
+}
+
 function costruisciPDFPermesso({ azienda, permesso, dflightDataUrl, piano }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const grigio = [110, 120, 130];
@@ -822,7 +887,7 @@ function AppShell({ session }) {
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
-        {page === "attestati" && <Attestati attestati={attestati} onReload={loadData} />}
+        {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} />}
       </div>
     </div>
   );
@@ -1859,8 +1924,8 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
 // --- Attestati -----------------------------------------------------------
 
 const TIPI_ATTESTATO_SUGGERITI = [
-  "Patentino A1/A3", "Patentino A2", "Attestato teorico STS ENAC", "Attestato pratico STS (VLOS/BVLOS)",
-  "UAS CRM", "Comunicazioni Aeronautiche UAS", "Registrazione operatore D-Flight", "Assicurazione RC", "Altro",
+  "Patentino A1/A3", "Patentino A2", "Assicurazione", "Attestato teorico STS ENAC", "Attestato pratico STS (VLOS/BVLOS)",
+  "UAS CRM", "Comunicazioni Aeronautiche UAS", "Registrazione operatore D-Flight", "Altro",
 ];
 
 function statoScadenza(dataScadenza) {
@@ -1873,7 +1938,7 @@ function statoScadenza(dataScadenza) {
   return { livello: "ok", testo: `Valido fino al ${formatData(dataScadenza)}`, colore: "#4ade80" };
 }
 
-function Attestati({ attestati, onReload }) {
+function Attestati({ attestati, azienda, onReload }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [tipo, setTipo] = useState(TIPI_ATTESTATO_SUGGERITI[0]);
@@ -1954,6 +2019,25 @@ function Attestati({ attestati, onReload }) {
     onReload();
   };
 
+  const scaricaPDFAttestato = async (a) => {
+    try {
+      let documentoDataUrl = null;
+      let documentoEImmagine = false;
+      if (a.documento_url) {
+        const estensione = a.documento_url.split(".").pop().toLowerCase().split("?")[0];
+        documentoEImmagine = ["png", "jpg", "jpeg", "webp", "gif"].includes(estensione);
+        if (documentoEImmagine) {
+          documentoDataUrl = await urlToDataUrl(a.documento_url);
+        }
+      }
+      const doc = costruisciPDFAttestato({ azienda, attestato: a, documentoDataUrl, documentoEImmagine });
+      const url = doc.output("bloburl");
+      window.open(url, "_blank");
+    } catch (err) {
+      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
+    }
+  };
+
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
@@ -1962,17 +2046,7 @@ function Attestati({ attestati, onReload }) {
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo attestato</>}
         </button>
       </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0" }}>Tieni traccia di patentini, attestati e scadenze — utile anche in vista dei nuovi requisiti (4 attestati per scenari Specific dal dicembre 2026).</p>
-
-      <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
-        <p style={{ fontSize: 12, fontWeight: 600, color: "#c3cad4", margin: "0 0 8px 0" }}>Dove conseguirli</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          <a href="https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/come-si-diventa-pilota-uas-drone-open-a1a3/" target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd" }}>Attestato A1/A3 — esame online gratuito su ENAC ↗</a>
-          <a href="https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/come-si-diventa-pilota-uas-drone-open-a2/" target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd" }}>Attestato A2 — via ENAC (centro accreditato in presenza) ↗</a>
-          <a href="https://www.easa.europa.eu/en/light/topics/drones-national-aviation-authorities-resources" target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd" }}>Attestato A2 — alternativa online in altri paesi UE (es. Paesi Bassi, Spagna) ↗</a>
-          <a href="https://www.enac.gov.it/sicurezza-aerea/droni/" target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd" }}>Attestati STS / Specific — elenco ENAC ↗</a>
-        </div>
-      </div>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Tieni traccia di patentini, attestati e scadenze — utile anche in vista dei nuovi requisiti (4 attestati per scenari Specific dal dicembre 2026).</p>
 
       {showForm && (
         <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2047,6 +2121,9 @@ function Attestati({ attestati, onReload }) {
                       <FileDown size={12} /> Documento
                     </a>
                   )}
+                  <button onClick={() => scaricaPDFAttestato(a)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                    <FileDown size={12} /> PDF
+                  </button>
                   <button onClick={() => apriModifica(a)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     Modifica
                   </button>
