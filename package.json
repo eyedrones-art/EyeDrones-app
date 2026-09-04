@@ -15,7 +15,7 @@
     "jspdf": "^2.5.1",
     "@supabase/supabase-js": "^2.45.0",
     "stripe": "^16.0.0",
-    "dji-thermal-sdk": "^1.4.0",
+    "dji-thermal-sdk": "^1.0.8",
     "pngjs": "^7.0.0"
   },
   "devDependencies": {
