@@ -737,7 +737,7 @@ export default function App() {
 
   if (session === undefined) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#161a1f", color: "#8b95a3", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", color: "#8b95a3", fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13 }}>
         Caricamento...
       </div>
     );
@@ -846,9 +846,8 @@ function AppShell({ session }) {
   });
 
   return (
-    <div className="app-shell" style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: "#161a1f", color: "#e7eaee", minHeight: "100vh", display: "flex", width: "100%" }}>
+    <div className="app-shell" style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: "transparent", color: "#e7eaee", minHeight: "100vh", display: "flex", width: "100%" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
         button { font-family: inherit; cursor: pointer; }
         .mono { font-family: 'IBM Plex Mono', monospace; }
@@ -928,18 +927,19 @@ function Login() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#161a1f", fontFamily: "'IBM Plex Sans', sans-serif", padding: 24 }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');`}</style>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", fontFamily: "'IBM Plex Sans', sans-serif", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 340 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 26 }}>
-          <img src={LOGO_EYEDRONES} alt="Eyedrones" style={{ width: 52, height: 52, objectFit: "contain" }} />
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 17 }}>Eyedrones</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 26, position: "relative" }}>
+          <div style={{ position: "absolute", width: 130, height: 130, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,140,66,0.22), rgba(126,58,242,0.14) 60%, transparent 75%)", filter: "blur(2px)", zIndex: 0 }} />
+          <img src={LOGO_EYEDRONES} alt="Eyedrones" style={{ width: 52, height: 52, objectFit: "contain", position: "relative", zIndex: 1 }} />
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 17, position: "relative", zIndex: 1 }}>Eyedrones</span>
         </div>
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 10, padding: 22 }}>
+        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 10, padding: 22, position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
           {modo !== "recupera" && (
             <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
-              <button type="button" onClick={() => setModo("login")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "login" ? "#ff8c42" : "#262b33", color: modo === "login" ? "#161a1f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Accedi</button>
-              <button type="button" onClick={() => setModo("registrati")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "registrati" ? "#ff8c42" : "#262b33", color: modo === "registrati" ? "#161a1f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Registrati</button>
+              <button type="button" onClick={() => setModo("login")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "login" ? "linear-gradient(90deg, #e0552f, #ff8c42)" : "#262b33", color: modo === "login" ? "#161a1f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Accedi</button>
+              <button type="button" onClick={() => setModo("registrati")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "registrati" ? "linear-gradient(90deg, #e0552f, #ff8c42)" : "#262b33", color: modo === "registrati" ? "#161a1f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Registrati</button>
             </div>
           )}
           {modo === "recupera" && (
@@ -952,7 +952,7 @@ function Login() {
             )}
             {errore && <p style={{ color: "#ff9c9c", fontSize: 12, margin: 0 }}>{errore}</p>}
             {messaggio && <p style={{ color: "#4ade80", fontSize: 12, margin: 0 }}>{messaggio}</p>}
-            <button type="submit" disabled={caricamento} style={{ marginTop: 4, background: "#ff8c42", color: "#161a1f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+            <button type="submit" disabled={caricamento} style={{ marginTop: 4, background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
               {caricamento ? "Attendi..." : modo === "login" ? "Accedi" : modo === "registrati" ? "Crea account" : "Invia link"}
             </button>
           </form>
@@ -987,9 +987,10 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
   ];
   return (
     <div className="sidebar" style={{ background: "#12151a", borderRight: "1px solid #262b33", padding: "20px 14px", display: "flex", flexShrink: 0 }}>
-      <div className="sidebar-brand" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px 22px 8px" }}>
+      <div className="sidebar-brand" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px 18px 8px", marginBottom: 4, borderBottom: "1px solid #262b33", position: "relative" }}>
         <img src={LOGO_EYEDRONES} alt="Eyedrones" style={{ width: 36, height: 36, objectFit: "contain", flexShrink: 0 }} />
         <span className="sidebar-brand-label" style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>Eyedrones</span>
+        <div style={{ position: "absolute", bottom: -1, left: 0, width: 46, height: 2, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
       </div>
       {items.map((it) => {
         const Icon = it.icon;
