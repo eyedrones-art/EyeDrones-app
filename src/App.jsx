@@ -46,11 +46,13 @@ function ritagliaZona(img, xPercent, yPercent, dimensionePercentuale = 24) {
   sx = Math.max(0, Math.min(sx, img.naturalWidth - lato));
   sy = Math.max(0, Math.min(sy, img.naturalHeight - lato));
 
+  const risoluzione = 700; // più alta di prima, per reggere lo zoom nel lettore PDF senza sgranarsi
   const canvas = document.createElement("canvas");
-  canvas.width = 320;
-  canvas.height = 320;
+  canvas.width = risoluzione;
+  canvas.height = risoluzione;
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, sx, sy, lato, lato, 0, 0, 320, 320);
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, lato, lato, 0, 0, risoluzione, risoluzione);
   return canvas.toDataURL("image/png");
 }
 
@@ -255,13 +257,22 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
         const r = parseInt(hex.substring(0, 2), 16), g = parseInt(hex.substring(2, 4), 16), b = parseInt(hex.substring(4, 6), 16);
         const cx = 15 + (a.x / 100) * imgW;
         const cy = y + (a.y / 100) * imgH;
+        // puntino piccolo e preciso esattamente sul punto, così non copre il dettaglio della foto
         doc.setFillColor(r, g, b);
         doc.setDrawColor(255, 255, 255);
-        doc.circle(cx, cy, 2.6, "FD");
-        doc.setFontSize(7.5);
+        doc.circle(cx, cy, 1, "FD");
+        // il numero va in un'etichetta spostata di lato, non sopra al punto stesso
+        const ex = cx + 3.5, ey = cy - 3.5;
+        doc.setFillColor(r, g, b);
+        doc.circle(ex, ey, 2.4, "F");
+        doc.setDrawColor(255, 255, 255);
+        doc.setLineWidth(0.3);
+        doc.line(cx, cy, ex, ey);
+        doc.circle(ex, ey, 2.4, "D");
+        doc.setFontSize(7);
         doc.setFont(undefined, "bold");
         doc.setTextColor(22, 26, 31);
-        doc.text(String(i + 1), cx, cy + 0.9, { align: "center" });
+        doc.text(String(i + 1), ex, ey + 0.8, { align: "center" });
         doc.setFont(undefined, "normal");
       });
     } catch (e) {}
@@ -1583,6 +1594,22 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
   const [salvandoPermesso, setSalvandoPermesso] = useState(false);
   const [generandoRegistro, setGenerandoRegistro] = useState(false);
   const [pdfUrlRegistro, setPdfUrlRegistro] = useState(null);
+  const [ritagliSchermo, setRitagliSchermo] = useState(new Map());
+
+  useEffect(() => {
+    let annullato = false;
+    (async () => {
+      try {
+        const fotoConDataUrlLocali = await Promise.all(
+          fotoIspezione.map(async (f) => ({ id: f.id, dataUrl: await urlToDataUrl(f.url) }))
+        );
+        const anomalieNorm = anomalieIspezione.map((a) => ({ ...a, fotoId: a.foto_id, x: a.pos_x, y: a.pos_y }));
+        const ritagli = await generaRitagliAnomalie(fotoConDataUrlLocali, anomalieNorm);
+        if (!annullato) setRitagliSchermo(ritagli);
+      } catch (e) { /* se fallisce, l'anteprima resta solo testuale, non è bloccante */ }
+    })();
+    return () => { annullato = true; };
+  }, [ispezione.id]);
 
   const salvaStatoPermesso = async () => {
     setSalvandoPermesso(true);
@@ -1702,7 +1729,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
               {anomalieFoto.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   {anomalieFoto.map((a, i) => (
-                    <BloccoAnomalia key={a.id} a={{ categoria: a.categoria, gravita: a.gravita }} numero={i + 1} />
+                    <BloccoAnomalia key={a.id} a={{ categoria: a.categoria, gravita: a.gravita }} numero={i + 1} ritaglio={ritagliSchermo.get(a.id)} />
                   ))}
                 </div>
               )}
@@ -1717,7 +1744,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
             <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
               <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Altre anomalie</h3>
               {anomalieSenzaFoto.map((a, i) => (
-                <BloccoAnomalia key={a.id} a={{ categoria: a.categoria, gravita: a.gravita }} numero={i + 1} />
+                <BloccoAnomalia key={a.id} a={{ categoria: a.categoria, gravita: a.gravita }} numero={i + 1} ritaglio={ritagliSchermo.get(a.id)} />
               ))}
             </div>
           );
@@ -3256,6 +3283,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [erroreSalvataggio, setErroreSalvataggio] = useState(null);
   const [suggerimenti, setSuggerimenti] = useState([]);
   const [rilevandoPunti, setRilevandoPunti] = useState(false);
+  const [ritagliSchermo, setRitagliSchermo] = useState(new Map());
   const imgRef = useRef(null);
 
   const nuovoIdLocale = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -3443,6 +3471,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const vaiAlReport = () => {
     setStep(3);
     salvaSuDb();
+    generaRitagliAnomalie(foto, anomalie).then(setRitagliSchermo).catch(() => {});
   };
 
   const limiteRaggiunto = piano === "free" && reportQuestoMese >= 4;
@@ -3810,7 +3839,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                   {anomalieFoto.length > 0 && (
                     <div style={{ marginTop: 12 }}>
                       {anomalieFoto.map((a, i) => (
-                        <BloccoAnomalia key={a.id} a={a} numero={i + 1} />
+                        <BloccoAnomalia key={a.id} a={a} numero={i + 1} ritaglio={ritagliSchermo.get(a.id)} />
                       ))}
                     </div>
                   )}
@@ -3825,7 +3854,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
                   <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Altre anomalie</h3>
                   {anomalieSenzaFoto.map((a, i) => (
-                    <BloccoAnomalia key={a.id} a={a} numero={i + 1} />
+                    <BloccoAnomalia key={a.id} a={a} numero={i + 1} ritaglio={ritagliSchermo.get(a.id)} />
                   ))}
                 </div>
               );
@@ -3864,17 +3893,22 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   );
 }
 
-function BloccoAnomalia({ a, numero }) {
+function BloccoAnomalia({ a, numero, ritaglio }) {
   const info = TUTTE_LE_CATEGORIE.find((c) => c.key === a.categoria);
   const sev = SEVERITY.find((s) => s.key === a.gravita);
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600 }}>{numero}. {a.categoria}</span>
-        <span style={{ fontSize: 10, fontWeight: 700, color: sev.color }}>{sev.label.toUpperCase()}</span>
+    <div style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-start" }}>
+      {ritaglio && (
+        <img src={ritaglio} alt="Primo piano anomalia" style={{ width: 62, height: 62, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e5e5", flexShrink: 0 }} />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>{numero}. {a.categoria}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: sev.color }}>{sev.label.toUpperCase()}</span>
+        </div>
+        <p style={{ fontSize: 11.5, color: "#555", margin: "3px 0" }}>{info.descrizione}</p>
+        <p style={{ fontSize: 11.5, color: "#ff8c42", margin: 0, fontWeight: 500 }}>Azione consigliata: {info.azione}</p>
       </div>
-      <p style={{ fontSize: 11.5, color: "#555", margin: "3px 0" }}>{info.descrizione}</p>
-      <p style={{ fontSize: 11.5, color: "#ff8c42", margin: 0, fontWeight: 500 }}>Azione consigliata: {info.azione}</p>
     </div>
   );
 }
