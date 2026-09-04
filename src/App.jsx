@@ -2301,7 +2301,8 @@ function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando
 // --- Attestati -----------------------------------------------------------
 
 const TIPI_ATTESTATO_SUGGERITI = [
-  "Patentino A1/A3", "Patentino A2", "Assicurazione", "Attestato teorico STS ENAC", "Attestato pratico STS (VLOS/BVLOS)",
+  "Patentino A1/A3", "Patentino A2", "Assicurazione", "Termografia Livello 1 (UNI EN ISO 9712)", "Termografia Livello 2 (UNI EN ISO 9712)",
+  "Attestato teorico STS ENAC", "Attestato pratico STS (VLOS/BVLOS)",
   "UAS CRM", "Comunicazioni Aeronautiche UAS", "Registrazione operatore D-Flight", "Altro",
 ];
 
