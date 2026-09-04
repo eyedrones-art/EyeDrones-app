@@ -1,13 +1,5 @@
 const path = require("path");
-
-// indico dove trovare la libreria di sistema mancante (libgomp.so.1),
-// che includiamo insieme alla funzione perché i server di Netlify non ce l'hanno di default
-const cartellaLib = __dirname;
-process.env.LD_LIBRARY_PATH = process.env.LD_LIBRARY_PATH
-  ? `${cartellaLib}:${process.env.LD_LIBRARY_PATH}`
-  : cartellaLib;
-
-const { getTemperatureData } = require("dji-thermal-sdk");
+const fs = require("fs");
 const { PNG } = require("pngjs");
 
 // --- palette termiche: array di tappe [posizione 0-1, [r,g,b]] ---
@@ -53,6 +45,45 @@ exports.handler = async (event) => {
     return { statusCode: 405, body: "Metodo non consentito" };
   }
   try {
+    // provo a elencare cosa c'è davvero nella cartella della funzione, utile per capire dove Netlify mette i file inclusi
+    let elencoCartella = [];
+    try { elencoCartella = fs.readdirSync(__dirname); } catch (e) { elencoCartella = ["(non leggibile: " + e.message + ")"]; }
+
+    // indico dove trovare la libreria di sistema mancante (libgomp.so.1), provando diversi percorsi possibili
+    const percorsiCandidati = [
+      __dirname,
+      path.join(__dirname, "lib"),
+      "/var/task",
+      "/var/task/netlify/functions",
+      path.join(process.env.LAMBDA_TASK_ROOT || "", ""),
+    ].filter(Boolean);
+
+    const cartellaConLib = percorsiCandidati.find((p) => {
+      try { return fs.existsSync(path.join(p, "libgomp.so.1")); } catch (e) { return false; }
+    });
+
+    if (cartellaConLib) {
+      process.env.LD_LIBRARY_PATH = process.env.LD_LIBRARY_PATH
+        ? `${cartellaConLib}:${process.env.LD_LIBRARY_PATH}`
+        : cartellaConLib;
+    }
+
+    let getTemperatureData;
+    try {
+      ({ getTemperatureData } = require("dji-thermal-sdk"));
+    } catch (errSdk) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          errore: "Non sono riuscito a caricare la libreria DJI: " + (errSdk?.message || String(errSdk)) +
+            " | __dirname=" + __dirname +
+            " | file presenti=" + JSON.stringify(elencoCartella) +
+            " | lib trovata in=" + (cartellaConLib || "NESSUNA") +
+            " | LD_LIBRARY_PATH=" + (process.env.LD_LIBRARY_PATH || "(vuoto)"),
+        }),
+      };
+    }
+
     const body = JSON.parse(event.body);
     const { imageBase64, palette } = body;
     if (!imageBase64) {
