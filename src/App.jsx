@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 
@@ -643,10 +643,14 @@ const SEVERITY = [
 ];
 
 const CATEGORIE = [
-  { key: "Hotspot cella", descrizione: "Punto anomalo di surriscaldamento su una singola cella, spesso per micro-fratture interne.", azione: "Verifica visiva ravvicinata; se persiste, sostituzione del pannello." },
+  { key: "Hotspot singolo (classe A)", descrizione: "Punto isolato di surriscaldamento su una singola cella, spesso per micro-fratture interne o difetti di saldatura.", azione: "Verifica visiva ravvicinata; se persiste, sostituzione del pannello." },
+  { key: "Hotspot multipli (classe B)", descrizione: "Più punti di surriscaldamento all'interno dello stesso modulo, tipico di celle multiple danneggiate o disconnesse.", azione: "Ispezione approfondita del modulo; probabile sostituzione." },
+  { key: "Sotto-stringa calda (classe C)", descrizione: "Porzione del modulo (sotto-stringa) uniformemente più calda del resto, spesso per diodo di bypass attivo o guasto.", azione: "Controllo elettrico della scatola di giunzione e del diodo di bypass." },
+  { key: "Modulo uniformemente caldo (classe D)", descrizione: "L'intero modulo risulta più caldo rispetto ai moduli adiacenti, possibile cella in cortocircuito o degrado diffuso.", azione: "Verifica elettrica del modulo (curva I-V) e valutazione sostituzione." },
+  { key: "Stringa disconnessa (classe E)", descrizione: "Intera serie di moduli fredda o scollegata, tipico di un guasto a monte (fusibile, connettore, cablaggio).", azione: "Controllo del quadro stringhe e della continuità elettrica." },
   { key: "Cella fratturata", descrizione: "Rottura fisica visibile della cella, riduce la produzione e può peggiorare nel tempo.", azione: "Sostituzione del pannello consigliata." },
   { key: "Ombreggiamento", descrizione: "Zona d'ombra ricorrente (vegetazione, strutture) che abbassa la resa del modulo.", azione: "Valutare potatura o rimozione dell'ostacolo." },
-  { key: "Diodo bypass", descrizione: "Malfunzionamento del diodo di bypass, il pannello si scalda a strisce.", azione: "Controllo elettrico della scatola di giunzione." },
+  { key: "Diodo di bypass guasto", descrizione: "Malfunzionamento del diodo di bypass, il pannello si scalda a strisce.", azione: "Controllo elettrico della scatola di giunzione." },
   { key: "Sporcizia/detriti", descrizione: "Accumulo di polvere, foglie o depositi che riduce l'irraggiamento captato.", azione: "Pianificare pulizia del modulo." },
   { key: "Delaminazione", descrizione: "Distacco degli strati protettivi del pannello, rischio infiltrazioni.", azione: "Ispezione approfondita e possibile sostituzione." },
 ];
@@ -695,6 +699,7 @@ function AppShell({ session }) {
   const [reportLog, setReportLog] = useState([]);
   const [preventivi, setPreventivi] = useState([]);
   const [permessi, setPermessi] = useState([]);
+  const [attestati, setAttestati] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
@@ -733,7 +738,7 @@ function AppShell({ session }) {
     setLoading(true);
     setDbError(null);
     try {
-      const [{ data: imp, error: e1 }, { data: isp, error: e2 }, { data: ano, error: e3 }, { data: fot, error: e4 }, { data: log, error: e5 }, { data: prev, error: e6 }, { data: perm, error: e7 }] = await Promise.all([
+      const [{ data: imp, error: e1 }, { data: isp, error: e2 }, { data: ano, error: e3 }, { data: fot, error: e4 }, { data: log, error: e5 }, { data: prev, error: e6 }, { data: perm, error: e7 }, { data: att, error: e8 }] = await Promise.all([
         supabase.from("impianti").select("*").order("created_at"),
         supabase.from("ispezioni").select("*").order("data", { ascending: false }),
         supabase.from("anomalie").select("*"),
@@ -741,8 +746,9 @@ function AppShell({ session }) {
         supabase.from("report_log").select("*"),
         supabase.from("preventivi").select("*").order("created_at", { ascending: false }),
         supabase.from("permessi").select("*").order("created_at", { ascending: false }),
+        supabase.from("attestati").select("*").order("data_scadenza", { ascending: true }),
       ]);
-      if (e1 || e2 || e3 || e4 || e5 || e6 || e7) throw (e1 || e2 || e3 || e4 || e5 || e6 || e7);
+      if (e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8) throw (e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8);
       setImpianti(imp || []);
       setIspezioni(isp || []);
       setAnomalieAll(ano || []);
@@ -750,6 +756,7 @@ function AppShell({ session }) {
       setReportLog(log || []);
       setPreventivi(prev || []);
       setPermessi(perm || []);
+      setAttestati(att || []);
     } catch (err) {
       setDbError(err.message || "Errore di connessione al database");
     }
@@ -799,7 +806,7 @@ function AppShell({ session }) {
         }
       `}</style>
 
-      <Sidebar page={page} setPage={setPage} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} />
+      <Sidebar page={page} setPage={setPage} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {dbError && (
@@ -815,6 +822,7 @@ function AppShell({ session }) {
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
+        {page === "attestati" && <Attestati attestati={attestati} onReload={loadData} />}
       </div>
     </div>
   );
@@ -901,13 +909,14 @@ function Login() {
 
 // --- Sidebar -----------------------------------------------------------
 
-function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese }) {
+function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza }) {
   const items = [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { key: "impianti", label: "Impianti", icon: Sun },
     { key: "nuova", label: "Nuova ispezione", icon: Plus },
     { key: "preventivi", label: "Preventivi", icon: FileText },
     { key: "permessi", label: "Permessi", icon: ShieldCheck },
+    { key: "attestati", label: "Attestati", icon: Award },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
   ];
@@ -935,6 +944,9 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese }) {
             <Icon size={16} strokeWidth={2} />
             <span className="sidebar-label">{it.label}</span>
             {it.key === "preventivi" && piano !== "pro" && <span className="sidebar-label" style={{ fontSize: 11, marginLeft: "auto" }}>🔒</span>}
+            {it.key === "attestati" && attestatiInScadenza > 0 && (
+              <span className="sidebar-label" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto", background: "#ff4d4d", color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{attestatiInScadenza}</span>
+            )}
           </button>
         );
       })}
@@ -1797,6 +1809,14 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {preventivi.map((p) => {
             const stato = STATI_PREVENTIVO.find((s) => s.key === p.stato) || STATI_PREVENTIVO[0];
+            let promemoria = null;
+            if (p.stato === "inviato" && p.data) {
+              const scadenza = new Date(p.data);
+              scadenza.setDate(scadenza.getDate() + (p.validita_giorni || 30));
+              const giorni = Math.ceil((scadenza - new Date()) / (1000 * 60 * 60 * 24));
+              if (giorni < 0) promemoria = { testo: `Scaduto da ${Math.abs(giorni)} giorni, nessuna risposta`, colore: "#ff4d4d" };
+              else if (giorni <= 5) promemoria = { testo: `Scade tra ${giorni} giorni, nessuna risposta`, colore: "#f5b942" };
+            }
             return (
               <div key={p.id} style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
@@ -1804,6 +1824,9 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
                     {p.luogo_intervento && <>{p.luogo_intervento} &middot; </>}{formatData(p.data)} &middot; <span className="mono">{Number(p.prezzo).toFixed(2)} €</span>
                   </div>
+                  {promemoria && (
+                    <div style={{ fontSize: 11.5, color: promemoria.colore, fontWeight: 600, marginTop: 3 }}>⏰ {promemoria.testo}</div>
+                  )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <select
@@ -1821,6 +1844,203 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
                     <FileDown size={12} /> PDF
                   </button>
                   <button onClick={() => eliminaPreventivo(p.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                    Elimina
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Attestati -----------------------------------------------------------
+
+const TIPI_ATTESTATO_SUGGERITI = [
+  "Patentino A1/A3", "Patentino A2", "Attestato teorico STS ENAC", "Attestato pratico STS (VLOS/BVLOS)",
+  "UAS CRM", "Comunicazioni Aeronautiche UAS", "Registrazione operatore D-Flight", "Assicurazione RC", "Altro",
+];
+
+function statoScadenza(dataScadenza) {
+  if (!dataScadenza) return null;
+  const oggi = new Date();
+  const scadenza = new Date(dataScadenza);
+  const giorni = Math.ceil((scadenza - oggi) / (1000 * 60 * 60 * 24));
+  if (giorni < 0) return { livello: "scaduto", testo: `Scaduto da ${Math.abs(giorni)} giorni`, colore: "#ff4d4d" };
+  if (giorni <= 30) return { livello: "in_scadenza", testo: `Scade tra ${giorni} giorni`, colore: "#f5b942" };
+  return { livello: "ok", testo: `Valido fino al ${formatData(dataScadenza)}`, colore: "#4ade80" };
+}
+
+function Attestati({ attestati, onReload }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [tipo, setTipo] = useState(TIPI_ATTESTATO_SUGGERITI[0]);
+  const [tipoAltro, setTipoAltro] = useState("");
+  const [numeroRiferimento, setNumeroRiferimento] = useState("");
+  const [dataConseguimento, setDataConseguimento] = useState("");
+  const [dataScadenza, setDataScadenza] = useState("");
+  const [note, setNote] = useState("");
+  const [documento, setDocumento] = useState(null);
+  const [salvataggio, setSalvataggio] = useState(false);
+
+  const resetForm = () => {
+    setTipo(TIPI_ATTESTATO_SUGGERITI[0]); setTipoAltro(""); setNumeroRiferimento("");
+    setDataConseguimento(""); setDataScadenza(""); setNote(""); setDocumento(null); setEditingId(null);
+  };
+
+  const apriModifica = (a) => {
+    setEditingId(a.id);
+    setTipo(TIPI_ATTESTATO_SUGGERITI.includes(a.tipo) ? a.tipo : "Altro");
+    setTipoAltro(TIPI_ATTESTATO_SUGGERITI.includes(a.tipo) ? "" : a.tipo);
+    setNumeroRiferimento(a.numero_riferimento || "");
+    setDataConseguimento(a.data_conseguimento || "");
+    setDataScadenza(a.data_scadenza || "");
+    setNote(a.note || "");
+    setDocumento(null);
+    setShowForm(true);
+  };
+
+  const caricaDocumento = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDocumento({ nome: file.name, blob: file });
+    e.target.value = "";
+  };
+
+  const salvaAttestato = async () => {
+    const tipoFinale = tipo === "Altro" ? tipoAltro : tipo;
+    if (!tipoFinale) return;
+    setSalvataggio(true);
+    try {
+      let documentoUrl = null;
+      if (documento?.blob) {
+        const estensione = documento.nome.split(".").pop();
+        const nomeFile = `attestato-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${estensione}`;
+        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, documento.blob);
+        if (!eUp) {
+          const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
+          documentoUrl = pub?.publicUrl || null;
+        }
+      }
+      const payload = {
+        tipo: tipoFinale,
+        numero_riferimento: numeroRiferimento || null,
+        data_conseguimento: dataConseguimento || null,
+        data_scadenza: dataScadenza || null,
+        note: note || null,
+      };
+      if (documentoUrl) payload.documento_url = documentoUrl;
+      let error;
+      if (editingId) {
+        ({ error } = await supabase.from("attestati").update(payload).eq("id", editingId));
+      } else {
+        ({ error } = await supabase.from("attestati").insert(payload));
+      }
+      if (error) throw error;
+      resetForm();
+      setShowForm(false);
+      onReload();
+    } catch (err) {
+      alert("Salvataggio non riuscito: " + (err?.message || err));
+    }
+    setSalvataggio(false);
+  };
+
+  const eliminaAttestato = async (id) => {
+    if (!window.confirm("Eliminare questo attestato?")) return;
+    await supabase.from("attestati").delete().eq("id", id);
+    onReload();
+  };
+
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Attestati</h1>
+        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          {showForm ? "Annulla" : <><Plus size={14} /> Nuovo attestato</>}
+        </button>
+      </div>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Tieni traccia di patentini, attestati e scadenze — utile anche in vista dei nuovi requisiti (4 attestati per scenari Specific dal dicembre 2026).</p>
+
+      {showForm && (
+        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Tipo di attestato</label>
+            <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={inputStyle}>
+              {TIPI_ATTESTATO_SUGGERITI.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          {tipo === "Altro" && (
+            <div>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Specifica</label>
+              <input value={tipoAltro} onChange={(e) => setTipoAltro(e.target.value)} style={inputStyle} />
+            </div>
+          )}
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Numero / riferimento (opzionale)</label>
+            <input value={numeroRiferimento} onChange={(e) => setNumeroRiferimento(e.target.value)} style={inputStyle} />
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Data conseguimento</label>
+              <input type="date" value={dataConseguimento} onChange={(e) => setDataConseguimento(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Data scadenza</label>
+              <input type="date" value={dataScadenza} onChange={(e) => setDataScadenza(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Documento (facoltativo, immagine o PDF)</label>
+            {documento ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, color: "#c3cad4" }}>{documento.nome}</span>
+                <button onClick={() => setDocumento(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+              </div>
+            ) : (
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+                <Upload size={13} /> Carica documento
+                <input type="file" accept="image/*,.pdf" onChange={caricaDocumento} style={{ display: "none" }} />
+              </label>
+            )}
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note (opzionale)</label>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+          </div>
+          <button onClick={salvaAttestato} disabled={salvataggio} style={{ marginTop: 4, background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+            {salvataggio ? "Salvataggio..." : editingId ? "Aggiorna attestato" : "Salva attestato"}
+          </button>
+        </div>
+      )}
+
+      {attestati.length === 0 ? (
+        <EmptyState text="Nessun attestato ancora registrato." />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {attestati.map((a) => {
+            const stato = statoScadenza(a.data_scadenza);
+            return (
+              <div key={a.id} style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{a.tipo}</div>
+                  <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
+                    {a.numero_riferimento && <>{a.numero_riferimento} &middot; </>}
+                    {stato ? <span style={{ color: stato.colore, fontWeight: 600 }}>{stato.testo}</span> : "Nessuna scadenza impostata"}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {a.documento_url && (
+                    <a href={a.documento_url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#3d8bfd", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
+                      <FileDown size={12} /> Documento
+                    </a>
+                  )}
+                  <button onClick={() => apriModifica(a)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                    Modifica
+                  </button>
+                  <button onClick={() => eliminaAttestato(a.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     Elimina
                   </button>
                 </div>
