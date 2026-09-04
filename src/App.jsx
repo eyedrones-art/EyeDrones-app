@@ -168,6 +168,7 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
     ["Data ispezione", dati.dataFormattata],
     ["Ora ispezione", dati.ora || "—"],
     ["Eseguita da", dati.operatore || "—"],
+    ["Coordinate GPS", dati.coordinateGps || "—"],
     ["Irraggiamento solare", dati.irraggiamento ? `${dati.irraggiamento} W/m²` : "—"],
     ["Anomalie rilevate", String(anomalieList.length)],
     ["Prossimo controllo", dati.prossimoControlloFormattato || "—"],
@@ -186,7 +187,7 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
   y += 10;
 
   const disegnaAnomalia = (a, numero) => {
-    const info = CATEGORIE.find((c) => c.key === a.categoria);
+    const info = TUTTE_LE_CATEGORIE.find((c) => c.key === a.categoria);
     const sev = SEVERITY.find((s) => s.key === a.gravita);
     const ritaglio = ritagli && ritagli.get ? ritagli.get(a.id) : null;
     const latoImg = 26;
@@ -911,7 +912,7 @@ const SEVERITY = [
   { key: "critica", label: "Critica", color: "#ff4d4d" },
 ];
 
-const CATEGORIE = [
+const CATEGORIE_FOTOVOLTAICO = [
   { key: "Hotspot singolo (classe A)", descrizione: "Punto isolato di surriscaldamento su una singola cella, spesso per micro-fratture interne o difetti di saldatura.", azione: "Verifica visiva ravvicinata; se persiste, sostituzione del pannello." },
   { key: "Hotspot multipli (classe B)", descrizione: "Più punti di surriscaldamento all'interno dello stesso modulo, tipico di celle multiple danneggiate o disconnesse.", azione: "Ispezione approfondita del modulo; probabile sostituzione." },
   { key: "Sotto-stringa calda (classe C)", descrizione: "Porzione del modulo (sotto-stringa) uniformemente più calda del resto, spesso per diodo di bypass attivo o guasto.", azione: "Controllo elettrico della scatola di giunzione e del diodo di bypass." },
@@ -923,6 +924,29 @@ const CATEGORIE = [
   { key: "Sporcizia/detriti", descrizione: "Accumulo di polvere, foglie o depositi che riduce l'irraggiamento captato.", azione: "Pianificare pulizia del modulo." },
   { key: "Delaminazione", descrizione: "Distacco degli strati protettivi del pannello, rischio infiltrazioni.", azione: "Ispezione approfondita e possibile sostituzione." },
 ];
+
+const CATEGORIE_EDIFICI = [
+  { key: "Ponte termico", descrizione: "Zona localizzata con dispersione di calore maggiore, dovuta a elementi strutturali che bypassano l'isolamento (es. pilastri, solai, cordoli).", azione: "Valutare intervento di isolamento a cappotto nella zona interessata." },
+  { key: "Isolamento mancante o insufficiente", descrizione: "Ampia porzione di parete o copertura con dispersione termica diffusa, tipica di isolamento assente o degradato.", azione: "Verificare lo spessore e lo stato dell'isolante; valutare integrazione." },
+  { key: "Infiltrazione d'aria", descrizione: "Zona con passaggio d'aria non controllato, spesso attorno a serramenti, prese elettriche o giunti.", azione: "Sigillare i punti di infiltrazione individuati." },
+  { key: "Difetto di tenuta serramenti", descrizione: "Dispersione localizzata attorno a finestre o porte, per guarnizioni usurate o posa non corretta.", azione: "Verifica e sostituzione delle guarnizioni; controllo della posa." },
+  { key: "Infiltrazione/umidità di risalita", descrizione: "Segnatura termica compatibile con presenza di umidità nella muratura.", azione: "Approfondire con igrometro; individuare la fonte dell'infiltrazione." },
+  { key: "Rischio muffa/condensa superficiale", descrizione: "Zona con temperatura superficiale sufficientemente bassa da favorire condensa e formazione di muffa.", azione: "Migliorare isolamento e/o ventilazione della zona." },
+  { key: "Guasto impianto radiante", descrizione: "Anomalia nella distribuzione del calore di un impianto a pavimento/parete radiante (tratti freddi o surriscaldati).", azione: "Verifica dell'impianto con tecnico specializzato." },
+];
+
+const CATEGORIE_DANNI = [
+  { key: "Danno da grandine", descrizione: "Ammaccature o fori sul manto di copertura causati da grandine, riducono la tenuta e la vita utile del materiale.", azione: "Documentare estensione e numero di impatti; valutare sostituzione della porzione colpita." },
+  { key: "Distacco tegola/scandola", descrizione: "Elemento di copertura spostato, sollevato o mancante, espone la struttura sottostante a infiltrazioni.", azione: "Ripristino o sostituzione dell'elemento mancante." },
+  { key: "Infiltrazione/macchia di umidità", descrizione: "Segno visibile di penetrazione d'acqua sulla copertura o sulla guaina impermeabilizzante.", azione: "Individuare il punto di ingresso e ripristinare la tenuta." },
+  { key: "Usura/degrado del materiale", descrizione: "Deterioramento diffuso del manto di copertura dovuto a età, esposizione UV o agenti atmosferici.", azione: "Valutare la vita utile residua e pianificare manutenzione o rifacimento." },
+  { key: "Danno strutturale", descrizione: "Deformazione, cedimento o avvallamento visibile della struttura di copertura.", azione: "Richiedere verifica strutturale approfondita da tecnico abilitato." },
+  { key: "Grondaia/scarico danneggiato", descrizione: "Elemento di raccolta o scarico delle acque piovane ammaccato, ostruito o distaccato.", azione: "Ripristino o sostituzione del componente." },
+  { key: "Camino/abbaino compromesso", descrizione: "Danno visibile su elementi verticali della copertura (camini, abbaini, lucernari).", azione: "Verifica della tenuta e delle guarnizioni perimetrali." },
+];
+
+// combino entrambe le liste per la ricerca: così un'anomalia resta leggibile anche se la vedi in un contesto diverso da quando è stata creata
+const TUTTE_LE_CATEGORIE = [...CATEGORIE_FOTOVOLTAICO, ...CATEGORIE_DANNI, ...CATEGORIE_EDIFICI];
 
 // --- Shell -----------------------------------------------------------
 
@@ -1577,6 +1601,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
           irraggiamento: ispezione.irraggiamento,
           note: ispezione.note,
           prossimoControlloFormattato: ispezione.prossimo_controllo ? formatData(ispezione.prossimo_controllo) : null,
+          coordinateGps: ispezione.coordinate_gps,
         },
         fotoConDataUrl,
         anomalieList: anomalieNormalizzate,
@@ -1629,6 +1654,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
             ["Data ispezione", formatData(ispezione.data)],
             ["Ora ispezione", ispezione.ora || "—"],
             ["Eseguita da", ispezione.operatore || "—"],
+            ["Coordinate GPS", ispezione.coordinate_gps || "—"],
             ["Irraggiamento solare", ispezione.irraggiamento ? `${ispezione.irraggiamento} W/m²` : "—"],
             ["Anomalie rilevate", String(anomalieIspezione.length)],
             ["Prossimo controllo", ispezione.prossimo_controllo ? formatData(ispezione.prossimo_controllo) : "—"],
@@ -3177,6 +3203,7 @@ function Impostazioni({ azienda, setAzienda, piano }) {
 function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuestoMese }) {
   const [step, setStep] = useState(1);
   const [impiantoSel, setImpiantoSel] = useState(null);
+  const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
   const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
   const [irraggiamento, setIrraggiamento] = useState("");
   const [note, setNote] = useState("");
@@ -3241,6 +3268,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         note: note || null,
         operatore: operatore || null,
         prossimo_controllo: prossimoControllo ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(prossimoControllo)); return d.toISOString().slice(0, 10); })() : null,
+        tipo_ispezione: tipoIspezione,
         drone_usato: droneUsato || null,
         scenario_volo: scenarioVolo || null,
         altezza_volo: altezzaVolo ? Number(altezzaVolo) : null,
@@ -3316,7 +3344,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     const doc = costruisciPDF({
       azienda,
       impianto: impiantoSel,
-      dati: { dataFormattata: formatData(new Date()), ora, operatore, irraggiamento, note, prossimoControlloFormattato },
+      dati: { dataFormattata: formatData(new Date()), ora, operatore, irraggiamento, note, prossimoControlloFormattato, coordinateGps },
       fotoConDataUrl: foto,
       anomalieList: anomalie,
       piano,
@@ -3431,6 +3459,12 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
 
       {step === 1 && (
         <div style={{ maxWidth: 420 }}>
+          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Tipo di ispezione</label>
+          <select value={tipoIspezione} onChange={(e) => setTipoIspezione(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }}>
+            <option value="fotovoltaico">Fotovoltaico termico</option>
+            <option value="danni">Danni / ispezione assicurativa</option>
+            <option value="edifici">Termografia edifici</option>
+          </select>
           <p style={{ fontSize: 13, color: "#8b95a3", marginBottom: 12 }}>Seleziona l'impianto da ispezionare</p>
           {impianti.length === 0 ? (
             <EmptyState text="Nessun impianto ancora. Vai su 'Impianti' per aggiungerne uno prima di iniziare." />
@@ -3455,10 +3489,12 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ora ispezione</label>
                 <input type="time" value={ora} onChange={(e) => setOra(e.target.value)} style={inputStyle} />
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Irraggiamento (W/m²)</label>
-                <input type="number" placeholder="es. 850" value={irraggiamento} onChange={(e) => setIrraggiamento(e.target.value)} style={inputStyle} />
-              </div>
+              {tipoIspezione === "fotovoltaico" && (
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Irraggiamento (W/m²)</label>
+                  <input type="number" placeholder="es. 850" value={irraggiamento} onChange={(e) => setIrraggiamento(e.target.value)} style={inputStyle} />
+                </div>
+              )}
             </div>
           )}
           {impiantoSel && (
@@ -3671,7 +3707,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                   {suggerimenti.length} zona{suggerimenti.length > 1 ? "e" : ""} sospetta{suggerimenti.length > 1 ? "e" : ""} trovata{suggerimenti.length > 1 ? "e" : ""} (cerchi tratteggiati) — tocca per confermare come anomalia, o sulla × per scartare.
                 </p>
               )}
-              {pendingPin && <AnomaliaPopup onConfirm={confermaPin} onCancel={() => setPendingPin(null)} />}
+              {pendingPin && <AnomaliaPopup onConfirm={confermaPin} onCancel={() => setPendingPin(null)} categorie={tipoIspezione === "danni" ? CATEGORIE_DANNI : tipoIspezione === "edifici" ? CATEGORIE_EDIFICI : CATEGORIE_FOTOVOLTAICO} />}
               <div style={{ marginTop: 16, maxWidth: 480 }}>
                 <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Note / commenti (opzionale)</label>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Osservazioni aggiuntive sull'ispezione..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", width: "100%" }} />
@@ -3725,6 +3761,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 ["Data ispezione", formatData(new Date())],
                 ["Ora ispezione", ora || "—"],
                 ["Eseguita da", operatore || "—"],
+                ["Coordinate GPS", coordinateGps || "—"],
                 ["Irraggiamento solare", irraggiamento ? `${irraggiamento} W/m²` : "—"],
                 ["Anomalie rilevate", String(anomalie.length)],
                 ["Prossimo controllo", prossimoControllo ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(prossimoControllo)); return formatData(d); })() : "—"],
@@ -3810,7 +3847,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
 }
 
 function BloccoAnomalia({ a, numero }) {
-  const info = CATEGORIE.find((c) => c.key === a.categoria);
+  const info = TUTTE_LE_CATEGORIE.find((c) => c.key === a.categoria);
   const sev = SEVERITY.find((s) => s.key === a.gravita);
   return (
     <div style={{ marginBottom: 12 }}>
@@ -3824,10 +3861,10 @@ function BloccoAnomalia({ a, numero }) {
   );
 }
 
-function AnomaliaPopup({ onConfirm, onCancel }) {
-  const [categoria, setCategoria] = useState(CATEGORIE[0].key);
+function AnomaliaPopup({ onConfirm, onCancel, categorie = CATEGORIE_FOTOVOLTAICO }) {
+  const [categoria, setCategoria] = useState(categorie[0].key);
   const [gravita, setGravita] = useState("media");
-  const info = CATEGORIE.find((c) => c.key === categoria);
+  const info = categorie.find((c) => c.key === categoria) || TUTTE_LE_CATEGORIE.find((c) => c.key === categoria);
   return (
     <div style={{ marginTop: 12, background: "#1b2028", border: "1px solid #333a45", borderRadius: 8, padding: 14, width: "100%", maxWidth: 320 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -3836,7 +3873,7 @@ function AnomaliaPopup({ onConfirm, onCancel }) {
       </div>
       <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Tipo di anomalia</label>
       <select value={categoria} onChange={(e) => setCategoria(e.target.value)} style={{ width: "100%", background: "#161a1f", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 5, padding: "6px 8px", fontSize: 12.5, marginBottom: 8 }}>
-        {CATEGORIE.map((c) => <option key={c.key} value={c.key}>{c.key}</option>)}
+        {categorie.map((c) => <option key={c.key} value={c.key}>{c.key}</option>)}
       </select>
       <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "8px 10px", marginBottom: 10 }}>
         <p style={{ fontSize: 11.5, color: "#9aa4b2", margin: "0 0 6px 0", lineHeight: 1.4 }}>{info.descrizione}</p>
