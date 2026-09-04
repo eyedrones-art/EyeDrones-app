@@ -925,6 +925,16 @@ const CATEGORIE_FOTOVOLTAICO = [
   { key: "Delaminazione", descrizione: "Distacco degli strati protettivi del pannello, rischio infiltrazioni.", azione: "Ispezione approfondita e possibile sostituzione." },
 ];
 
+const CATEGORIE_ELETTRICO = [
+  { key: "Connessione/morsetto surriscaldato", descrizione: "Punto di giunzione elettrica con temperatura anomala, spesso per contatto allentato o ossidato.", azione: "Serraggio o sostituzione del morsetto; intervento prioritario se il delta termico è elevato." },
+  { key: "Interruttore/sezionatore anomalo", descrizione: "Componente di manovra con segnatura termica fuori norma rispetto ai componenti adiacenti.", azione: "Verifica elettrica del componente da parte di tecnico abilitato." },
+  { key: "Trasformatore in sovratemperatura", descrizione: "Temperatura del trasformatore superiore ai valori attesi in relazione al carico.", azione: "Controllo del carico e del sistema di raffreddamento." },
+  { key: "Cavo/conduttore anomalo", descrizione: "Tratto di cavo con riscaldamento localizzato, possibile sovraccarico o danneggiamento dell'isolante.", azione: "Verifica della sezione del cavo rispetto al carico e dello stato dell'isolamento." },
+  { key: "Quadro elettrico in anomalia", descrizione: "Punto caldo all'interno o sull'involucro di un quadro elettrico.", azione: "Ispezione interna del quadro da parte di elettricista qualificato." },
+  { key: "Motore/cuscinetto surriscaldato", descrizione: "Temperatura anomala su motore elettrico o cuscinetto, possibile segnale di usura o disallineamento.", azione: "Programmare manutenzione meccanica; verificare lubrificazione." },
+  { key: "Dispersione su tubazione/serbatoio", descrizione: "Segnatura termica compatibile con perdita di fluido o difetto di coibentazione su tubazioni o serbatoi industriali.", azione: "Ispezione ravvicinata del tratto interessato." },
+];
+
 const CATEGORIE_EDIFICI = [
   { key: "Ponte termico", descrizione: "Zona localizzata con dispersione di calore maggiore, dovuta a elementi strutturali che bypassano l'isolamento (es. pilastri, solai, cordoli).", azione: "Valutare intervento di isolamento a cappotto nella zona interessata." },
   { key: "Isolamento mancante o insufficiente", descrizione: "Ampia porzione di parete o copertura con dispersione termica diffusa, tipica di isolamento assente o degradato.", azione: "Verificare lo spessore e lo stato dell'isolante; valutare integrazione." },
@@ -946,7 +956,14 @@ const CATEGORIE_DANNI = [
 ];
 
 // combino entrambe le liste per la ricerca: così un'anomalia resta leggibile anche se la vedi in un contesto diverso da quando è stata creata
-const TUTTE_LE_CATEGORIE = [...CATEGORIE_FOTOVOLTAICO, ...CATEGORIE_DANNI, ...CATEGORIE_EDIFICI];
+const TUTTE_LE_CATEGORIE = [...CATEGORIE_FOTOVOLTAICO, ...CATEGORIE_DANNI, ...CATEGORIE_EDIFICI, ...CATEGORIE_ELETTRICO];
+
+const CATEGORIE_PER_TIPO = {
+  fotovoltaico: CATEGORIE_FOTOVOLTAICO,
+  danni: CATEGORIE_DANNI,
+  edifici: CATEGORIE_EDIFICI,
+  elettrico: CATEGORIE_ELETTRICO,
+};
 
 // --- Shell -----------------------------------------------------------
 
@@ -3464,6 +3481,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
             <option value="fotovoltaico">Fotovoltaico termico</option>
             <option value="danni">Danni / ispezione assicurativa</option>
             <option value="edifici">Termografia edifici</option>
+            <option value="elettrico">Impianti elettrici/industriali</option>
           </select>
           <p style={{ fontSize: 13, color: "#8b95a3", marginBottom: 12 }}>Seleziona l'impianto da ispezionare</p>
           {impianti.length === 0 ? (
@@ -3707,7 +3725,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                   {suggerimenti.length} zona{suggerimenti.length > 1 ? "e" : ""} sospetta{suggerimenti.length > 1 ? "e" : ""} trovata{suggerimenti.length > 1 ? "e" : ""} (cerchi tratteggiati) — tocca per confermare come anomalia, o sulla × per scartare.
                 </p>
               )}
-              {pendingPin && <AnomaliaPopup onConfirm={confermaPin} onCancel={() => setPendingPin(null)} categorie={tipoIspezione === "danni" ? CATEGORIE_DANNI : tipoIspezione === "edifici" ? CATEGORIE_EDIFICI : CATEGORIE_FOTOVOLTAICO} />}
+              {pendingPin && <AnomaliaPopup onConfirm={confermaPin} onCancel={() => setPendingPin(null)} categorie={CATEGORIE_PER_TIPO[tipoIspezione] || CATEGORIE_FOTOVOLTAICO} />}
               <div style={{ marginTop: 16, maxWidth: 480 }}>
                 <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Note / commenti (opzionale)</label>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Osservazioni aggiuntive sull'ispezione..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", width: "100%" }} />
