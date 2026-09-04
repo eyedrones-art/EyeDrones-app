@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 
@@ -388,6 +388,75 @@ function costruisciPDFRiassuntoImpianto({ azienda, impianto, storico, piano }) {
 
 // costruisce il PDF di una richiesta di permesso
 // costruisce il PDF di un attestato/patentino
+// costruisce il PDF della scheda di un drone (dati + manutenzione)
+function costruisciPDFDrone({ azienda, drone, documentoDataUrl, documentoEImmagine }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const grigio = [110, 120, 130];
+  let y = 20;
+
+  if (azienda.logo) {
+    try { doc.addImage(azienda.logo, "PNG", (210 - 26) / 2, 10, 26, 16, undefined, "FAST"); } catch (e) {}
+    y = 34;
+  }
+
+  doc.setFontSize(17);
+  doc.setTextColor(20, 20, 20);
+  doc.text(drone.nome, 15, y);
+  y += 8;
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 10;
+
+  const scrivi = (label, val) => {
+    if (val === null || val === undefined || val === "") return;
+    if (y > 275) { doc.addPage(); y = 20; }
+    doc.setFontSize(10.5);
+    doc.setTextColor(...grigio);
+    doc.text(label, 15, y);
+    doc.setTextColor(20, 20, 20);
+    const righe = doc.splitTextToSize(String(val), 110);
+    doc.text(righe, 70, y);
+    y += Math.max(7, righe.length * 5);
+  };
+
+  scrivi("Modello", drone.modello);
+  scrivi("Matricola", drone.matricola);
+  scrivi("Marcatura classe (C0-C5)", drone.marcatura_classe);
+  scrivi("Registrazione D-Flight", drone.registrazione_dflight);
+  scrivi("Data acquisto", drone.data_acquisto ? formatData(drone.data_acquisto) : null);
+  scrivi("Ore di volo", drone.ore_volo ? `${drone.ore_volo} h` : null);
+  scrivi("Prossima manutenzione", drone.prossima_manutenzione ? formatData(drone.prossima_manutenzione) : null);
+  scrivi("Note", drone.note);
+  y += 6;
+
+  if (documentoDataUrl && documentoEImmagine) {
+    if (y > 180) { doc.addPage(); y = 20; }
+    doc.setFontSize(11);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Documento allegato", 15, y);
+    y += 6;
+    try {
+      const imgW = 170;
+      const imgProps = doc.getImageProperties(documentoDataUrl);
+      const imgH = Math.min(220, imgW * (imgProps.height / imgProps.width));
+      if (y + imgH > 285) { doc.addPage(); y = 20; }
+      doc.addImage(documentoDataUrl, "PNG", 15, y, imgW, imgH);
+      y += imgH + 6;
+    } catch (e) {}
+  } else if (drone.documento_url) {
+    doc.setFontSize(9.5);
+    doc.setTextColor(...grigio);
+    doc.text("Documento originale disponibile nell'app (formato non incorporabile in questo PDF).", 15, y);
+    y += 8;
+  }
+
+  doc.setFontSize(8);
+  doc.setTextColor(...grigio);
+  doc.text(`Generato da ${azienda.nome} — documento a uso interno`, 15, 290);
+
+  return doc;
+}
+
 function costruisciPDFAttestato({ azienda, attestato, documentoDataUrl, documentoEImmagine }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const grigio = [110, 120, 130];
@@ -765,6 +834,7 @@ function AppShell({ session }) {
   const [preventivi, setPreventivi] = useState([]);
   const [permessi, setPermessi] = useState([]);
   const [attestati, setAttestati] = useState([]);
+  const [droni, setDroni] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
@@ -803,7 +873,7 @@ function AppShell({ session }) {
     setLoading(true);
     setDbError(null);
     try {
-      const [{ data: imp, error: e1 }, { data: isp, error: e2 }, { data: ano, error: e3 }, { data: fot, error: e4 }, { data: log, error: e5 }, { data: prev, error: e6 }, { data: perm, error: e7 }, { data: att, error: e8 }] = await Promise.all([
+      const [{ data: imp, error: e1 }, { data: isp, error: e2 }, { data: ano, error: e3 }, { data: fot, error: e4 }, { data: log, error: e5 }, { data: prev, error: e6 }, { data: perm, error: e7 }, { data: att, error: e8 }, { data: drn, error: e9 }] = await Promise.all([
         supabase.from("impianti").select("*").order("created_at"),
         supabase.from("ispezioni").select("*").order("data", { ascending: false }),
         supabase.from("anomalie").select("*"),
@@ -812,8 +882,9 @@ function AppShell({ session }) {
         supabase.from("preventivi").select("*").order("created_at", { ascending: false }),
         supabase.from("permessi").select("*").order("created_at", { ascending: false }),
         supabase.from("attestati").select("*").order("data_scadenza", { ascending: true }),
+        supabase.from("droni").select("*").order("created_at", { ascending: false }),
       ]);
-      if (e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8) throw (e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8);
+      if (e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9) throw (e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9);
       setImpianti(imp || []);
       setIspezioni(isp || []);
       setAnomalieAll(ano || []);
@@ -822,6 +893,7 @@ function AppShell({ session }) {
       setPreventivi(prev || []);
       setPermessi(perm || []);
       setAttestati(att || []);
+      setDroni(drn || []);
     } catch (err) {
       setDbError(err.message || "Errore di connessione al database");
     }
@@ -870,7 +942,7 @@ function AppShell({ session }) {
         }
       `}</style>
 
-      <Sidebar page={page} setPage={setPage} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} />
+      <Sidebar page={page} setPage={setPage} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {dbError && (
@@ -887,6 +959,7 @@ function AppShell({ session }) {
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} />}
+        {page === "droni" && <Droni droni={droni} azienda={azienda} onReload={loadData} />}
       </div>
     </div>
   );
@@ -974,7 +1047,7 @@ function Login() {
 
 // --- Sidebar -----------------------------------------------------------
 
-function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza }) {
+function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza }) {
   const items = [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { key: "impianti", label: "Impianti", icon: Sun },
@@ -982,6 +1055,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { key: "preventivi", label: "Preventivi", icon: FileText },
     { key: "permessi", label: "Permessi", icon: ShieldCheck },
     { key: "attestati", label: "Attestati", icon: Award },
+    { key: "droni", label: "I miei droni", icon: Plane },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
   ];
@@ -1012,6 +1086,9 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
             {it.key === "preventivi" && piano !== "pro" && <span className="sidebar-label" style={{ fontSize: 11, marginLeft: "auto" }}>🔒</span>}
             {it.key === "attestati" && attestatiInScadenza > 0 && (
               <span className="sidebar-label" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto", background: "#ff4d4d", color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{attestatiInScadenza}</span>
+            )}
+            {it.key === "droni" && droniInScadenza > 0 && (
+              <span className="sidebar-label" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto", background: "#ff4d4d", color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{droniInScadenza}</span>
             )}
           </button>
         );
@@ -2506,6 +2583,241 @@ function Attestati({ attestati, azienda, onReload }) {
                     Modifica
                   </button>
                   <button onClick={() => eliminaAttestato(a.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                    Elimina
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Droni -----------------------------------------------------------
+
+function statoManutenzione(dataScadenza) {
+  if (!dataScadenza) return null;
+  const oggi = new Date();
+  const scadenza = new Date(dataScadenza);
+  const giorni = Math.ceil((scadenza - oggi) / (1000 * 60 * 60 * 24));
+  if (giorni < 0) return { livello: "scaduto", testo: `Manutenzione in ritardo di ${Math.abs(giorni)} giorni`, colore: "#ff4d4d" };
+  if (giorni <= 30) return { livello: "in_scadenza", testo: `Manutenzione tra ${giorni} giorni`, colore: "#f5b942" };
+  return { livello: "ok", testo: `Prossima manutenzione: ${formatData(dataScadenza)}`, colore: "#4ade80" };
+}
+
+function Droni({ droni, azienda, onReload }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [nome, setNome] = useState("");
+  const [modello, setModello] = useState("");
+  const [matricola, setMatricola] = useState("");
+  const [marcaturaClasse, setMarcaturaClasse] = useState("");
+  const [registrazioneDflight, setRegistrazioneDflight] = useState("");
+  const [dataAcquisto, setDataAcquisto] = useState("");
+  const [oreVolo, setOreVolo] = useState("");
+  const [prossimaManutenzione, setProssimaManutenzione] = useState("");
+  const [note, setNote] = useState("");
+  const [documento, setDocumento] = useState(null);
+  const [salvataggio, setSalvataggio] = useState(false);
+
+  const resetForm = () => {
+    setNome(""); setModello(""); setMatricola(""); setMarcaturaClasse("");
+    setRegistrazioneDflight(""); setDataAcquisto(""); setOreVolo("");
+    setProssimaManutenzione(""); setNote(""); setDocumento(null); setEditingId(null);
+  };
+
+  const apriModifica = (d) => {
+    setEditingId(d.id);
+    setNome(d.nome || "");
+    setModello(d.modello || "");
+    setMatricola(d.matricola || "");
+    setMarcaturaClasse(d.marcatura_classe || "");
+    setRegistrazioneDflight(d.registrazione_dflight || "");
+    setDataAcquisto(d.data_acquisto || "");
+    setOreVolo(d.ore_volo ? String(d.ore_volo) : "");
+    setProssimaManutenzione(d.prossima_manutenzione || "");
+    setNote(d.note || "");
+    setDocumento(null);
+    setShowForm(true);
+  };
+
+  const caricaDocumento = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDocumento({ nome: file.name, blob: file });
+    e.target.value = "";
+  };
+
+  const salvaDrone = async () => {
+    if (!nome) return;
+    setSalvataggio(true);
+    try {
+      let documentoUrl = null;
+      if (documento?.blob) {
+        const estensione = documento.nome.split(".").pop();
+        const nomeFile = `drone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${estensione}`;
+        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, documento.blob);
+        if (!eUp) {
+          const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
+          documentoUrl = pub?.publicUrl || null;
+        }
+      }
+      const payload = {
+        nome,
+        modello: modello || null,
+        matricola: matricola || null,
+        marcatura_classe: marcaturaClasse || null,
+        registrazione_dflight: registrazioneDflight || null,
+        data_acquisto: dataAcquisto || null,
+        ore_volo: oreVolo ? Number(oreVolo) : null,
+        prossima_manutenzione: prossimaManutenzione || null,
+        note: note || null,
+      };
+      if (documentoUrl) payload.documento_url = documentoUrl;
+      let error;
+      if (editingId) {
+        ({ error } = await supabase.from("droni").update(payload).eq("id", editingId));
+      } else {
+        ({ error } = await supabase.from("droni").insert(payload));
+      }
+      if (error) throw error;
+      resetForm();
+      setShowForm(false);
+      onReload();
+    } catch (err) {
+      alert("Salvataggio non riuscito: " + (err?.message || err));
+    }
+    setSalvataggio(false);
+  };
+
+  const eliminaDrone = async (id) => {
+    if (!window.confirm("Eliminare questo drone dal registro?")) return;
+    await supabase.from("droni").delete().eq("id", id);
+    onReload();
+  };
+
+  const scaricaPDFDrone = async (d) => {
+    try {
+      let documentoDataUrl = null;
+      let documentoEImmagine = false;
+      if (d.documento_url) {
+        const estensione = d.documento_url.split(".").pop().toLowerCase().split("?")[0];
+        documentoEImmagine = ["png", "jpg", "jpeg", "webp", "gif"].includes(estensione);
+        if (documentoEImmagine) documentoDataUrl = await urlToDataUrl(d.documento_url);
+      }
+      const doc = costruisciPDFDrone({ azienda, drone: d, documentoDataUrl, documentoEImmagine });
+      const url = doc.output("bloburl");
+      window.open(url, "_blank");
+    } catch (err) {
+      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
+    }
+  };
+
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>I miei droni</h1>
+        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          {showForm ? "Annulla" : <><Plus size={14} /> Nuovo drone</>}
+        </button>
+      </div>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Tieni traccia di modelli, matricole, registrazione D-Flight e scadenze di manutenzione della tua flotta.</p>
+
+      {showForm && (
+        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome / etichetta</label>
+            <input placeholder="es. Matrice 4T principale" value={nome} onChange={(e) => setNome(e.target.value)} style={inputStyle} />
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Modello</label>
+              <input placeholder="es. DJI Matrice 4T" value={modello} onChange={(e) => setModello(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Matricola</label>
+              <input value={matricola} onChange={(e) => setMatricola(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Marcatura classe (C0-C5)</label>
+              <input placeholder="es. C1" value={marcaturaClasse} onChange={(e) => setMarcaturaClasse(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Registrazione D-Flight</label>
+              <input value={registrazioneDflight} onChange={(e) => setRegistrazioneDflight(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Data acquisto</label>
+              <input type="date" value={dataAcquisto} onChange={(e) => setDataAcquisto(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ore di volo</label>
+              <input type="number" value={oreVolo} onChange={(e) => setOreVolo(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Prossima manutenzione</label>
+            <input type="date" value={prossimaManutenzione} onChange={(e) => setProssimaManutenzione(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Documento (facoltativo, es. certificato di conformità)</label>
+            {documento ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, color: "#c3cad4" }}>{documento.nome}</span>
+                <button onClick={() => setDocumento(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+              </div>
+            ) : (
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+                <Upload size={13} /> Carica documento
+                <input type="file" accept="image/*,.pdf" onChange={caricaDocumento} style={{ display: "none" }} />
+              </label>
+            )}
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note (opzionale)</label>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+          </div>
+          <button onClick={salvaDrone} disabled={!nome || salvataggio} style={{ marginTop: 4, background: nome ? "#ff8c42" : "#333a45", color: nome ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+            {salvataggio ? "Salvataggio..." : editingId ? "Aggiorna drone" : "Salva drone"}
+          </button>
+        </div>
+      )}
+
+      {droni.length === 0 ? (
+        <EmptyState text="Nessun drone ancora registrato." />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {droni.map((d) => {
+            const stato = statoManutenzione(d.prossima_manutenzione);
+            return (
+              <div key={d.id} style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{d.nome}</div>
+                  <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
+                    {d.modello && <>{d.modello} &middot; </>}
+                    {d.matricola && <>{d.matricola} &middot; </>}
+                    {stato ? <span style={{ color: stato.colore, fontWeight: 600 }}>{stato.testo}</span> : "Nessuna manutenzione programmata"}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {d.documento_url && (
+                    <a href={d.documento_url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#3d8bfd", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
+                      <FileDown size={12} /> Documento
+                    </a>
+                  )}
+                  <button onClick={() => scaricaPDFDrone(d)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                    <FileDown size={12} /> PDF
+                  </button>
+                  <button onClick={() => apriModifica(d)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                    Modifica
+                  </button>
+                  <button onClick={() => eliminaDrone(d.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     Elimina
                   </button>
                 </div>
