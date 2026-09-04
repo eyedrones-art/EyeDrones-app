@@ -1704,6 +1704,7 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
   const [scontoImporto, setScontoImporto] = useState("");
   const [validitaGiorni, setValiditaGiorni] = useState("30");
   const [note, setNote] = useState("");
+  const [kwp, setKwp] = useState("");
   const [salvataggio, setSalvataggio] = useState(false);
   const [cambiandoStato, setCambiandoStato] = useState(null);
 
@@ -1713,6 +1714,20 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
 
   const aggiungiVoce = () => setVoci([...voci, { descrizione: "", importo: "" }]);
   const rimuoviVoce = (idx) => setVoci(voci.filter((_, i) => i !== idx));
+
+  const aggiungiVociDaKwp = () => {
+    const kwpVal = Number(kwp) || 0;
+    if (kwpVal <= 0) return;
+    const tariffaBaseVal = Number(azienda.tariffaBase) || 0;
+    const tariffaKwpVal = Number(azienda.tariffaKwp) || 0;
+    const nuoveVoci = [
+      { descrizione: "Tariffa base ispezione", importo: String(tariffaBaseVal) },
+      { descrizione: `Tariffa per potenza (${kwpVal} kWp × ${tariffaKwpVal.toFixed(2)} €)`, importo: String((kwpVal * tariffaKwpVal).toFixed(2)) },
+    ];
+    // rimuovo eventuali righe vuote residue prima di aggiungere quelle calcolate
+    const vociPulite = voci.filter((v) => v.descrizione || v.importo);
+    setVoci([...vociPulite, ...nuoveVoci]);
+  };
   const aggiornaVoce = (idx, campo, valore) => {
     const nuove = [...voci];
     nuove[idx] = { ...nuove[idx], [campo]: valore };
@@ -1722,7 +1737,7 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
   const resetForm = () => {
     setCliente(""); setLuogoIntervento(""); setOggetto("");
     setVoci([{ descrizione: "", importo: "" }]); setScontoImporto("");
-    setValiditaGiorni("30"); setNote(""); setEditingId(null);
+    setValiditaGiorni("30"); setNote(""); setKwp(""); setEditingId(null);
   };
 
   const apriModifica = (p) => {
@@ -1812,6 +1827,17 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Oggetto</label>
             <textarea placeholder="es. Rilievo aereo con drone dei danni da grandine su coperture — 7 villette" value={oggetto} onChange={(e) => setOggetto(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+          </div>
+
+          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "10px 12px" }}>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 6 }}>Calcolo rapido per impianto fotovoltaico (opzionale)</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="number" placeholder="Potenza (kWp)" value={kwp} onChange={(e) => setKwp(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+              <button onClick={aggiungiVociDaKwp} disabled={!kwp} style={{ background: kwp ? "#ff8c42" : "#333a45", color: kwp ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>
+                Aggiungi voci
+              </button>
+            </div>
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Usa le tue tariffe da Impostazioni ({Number(azienda.tariffaBase) || 0}€ base + {Number(azienda.tariffaKwp) || 0}€/kWp) e aggiunge le righe qui sotto, che restano modificabili.</p>
           </div>
 
           <div>
