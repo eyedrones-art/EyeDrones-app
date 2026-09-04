@@ -4,4 +4,4 @@
   functions = "netlify/functions"
 
 [functions]
-  included_files = ["netlify/functions/lib/**"]
+  included_files = ["netlify/functions/*.so.1"]
