@@ -54,6 +54,69 @@ function ritagliaZona(img, xPercent, yPercent, dimensionePercentuale = 24) {
   return canvas.toDataURL("image/png");
 }
 
+// analizza i colori di una foto termica già colorata (ironbow/rainbow) e suggerisce le zone più "calde"
+// non è vera intelligenza artificiale: è un'analisi statistica dei colori, pensata come suggerimento da confermare, non come diagnosi automatica
+function rilevaPuntiCaldi(img, maxSuggerimenti = 8) {
+  const scala = Math.min(1, 300 / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * scala));
+  const h = Math.max(1, Math.round(img.naturalHeight * scala));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, w, h);
+  const pixels = ctx.getImageData(0, 0, w, h).data;
+
+  // punteggio di "calore" per pixel: privilegia rosso/giallo (caldo), penalizza il blu (freddo) — tipico delle palette ironbow/rainbow
+  const heat = new Float32Array(w * h);
+  let somma = 0;
+  for (let i = 0; i < w * h; i++) {
+    const r = pixels[i * 4], g = pixels[i * 4 + 1], b = pixels[i * 4 + 2];
+    const punteggio = r * 0.6 + g * 0.3 - b * 0.4;
+    heat[i] = punteggio;
+    somma += punteggio;
+  }
+  const media = somma / (w * h);
+  let sqDiff = 0;
+  for (let i = 0; i < w * h; i++) sqDiff += (heat[i] - media) ** 2;
+  const dev = Math.sqrt(sqDiff / (w * h));
+  const soglia = media + dev * 1.6;
+
+  const visitato = new Uint8Array(w * h);
+  const blob = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (visitato[idx] || heat[idx] < soglia) continue;
+      const stack = [idx];
+      visitato[idx] = 1;
+      let sx = 0, sy = 0, count = 0, picco = heat[idx];
+      while (stack.length) {
+        const cur = stack.pop();
+        const cx = cur % w, cy = Math.floor(cur / w);
+        sx += cx; sy += cy; count++;
+        if (heat[cur] > picco) picco = heat[cur];
+        const vicini = [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]];
+        for (const [nx, ny] of vicini) {
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const nidx = ny * w + nx;
+          if (!visitato[nidx] && heat[nidx] >= soglia) {
+            visitato[nidx] = 1;
+            stack.push(nidx);
+          }
+        }
+      }
+      // scarto rumore troppo piccolo e falsi positivi troppo grandi (es. l'intera foto molto chiara)
+      if (count >= 3 && count <= w * h * 0.12) {
+        blob.push({ x: (sx / count / w) * 100, y: (sy / count / h) * 100, intensita: picco });
+      }
+    }
+  }
+
+  blob.sort((a, b) => b.intensita - a.intensita);
+  return blob.slice(0, maxSuggerimenti);
+}
+
 // genera i primi piani di tutte le anomalie di un report, raggruppando per foto per non ricaricare l'immagine più volte
 async function generaRitagliAnomalie(fotoConDataUrl, anomalieList) {
   const ritagli = new Map();
@@ -3147,10 +3210,14 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [pdfUrl, setPdfUrl] = useState(null);
   const [salvataggio, setSalvataggio] = useState("idle"); // idle | saving | saved | error
   const [erroreSalvataggio, setErroreSalvataggio] = useState(null);
+  const [suggerimenti, setSuggerimenti] = useState([]);
+  const [rilevandoPunti, setRilevandoPunti] = useState(false);
   const imgRef = useRef(null);
 
   const nuovoIdLocale = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const fotoAttiva = foto.find((f) => f.id === fotoAttivaId) || null;
+
+  useEffect(() => { setSuggerimenti([]); }, [fotoAttivaId]);
 
   const salvaSuDb = async () => {
     if (!impiantoSel) return;
@@ -3298,6 +3365,29 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     setPendingPin({ x, y });
+  };
+
+  const rilevaAutomaticamente = () => {
+    if (!imgRef.current) return;
+    setRilevandoPunti(true);
+    setTimeout(() => {
+      try {
+        const risultati = rilevaPuntiCaldi(imgRef.current);
+        setSuggerimenti(risultati);
+      } catch (e) {
+        alert("Non sono riuscito ad analizzare questa foto.");
+      }
+      setRilevandoPunti(false);
+    }, 30); // piccolo ritardo per far comparire subito l'indicatore di caricamento
+  };
+
+  const accettaSuggerimento = (s, idx) => {
+    setSuggerimenti(suggerimenti.filter((_, i) => i !== idx));
+    setPendingPin({ x: s.x, y: s.y });
+  };
+
+  const scartaSuggerimento = (idx) => {
+    setSuggerimenti(suggerimenti.filter((_, i) => i !== idx));
   };
 
   const confermaPin = (categoria, gravita) => {
@@ -3542,6 +3632,14 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               </div>
 
               {fotoAttiva && (
+                <div style={{ marginBottom: 10 }}>
+                  <button type="button" onClick={rilevaAutomaticamente} disabled={rilevandoPunti} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1b2028", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "8px 14px", fontSize: 12.5 }}>
+                    🔍 {rilevandoPunti ? "Analisi in corso..." : "Rileva punti caldi automaticamente"}
+                  </button>
+                  <p style={{ fontSize: 10.5, color: "#6b7480", margin: "5px 0 0 0" }}>Individua automaticamente le zone più calde della foto — sono suggerimenti da confermare, non una diagnosi definitiva.</p>
+                </div>
+              )}
+              {fotoAttiva && (
                 <div style={{ position: "relative", width: "100%", maxWidth: 480, display: "block" }}>
                   <img ref={imgRef} src={fotoAttiva.dataUrl} onClick={handleImgClick} style={{ width: "100%", borderRadius: 8, display: "block", cursor: "crosshair" }} />
                   {anomalie.filter((a) => a.fotoId === fotoAttivaId).map((a, i) => {
@@ -3552,12 +3650,26 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                       </div>
                     );
                   })}
+                  {suggerimenti.map((s, idx) => (
+                    <div key={idx} onClick={(e) => { e.stopPropagation(); accettaSuggerimento(s, idx); }} title="Suggerito: tocca per confermare" style={{ position: "absolute", left: `${s.x}%`, top: `${s.y}%`, width: 22, height: 22, borderRadius: "50%", border: "2px dashed #ff8c42", transform: "translate(-50%,-50%)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); scartaSuggerimento(idx); }}
+                        title="Scarta suggerimento"
+                        style={{ position: "absolute", top: -8, right: -8, width: 16, height: 16, borderRadius: "50%", background: "#333a45", border: "1px solid #161a1f", color: "#c3cad4", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                      >×</button>
+                    </div>
+                  ))}
                   {pendingPin && (
                     <div style={{ position: "absolute", left: `${pendingPin.x}%`, top: `${pendingPin.y}%`, transform: "translate(-50%,-50%)" }}>
                       <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#fff", border: "2px solid #161a1f" }} />
                     </div>
                   )}
                 </div>
+              )}
+              {suggerimenti.length > 0 && (
+                <p style={{ fontSize: 11.5, color: "#ff8c42", marginTop: 8 }}>
+                  {suggerimenti.length} zona{suggerimenti.length > 1 ? "e" : ""} sospetta{suggerimenti.length > 1 ? "e" : ""} trovata{suggerimenti.length > 1 ? "e" : ""} (cerchi tratteggiati) — tocca per confermare come anomalia, o sulla × per scartare.
+                </p>
               )}
               {pendingPin && <AnomaliaPopup onConfirm={confermaPin} onCancel={() => setPendingPin(null)} />}
               <div style={{ marginTop: 16, maxWidth: 480 }}>
