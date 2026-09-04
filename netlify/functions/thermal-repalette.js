@@ -1,3 +1,12 @@
+const path = require("path");
+
+// indico dove trovare la libreria di sistema mancante (libgomp.so.1),
+// che includiamo insieme alla funzione perché i server di Netlify non ce l'hanno di default
+const cartellaLib = path.join(__dirname, "lib");
+process.env.LD_LIBRARY_PATH = process.env.LD_LIBRARY_PATH
+  ? `${cartellaLib}:${process.env.LD_LIBRARY_PATH}`
+  : cartellaLib;
+
 const { getTemperatureData } = require("dji-thermal-sdk");
 const { PNG } = require("pngjs");
 
