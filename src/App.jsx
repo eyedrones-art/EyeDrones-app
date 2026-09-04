@@ -575,6 +575,94 @@ function costruisciPDFRiassuntoImpianto({ azienda, impianto, storico, piano }) {
 // costruisce il PDF di una richiesta di permesso
 // costruisce il PDF di un attestato/patentino
 // costruisce il PDF della scheda di un drone (dati + manutenzione)
+// costruisce un PDF riepilogativo dei documenti da mostrare in caso di controllo delle forze dell'ordine
+function costruisciPDFControllo({ azienda, operatore, attestati, drone, permessi, impianto }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const grigio = [110, 120, 130];
+  let y = 20;
+
+  if (azienda.logo) {
+    try { doc.addImage(azienda.logo, "PNG", (210 - 26) / 2, 10, 26, 16, undefined, "FAST"); } catch (e) {}
+    y = 34;
+  }
+
+  doc.setFontSize(17);
+  doc.setTextColor(20, 20, 20);
+  doc.text("Documenti per un controllo", 15, y);
+  y += 6;
+  doc.setFontSize(9.5);
+  doc.setTextColor(...grigio);
+  doc.text(`${operatore || azienda.nome} — ${impianto?.nome || ""}`, 15, y);
+  y += 10;
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, 195, y);
+  y += 9;
+
+  const sottotitolo = (testo) => {
+    doc.setFontSize(12);
+    doc.setTextColor(20, 20, 20);
+    doc.text(testo, 15, y);
+    y += 7;
+  };
+  const riga = (label, val, colore) => {
+    if (y > 275) { doc.addPage(); y = 20; }
+    doc.setFontSize(10);
+    doc.setTextColor(...grigio);
+    doc.text(label, 15, y);
+    doc.setTextColor(...(colore || [20, 20, 20]));
+    const righe = doc.splitTextToSize(String(val), 110);
+    doc.text(righe, 75, y);
+    y += Math.max(6.5, righe.length * 4.5);
+  };
+
+  sottotitolo("Attestati e patentini");
+  if (attestati.length === 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(...grigio);
+    doc.text("Nessun attestato registrato nell'app.", 15, y);
+    y += 7;
+  }
+  attestati.forEach((a) => {
+    const oggi = new Date();
+    const scaduto = a.data_scadenza && new Date(a.data_scadenza) < oggi;
+    riga(a.tipo, a.data_scadenza ? `${scaduto ? "SCADUTO il " : "valido fino al "}${formatData(a.data_scadenza)}` : "senza scadenza registrata", scaduto ? [220, 60, 60] : [60, 160, 90]);
+  });
+  y += 5;
+
+  sottotitolo("Drone utilizzato");
+  if (drone) {
+    riga("Nome/etichetta", drone.nome);
+    riga("Modello", drone.modello || "—");
+    riga("Matricola", drone.matricola || "—");
+    riga("Marcatura classe", drone.marcatura_classe || "—");
+    riga("Registrazione D-Flight", drone.registrazione_dflight || "—");
+  } else {
+    doc.setFontSize(10);
+    doc.setTextColor(...grigio);
+    doc.text("Nessun drone selezionato per questa missione.", 15, y);
+    y += 7;
+  }
+  y += 5;
+
+  sottotitolo("Permessi collegati a questa zona");
+  if (permessi.length === 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(...grigio);
+    doc.text("Nessun permesso specifico registrato per questa zona.", 15, y);
+    y += 7;
+  }
+  permessi.forEach((p) => {
+    const coloreStato = p.stato === "autorizzato" ? [60, 160, 90] : p.stato === "negato" ? [220, 60, 60] : [200, 140, 40];
+    riga(p.impianto, `${{ in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[p.stato] || p.stato}${p.ente_contattato ? " — " + p.ente_contattato : ""}`, coloreStato);
+  });
+
+  doc.setFontSize(8);
+  doc.setTextColor(...grigio);
+  doc.text(`Generato da ${azienda.nome} — documento a uso personale del pilota`, 15, 290);
+
+  return doc;
+}
+
 function costruisciPDFDrone({ azienda, drone, documentoDataUrl, documentoEImmagine }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const grigio = [110, 120, 130];
@@ -3297,6 +3385,13 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [checklistItems, setChecklistItems] = useState(null); // null finché non caricata
   const [checklistSpuntati, setChecklistSpuntati] = useState({});
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
+  const [attestatiUtente, setAttestatiUtente] = useState([]);
+  const [droniUtente, setDroniUtente] = useState([]);
+  const [permessiUtente, setPermessiUtente] = useState([]);
+  const [droneSelId, setDroneSelId] = useState("");
+  const [generandoPdfControllo, setGenerandoPdfControllo] = useState(false);
+  const [pdfUrlControllo, setPdfUrlControllo] = useState(null);
+  const [mostraSchermoControllo, setMostraSchermoControllo] = useState(false);
   const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
   const [irraggiamento, setIrraggiamento] = useState("");
   const [note, setNote] = useState("");
@@ -3349,7 +3444,42 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         setChecklistItems(CHECKLIST_DEFAULT);
       }
     })();
+    (async () => {
+      const { data } = await supabase.from("attestati").select("*");
+      setAttestatiUtente(data || []);
+    })();
+    (async () => {
+      const { data } = await supabase.from("droni").select("*");
+      setDroniUtente(data || []);
+    })();
+    (async () => {
+      const { data } = await supabase.from("permessi").select("*");
+      setPermessiUtente(data || []);
+    })();
   }, []);
+
+  const permessiZona = impiantoSel ? permessiUtente.filter((p) => p.impianto_id === impiantoSel.id || (p.impianto && p.impianto.toLowerCase().includes(impiantoSel.nome.toLowerCase()))) : [];
+  const droneSelezionato = droniUtente.find((d) => d.id === droneSelId) || null;
+
+  const scaricaPdfControllo = () => {
+    setGenerandoPdfControllo(true);
+    try {
+      const doc = costruisciPDFControllo({
+        azienda,
+        operatore,
+        attestati: attestatiUtente,
+        drone: droneSelezionato,
+        permessi: permessiZona,
+        impianto: impiantoSel,
+      });
+      const url = doc.output("bloburl");
+      setPdfUrlControllo(url);
+      window.open(url, "_blank");
+    } catch (err) {
+      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
+    }
+    setGenerandoPdfControllo(false);
+  };
 
   const controllaMeteo = async () => {
     if (!impiantoSel?.zona) return;
@@ -3695,6 +3825,63 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                   <input type="text" placeholder="Aggiungi voce personalizzata..." value={nuovaVoceChecklist} onChange={(e) => setNuovaVoceChecklist(e.target.value)} onKeyDown={(e) => e.key === "Enter" && aggiungiVoceChecklist()} style={{ ...inputStyle, flex: 1, fontSize: 12.5, padding: "6px 10px" }} />
                   <button type="button" onClick={aggiungiVoceChecklist} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>+ Aggiungi</button>
                 </div>
+              </div>
+
+              <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 4px 0" }}>🚔 In caso di controllo</p>
+                <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 10px 0" }}>Riepilogo dei documenti da mostrare a chi ti ferma — patentini, drone, permessi.</p>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Drone utilizzato in questa missione</label>
+                  <select value={droneSelId} onChange={(e) => setDroneSelId(e.target.value)} style={{ ...inputStyle, fontSize: 12.5 }}>
+                    <option value="">— Nessuno selezionato —</option>
+                    {droniUtente.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
+                  <strong>Attestati:</strong>{" "}
+                  {attestatiUtente.length === 0 ? "nessuno registrato" : attestatiUtente.map((a) => {
+                    const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
+                    return <span key={a.id} style={{ color: scaduto ? "#ff9c9c" : "#4ade80" }}>{a.tipo}{scaduto ? " (scaduto!) " : " ✓ "}</span>;
+                  })}
+                </div>
+                {(() => {
+                  const assicurazione = attestatiUtente.find((a) => a.tipo.toLowerCase().includes("assicura"));
+                  const scadutaAssicurazione = assicurazione?.data_scadenza && new Date(assicurazione.data_scadenza) < new Date();
+                  return (
+                    <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
+                      <strong>Assicurazione:</strong>{" "}
+                      {assicurazione
+                        ? <span style={{ color: scadutaAssicurazione ? "#ff9c9c" : "#4ade80" }}>{scadutaAssicurazione ? "SCADUTA il " : "valida fino al "}{assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}</span>
+                        : <span style={{ color: "#ff9c9c" }}>non registrata — aggiungila in "Attestati"</span>}
+                    </div>
+                  );
+                })()}
+                <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
+                  <strong>Permessi per questa zona:</strong> {permessiZona.length === 0 ? "nessuno specifico registrato" : `${permessiZona.length} trovato/i`}
+                </div>
+
+                {dflightShot && (
+                  <div style={{ marginTop: 8 }}>
+                    <span style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight di questa missione</span>
+                    <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
+                    📱 Mostra a schermo pieno
+                  </button>
+                  <button type="button" onClick={scaricaPdfControllo} disabled={generandoPdfControllo} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 14px", borderRadius: 6, fontSize: 12.5 }}>
+                    <FileDown size={13} /> {generandoPdfControllo ? "Preparazione..." : "Scarica PDF"}
+                  </button>
+                </div>
+                {pdfUrlControllo && (
+                  <a href={pdfUrlControllo} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 6, fontSize: 11, color: "#3d8bfd" }}>
+                    Se non si è aperto automaticamente, apri il PDF qui
+                  </a>
+                )}
               </div>
             </div>
           )}
@@ -4049,6 +4236,62 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
           </div>
         </div>
       )}
+
+      {mostraSchermoControllo && (() => {
+        const assicurazione = attestatiUtente.find((a) => a.tipo.toLowerCase().includes("assicura"));
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "#fff", color: "#161a1f", zIndex: 1000, overflow: "auto", padding: "20px 18px" }}>
+            <button onClick={() => setMostraSchermoControllo(false)} style={{ position: "sticky", top: 0, float: "right", background: "#161a1f", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>
+              Chiudi ✕
+            </button>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px 0" }}>Documenti pilota</h1>
+            <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{operatore || azienda.nome} — {impiantoSel?.nome}</p>
+
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0", borderTop: "2px solid #eee", paddingTop: 16 }}>Attestati</h2>
+            {attestatiUtente.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : attestatiUtente.map((a) => {
+              const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
+              return (
+                <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14, borderBottom: "1px solid #f0f0f0" }}>
+                  <span>{a.tipo}</span>
+                  <span style={{ color: scaduto ? "#d32f2f" : "#2e7d32", fontWeight: 600 }}>{a.data_scadenza ? `${scaduto ? "SCADUTO " : ""}${formatData(a.data_scadenza)}` : "senza scadenza"}</span>
+                </div>
+              );
+            })}
+
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Assicurazione</h2>
+            {assicurazione ? (
+              <p style={{ fontSize: 15, fontWeight: 700, color: (assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date()) ? "#d32f2f" : "#2e7d32" }}>
+                {formatData(assicurazione.data_scadenza)}
+              </p>
+            ) : <p style={{ fontSize: 13, color: "#d32f2f" }}>Non registrata</p>}
+
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Drone</h2>
+            {droneSelezionato ? (
+              <div style={{ fontSize: 14, lineHeight: 1.8 }}>
+                <div><strong>{droneSelezionato.nome}</strong></div>
+                <div>Modello: {droneSelezionato.modello || "—"}</div>
+                <div>Matricola: {droneSelezionato.matricola || "—"}</div>
+                <div>Classe: {droneSelezionato.marcatura_classe || "—"}</div>
+                <div>D-Flight: {droneSelezionato.registrazione_dflight || "—"}</div>
+              </div>
+            ) : <p style={{ fontSize: 13, color: "#888" }}>Nessun drone selezionato.</p>}
+
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Permessi per questa zona</h2>
+            {permessiZona.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno specifico registrato.</p> : permessiZona.map((p) => (
+              <div key={p.id} style={{ fontSize: 14, padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
+                {p.impianto} — <strong>{{ in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[p.stato] || p.stato}</strong>
+              </div>
+            ))}
+
+            {dflightShot && (
+              <>
+                <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Screenshot D-Flight</h2>
+                <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid #ddd" }} />
+              </>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
