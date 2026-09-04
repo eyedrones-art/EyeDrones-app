@@ -63,9 +63,14 @@ exports.handler = async (event) => {
     });
 
     if (cartellaConLib) {
+      const percorsoCompleto = path.join(cartellaConLib, "libgomp.so.1");
       process.env.LD_LIBRARY_PATH = process.env.LD_LIBRARY_PATH
         ? `${cartellaConLib}:${process.env.LD_LIBRARY_PATH}`
         : cartellaConLib;
+      // LD_PRELOAD forza il caricamento diretto del file, più affidabile della sola ricerca per percorso
+      process.env.LD_PRELOAD = process.env.LD_PRELOAD
+        ? `${percorsoCompleto}:${process.env.LD_PRELOAD}`
+        : percorsoCompleto;
     }
 
     let getTemperatureData;
