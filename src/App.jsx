@@ -28,8 +28,50 @@ async function urlToDataUrl(url) {
   });
 }
 
+// carica un'immagine da dataUrl e restituisce l'oggetto Image pronto (per ritagliarne pezzi con canvas)
+function caricaImmagine(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+// ritaglia un primo piano quadrato attorno al punto (xPercent, yPercent) di un'immagine già caricata
+function ritagliaZona(img, xPercent, yPercent, dimensionePercentuale = 24) {
+  const lato = Math.round(Math.min(img.naturalWidth, img.naturalHeight) * (dimensionePercentuale / 100));
+  let sx = Math.round((xPercent / 100) * img.naturalWidth - lato / 2);
+  let sy = Math.round((yPercent / 100) * img.naturalHeight - lato / 2);
+  sx = Math.max(0, Math.min(sx, img.naturalWidth - lato));
+  sy = Math.max(0, Math.min(sy, img.naturalHeight - lato));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 320;
+  canvas.height = 320;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, sx, sy, lato, lato, 0, 0, 320, 320);
+  return canvas.toDataURL("image/png");
+}
+
+// genera i primi piani di tutte le anomalie di un report, raggruppando per foto per non ricaricare l'immagine più volte
+async function generaRitagliAnomalie(fotoConDataUrl, anomalieList) {
+  const ritagli = new Map();
+  for (const f of fotoConDataUrl) {
+    const anomalieFoto = anomalieList.filter((a) => a.fotoId === f.id);
+    if (anomalieFoto.length === 0) continue;
+    try {
+      const img = await caricaImmagine(f.dataUrl);
+      anomalieFoto.forEach((a) => {
+        ritagli.set(a.id, ritagliaZona(img, a.x, a.y));
+      });
+    } catch (e) { /* se una foto non si carica, semplicemente niente primo piano per quelle anomalie */ }
+  }
+  return ritagli;
+}
+
 // costruisce il documento PDF del report, condiviso tra nuova ispezione e visualizzazione di un report salvato
-function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, piano }) {
+function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, piano, ritagli }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const oranje = [255, 140, 66];
   const grigio = [110, 120, 130];
@@ -83,31 +125,56 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
   const disegnaAnomalia = (a, numero) => {
     const info = CATEGORIE.find((c) => c.key === a.categoria);
     const sev = SEVERITY.find((s) => s.key === a.gravita);
-    if (y > 265) { doc.addPage(); y = 20; }
+    const ritaglio = ritagli && ritagli.get ? ritagli.get(a.id) : null;
+    const latoImg = 26;
+    const xTesto = ritaglio ? 15 + latoImg + 6 : 22;
+    const larghezzaTesto = 195 - xTesto;
+    if (y > (ritaglio ? 255 : 265)) { doc.addPage(); y = 20; }
 
-    doc.setFillColor(...oranje);
-    doc.circle(17, y - 1.5, 1.4, "F");
+    const yInizioBlocco = y;
+
+    if (ritaglio) {
+      try { doc.addImage(ritaglio, "PNG", 15, y - 5, latoImg, latoImg); } catch (e) {}
+      doc.setDrawColor(220, 220, 220);
+      doc.rect(15, y - 5, latoImg, latoImg);
+      const hex = sev.color.replace("#", "");
+      const r = parseInt(hex.substring(0, 2), 16), g = parseInt(hex.substring(2, 4), 16), b = parseInt(hex.substring(4, 6), 16);
+      doc.setFillColor(r, g, b);
+      doc.circle(15 + 4, y - 5 + 4, 3.2, "F");
+      doc.setFontSize(7.5);
+      doc.setFont(undefined, "bold");
+      doc.setTextColor(22, 26, 31);
+      doc.text(String(numero), 15 + 4, y - 5 + 4.9, { align: "center" });
+      doc.setFont(undefined, "normal");
+    } else {
+      doc.setFillColor(...oranje);
+      doc.circle(17, y - 1.5, 1.4, "F");
+    }
+
     doc.setFontSize(11.5);
     doc.setTextColor(20, 20, 20);
-    doc.text(`${numero}. ${a.categoria}`, 22, y);
+    doc.text(`${numero}. ${a.categoria}`, xTesto, y);
     doc.setFontSize(9);
     doc.setTextColor(sev.color === "#ff4d4d" ? 220 : 150, 90, 60);
-    doc.text(`[${sev.label.toUpperCase()}]`, 165, y);
+    doc.text(`[${sev.label.toUpperCase()}]`, xTesto + larghezzaTesto - 30, y);
     y += 6;
 
     doc.setFontSize(9.5);
     doc.setTextColor(...grigio);
-    const descLines = doc.splitTextToSize(info.descrizione, 170);
-    doc.text(descLines, 22, y);
+    const descLines = doc.splitTextToSize(info.descrizione, larghezzaTesto);
+    doc.text(descLines, xTesto, y);
     y += descLines.length * 4.5 + 2;
 
     doc.setTextColor(...oranje);
-    const azLines = doc.splitTextToSize(`Azione consigliata: ${info.azione}`, 170);
-    doc.text(azLines, 22, y);
+    const azLines = doc.splitTextToSize(`Azione consigliata: ${info.azione}`, larghezzaTesto);
+    doc.text(azLines, xTesto, y);
     y += azLines.length * 4.5 + 8;
+
+    // se l'immagine ritagliata è più alta del testo, lascio spazio comunque per non sovrapporre il contenuto dopo
+    const altezzaTesto = y - yInizioBlocco;
+    if (ritaglio && latoImg + 3 > altezzaTesto) y += (latoImg + 3 - altezzaTesto);
   };
 
-  let contatoreAnomalie = 0;
   fotoConDataUrl.forEach((f, idx) => {
     doc.setFontSize(13);
     doc.setTextColor(20, 20, 20);
@@ -118,13 +185,20 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
     if (y + imgH > 280) { doc.addPage(); y = 20; }
     try {
       doc.addImage(f.dataUrl, "PNG", 15, y, imgW, imgH);
-      anomalieList.filter((a) => a.fotoId === f.id).forEach((a) => {
+      anomalieList.filter((a) => a.fotoId === f.id).forEach((a, i) => {
         const sev = SEVERITY.find((s) => s.key === a.gravita);
         const hex = sev.color.replace("#", "");
         const r = parseInt(hex.substring(0, 2), 16), g = parseInt(hex.substring(2, 4), 16), b = parseInt(hex.substring(4, 6), 16);
+        const cx = 15 + (a.x / 100) * imgW;
+        const cy = y + (a.y / 100) * imgH;
         doc.setFillColor(r, g, b);
         doc.setDrawColor(255, 255, 255);
-        doc.circle(15 + (a.x / 100) * imgW, y + (a.y / 100) * imgH, 1.8, "FD");
+        doc.circle(cx, cy, 2.6, "FD");
+        doc.setFontSize(7.5);
+        doc.setFont(undefined, "bold");
+        doc.setTextColor(22, 26, 31);
+        doc.text(String(i + 1), cx, cy + 0.9, { align: "center" });
+        doc.setFont(undefined, "normal");
       });
     } catch (e) {}
     y += imgH + 10;
@@ -135,9 +209,8 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
       doc.setTextColor(20, 20, 20);
       doc.text("Anomalie rilevate in questa foto", 15, y);
       y += 8;
-      anomalieFoto.forEach((a) => {
-        contatoreAnomalie += 1;
-        disegnaAnomalia(a, contatoreAnomalie);
+      anomalieFoto.forEach((a, i) => {
+        disegnaAnomalia(a, i + 1);
       });
     }
   });
@@ -148,9 +221,8 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
     doc.setTextColor(20, 20, 20);
     doc.text("Altre anomalie", 15, y);
     y += 9;
-    anomalieSenzaFoto.forEach((a) => {
-      contatoreAnomalie += 1;
-      disegnaAnomalia(a, contatoreAnomalie);
+    anomalieSenzaFoto.forEach((a, i) => {
+      disegnaAnomalia(a, i + 1);
     });
   }
 
@@ -1433,6 +1505,8 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
       const fotoConDataUrl = await Promise.all(
         fotoIspezione.map(async (f) => ({ id: f.id, dataUrl: await urlToDataUrl(f.url) }))
       );
+      const anomalieNormalizzate = anomalieIspezione.map((a) => ({ ...a, fotoId: a.foto_id, x: a.pos_x, y: a.pos_y }));
+      const ritagli = await generaRitagliAnomalie(fotoConDataUrl, anomalieNormalizzate);
       const doc = costruisciPDF({
         azienda,
         impianto,
@@ -1445,8 +1519,9 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
           prossimoControlloFormattato: ispezione.prossimo_controllo ? formatData(ispezione.prossimo_controllo) : null,
         },
         fotoConDataUrl,
-        anomalieList: anomalieIspezione,
+        anomalieList: anomalieNormalizzate,
         piano,
+        ritagli,
       });
       const url = doc.output("bloburl");
       setPdfUrl(url);
@@ -1512,9 +1587,13 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
               <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>{fotoIspezione.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica"}</h3>
               <div style={{ position: "relative", width: "100%" }}>
                 <img src={f.url} alt="foto ispezione" style={{ width: "100%", borderRadius: 4, display: "block" }} />
-                {anomalieFoto.map((a) => {
+                {anomalieFoto.map((a, i) => {
                   const sev = SEVERITY.find((s) => s.key === a.gravita);
-                  return <div key={a.id} style={{ position: "absolute", left: `${a.pos_x}%`, top: `${a.pos_y}%`, width: 11, height: 11, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(-50%,-50%)" }} />;
+                  return (
+                    <div key={a.id} style={{ position: "absolute", left: `${a.pos_x}%`, top: `${a.pos_y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(-50%,-50%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
+                      {i + 1}
+                    </div>
+                  );
                 })}
               </div>
               {anomalieFoto.length > 0 && (
@@ -3162,13 +3241,14 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     }
   };
 
-  const generaPDF = () => {
+  const generaPDF = async () => {
     let prossimoControlloFormattato = null;
     if (prossimoControllo) {
       const d = new Date();
       d.setMonth(d.getMonth() + Number(prossimoControllo));
       prossimoControlloFormattato = formatData(d);
     }
+    const ritagli = await generaRitagliAnomalie(foto, anomalie);
     const doc = costruisciPDF({
       azienda,
       impianto: impiantoSel,
@@ -3176,6 +3256,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       fotoConDataUrl: foto,
       anomalieList: anomalie,
       piano,
+      ritagli,
     });
     const url = doc.output("bloburl");
     setPdfUrl(url);
@@ -3466,9 +3547,13 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               {fotoAttiva && (
                 <div style={{ position: "relative", width: "100%", maxWidth: 480, display: "block" }}>
                   <img ref={imgRef} src={fotoAttiva.dataUrl} onClick={handleImgClick} style={{ width: "100%", borderRadius: 8, display: "block", cursor: "crosshair" }} />
-                  {anomalie.filter((a) => a.fotoId === fotoAttivaId).map((a) => {
+                  {anomalie.filter((a) => a.fotoId === fotoAttivaId).map((a, i) => {
                     const sev = SEVERITY.find((s) => s.key === a.gravita);
-                    return <div key={a.id} title={a.categoria} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 12, height: 12, borderRadius: "50%", background: sev.color, border: "2px solid #161a1f", transform: "translate(-50%,-50%)" }} />;
+                    return (
+                      <div key={a.id} title={a.categoria} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #161a1f", transform: "translate(-50%,-50%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f" }}>
+                        {i + 1}
+                      </div>
+                    );
                   })}
                   {pendingPin && (
                     <div style={{ position: "absolute", left: `${pendingPin.x}%`, top: `${pendingPin.y}%`, transform: "translate(-50%,-50%)" }}>
@@ -3549,9 +3634,13 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                   <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>{foto.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica"}</h3>
                   <div style={{ position: "relative", width: "100%" }}>
                     <img src={f.dataUrl} alt="foto ispezione" style={{ width: "100%", borderRadius: 4, display: "block" }} />
-                    {anomalieFoto.map((a) => {
+                    {anomalieFoto.map((a, i) => {
                       const sev = SEVERITY.find((s) => s.key === a.gravita);
-                      return <div key={a.id} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 11, height: 11, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(-50%,-50%)" }} />;
+                      return (
+                        <div key={a.id} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(-50%,-50%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
+                          {i + 1}
+                        </div>
+                      );
                     })}
                   </div>
                   {anomalieFoto.length > 0 && (
