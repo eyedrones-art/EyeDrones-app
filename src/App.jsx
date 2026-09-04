@@ -460,118 +460,175 @@ function costruisciPDFPermesso({ azienda, permesso, dflightDataUrl, piano }) {
 
 function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const oranje = [255, 140, 66];
+  const scuro = [22, 26, 31];
   const grigio = [110, 120, 130];
-  let y = 20;
+  const grigioChiaro = [130, 138, 148];
+  const nero = [20, 20, 20];
+  let y = 0;
 
+  // --- fascia superiore scura con logo e nome azienda ---
+  doc.setFillColor(...scuro);
+  doc.rect(0, 0, 210, 30, "F");
   if (azienda.logo) {
-    try { doc.addImage(azienda.logo, "PNG", (210 - 26) / 2, 10, 26, 16, undefined, "FAST"); } catch (e) {}
-    y = 34;
+    try { doc.addImage(azienda.logo, "PNG", 15, 6, 18, 18); } catch (e) {}
   }
+  doc.setFontSize(17);
+  doc.setTextColor(255, 255, 255);
+  doc.text(azienda.nome.toUpperCase(), 38, 15);
+  doc.setFontSize(9);
+  doc.setTextColor(180, 186, 194);
+  doc.text("Ispezioni aeree con termocamera", 38, 21);
 
-  doc.setFontSize(18);
-  doc.setTextColor(20, 20, 20);
-  doc.text("Preventivo ispezione termografica", 15, y);
-  y += 6;
+  y = 46;
+
+  // --- titolo preventivo ---
+  doc.setFontSize(17);
+  doc.setTextColor(...nero);
+  doc.text(`Preventivo N. ${preventivo.numero || "—"}`, 15, y);
+  y += 7;
   doc.setFontSize(10);
   doc.setTextColor(...grigio);
-  doc.text(`${azienda.nome} — ispezioni con drone e termocamera`, 15, y);
-  y += 12;
-
-  doc.setDrawColor(230, 230, 230);
-  doc.line(15, y, 195, y);
-  y += 8;
-
-  doc.setFontSize(11);
-  doc.setTextColor(20, 20, 20);
   const dataEmissione = new Date(preventivo.data);
-  const dataScadenza = new Date(dataEmissione);
-  dataScadenza.setDate(dataScadenza.getDate() + (preventivo.validita_giorni || 30));
+  doc.text(`Data: ${formatData(dataEmissione)}   ·   Validità: ${preventivo.validita_giorni || 30} giorni`, 15, y);
+  y += 8;
+  doc.setDrawColor(225, 225, 225);
+  doc.line(15, y, 195, y);
+  y += 10;
 
-  const righe = [
-    ["Cliente", preventivo.cliente],
-    ["Impianto / zona", preventivo.zona || "—"],
-    ["Potenza impianto", preventivo.kwp ? `${preventivo.kwp} kWp` : "—"],
-    ["Data preventivo", formatData(dataEmissione)],
-    ["Valido fino al", formatData(dataScadenza)],
-  ];
-  righe.forEach(([label, val]) => {
+  // --- luogo intervento ---
+  if (preventivo.luogo_intervento) {
+    doc.setFontSize(9.5);
     doc.setTextColor(...grigio);
-    doc.text(label, 15, y);
-    doc.setTextColor(20, 20, 20);
-    doc.text(String(val), 70, y);
-    y += 7;
-  });
-
-  y += 6;
-  doc.setDrawColor(230, 230, 230);
-  doc.line(15, y, 195, y);
-  y += 12;
-
-  doc.setFontSize(13);
-  doc.setTextColor(20, 20, 20);
-  doc.text("Dettaglio economico", 15, y);
-  y += 10;
-
-  const tariffaBaseVal = Number(azienda.tariffaBase) || 0;
-  const tariffaKwpVal = Number(azienda.tariffaKwp) || 0;
-  const kwpVal = Number(preventivo.kwp) || 0;
-  const imponibile = tariffaBaseVal + kwpVal * tariffaKwpVal;
-  const scontoVal = Number(preventivo.sconto) || 0;
-
-  doc.setFontSize(10.5);
-  doc.setTextColor(60, 65, 72);
-  doc.text("Tariffa base ispezione", 15, y);
-  doc.text(`${tariffaBaseVal.toFixed(2)} €`, 195, y, { align: "right" });
-  y += 7;
-  if (kwpVal > 0) {
-    doc.text(`Tariffa per potenza (${kwpVal} kWp × ${tariffaKwpVal.toFixed(2)} €)`, 15, y);
-    doc.text(`${(kwpVal * tariffaKwpVal).toFixed(2)} €`, 195, y, { align: "right" });
-    y += 7;
-  }
-  if (scontoVal > 0) {
-    doc.setTextColor(...oranje);
-    doc.text(`Sconto (${scontoVal}%)`, 15, y);
-    doc.text(`- ${(imponibile * scontoVal / 100).toFixed(2)} €`, 195, y, { align: "right" });
-    y += 7;
+    doc.text("LUOGO INTERVENTO", 15, y);
+    y += 5.5;
+    doc.setFontSize(11);
+    doc.setTextColor(...nero);
+    const righeLuogo = doc.splitTextToSize(preventivo.luogo_intervento, 175);
+    doc.text(righeLuogo, 15, y);
+    y += righeLuogo.length * 5.5 + 6;
   }
 
-  y += 4;
-  doc.setDrawColor(230, 230, 230);
+  // --- oggetto ---
+  if (preventivo.oggetto) {
+    doc.setFontSize(9.5);
+    doc.setTextColor(...grigio);
+    doc.text("OGGETTO", 15, y);
+    y += 5.5;
+    doc.setFontSize(11);
+    doc.setTextColor(...nero);
+    const righeOggetto = doc.splitTextToSize(preventivo.oggetto, 175);
+    doc.text(righeOggetto, 15, y);
+    y += righeOggetto.length * 5.5 + 8;
+  }
+
+  // --- dettaglio servizio (tabella voci) ---
+  const voci = Array.isArray(preventivo.voci) ? preventivo.voci : [];
+  if (voci.length > 0) {
+    doc.setFontSize(11.5);
+    doc.setTextColor(...nero);
+    doc.text("DETTAGLIO SERVIZIO", 15, y);
+    y += 7;
+
+    doc.setFillColor(...scuro);
+    doc.rect(15, y - 5, 180, 8, "F");
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text("Descrizione", 18, y);
+    doc.text("Importo", 192, y, { align: "right" });
+    y += 7;
+
+    voci.forEach((v, idx) => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      const sfondoRiga = idx % 2 === 0 ? [248, 249, 250] : [255, 255, 255];
+      doc.setFillColor(...sfondoRiga);
+      const righeDesc = doc.splitTextToSize(v.descrizione || "", 140);
+      const altezzaRiga = Math.max(8, righeDesc.length * 5 + 3);
+      doc.rect(15, y - 5, 180, altezzaRiga, "F");
+      doc.setFontSize(10);
+      doc.setTextColor(...nero);
+      doc.text(righeDesc, 18, y);
+      doc.text(`€ ${Number(v.importo || 0).toFixed(2)}`, 192, y, { align: "right" });
+      y += altezzaRiga;
+    });
+    y += 8;
+  }
+
+  // --- totali ---
+  const listino = voci.reduce((s, v) => s + (Number(v.importo) || 0), 0);
+  const sconto = Number(preventivo.sconto_importo) || 0;
+  const totale = Number(preventivo.prezzo) || (listino - sconto);
+
+  if (y > 260) { doc.addPage(); y = 20; }
+
+  doc.setFontSize(10);
+  doc.setTextColor(...grigio);
+  doc.text("Prezzo di listino", 15, y);
+  if (sconto > 0) {
+    doc.setTextColor(...grigioChiaro);
+    const testoListino = `€ ${listino.toFixed(2)}`;
+    doc.text(testoListino, 192, y, { align: "right" });
+    const largh = doc.getTextWidth(testoListino);
+    doc.setDrawColor(...grigioChiaro);
+    doc.line(192 - largh, y - 1.3, 192, y - 1.3);
+  } else {
+    doc.setTextColor(...nero);
+    doc.text(`€ ${listino.toFixed(2)}`, 192, y, { align: "right" });
+  }
+  y += 6.5;
+
+  if (sconto > 0) {
+    doc.setTextColor(...grigio);
+    doc.text("Sconto applicato", 15, y);
+    doc.setTextColor(230, 90, 60);
+    doc.text(`− € ${sconto.toFixed(2)}`, 192, y, { align: "right" });
+    y += 6.5;
+  }
+
+  y += 3;
+  doc.setDrawColor(225, 225, 225);
   doc.line(15, y, 195, y);
   y += 10;
 
-  doc.setFontSize(14);
-  doc.setTextColor(20, 20, 20);
-  doc.text("Totale preventivato", 15, y);
+  doc.setFontSize(12.5);
+  doc.setTextColor(...nero);
+  doc.text(sconto > 0 ? "TOTALE SCONTATO" : "TOTALE", 15, y);
   doc.setFontSize(16);
-  doc.setTextColor(...oranje);
-  doc.text(`${Number(preventivo.prezzo).toFixed(2)} €`, 195, y, { align: "right" });
+  doc.setTextColor(...scuro);
+  doc.text(`€ ${totale.toFixed(2)}`, 195, y, { align: "right" });
   y += 16;
 
+  // --- note ---
   if (preventivo.note) {
-    doc.setFontSize(11);
-    doc.setTextColor(20, 20, 20);
-    doc.text("Note", 15, y);
-    y += 7;
-    doc.setFontSize(10);
+    if (y > 250) { doc.addPage(); y = 20; }
+    doc.setFontSize(10.5);
+    doc.setTextColor(...nero);
+    doc.text("NOTE", 15, y);
+    y += 6;
+    doc.setFontSize(9);
     doc.setTextColor(...grigio);
-    const noteLines = doc.splitTextToSize(preventivo.note, 170);
+    const noteLines = doc.splitTextToSize(preventivo.note, 175);
     doc.text(noteLines, 15, y);
-    y += noteLines.length * 4.5 + 10;
+    y += noteLines.length * 4.5 + 8;
   }
 
+  if (y > 250) { doc.addPage(); y = 20; }
+  doc.setDrawColor(225, 225, 225);
+  doc.line(15, y, 195, y);
+  y += 8;
   doc.setFontSize(9);
   doc.setTextColor(...grigio);
-  const condizioni = "Prezzo indicativo, soggetto a conferma dopo sopralluogo. Il preventivo non costituisce impegno contrattuale fino ad accettazione scritta.";
-  const condLines = doc.splitTextToSize(condizioni, 170);
-  doc.text(condLines, 15, y);
+  doc.text("Per accettazione del preventivo, si prega di confermare via email o telefono.", 15, y);
+  y += 10;
+  doc.setFontSize(10);
+  doc.setTextColor(...nero);
+  doc.text(`${azienda.nome}${preventivo.operatore ? " — " + preventivo.operatore : ""}`, 15, y);
 
-  if (piano !== "pro") {
-    doc.setFontSize(8);
-    doc.setTextColor(...grigio);
-    doc.text(`Generato da ${azienda.nome}`, 15, 290);
-  }
+  // --- fascia inferiore scura ---
+  doc.setFillColor(...scuro);
+  doc.rect(0, 283, 210, 14, "F");
+  doc.setFontSize(8);
+  doc.setTextColor(200, 205, 212);
+  doc.text(`${azienda.nome}  ·  Generato automaticamente`, 105, 291, { align: "center" });
 
   return doc;
 }
@@ -1562,39 +1619,73 @@ const STATI_PREVENTIVO = [
 
 function Preventivi({ preventivi, azienda, piano, onReload }) {
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [cliente, setCliente] = useState("");
-  const [zona, setZona] = useState("");
-  const [kwp, setKwp] = useState("");
-  const [sconto, setSconto] = useState("");
-  const [prezzo, setPrezzo] = useState("");
+  const [luogoIntervento, setLuogoIntervento] = useState("");
+  const [oggetto, setOggetto] = useState("");
+  const [voci, setVoci] = useState([{ descrizione: "", importo: "" }]);
+  const [scontoImporto, setScontoImporto] = useState("");
+  const [validitaGiorni, setValiditaGiorni] = useState("30");
   const [note, setNote] = useState("");
   const [salvataggio, setSalvataggio] = useState(false);
   const [cambiandoStato, setCambiandoStato] = useState(null);
 
-  const tariffaBaseVal = Number(azienda.tariffaBase) || 0;
-  const tariffaKwpVal = Number(azienda.tariffaKwp) || 0;
-  const kwpVal = Number(kwp) || 0;
-  const scontoVal = Number(sconto) || 0;
-  const imponibile = tariffaBaseVal + kwpVal * tariffaKwpVal;
-  const prezzoCalcolato = imponibile * (1 - scontoVal / 100);
+  const listino = voci.reduce((s, v) => s + (Number(v.importo) || 0), 0);
+  const scontoVal = Number(scontoImporto) || 0;
+  const totale = Math.max(0, listino - scontoVal);
 
-  const applicaCalcolo = () => setPrezzo(prezzoCalcolato.toFixed(2));
+  const aggiungiVoce = () => setVoci([...voci, { descrizione: "", importo: "" }]);
+  const rimuoviVoce = (idx) => setVoci(voci.filter((_, i) => i !== idx));
+  const aggiornaVoce = (idx, campo, valore) => {
+    const nuove = [...voci];
+    nuove[idx] = { ...nuove[idx], [campo]: valore };
+    setVoci(nuove);
+  };
 
   const resetForm = () => {
-    setCliente(""); setZona(""); setKwp(""); setSconto(""); setPrezzo(""); setNote("");
+    setCliente(""); setLuogoIntervento(""); setOggetto("");
+    setVoci([{ descrizione: "", importo: "" }]); setScontoImporto("");
+    setValiditaGiorni("30"); setNote(""); setEditingId(null);
+  };
+
+  const apriModifica = (p) => {
+    setEditingId(p.id);
+    setCliente(p.cliente || "");
+    setLuogoIntervento(p.luogo_intervento || "");
+    setOggetto(p.oggetto || "");
+    setVoci(p.voci && p.voci.length > 0 ? p.voci.map((v) => ({ descrizione: v.descrizione || "", importo: v.importo != null ? String(v.importo) : "" })) : [{ descrizione: "", importo: "" }]);
+    setScontoImporto(p.sconto_importo ? String(p.sconto_importo) : "");
+    setValiditaGiorni(p.validita_giorni ? String(p.validita_giorni) : "30");
+    setNote(p.note || "");
+    setShowForm(true);
+  };
+
+  const generaNumero = () => {
+    const anno = new Date().getFullYear();
+    const stessoAnno = preventivi.filter((p) => p.numero && p.numero.includes(String(anno)));
+    return `EYD-${anno}-${String(stessoAnno.length + 1).padStart(3, "0")}`;
   };
 
   const salvaPreventivo = async () => {
-    if (!cliente || !prezzo) return;
+    if (!cliente || voci.every((v) => !v.descrizione && !v.importo)) return;
     setSalvataggio(true);
-    const { error } = await supabase.from("preventivi").insert({
+    const vociPulite = voci.filter((v) => v.descrizione || v.importo).map((v) => ({ descrizione: v.descrizione, importo: Number(v.importo) || 0 }));
+    const payload = {
       cliente,
-      zona: zona || null,
-      kwp: kwp ? Number(kwp) : null,
-      sconto: sconto ? Number(sconto) : 0,
-      prezzo: Number(prezzo),
+      luogo_intervento: luogoIntervento || null,
+      oggetto: oggetto || null,
+      voci: vociPulite,
+      sconto_importo: scontoVal,
+      prezzo: totale,
+      validita_giorni: Number(validitaGiorni) || 30,
       note: note || null,
-    });
+    };
+    let error;
+    if (editingId) {
+      ({ error } = await supabase.from("preventivi").update(payload).eq("id", editingId));
+    } else {
+      ({ error } = await supabase.from("preventivi").insert({ ...payload, numero: generaNumero() }));
+    }
     setSalvataggio(false);
     if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
     resetForm();
@@ -1621,58 +1712,81 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
     window.open(url, "_blank");
   };
 
-  if (piano !== "pro") {
-    return (
-      <div style={{ padding: "28px 32px" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 12px 0" }}>Preventivi</h1>
-        <div style={{ maxWidth: 420, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 10, padding: 20 }}>
-          <p style={{ fontSize: 13.5, color: "#ffb877", margin: "0 0 10px 0", fontWeight: 600 }}>🔒 Funzione riservata al piano Pro</p>
-          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: 0, lineHeight: 1.5 }}>
-            Il calcolatore preventivi (con calcolo automatico del prezzo e PDF pronto da inviare) è disponibile solo con il piano Pro.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Preventivi</h1>
-        <button onClick={() => setShowForm(!showForm)} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo preventivo</>}
         </button>
       </div>
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
-          <input placeholder="Nome cliente" value={cliente} onChange={(e) => setCliente(e.target.value)} style={inputStyle} />
-          <input placeholder="Impianto / zona (opzionale)" value={zona} onChange={(e) => setZona(e.target.value)} style={inputStyle} />
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Potenza (kWp)</label>
-              <input type="number" placeholder="es. 70" value={kwp} onChange={(e) => setKwp(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Sconto %</label>
-              <input type="number" placeholder="0" value={sconto} onChange={(e) => setSconto(e.target.value)} style={inputStyle} />
-            </div>
+        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, marginBottom: 20, maxWidth: 540, display: "flex", flexDirection: "column", gap: 12 }}>
+          {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un preventivo esistente</div>}
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome cliente</label>
+            <input placeholder="es. Mario Rossi" value={cliente} onChange={(e) => setCliente(e.target.value)} style={inputStyle} />
           </div>
-
-          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "8px 10px", fontSize: 11.5, color: "#8b95a3" }}>
-            Prezzo suggerito: <span className="mono" style={{ color: "#e7eaee" }}>{prezzoCalcolato.toFixed(2)} €</span>
-            {" "}<button onClick={applicaCalcolo} style={{ marginLeft: 6, background: "none", border: "1px solid #333a45", color: "#ff8c42", borderRadius: 4, padding: "2px 8px", fontSize: 11 }}>Usa questo</button>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Luogo intervento</label>
+            <input placeholder="es. Via Roma 4, Torino" value={luogoIntervento} onChange={(e) => setLuogoIntervento(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Oggetto</label>
+            <textarea placeholder="es. Rilievo aereo con drone dei danni da grandine su coperture — 7 villette" value={oggetto} onChange={(e) => setOggetto(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
 
           <div>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Prezzo finale (€) — modificabile</label>
-            <input type="number" step="0.01" placeholder="0.00" value={prezzo} onChange={(e) => setPrezzo(e.target.value)} style={inputStyle} />
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 6 }}>Voci del preventivo</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {voci.map((v, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input placeholder="es. Diritto di uscita" value={v.descrizione} onChange={(e) => aggiornaVoce(idx, "descrizione", e.target.value)} style={{ ...inputStyle, flex: 3 }} />
+                  <input type="number" step="0.01" placeholder="€" value={v.importo} onChange={(e) => aggiornaVoce(idx, "importo", e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                  {voci.length > 1 && (
+                    <button onClick={() => rimuoviVoce(idx)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "8px 10px", fontSize: 13 }}>×</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button onClick={aggiungiVoce} style={{ marginTop: 8, background: "none", border: "1px dashed #333a45", color: "#8b95a3", borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>
+              + Aggiungi voce
+            </button>
           </div>
 
-          <textarea placeholder="Note (opzionale)" value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Sconto (€)</label>
+              <input type="number" step="0.01" placeholder="0" value={scontoImporto} onChange={(e) => setScontoImporto(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Validità (giorni)</label>
+              <input type="number" value={validitaGiorni} onChange={(e) => setValiditaGiorni(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
 
-          <button onClick={salvaPreventivo} disabled={!cliente || !prezzo || salvataggio} style={{ marginTop: 4, background: cliente && prezzo ? "#ff8c42" : "#333a45", color: cliente && prezzo ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
-            {salvataggio ? "Salvataggio..." : "Salva preventivo"}
+          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "10px 12px", fontSize: 12.5 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#8b95a3" }}>
+              <span>Prezzo di listino</span><span className="mono">{listino.toFixed(2)} €</span>
+            </div>
+            {scontoVal > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", color: "#ff8c42", marginTop: 3 }}>
+                <span>Sconto</span><span className="mono">− {scontoVal.toFixed(2)} €</span>
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#e7eaee", fontWeight: 700, fontSize: 14.5, marginTop: 6, paddingTop: 6, borderTop: "1px solid #262b33" }}>
+              <span>Totale</span><span className="mono">{totale.toFixed(2)} €</span>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note (opzionale)</label>
+            <textarea placeholder="es. Zona di volo verificata, sopralluogo da concordare, importo non comprensivo di IVA..." value={note} onChange={(e) => setNote(e.target.value)} rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+          </div>
+
+          <button onClick={salvaPreventivo} disabled={!cliente || salvataggio} style={{ marginTop: 4, background: cliente ? "#ff8c42" : "#333a45", color: cliente ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+            {salvataggio ? "Salvataggio..." : editingId ? "Aggiorna preventivo" : "Salva preventivo"}
           </button>
         </div>
       )}
@@ -1686,9 +1800,9 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
             return (
               <div key={p.id} style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.cliente}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.cliente} {p.numero && <span style={{ color: "#6b7480", fontWeight: 400, fontSize: 12 }}>· {p.numero}</span>}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
-                    {p.zona && <>{p.zona} &middot; </>}{formatData(p.data)} &middot; <span className="mono">{Number(p.prezzo).toFixed(2)} €</span>
+                    {p.luogo_intervento && <>{p.luogo_intervento} &middot; </>}{formatData(p.data)} &middot; <span className="mono">{Number(p.prezzo).toFixed(2)} €</span>
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1700,6 +1814,9 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
                   >
                     {STATI_PREVENTIVO.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                   </select>
+                  <button onClick={() => apriModifica(p)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                    Modifica
+                  </button>
                   <button onClick={() => scaricaPDF(p)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     <FileDown size={12} /> PDF
                   </button>
@@ -1710,357 +1827,6 @@ function Preventivi({ preventivi, azienda, piano, onReload }) {
               </div>
             );
           })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// --- Impostazioni (white label) -----------------------------------------------------------
-
-// --- Permessi -----------------------------------------------------------
-
-const STATI_PERMESSO = [
-  { key: "in_attesa", label: "In attesa", color: "#f5b942" },
-  { key: "autorizzato", label: "Autorizzato", color: "#4ade80" },
-  { key: "negato", label: "Negato", color: "#ff4d4d" },
-];
-
-function Permessi({ permessi, impianti, azienda, piano, onReload }) {
-  const [showForm, setShowForm] = useState(false);
-  const [impiantoIdSel, setImpiantoIdSel] = useState("");
-  const [impianto, setImpianto] = useState("");
-  const [enteContattato, setEnteContattato] = useState("");
-  const [permessiRichiesti, setPermessiRichiesti] = useState("");
-  const [bufferSicurezza, setBufferSicurezza] = useState("");
-  const [dataRichiesta, setDataRichiesta] = useState("");
-  const [oraRichiesta, setOraRichiesta] = useState("");
-  const [note, setNote] = useState("");
-  const [documento, setDocumento] = useState(null); // { nome, blob }
-  const [dflightShot, setDflightShot] = useState(null); // { dataUrl, blob }
-  const [salvataggio, setSalvataggio] = useState(false);
-  const [cambiandoId, setCambiandoId] = useState(null);
-  const [espansoId, setEspansoId] = useState(null);
-
-  const resetForm = () => {
-    setImpiantoIdSel(""); setImpianto(""); setEnteContattato(""); setPermessiRichiesti("");
-    setBufferSicurezza(""); setDataRichiesta(""); setOraRichiesta(""); setNote("");
-    setDocumento(null); setDflightShot(null);
-  };
-
-  const selezionaImpianto = (id) => {
-    setImpiantoIdSel(id);
-    const imp = impianti.find((i) => i.id === id);
-    if (imp) setImpianto(`${imp.nome} — ${imp.zona || ""}`.replace(/ — $/, ""));
-  };
-
-  const caricaDocumento = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setDocumento({ nome: file.name, blob: file });
-    e.target.value = "";
-  };
-
-  const caricaDflightShot = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setDflightShot({ dataUrl: reader.result, blob: file });
-    reader.readAsDataURL(file);
-    e.target.value = "";
-  };
-
-  const salvaPermesso = async () => {
-    if (!impianto) return;
-    setSalvataggio(true);
-    try {
-      let documentoUrl = null;
-      if (documento?.blob) {
-        const estensione = documento.nome.split(".").pop();
-        const nomeFile = `permesso-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${estensione}`;
-        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, documento.blob);
-        if (!eUp) {
-          const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
-          documentoUrl = pub?.publicUrl || null;
-        }
-      }
-      let dflightUrl = null;
-      if (dflightShot?.blob) {
-        const nomeFileD = `dflight-permesso-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
-        const { error: eUpD } = await supabase.storage.from("foto-ispezioni").upload(nomeFileD, dflightShot.blob, { contentType: "image/png" });
-        if (!eUpD) {
-          const { data: pubD } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFileD);
-          dflightUrl = pubD?.publicUrl || null;
-        }
-      }
-      const { error } = await supabase.from("permessi").insert({
-        impianto,
-        impianto_id: impiantoIdSel || null,
-        ente_contattato: enteContattato || null,
-        permessi_richiesti: permessiRichiesti || null,
-        buffer_sicurezza: bufferSicurezza ? Number(bufferSicurezza) : null,
-        data_richiesta: dataRichiesta || null,
-        ora_richiesta: oraRichiesta || null,
-        note: note || null,
-        documento_url: documentoUrl,
-        dflight_screenshot_url: dflightUrl,
-      });
-      if (error) throw error;
-      resetForm();
-      setShowForm(false);
-      onReload();
-    } catch (err) {
-      alert("Salvataggio non riuscito: " + (err?.message || err));
-    }
-    setSalvataggio(false);
-  };
-
-  const eliminaPermesso = async (id) => {
-    if (!window.confirm("Eliminare questo permesso?")) return;
-    await supabase.from("permessi").delete().eq("id", id);
-    onReload();
-  };
-
-  return (
-    <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Permessi</h1>
-        <button onClick={() => setShowForm(!showForm)} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
-          {showForm ? "Annulla" : <><Plus size={14} /> Nuova richiesta</>}
-        </button>
-      </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Richiedi e traccia i permessi di volo per zone soggette a restrizioni, prima ancora di fare il rilievo.</p>
-
-      {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Collega a un impianto esistente (opzionale)</label>
-            <select value={impiantoIdSel} onChange={(e) => selezionaImpianto(e.target.value)} style={inputStyle}>
-              <option value="">— Nessuno / scrivi a mano —</option>
-              {impianti.map((imp) => <option key={imp.id} value={imp.id}>{imp.nome}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Impianto / zona</label>
-            <input placeholder="es. Impianto FV Torino Nord" value={impianto} onChange={(e) => setImpianto(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ente / soggetto contattato</label>
-            <input placeholder="es. Aeroclub Torino, Aeroporto Caselle - Torre" value={enteContattato} onChange={(e) => setEnteContattato(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Permessi richiesti</label>
-            <textarea placeholder="es. NOTAM, autorizzazione ENAC, coordinamento torre di controllo..." value={permessiRichiesti} onChange={(e) => setPermessiRichiesti(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Buffer di sicurezza (m)</label>
-            <input type="number" placeholder="es. 5" value={bufferSicurezza} onChange={(e) => setBufferSicurezza(e.target.value)} style={inputStyle} />
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Richiesta inviata il</label>
-              <input type="date" value={dataRichiesta} onChange={(e) => setDataRichiesta(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ora invio</label>
-              <input type="time" value={oraRichiesta} onChange={(e) => setOraRichiesta(e.target.value)} style={inputStyle} />
-            </div>
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Foglio del permesso (facoltativo, immagine o PDF)</label>
-            {documento ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 12, color: "#c3cad4" }}>{documento.nome}</span>
-                <button onClick={() => setDocumento(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
-              </div>
-            ) : (
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
-                <Upload size={13} /> Carica documento
-                <input type="file" accept="image/*,.pdf" onChange={caricaDocumento} style={{ display: "none" }} />
-              </label>
-            )}
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight (facoltativo)</label>
-            {dflightShot ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 70, height: 46, objectFit: "cover", borderRadius: 4, border: "1px solid #333a45" }} />
-                <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
-              </div>
-            ) : (
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
-                <Upload size={13} /> Carica screenshot
-                <input type="file" accept="image/*" onChange={caricaDflightShot} style={{ display: "none" }} />
-              </label>
-            )}
-          </div>
-          <div>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note (opzionale)</label>
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
-          </div>
-          <button onClick={salvaPermesso} disabled={!impianto || salvataggio} style={{ marginTop: 4, background: impianto ? "#ff8c42" : "#333a45", color: impianto ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
-            {salvataggio ? "Salvataggio..." : "Salva richiesta"}
-          </button>
-        </div>
-      )}
-
-      {permessi.length === 0 ? (
-        <EmptyState text="Nessuna richiesta di permesso ancora registrata." />
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {permessi.map((p) => (
-            <PermessoRow key={p.id} p={p} azienda={azienda} piano={piano} espanso={espansoId === p.id} onToggle={() => setEspansoId(espansoId === p.id ? null : p.id)} onDelete={() => eliminaPermesso(p.id)} cambiando={cambiandoId === p.id} setCambiando={setCambiandoId} onReload={onReload} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando, setCambiando, onReload }) {
-  const [nuovoStato, setNuovoStato] = useState(p.stato);
-  const [nuovoMotivo, setNuovoMotivo] = useState(p.motivo_negazione || "");
-  const [nuovoValidoDal, setNuovoValidoDal] = useState(p.valido_dal || "");
-  const [nuovoValidoAl, setNuovoValidoAl] = useState(p.valido_al || "");
-  const [nuovoOraDalle, setNuovoOraDalle] = useState(p.ora_dalle || "");
-  const [nuovoOraAlle, setNuovoOraAlle] = useState(p.ora_alle || "");
-  const [modificaStato, setModificaStato] = useState(false);
-  const [generandoPDF, setGenerandoPDF] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState(null);
-
-  const stato = STATI_PERMESSO.find((s) => s.key === p.stato) || STATI_PERMESSO[0];
-
-  const salvaStato = async () => {
-    setCambiando(p.id);
-    await supabase.from("permessi").update({
-      stato: nuovoStato,
-      motivo_negazione: nuovoStato === "negato" ? (nuovoMotivo || null) : null,
-      valido_dal: nuovoStato === "autorizzato" ? (nuovoValidoDal || null) : null,
-      valido_al: nuovoStato === "autorizzato" ? (nuovoValidoAl || null) : null,
-      ora_dalle: nuovoStato === "autorizzato" ? (nuovoOraDalle || null) : null,
-      ora_alle: nuovoStato === "autorizzato" ? (nuovoOraAlle || null) : null,
-    }).eq("id", p.id);
-    setCambiando(null);
-    setModificaStato(false);
-    onReload();
-  };
-
-  const scaricaPDF = async () => {
-    setGenerandoPDF(true);
-    try {
-      let dflightDataUrl = null;
-      if (p.dflight_screenshot_url) {
-        dflightDataUrl = await urlToDataUrl(p.dflight_screenshot_url);
-      }
-      const doc = costruisciPDFPermesso({ azienda, permesso: p, dflightDataUrl, piano });
-      const url = doc.output("bloburl");
-      setPdfUrl(url);
-      window.open(url, "_blank");
-    } catch (err) {
-      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
-    }
-    setGenerandoPDF(false);
-  };
-
-  return (
-    <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px" }}>
-      <div onClick={onToggle} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", flexWrap: "wrap", gap: 8 }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.impianto}</div>
-          <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
-            {p.ente_contattato && <>{p.ente_contattato} &middot; </>}
-            {p.data_richiesta ? formatData(p.data_richiesta) : "—"}
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 4, background: stato.color + "22", color: stato.color }}>{stato.label}</span>
-          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
-          <ChevronRight size={15} color="#6b7480" style={{ transform: espanso ? "rotate(90deg)" : "none" }} />
-        </div>
-      </div>
-
-      {espanso && (
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #262b33", display: "flex", flexDirection: "column", gap: 6 }}>
-          {p.permessi_richiesti && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Permessi: </span>{p.permessi_richiesti}</div>}
-          {p.buffer_sicurezza && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Buffer di sicurezza: </span>{p.buffer_sicurezza} m</div>}
-          {p.ora_richiesta && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Ora invio richiesta: </span>{p.ora_richiesta}</div>}
-          {p.note && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Note: </span>{p.note}</div>}
-          {p.documento_url && (
-            <a href={p.documento_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd", display: "inline-flex", alignItems: "center", gap: 5 }}>
-              <FileDown size={12} /> Apri il foglio del permesso caricato
-            </a>
-          )}
-          {p.dflight_screenshot_url && (
-            <div style={{ marginTop: 4 }}>
-              <span style={{ fontSize: 11, color: "#8b95a3", display: "block", marginBottom: 6 }}>Screenshot D-Flight</span>
-              <a href={p.dflight_screenshot_url} target="_blank" rel="noreferrer">
-                <img src={p.dflight_screenshot_url} alt="D-Flight" style={{ width: "100%", maxWidth: 280, borderRadius: 6, border: "1px solid #333a45" }} />
-              </a>
-            </div>
-          )}
-          {p.stato === "negato" && p.motivo_negazione && <div style={{ fontSize: 12.5, color: "#ff9c9c" }}>Motivo: {p.motivo_negazione}</div>}
-          {p.stato === "autorizzato" && p.valido_dal && (
-            <div style={{ fontSize: 12.5, color: "#4ade80" }}>
-              Valido dal {formatData(p.valido_dal)} al {p.valido_al ? formatData(p.valido_al) : "—"}
-              {p.ora_dalle && `, dalle ${p.ora_dalle} alle ${p.ora_alle || "—"}`}
-            </div>
-          )}
-
-          <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-            {!modificaStato && (
-              <button onClick={() => setModificaStato(true)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
-                Modifica esito
-              </button>
-            )}
-            <button onClick={scaricaPDF} disabled={generandoPDF} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
-              <FileDown size={12} /> {generandoPDF ? "Preparazione..." : "Scarica PDF"}
-            </button>
-          </div>
-          {pdfUrl && (
-            <a href={pdfUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#3d8bfd" }}>
-              Se non si è aperto automaticamente, apri il PDF qui
-            </a>
-          )}
-
-          {modificaStato && (
-            <div style={{ marginTop: 8, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-              <div>
-                <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Esito</label>
-                <select value={nuovoStato} onChange={(e) => setNuovoStato(e.target.value)} style={inputStyle}>
-                  {STATI_PERMESSO.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                </select>
-              </div>
-              {nuovoStato === "negato" && (
-                <div>
-                  <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Motivo del rifiuto</label>
-                  <textarea value={nuovoMotivo} onChange={(e) => setNuovoMotivo(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
-                </div>
-              )}
-              {nuovoStato === "autorizzato" && (
-                <div>
-                  <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Permesso valido</label>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input type="date" value={nuovoValidoDal} onChange={(e) => setNuovoValidoDal(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                    <span style={{ fontSize: 11, color: "#6b7480" }}>al</span>
-                    <input type="date" value={nuovoValidoAl} onChange={(e) => setNuovoValidoAl(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                  </div>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-                    <input type="time" value={nuovoOraDalle} onChange={(e) => setNuovoOraDalle(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                    <span style={{ fontSize: 11, color: "#6b7480" }}>alle</span>
-                    <input type="time" value={nuovoOraAlle} onChange={(e) => setNuovoOraAlle(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                  </div>
-                </div>
-              )}
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={salvaStato} disabled={cambiando} style={{ background: "#ff8c42", color: "#161a1f", border: "none", padding: "7px 14px", borderRadius: 5, fontWeight: 600, fontSize: 12 }}>
-                  {cambiando ? "Salvataggio..." : "Salva"}
-                </button>
-                <button onClick={() => setModificaStato(false)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", padding: "7px 14px", borderRadius: 5, fontSize: 12 }}>
-                  Annulla
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
