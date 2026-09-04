@@ -3782,9 +3782,14 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px 0", display: "flex", alignItems: "center", gap: 6 }}>🌤️ Preparazione volo</h3>
               <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>Controlla meteo e attività solare prima di partire — le condizioni possono cambiare all'ultimo momento.</p>
 
-              <button type="button" onClick={controllaMeteo} disabled={caricandoMeteo} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600 }}>
-                {caricandoMeteo ? "Controllo in corso..." : "Controlla meteo e attività solare"}
-              </button>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" onClick={controllaMeteo} disabled={caricandoMeteo} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600 }}>
+                  {caricandoMeteo ? "Controllo in corso..." : "Controlla meteo e attività solare"}
+                </button>
+                <a href="https://www.d-flight.it" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}>
+                  🗺️ Apri D-Flight
+                </a>
+              </div>
 
               {erroreMeteo && <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8 }}>{erroreMeteo}</p>}
 
