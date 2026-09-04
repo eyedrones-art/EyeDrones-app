@@ -39,6 +39,45 @@ function caricaImmagine(dataUrl) {
 }
 
 // ritaglia un primo piano quadrato attorno al punto (xPercent, yPercent) di un'immagine già caricata
+// checklist di base pre-volo, personalizzabile da ogni pilota
+const CHECKLIST_DEFAULT = [
+  "Batteria drone carica",
+  "Batteria radiocomando/schermo carica",
+  "Schede di memoria libere e funzionanti",
+  "Eliche/rotori controllati visivamente",
+  "GPS agganciato correttamente",
+  "Area di volo verificata su D-Flight",
+  "Permessi/autorizzazioni necessarie ottenute",
+  "Meteo verificato (vento, pioggia, visibilità)",
+  "Assicurazione RC in corso di validità",
+  "Zona di atterraggio di emergenza individuata",
+];
+
+// recupera il meteo in tempo reale per una zona (servizio pubblico gratuito, nessuna chiave richiesta)
+async function recuperaMeteo(zona) {
+  const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(zona)}&count=1&language=it`);
+  const geoData = await geoRes.json();
+  if (!geoData.results || geoData.results.length === 0) throw new Error("Località non trovata, controlla il nome della zona dell'impianto.");
+  const { latitude, longitude, name } = geoData.results[0];
+  const meteoRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation,cloud_cover,weather_code&timezone=auto`);
+  const meteoData = await meteoRes.json();
+  return { nomeLocalita: name, ...meteoData.current };
+}
+
+// recupera l'indice geomagnetico planetario Kp (servizio pubblico NOAA, nessuna chiave richiesta)
+async function recuperaMeteoSpaziale() {
+  const res = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json");
+  const data = await res.json();
+  const ultimo = data[data.length - 1];
+  const kp = parseFloat(ultimo[1]);
+  let livello, colore, testo;
+  if (kp < 5) { livello = "tranquilla"; colore = "#4ade80"; testo = "Attività geomagnetica nella norma."; }
+  else if (kp < 6) { livello = "minore"; colore = "#f5b942"; testo = "Tempesta geomagnetica minore in corso — possibile lieve degrado del GPS."; }
+  else if (kp < 7) { livello = "moderata"; colore = "#ff8c42"; testo = "Tempesta geomagnetica moderata — valutare cautela extra con il GPS."; }
+  else { livello = "forte"; colore = "#ff4d4d"; testo = "Tempesta geomagnetica forte — possibile perdita di precisione GPS, valutare rinvio del volo."; }
+  return { kp, livello, colore, testo, orario: ultimo[0] };
+}
+
 function ritagliaZona(img, xPercent, yPercent, dimensionePercentuale = 30) {
   const lato = Math.round(Math.min(img.naturalWidth, img.naturalHeight) * (dimensionePercentuale / 100));
   let sx = Math.round((xPercent / 100) * img.naturalWidth - lato / 2);
@@ -3251,6 +3290,13 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [step, setStep] = useState(1);
   const [impiantoSel, setImpiantoSel] = useState(null);
   const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
+  const [meteo, setMeteo] = useState(null);
+  const [meteoSpaziale, setMeteoSpaziale] = useState(null);
+  const [caricandoMeteo, setCaricandoMeteo] = useState(false);
+  const [erroreMeteo, setErroreMeteo] = useState(null);
+  const [checklistItems, setChecklistItems] = useState(null); // null finché non caricata
+  const [checklistSpuntati, setChecklistSpuntati] = useState({});
+  const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
   const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
   const [irraggiamento, setIrraggiamento] = useState("");
   const [note, setNote] = useState("");
@@ -3294,6 +3340,59 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
 
   useEffect(() => { setSuggerimenti([]); }, [fotoAttivaId]);
 
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("checklist_voli").select("*").order("ordine", { ascending: true });
+      if (data && data.length > 0) {
+        setChecklistItems(data.map((d) => d.testo));
+      } else {
+        setChecklistItems(CHECKLIST_DEFAULT);
+      }
+    })();
+  }, []);
+
+  const controllaMeteo = async () => {
+    if (!impiantoSel?.zona) return;
+    setCaricandoMeteo(true);
+    setErroreMeteo(null);
+    try {
+      const [datiMeteo, datiSpaziali] = await Promise.all([
+        recuperaMeteo(impiantoSel.zona),
+        recuperaMeteoSpaziale().catch(() => null),
+      ]);
+      setMeteo(datiMeteo);
+      setMeteoSpaziale(datiSpaziali);
+    } catch (err) {
+      setErroreMeteo(err.message || "Non sono riuscito a recuperare il meteo.");
+    }
+    setCaricandoMeteo(false);
+  };
+
+  const toggleChecklist = (idx) => {
+    setChecklistSpuntati((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const aggiungiVoceChecklist = async () => {
+    if (!nuovaVoceChecklist.trim()) return;
+    const nuovaLista = [...(checklistItems || []), nuovaVoceChecklist.trim()];
+    setChecklistItems(nuovaLista);
+    setNuovaVoceChecklist("");
+    await salvaChecklistSuDb(nuovaLista);
+  };
+
+  const rimuoviVoceChecklist = async (idx) => {
+    const nuovaLista = checklistItems.filter((_, i) => i !== idx);
+    setChecklistItems(nuovaLista);
+    await salvaChecklistSuDb(nuovaLista);
+  };
+
+  const salvaChecklistSuDb = async (lista) => {
+    await supabase.from("checklist_voli").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (lista.length > 0) {
+      await supabase.from("checklist_voli").insert(lista.map((testo, ordine) => ({ testo, ordine })));
+    }
+  };
+
   const salvaSuDb = async () => {
     if (!impiantoSel) return;
     setSalvataggio("saving");
@@ -3317,6 +3416,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         operatore: operatore || null,
         prossimo_controllo: prossimoControllo ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(prossimoControllo)); return d.toISOString().slice(0, 10); })() : null,
         tipo_ispezione: tipoIspezione,
+        checklist_completata: checklistItems ? checklistItems.every((_, i) => checklistSpuntati[i]) : false,
         drone_usato: droneUsato || null,
         scenario_volo: scenarioVolo || null,
         altezza_volo: altezzaVolo ? Number(altezzaVolo) : null,
@@ -3545,6 +3645,57 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                   <input type="number" placeholder="es. 850" value={irraggiamento} onChange={(e) => setIrraggiamento(e.target.value)} style={inputStyle} />
                 </div>
               )}
+            </div>
+          )}
+          {impiantoSel && (
+            <div style={{ marginTop: 18, background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px 0", display: "flex", alignItems: "center", gap: 6 }}>🌤️ Preparazione volo</h3>
+              <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>Controlla meteo e attività solare prima di partire — le condizioni possono cambiare all'ultimo momento.</p>
+
+              <button type="button" onClick={controllaMeteo} disabled={caricandoMeteo} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600 }}>
+                {caricandoMeteo ? "Controllo in corso..." : "Controlla meteo e attività solare"}
+              </button>
+
+              {erroreMeteo && <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8 }}>{erroreMeteo}</p>}
+
+              {meteo && (
+                <div style={{ marginTop: 12, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 }}>
+                  <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Meteo a {meteo.nomeLocalita}, adesso</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12.5 }}>
+                    <div>🌡️ {meteo.temperature_2m}°C</div>
+                    <div>💨 {meteo.wind_speed_10m} km/h {meteo.wind_gusts_10m ? `(raffiche ${meteo.wind_gusts_10m})` : ""}</div>
+                    <div>🌧️ {meteo.precipitation} mm</div>
+                    <div>☁️ {meteo.cloud_cover}% nuvole</div>
+                  </div>
+                  {meteo.wind_speed_10m > 30 && (
+                    <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8, marginBottom: 0 }}>⚠️ Vento sostenuto: valuta se rimandare il volo.</p>
+                  )}
+                </div>
+              )}
+
+              {meteoSpaziale && (
+                <div style={{ marginTop: 10, background: "#161a1f", border: `1px solid ${meteoSpaziale.colore}55`, borderRadius: 6, padding: 12 }}>
+                  <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 4px 0" }}>Attività geomagnetica (indice Kp: {meteoSpaziale.kp})</p>
+                  <p style={{ fontSize: 12.5, color: meteoSpaziale.colore, margin: 0, fontWeight: 600 }}>{meteoSpaziale.testo}</p>
+                </div>
+              )}
+
+              <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 8px 0" }}>Checklist pre-volo</p>
+                {(checklistItems || []).map((voce, idx) => (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: checklistSpuntati[idx] ? "#4ade80" : "#c3cad4", flex: 1, cursor: "pointer" }}>
+                      <input type="checkbox" checked={!!checklistSpuntati[idx]} onChange={() => toggleChecklist(idx)} />
+                      {voce}
+                    </label>
+                    <button type="button" onClick={() => rimuoviVoceChecklist(idx)} title="Rimuovi voce" style={{ background: "none", border: "none", color: "#6b7480", fontSize: 13, padding: "0 4px" }}>×</button>
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <input type="text" placeholder="Aggiungi voce personalizzata..." value={nuovaVoceChecklist} onChange={(e) => setNuovaVoceChecklist(e.target.value)} onKeyDown={(e) => e.key === "Enter" && aggiungiVoceChecklist()} style={{ ...inputStyle, flex: 1, fontSize: 12.5, padding: "6px 10px" }} />
+                  <button type="button" onClick={aggiungiVoceChecklist} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>+ Aggiungi</button>
+                </div>
+              </div>
             </div>
           )}
           {impiantoSel && (
