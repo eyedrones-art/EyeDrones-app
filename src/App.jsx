@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 
@@ -960,6 +960,7 @@ function AppShell({ session }) {
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} />}
         {page === "droni" && <Droni droni={droni} azienda={azienda} onReload={loadData} />}
+        {page === "analisi-termica" && <AnalisiTermica piano={piano} />}
       </div>
     </div>
   );
@@ -1056,6 +1057,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { key: "permessi", label: "Permessi", icon: ShieldCheck },
     { key: "attestati", label: "Attestati", icon: Award },
     { key: "droni", label: "I miei droni", icon: Plane },
+    { key: "analisi-termica", label: "Analisi termica", icon: Thermometer },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
   ];
@@ -1084,6 +1086,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
             <Icon size={16} strokeWidth={2} />
             <span className="sidebar-label">{it.label}</span>
             {it.key === "preventivi" && piano !== "pro" && <span className="sidebar-label" style={{ fontSize: 11, marginLeft: "auto" }}>🔒</span>}
+            {it.key === "analisi-termica" && piano !== "pro" && <span className="sidebar-label" style={{ fontSize: 11, marginLeft: "auto" }}>🔒</span>}
             {it.key === "attestati" && attestatiInScadenza > 0 && (
               <span className="sidebar-label" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto", background: "#ff4d4d", color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{attestatiInScadenza}</span>
             )}
@@ -2824,6 +2827,132 @@ function Droni({ droni, azienda, onReload }) {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Analisi termica (dati radiometrici reali) -----------------------------------------------------------
+
+const PALETTE_TERMICHE = [
+  { key: "ironbow", label: "Ironbow (classico)" },
+  { key: "rainbow", label: "Rainbow" },
+  { key: "whitehot", label: "White hot" },
+  { key: "blackhot", label: "Black hot" },
+  { key: "arctic", label: "Arctic" },
+  { key: "lava", label: "Lava" },
+];
+
+function AnalisiTermica({ piano }) {
+  const [fotoOriginale, setFotoOriginale] = useState(null); // { nome, base64 }
+  const [palette, setPalette] = useState("ironbow");
+  const [risultato, setRisultato] = useState(null); // { imageBase64, width, height, minTemp, maxTemp, parametri }
+  const [elaborando, setElaborando] = useState(false);
+  const [errore, setErrore] = useState(null);
+
+  const caricaFoto = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErrore(null);
+    setRisultato(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(",")[1];
+      setFotoOriginale({ nome: file.name, base64 });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const elabora = async () => {
+    if (!fotoOriginale) return;
+    setElaborando(true);
+    setErrore(null);
+    try {
+      const res = await fetch("/.netlify/functions/thermal-repalette", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: fotoOriginale.base64, palette }),
+      });
+      const dati = await res.json();
+      if (!res.ok) throw new Error(dati.errore || "Errore durante l'elaborazione.");
+      setRisultato(dati);
+    } catch (err) {
+      setErrore(err.message || "Non sono riuscito a elaborare la foto.");
+    }
+    setElaborando(false);
+  };
+
+  if (piano !== "pro") {
+    return (
+      <div style={{ padding: "28px 32px" }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 12px 0" }}>Analisi termica</h1>
+        <div style={{ maxWidth: 420, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 10, padding: 20 }}>
+          <p style={{ fontSize: 13.5, color: "#ffb877", margin: "0 0 10px 0", fontWeight: 600 }}>🔒 Funzione riservata al piano Pro</p>
+          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: 0, lineHeight: 1.5 }}>
+            Ricalcola davvero la temperatura di ogni pixel dalla foto radiometrica originale e cambia la palette di colori — disponibile solo con il piano Pro.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Analisi termica</h1>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0", maxWidth: 560 }}>
+        Carica una foto termica radiometrica originale del drone (R-JPEG, non modificata da altri software). Ricalcoliamo la temperatura reale di ogni pixel e la ricoloriamo con la palette che scegli.
+      </p>
+
+      <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, maxWidth: 480, display: "flex", flexDirection: "column", gap: 14 }}>
+        <div>
+          <label style={{ fontSize: 12, color: "#8b95a3", display: "block", marginBottom: 6 }}>Foto termica (R-JPEG)</label>
+          {fotoOriginale ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 12.5, color: "#c3cad4" }}>{fotoOriginale.nome}</span>
+              <button onClick={() => { setFotoOriginale(null); setRisultato(null); }} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+            </div>
+          ) : (
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "10px 16px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+              <Upload size={13} /> Carica foto termica
+              <input type="file" accept="image/jpeg,.jpg" onChange={caricaFoto} style={{ display: "none" }} />
+            </label>
+          )}
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, color: "#8b95a3", display: "block", marginBottom: 6 }}>Palette</label>
+          <select value={palette} onChange={(e) => setPalette(e.target.value)} style={inputStyle}>
+            {PALETTE_TERMICHE.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+        </div>
+
+        <button onClick={elabora} disabled={!fotoOriginale || elaborando} style={{ background: fotoOriginale ? "#ff8c42" : "#333a45", color: fotoOriginale ? "#161a1f" : "#6b7480", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+          {elaborando ? "Elaborazione..." : "Genera"}
+        </button>
+
+        {errore && (
+          <p style={{ fontSize: 12, color: "#ff9c9c", background: "#2a1616", border: "1px solid #5a2a2a", borderRadius: 6, padding: "8px 10px", margin: 0 }}>
+            {errore}
+          </p>
+        )}
+      </div>
+
+      {risultato && (
+        <div style={{ marginTop: 20, maxWidth: 480 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 8, color: "#8b95a3" }}>
+            <span>Min: <strong style={{ color: "#3d8bfd" }}>{risultato.minTemp}°C</strong></span>
+            <span>Max: <strong style={{ color: "#ff4d4d" }}>{risultato.maxTemp}°C</strong></span>
+          </div>
+          <img src={`data:image/png;base64,${risultato.imageBase64}`} alt="Foto termica ricolorata" style={{ width: "100%", borderRadius: 8, border: "1px solid #333a45" }} />
+          <a
+            href={`data:image/png;base64,${risultato.imageBase64}`}
+            download={`termica-${palette}.png`}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 16px", borderRadius: 6, fontSize: 13, textDecoration: "none" }}
+          >
+            <FileDown size={14} /> Scarica immagine
+          </a>
         </div>
       )}
     </div>
