@@ -39,7 +39,7 @@ function caricaImmagine(dataUrl) {
 }
 
 // ritaglia un primo piano quadrato attorno al punto (xPercent, yPercent) di un'immagine già caricata
-function ritagliaZona(img, xPercent, yPercent, dimensionePercentuale = 24) {
+function ritagliaZona(img, xPercent, yPercent, dimensionePercentuale = 30) {
   const lato = Math.round(Math.min(img.naturalWidth, img.naturalHeight) * (dimensionePercentuale / 100));
   let sx = Math.round((xPercent / 100) * img.naturalWidth - lato / 2);
   let sy = Math.round((yPercent / 100) * img.naturalHeight - lato / 2);
