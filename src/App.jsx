@@ -2875,8 +2875,13 @@ function AnalisiTermica({ piano }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: fotoOriginale.base64, palette }),
       });
-      const dati = await res.json();
-      if (!res.ok) throw new Error(dati.errore || "Errore durante l'elaborazione.");
+      const testoRisposta = await res.text();
+      let dati = null;
+      try { dati = JSON.parse(testoRisposta); } catch (e) { /* risposta non era JSON pulito */ }
+      if (!res.ok) {
+        throw new Error((dati && dati.errore) || `Errore del server (status ${res.status}): ${testoRisposta.slice(0, 400)}`);
+      }
+      if (!dati) throw new Error("Risposta del server non valida: " + testoRisposta.slice(0, 400));
       setRisultato(dati);
     } catch (err) {
       setErrore(err.message || "Non sono riuscito a elaborare la foto.");
