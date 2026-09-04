@@ -192,26 +192,27 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
     const info = TUTTE_LE_CATEGORIE.find((c) => c.key === a.categoria);
     const sev = SEVERITY.find((s) => s.key === a.gravita);
     const ritaglio = ritagli && ritagli.get ? ritagli.get(a.id) : null;
-    const latoImg = 26;
-    const xTesto = ritaglio ? 15 + latoImg + 6 : 22;
-    const larghezzaTesto = 195 - xTesto;
-    if (y > (ritaglio ? 255 : 265)) { doc.addPage(); y = 20; }
-
-    const yInizioBlocco = y;
+    const latoImg = 75; // grande e a piena larghezza, sopra il testo
+    const xTesto = 15;
+    const larghezzaTesto = 180;
+    const altezzaBlocco = ritaglio ? latoImg + 8 : 0;
+    if (y + altezzaBlocco > (ritaglio ? 250 : 265)) { doc.addPage(); y = 20; }
 
     if (ritaglio) {
-      try { doc.addImage(ritaglio, "PNG", 15, y - 5, latoImg, latoImg); } catch (e) {}
+      const xImg = 15 + (180 - latoImg) / 2; // centrato orizzontalmente
+      try { doc.addImage(ritaglio, "PNG", xImg, y - 5, latoImg, latoImg); } catch (e) {}
       doc.setDrawColor(220, 220, 220);
-      doc.rect(15, y - 5, latoImg, latoImg);
+      doc.rect(xImg, y - 5, latoImg, latoImg);
       const hex = sev.color.replace("#", "");
       const r = parseInt(hex.substring(0, 2), 16), g = parseInt(hex.substring(2, 4), 16), b = parseInt(hex.substring(4, 6), 16);
       doc.setFillColor(r, g, b);
-      doc.circle(15 + 4, y - 5 + 4, 3.2, "F");
-      doc.setFontSize(7.5);
+      doc.circle(xImg + 7, y - 5 + 7, 5, "F");
+      doc.setFontSize(10);
       doc.setFont(undefined, "bold");
       doc.setTextColor(22, 26, 31);
-      doc.text(String(numero), 15 + 4, y - 5 + 4.9, { align: "center" });
+      doc.text(String(numero), xImg + 7, y - 5 + 8.5, { align: "center" });
       doc.setFont(undefined, "normal");
+      y += latoImg + 8;
     } else {
       doc.setFillColor(...oranje);
       doc.circle(17, y - 1.5, 1.4, "F");
@@ -235,10 +236,6 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
     const azLines = doc.splitTextToSize(`Azione consigliata: ${info.azione}`, larghezzaTesto);
     doc.text(azLines, xTesto, y);
     y += azLines.length * 4.5 + 8;
-
-    // se l'immagine ritagliata è più alta del testo, lascio spazio comunque per non sovrapporre il contenuto dopo
-    const altezzaTesto = y - yInizioBlocco;
-    if (ritaglio && latoImg + 3 > altezzaTesto) y += (latoImg + 3 - altezzaTesto);
   };
 
   fotoConDataUrl.forEach((f, idx) => {
@@ -3897,11 +3894,16 @@ function BloccoAnomalia({ a, numero, ritaglio }) {
   const info = TUTTE_LE_CATEGORIE.find((c) => c.key === a.categoria);
   const sev = SEVERITY.find((s) => s.key === a.gravita);
   return (
-    <div style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-start" }}>
+    <div style={{ marginBottom: 18 }}>
       {ritaglio && (
-        <img src={ritaglio} alt="Primo piano anomalia" style={{ width: 62, height: 62, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e5e5", flexShrink: 0 }} />
+        <div style={{ position: "relative", marginBottom: 8, maxWidth: 320 }}>
+          <img src={ritaglio} alt="Primo piano anomalia" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 8, border: "1px solid #e5e5e5", display: "block" }} />
+          <div style={{ position: "absolute", top: 8, left: 8, width: 26, height: 26, borderRadius: "50%", background: sev.color, color: "#161a1f", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
+            {numero}
+          </div>
+        </div>
       )}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span style={{ fontSize: 12.5, fontWeight: 600 }}>{numero}. {a.categoria}</span>
           <span style={{ fontSize: 10, fontWeight: 700, color: sev.color }}>{sev.label.toUpperCase()}</span>
