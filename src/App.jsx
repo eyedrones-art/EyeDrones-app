@@ -59,23 +59,59 @@ async function recuperaMeteo(zona) {
   const geoData = await geoRes.json();
   if (!geoData.results || geoData.results.length === 0) throw new Error("Località non trovata, controlla il nome della zona dell'impianto.");
   const { latitude, longitude, name } = geoData.results[0];
-  const meteoRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation,cloud_cover,weather_code&timezone=auto`);
+  const meteoRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation,cloud_cover,weather_code&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,precipitation_probability_max&forecast_days=16&timezone=auto`);
   const meteoData = await meteoRes.json();
-  return { nomeLocalita: name, ...meteoData.current };
+
+  // per ogni giorno, indico se le condizioni sembrano adatte al volo (vento e pioggia entro soglie ragionevoli)
+  const prossimiGiorni = (meteoData.daily?.time || []).map((data, i) => {
+    const ventoMax = meteoData.daily.wind_speed_10m_max[i];
+    const raffiche = meteoData.daily.wind_gusts_10m_max[i];
+    const pioggia = meteoData.daily.precipitation_sum[i];
+    const probPioggia = meteoData.daily.precipitation_probability_max?.[i] ?? null;
+    const adatto = ventoMax < 30 && raffiche < 45 && pioggia < 1;
+    return {
+      data,
+      tMax: meteoData.daily.temperature_2m_max[i],
+      tMin: meteoData.daily.temperature_2m_min[i],
+      ventoMax, raffiche, pioggia, probPioggia, adatto,
+    };
+  });
+
+  return { nomeLocalita: name, ...meteoData.current, prossimiGiorni };
 }
 
-// recupera l'indice geomagnetico planetario Kp (servizio pubblico NOAA, nessuna chiave richiesta)
+// recupera l'indice geomagnetico planetario Kp, attuale e previsto nei prossimi giorni (servizio pubblico NOAA, nessuna chiave richiesta)
 async function recuperaMeteoSpaziale() {
+  const descriviKp = (kp) => {
+    if (kp < 5) return { livello: "tranquilla", colore: "#4ade80", testo: "Attività geomagnetica nella norma." };
+    if (kp < 6) return { livello: "minore", colore: "#f5b942", testo: "Tempesta geomagnetica minore — possibile lieve degrado del GPS." };
+    if (kp < 7) return { livello: "moderata", colore: "#ff8c42", testo: "Tempesta geomagnetica moderata — valutare cautela extra con il GPS." };
+    return { livello: "forte", colore: "#ff4d4d", testo: "Tempesta geomagnetica forte — possibile perdita di precisione GPS, valutare rinvio del volo." };
+  };
+
   const res = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json");
   const data = await res.json();
   const ultimo = data[data.length - 1];
   const kp = parseFloat(ultimo[1]);
-  let livello, colore, testo;
-  if (kp < 5) { livello = "tranquilla"; colore = "#4ade80"; testo = "Attività geomagnetica nella norma."; }
-  else if (kp < 6) { livello = "minore"; colore = "#f5b942"; testo = "Tempesta geomagnetica minore in corso — possibile lieve degrado del GPS."; }
-  else if (kp < 7) { livello = "moderata"; colore = "#ff8c42"; testo = "Tempesta geomagnetica moderata — valutare cautela extra con il GPS."; }
-  else { livello = "forte"; colore = "#ff4d4d"; testo = "Tempesta geomagnetica forte — possibile perdita di precisione GPS, valutare rinvio del volo."; }
-  return { kp, livello, colore, testo, orario: ultimo[0] };
+  const attuale = { kp, orario: ultimo[0], ...descriviKp(kp) };
+
+  // previsione sui prossimi giorni: raggruppo i valori previsti per data e prendo il picco massimo di ciascun giorno
+  let previsioneGiorni = [];
+  try {
+    const resPrev = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json");
+    const dataPrev = await resPrev.json();
+    const righe = dataPrev.slice(1); // la prima riga è l'intestazione delle colonne
+    const perGiorno = {};
+    righe.forEach((r) => {
+      const giorno = String(r[0]).slice(0, 10);
+      const valoreKp = parseFloat(r[1]);
+      if (isNaN(valoreKp)) return;
+      if (!perGiorno[giorno] || valoreKp > perGiorno[giorno]) perGiorno[giorno] = valoreKp;
+    });
+    previsioneGiorni = Object.entries(perGiorno).slice(0, 3).map(([giorno, kpMax]) => ({ giorno, kpMax, ...descriviKp(kpMax) }));
+  } catch (e) { /* se la previsione non si carica, resta comunque il dato attuale */ }
+
+  return { ...attuale, previsioneGiorni };
 }
 
 function ritagliaZona(img, xPercent, yPercent, dimensionePercentuale = 30) {
@@ -1268,6 +1304,8 @@ function AppShell({ session }) {
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} />}
         {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
+        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} />}
+        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} />}
         {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} />}
@@ -1366,6 +1404,9 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { key: "impianti", label: "Impianti", icon: Sun },
     { key: "nuova", label: "Nuova ispezione", icon: Plus },
+    { key: "pianificazione", label: "Pianificazione volo", icon: Sun },
+    { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
+    { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "preventivi", label: "Preventivi", icon: FileText },
     { key: "permessi", label: "Permessi", icon: ShieldCheck },
     { key: "attestati", label: "Attestati", icon: Award },
@@ -1382,6 +1423,27 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
       </div>
       {items.map((it) => {
         const Icon = it.icon;
+        if (it.esterno) {
+          return (
+            <a
+              key={it.key}
+              href={it.esterno}
+              target="_blank"
+              rel="noreferrer"
+              className="nav-item"
+              style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 6,
+                background: "transparent", border: "none", color: "#9aa4b2",
+                fontSize: 13.5, fontWeight: 500, textAlign: "left", whiteSpace: "nowrap",
+                borderLeft: "2px solid transparent", textDecoration: "none",
+              }}
+            >
+              <Icon size={16} strokeWidth={2} />
+              <span className="sidebar-label">{it.label}</span>
+              <span className="sidebar-label" style={{ fontSize: 10.5, marginLeft: "auto", color: "#6b7480" }}>↗</span>
+            </a>
+          );
+        }
         const active = page === it.key || (page === "impianto" && it.key === "impianti");
         return (
           <button
@@ -3303,6 +3365,552 @@ function AnalisiTermica({ piano }) {
   );
 }
 
+// --- Pianificazione volo (separata dall'ispezione vera e propria: si fa giorni prima) -----------------------------------------------------------
+
+function PianificazioneVolo({ azienda, impianti }) {
+  const [impiantoSel, setImpiantoSel] = useState(null);
+  const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
+  const [dataPrevista, setDataPrevista] = useState(() => new Date().toISOString().slice(0, 10));
+  const [meteo, setMeteo] = useState(null);
+  const [meteoSpaziale, setMeteoSpaziale] = useState(null);
+  const [caricandoMeteo, setCaricandoMeteo] = useState(false);
+  const [erroreMeteo, setErroreMeteo] = useState(null);
+  const [checklistItems, setChecklistItems] = useState(null);
+  const [checklistSpuntati, setChecklistSpuntati] = useState({});
+  const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
+  const [attestatiUtente, setAttestatiUtente] = useState([]);
+  const [droniUtente, setDroniUtente] = useState([]);
+  const [permessiUtente, setPermessiUtente] = useState([]);
+  const [droneSelId, setDroneSelId] = useState("");
+  const [dflightShot, setDflightShot] = useState(null);
+  const [generandoPdfControllo, setGenerandoPdfControllo] = useState(false);
+  const [pdfUrlControllo, setPdfUrlControllo] = useState(null);
+  const [mostraSchermoControllo, setMostraSchermoControllo] = useState(false);
+  const [salvandoPiano, setSalvandoPiano] = useState(false);
+  const [pianiSalvati, setPianiSalvati] = useState([]);
+
+  const caricaTutto = async () => {
+    const [{ data: checklist }, { data: att }, { data: drn }, { data: perm }, { data: piani }] = await Promise.all([
+      supabase.from("checklist_voli").select("*").order("ordine", { ascending: true }),
+      supabase.from("attestati").select("*"),
+      supabase.from("droni").select("*"),
+      supabase.from("permessi").select("*"),
+      supabase.from("piani_volo").select("*").order("data_prevista", { ascending: true }),
+    ]);
+    setChecklistItems(checklist && checklist.length > 0 ? checklist.map((d) => d.testo) : CHECKLIST_DEFAULT);
+    setAttestatiUtente(att || []);
+    setDroniUtente(drn || []);
+    setPermessiUtente(perm || []);
+    setPianiSalvati(piani || []);
+  };
+
+  useEffect(() => { caricaTutto(); }, []);
+
+  const permessiZona = impiantoSel ? permessiUtente.filter((p) => p.impianto_id === impiantoSel.id || (p.impianto && p.impianto.toLowerCase().includes(impiantoSel.nome.toLowerCase()))) : [];
+  const droneSelezionato = droniUtente.find((d) => d.id === droneSelId) || null;
+
+  const controllaMeteo = async () => {
+    if (!impiantoSel?.zona) return;
+    setCaricandoMeteo(true);
+    setErroreMeteo(null);
+    try {
+      const [datiMeteo, datiSpaziali] = await Promise.all([
+        recuperaMeteo(impiantoSel.zona),
+        recuperaMeteoSpaziale().catch(() => null),
+      ]);
+      setMeteo(datiMeteo);
+      setMeteoSpaziale(datiSpaziali);
+    } catch (err) {
+      setErroreMeteo(err.message || "Non sono riuscito a recuperare il meteo.");
+    }
+    setCaricandoMeteo(false);
+  };
+
+  const giornoPrevisto = meteo?.prossimiGiorni?.find((g) => g.data === dataPrevista);
+  const kpPrevisto = meteoSpaziale?.previsioneGiorni?.find((g) => g.giorno === dataPrevista);
+
+  const toggleChecklist = (idx) => setChecklistSpuntati((prev) => ({ ...prev, [idx]: !prev[idx] }));
+
+  const salvaChecklistSuDb = async (lista) => {
+    await supabase.from("checklist_voli").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (lista.length > 0) await supabase.from("checklist_voli").insert(lista.map((testo, ordine) => ({ testo, ordine })));
+  };
+  const aggiungiVoceChecklist = async () => {
+    if (!nuovaVoceChecklist.trim()) return;
+    const nuovaLista = [...(checklistItems || []), nuovaVoceChecklist.trim()];
+    setChecklistItems(nuovaLista);
+    setNuovaVoceChecklist("");
+    await salvaChecklistSuDb(nuovaLista);
+  };
+  const rimuoviVoceChecklist = async (idx) => {
+    const nuovaLista = checklistItems.filter((_, i) => i !== idx);
+    setChecklistItems(nuovaLista);
+    await salvaChecklistSuDb(nuovaLista);
+  };
+
+  const caricaDflightShot = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setDflightShot({ nome: file.name, blob: file, dataUrl: reader.result });
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const scaricaPdfControllo = () => {
+    setGenerandoPdfControllo(true);
+    try {
+      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiZona, impianto: impiantoSel });
+      const url = doc.output("bloburl");
+      setPdfUrlControllo(url);
+      window.open(url, "_blank");
+    } catch (err) {
+      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
+    }
+    setGenerandoPdfControllo(false);
+  };
+
+  const salvaPiano = async () => {
+    if (!impiantoSel) return;
+    setSalvandoPiano(true);
+    try {
+      let dflightUrl = null;
+      if (dflightShot?.blob) {
+        const nomeFile = `dflight-piano-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, dflightShot.blob);
+        if (!eUp) {
+          const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
+          dflightUrl = pub?.publicUrl || null;
+        }
+      }
+      await supabase.from("piani_volo").insert({
+        impianto_id: impiantoSel.id,
+        impianto_nome: impiantoSel.nome,
+        tipo_ispezione: tipoIspezione,
+        data_prevista: dataPrevista,
+        drone_id: droneSelId || null,
+        dflight_screenshot_url: dflightUrl,
+      });
+      await caricaTutto();
+      alert("Piano di volo salvato.");
+    } catch (err) {
+      alert("Non sono riuscito a salvare il piano: " + (err?.message || err));
+    }
+    setSalvandoPiano(false);
+  };
+
+  const eliminaPiano = async (id) => {
+    if (!window.confirm("Eliminare questo piano di volo?")) return;
+    await supabase.from("piani_volo").delete().eq("id", id);
+    caricaTutto();
+  };
+
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Pianificazione volo</h1>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0", maxWidth: 560 }}>
+        Prepara una missione con giorni di anticipo: scegli impianto e data, controlla meteo e attività solare, spunta la checklist. Il giorno del volo trovi tutto pronto quando avvii "Nuova ispezione".
+      </p>
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ minWidth: 200 }}>
+          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Impianto</label>
+          <select value={impiantoSel?.id || ""} onChange={(e) => setImpiantoSel(impianti.find((i) => i.id === e.target.value) || null)} style={inputStyle}>
+            <option value="">— Seleziona —</option>
+            {impianti.map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}
+          </select>
+        </div>
+        <div style={{ minWidth: 180 }}>
+          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Tipo di ispezione</label>
+          <select value={tipoIspezione} onChange={(e) => setTipoIspezione(e.target.value)} style={inputStyle}>
+            <option value="fotovoltaico">Fotovoltaico termico</option>
+            <option value="danni">Danni / ispezione assicurativa</option>
+            <option value="edifici">Termografia edifici</option>
+            <option value="elettrico">Impianti elettrici/industriali</option>
+          </select>
+        </div>
+        <div style={{ minWidth: 160 }}>
+          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Data prevista</label>
+          <input type="date" value={dataPrevista} onChange={(e) => setDataPrevista(e.target.value)} style={inputStyle} />
+        </div>
+      </div>
+
+      {impiantoSel && (
+        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, maxWidth: 620 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={controllaMeteo} disabled={caricandoMeteo} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600 }}>
+              {caricandoMeteo ? "Controllo in corso..." : "Controlla meteo e attività solare"}
+            </button>
+            <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}>
+              🗺️ Apri D-Flight
+            </a>
+          </div>
+
+          {erroreMeteo && <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8 }}>{erroreMeteo}</p>}
+
+          {giornoPrevisto && (
+            <div style={{ marginTop: 12, background: "#161a1f", border: `1px solid ${giornoPrevisto.adatto ? "#4ade8055" : "#ff9c9c55"}`, borderRadius: 6, padding: 12 }}>
+              <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Previsione per il {formatData(dataPrevista)}</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12.5 }}>
+                <div>🌡️ {giornoPrevisto.tMin}° / {giornoPrevisto.tMax}°</div>
+                <div>💨 max {giornoPrevisto.ventoMax} km/h (raffiche {giornoPrevisto.raffiche})</div>
+                <div>🌧️ {giornoPrevisto.pioggia} mm{giornoPrevisto.probPioggia != null ? ` (${giornoPrevisto.probPioggia}%)` : ""}</div>
+                <div style={{ fontWeight: 700, color: giornoPrevisto.adatto ? "#4ade80" : "#ff9c9c" }}>{giornoPrevisto.adatto ? "✓ Condizioni favorevoli" : "⚠ Valuta di rimandare"}</div>
+              </div>
+            </div>
+          )}
+          {meteo && !giornoPrevisto && (
+            <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8 }}>La data scelta è oltre i 16 giorni di previsione disponibile — riprova più vicino alla data.</p>
+          )}
+
+          {kpPrevisto ? (
+            <div style={{ marginTop: 10, background: "#161a1f", border: `1px solid ${kpPrevisto.colore}55`, borderRadius: 6, padding: 12 }}>
+              <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 4px 0" }}>Attività geomagnetica prevista per il {formatData(dataPrevista)}</p>
+              <p style={{ fontSize: 12.5, color: kpPrevisto.colore, margin: 0, fontWeight: 600 }}>Kp {kpPrevisto.kpMax} — {kpPrevisto.testo}</p>
+            </div>
+          ) : meteoSpaziale && (
+            <p style={{ fontSize: 11, color: "#6b7480", marginTop: 8 }}>Previsione geomagnetica affidabile solo fino a 3 giorni prima — per date più lontane, ricontrolla vicino al volo.</p>
+          )}
+
+          <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
+            <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 8px 0" }}>Checklist pre-volo</p>
+            {(checklistItems || []).map((voce, idx) => (
+              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: checklistSpuntati[idx] ? "#4ade80" : "#c3cad4", flex: 1, cursor: "pointer" }}>
+                  <input type="checkbox" checked={!!checklistSpuntati[idx]} onChange={() => toggleChecklist(idx)} />
+                  {voce}
+                </label>
+                <button type="button" onClick={() => rimuoviVoceChecklist(idx)} title="Rimuovi voce" style={{ background: "none", border: "none", color: "#6b7480", fontSize: 13, padding: "0 4px" }}>×</button>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <input type="text" placeholder="Aggiungi voce personalizzata..." value={nuovaVoceChecklist} onChange={(e) => setNuovaVoceChecklist(e.target.value)} onKeyDown={(e) => e.key === "Enter" && aggiungiVoceChecklist()} style={{ ...inputStyle, flex: 1, fontSize: 12.5, padding: "6px 10px" }} />
+              <button type="button" onClick={aggiungiVoceChecklist} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>+ Aggiungi</button>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
+            <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 4px 0" }}>🚔 In caso di controllo</p>
+            <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 10px 0" }}>Riepilogo dei documenti da mostrare a chi ti ferma.</p>
+
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Drone previsto per questa missione</label>
+              <select value={droneSelId} onChange={(e) => setDroneSelId(e.target.value)} style={{ ...inputStyle, fontSize: 12.5 }}>
+                <option value="">— Nessuno selezionato —</option>
+                {droniUtente.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
+              </select>
+            </div>
+
+            <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
+              <strong>Attestati:</strong>{" "}
+              {attestatiUtente.length === 0 ? "nessuno registrato" : attestatiUtente.map((a) => {
+                const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
+                return <span key={a.id} style={{ color: scaduto ? "#ff9c9c" : "#4ade80" }}>{a.tipo}{scaduto ? " (scaduto!) " : " ✓ "}</span>;
+              })}
+            </div>
+            {(() => {
+              const assicurazione = attestatiUtente.find((a) => a.tipo.toLowerCase().includes("assicura"));
+              const scadutaAssicurazione = assicurazione?.data_scadenza && new Date(assicurazione.data_scadenza) < new Date();
+              return (
+                <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
+                  <strong>Assicurazione:</strong>{" "}
+                  {assicurazione
+                    ? <span style={{ color: scadutaAssicurazione ? "#ff9c9c" : "#4ade80" }}>{scadutaAssicurazione ? "SCADUTA il " : "valida fino al "}{assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}</span>
+                    : <span style={{ color: "#ff9c9c" }}>non registrata — aggiungila in "Attestati"</span>}
+                </div>
+              );
+            })()}
+            <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
+              <strong>Permessi per questa zona:</strong> {permessiZona.length === 0 ? "nessuno specifico registrato" : `${permessiZona.length} trovato/i`}
+            </div>
+
+            <div style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight per questa missione (facoltativo)</label>
+              {dflightShot ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
+                  <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+                </div>
+              ) : (
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+                  <Upload size={13} /> Carica screenshot
+                  <input type="file" accept="image/*" onChange={caricaDflightShot} style={{ display: "none" }} />
+                </label>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+              <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
+                📱 Mostra a schermo pieno
+              </button>
+              <button type="button" onClick={scaricaPdfControllo} disabled={generandoPdfControllo} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 14px", borderRadius: 6, fontSize: 12.5 }}>
+                <FileDown size={13} /> {generandoPdfControllo ? "Preparazione..." : "Scarica PDF"}
+              </button>
+            </div>
+            {pdfUrlControllo && (
+              <a href={pdfUrlControllo} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 6, fontSize: 11, color: "#3d8bfd" }}>
+                Se non si è aperto automaticamente, apri il PDF qui
+              </a>
+            )}
+          </div>
+
+          <button type="button" onClick={salvaPiano} disabled={salvandoPiano} style={{ marginTop: 18, width: "100%", background: "#4ade80", color: "#0a1a0f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 700, fontSize: 13.5 }}>
+            {salvandoPiano ? "Salvataggio..." : "💾 Salva questo piano di volo"}
+          </button>
+        </div>
+      )}
+
+      {pianiSalvati.length > 0 && (
+        <div style={{ marginTop: 28, maxWidth: 620 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 10px 0" }}>Piani di volo salvati</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {pianiSalvati.map((p) => (
+              <div key={p.id} style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.impianto_nome}</div>
+                  <div style={{ fontSize: 12, color: "#8b95a3" }}>{formatData(p.data_prevista)} · {p.tipo_ispezione}</div>
+                </div>
+                <button onClick={() => eliminaPiano(p.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {mostraSchermoControllo && (() => {
+        const assicurazione = attestatiUtente.find((a) => a.tipo.toLowerCase().includes("assicura"));
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "#fff", color: "#161a1f", zIndex: 1000, overflow: "auto", padding: "20px 18px" }}>
+            <button onClick={() => setMostraSchermoControllo(false)} style={{ position: "sticky", top: 0, float: "right", background: "#161a1f", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>
+              Chiudi ✕
+            </button>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px 0" }}>Documenti pilota</h1>
+            <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{azienda.nome} — {impiantoSel?.nome}</p>
+
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0", borderTop: "2px solid #eee", paddingTop: 16 }}>Attestati</h2>
+            {attestatiUtente.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : attestatiUtente.map((a) => {
+              const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
+              return (
+                <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14, borderBottom: "1px solid #f0f0f0" }}>
+                  <span>{a.tipo}</span>
+                  <span style={{ color: scaduto ? "#d32f2f" : "#2e7d32", fontWeight: 600 }}>{a.data_scadenza ? `${scaduto ? "SCADUTO " : ""}${formatData(a.data_scadenza)}` : "senza scadenza"}</span>
+                </div>
+              );
+            })}
+
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Assicurazione</h2>
+            {assicurazione ? (
+              <p style={{ fontSize: 15, fontWeight: 700, color: (assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date()) ? "#d32f2f" : "#2e7d32" }}>
+                {formatData(assicurazione.data_scadenza)}
+              </p>
+            ) : <p style={{ fontSize: 13, color: "#d32f2f" }}>Non registrata</p>}
+
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Drone</h2>
+            {droneSelezionato ? (
+              <div style={{ fontSize: 14, lineHeight: 1.8 }}>
+                <div><strong>{droneSelezionato.nome}</strong></div>
+                <div>Modello: {droneSelezionato.modello || "—"}</div>
+                <div>Matricola: {droneSelezionato.matricola || "—"}</div>
+                <div>Classe: {droneSelezionato.marcatura_classe || "—"}</div>
+                <div>D-Flight: {droneSelezionato.registrazione_dflight || "—"}</div>
+              </div>
+            ) : <p style={{ fontSize: 13, color: "#888" }}>Nessun drone selezionato.</p>}
+
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Permessi per questa zona</h2>
+            {permessiZona.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno specifico registrato.</p> : permessiZona.map((p) => (
+              <div key={p.id} style={{ fontSize: 14, padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
+                {p.impianto} — <strong>{{ in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[p.stato] || p.stato}</strong>
+              </div>
+            ))}
+
+            {dflightShot && (
+              <>
+                <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Screenshot D-Flight</h2>
+                <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid #ddd" }} />
+              </>
+            )}
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+// --- Documenti controllo (accesso rapido dal menu, senza dover pianificare prima un volo) -----------------------------------------------------------
+
+function DocumentiControllo({ azienda }) {
+  const [attestatiUtente, setAttestatiUtente] = useState([]);
+  const [droniUtente, setDroniUtente] = useState([]);
+  const [permessiUtente, setPermessiUtente] = useState([]);
+  const [droneSelId, setDroneSelId] = useState("");
+  const [dflightShot, setDflightShot] = useState(null);
+  const [generandoPdfControllo, setGenerandoPdfControllo] = useState(false);
+  const [pdfUrlControllo, setPdfUrlControllo] = useState(null);
+  const [mostraSchermoControllo, setMostraSchermoControllo] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: att }, { data: drn }, { data: perm }] = await Promise.all([
+        supabase.from("attestati").select("*"),
+        supabase.from("droni").select("*"),
+        supabase.from("permessi").select("*"),
+      ]);
+      setAttestatiUtente(att || []);
+      setDroniUtente(drn || []);
+      setPermessiUtente(perm || []);
+    })();
+  }, []);
+
+  const droneSelezionato = droniUtente.find((d) => d.id === droneSelId) || null;
+  const assicurazione = attestatiUtente.find((a) => a.tipo.toLowerCase().includes("assicura"));
+
+  const caricaDflightShot = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setDflightShot({ nome: file.name, dataUrl: reader.result });
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const scaricaPdfControllo = () => {
+    setGenerandoPdfControllo(true);
+    try {
+      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiUtente, impianto: null });
+      const url = doc.output("bloburl");
+      setPdfUrlControllo(url);
+      window.open(url, "_blank");
+    } catch (err) {
+      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
+    }
+    setGenerandoPdfControllo(false);
+  };
+
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>🚔 Documenti controllo</h1>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0", maxWidth: 560 }}>
+        Accesso rapido a tutto quello che potrebbero chiederti le forze dell'ordine — sempre a portata di mano, senza dover pianificare prima un volo.
+      </p>
+
+      <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, maxWidth: 560 }}>
+        <div style={{ marginBottom: 10 }}>
+          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Drone che stai usando</label>
+          <select value={droneSelId} onChange={(e) => setDroneSelId(e.target.value)} style={{ ...inputStyle, fontSize: 12.5 }}>
+            <option value="">— Nessuno selezionato —</option>
+            {droniUtente.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
+          </select>
+        </div>
+
+        <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
+          <strong>Attestati:</strong>{" "}
+          {attestatiUtente.length === 0 ? "nessuno registrato" : attestatiUtente.map((a) => {
+            const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
+            return <span key={a.id} style={{ color: scaduto ? "#ff9c9c" : "#4ade80" }}>{a.tipo}{scaduto ? " (scaduto!) " : " ✓ "}</span>;
+          })}
+        </div>
+        <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
+          <strong>Assicurazione:</strong>{" "}
+          {assicurazione
+            ? (() => {
+                const scaduta = assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date();
+                return <span style={{ color: scaduta ? "#ff9c9c" : "#4ade80" }}>{scaduta ? "SCADUTA il " : "valida fino al "}{assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}</span>;
+              })()
+            : <span style={{ color: "#ff9c9c" }}>non registrata — aggiungila in "Attestati"</span>}
+        </div>
+        <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
+          <strong>Permessi registrati:</strong> {permessiUtente.length === 0 ? "nessuno" : `${permessiUtente.length}`}
+        </div>
+
+        <div style={{ marginTop: 10 }}>
+          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight di oggi (facoltativo)</label>
+          {dflightShot ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
+              <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+            </div>
+          ) : (
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+              <Upload size={13} /> Carica screenshot
+              <input type="file" accept="image/*" onChange={caricaDflightShot} style={{ display: "none" }} />
+            </label>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+          <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
+            📱 Mostra a schermo pieno
+          </button>
+          <button type="button" onClick={scaricaPdfControllo} disabled={generandoPdfControllo} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 14px", borderRadius: 6, fontSize: 12.5 }}>
+            <FileDown size={13} /> {generandoPdfControllo ? "Preparazione..." : "Scarica PDF"}
+          </button>
+          <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "9px 14px", fontSize: 12.5, textDecoration: "none" }}>
+            🗺️ Apri D-Flight
+          </a>
+        </div>
+        {pdfUrlControllo && (
+          <a href={pdfUrlControllo} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 6, fontSize: 11, color: "#3d8bfd" }}>
+            Se non si è aperto automaticamente, apri il PDF qui
+          </a>
+        )}
+      </div>
+
+      {mostraSchermoControllo && (
+        <div style={{ position: "fixed", inset: 0, background: "#fff", color: "#161a1f", zIndex: 1000, overflow: "auto", padding: "20px 18px" }}>
+          <button onClick={() => setMostraSchermoControllo(false)} style={{ position: "sticky", top: 0, float: "right", background: "#161a1f", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>
+            Chiudi ✕
+          </button>
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px 0" }}>Documenti pilota</h1>
+          <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{azienda.nome}</p>
+
+          <h2 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0", borderTop: "2px solid #eee", paddingTop: 16 }}>Attestati</h2>
+          {attestatiUtente.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : attestatiUtente.map((a) => {
+            const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
+            return (
+              <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14, borderBottom: "1px solid #f0f0f0" }}>
+                <span>{a.tipo}</span>
+                <span style={{ color: scaduto ? "#d32f2f" : "#2e7d32", fontWeight: 600 }}>{a.data_scadenza ? `${scaduto ? "SCADUTO " : ""}${formatData(a.data_scadenza)}` : "senza scadenza"}</span>
+              </div>
+            );
+          })}
+
+          <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Assicurazione</h2>
+          {assicurazione ? (
+            <p style={{ fontSize: 15, fontWeight: 700, color: (assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date()) ? "#d32f2f" : "#2e7d32" }}>
+              {formatData(assicurazione.data_scadenza)}
+            </p>
+          ) : <p style={{ fontSize: 13, color: "#d32f2f" }}>Non registrata</p>}
+
+          <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Drone</h2>
+          {droneSelezionato ? (
+            <div style={{ fontSize: 14, lineHeight: 1.8 }}>
+              <div><strong>{droneSelezionato.nome}</strong></div>
+              <div>Modello: {droneSelezionato.modello || "—"}</div>
+              <div>Matricola: {droneSelezionato.matricola || "—"}</div>
+              <div>Classe: {droneSelezionato.marcatura_classe || "—"}</div>
+              <div>D-Flight: {droneSelezionato.registrazione_dflight || "—"}</div>
+            </div>
+          ) : <p style={{ fontSize: 13, color: "#888" }}>Nessun drone selezionato.</p>}
+
+          <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Permessi</h2>
+          {permessiUtente.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : permessiUtente.map((p) => (
+            <div key={p.id} style={{ fontSize: 14, padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
+              {p.impianto} — <strong>{{ in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[p.stato] || p.stato}</strong>
+            </div>
+          ))}
+
+          {dflightShot && (
+            <>
+              <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Screenshot D-Flight</h2>
+              <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid #ddd" }} />
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Impostazioni({ azienda, setAzienda, piano }) {
   const proAttivo = piano === "pro";
 
@@ -3378,20 +3986,6 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [step, setStep] = useState(1);
   const [impiantoSel, setImpiantoSel] = useState(null);
   const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
-  const [meteo, setMeteo] = useState(null);
-  const [meteoSpaziale, setMeteoSpaziale] = useState(null);
-  const [caricandoMeteo, setCaricandoMeteo] = useState(false);
-  const [erroreMeteo, setErroreMeteo] = useState(null);
-  const [checklistItems, setChecklistItems] = useState(null); // null finché non caricata
-  const [checklistSpuntati, setChecklistSpuntati] = useState({});
-  const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
-  const [attestatiUtente, setAttestatiUtente] = useState([]);
-  const [droniUtente, setDroniUtente] = useState([]);
-  const [permessiUtente, setPermessiUtente] = useState([]);
-  const [droneSelId, setDroneSelId] = useState("");
-  const [generandoPdfControllo, setGenerandoPdfControllo] = useState(false);
-  const [pdfUrlControllo, setPdfUrlControllo] = useState(null);
-  const [mostraSchermoControllo, setMostraSchermoControllo] = useState(false);
   const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
   const [irraggiamento, setIrraggiamento] = useState("");
   const [note, setNote] = useState("");
@@ -3435,94 +4029,6 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
 
   useEffect(() => { setSuggerimenti([]); }, [fotoAttivaId]);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from("checklist_voli").select("*").order("ordine", { ascending: true });
-      if (data && data.length > 0) {
-        setChecklistItems(data.map((d) => d.testo));
-      } else {
-        setChecklistItems(CHECKLIST_DEFAULT);
-      }
-    })();
-    (async () => {
-      const { data } = await supabase.from("attestati").select("*");
-      setAttestatiUtente(data || []);
-    })();
-    (async () => {
-      const { data } = await supabase.from("droni").select("*");
-      setDroniUtente(data || []);
-    })();
-    (async () => {
-      const { data } = await supabase.from("permessi").select("*");
-      setPermessiUtente(data || []);
-    })();
-  }, []);
-
-  const permessiZona = impiantoSel ? permessiUtente.filter((p) => p.impianto_id === impiantoSel.id || (p.impianto && p.impianto.toLowerCase().includes(impiantoSel.nome.toLowerCase()))) : [];
-  const droneSelezionato = droniUtente.find((d) => d.id === droneSelId) || null;
-
-  const scaricaPdfControllo = () => {
-    setGenerandoPdfControllo(true);
-    try {
-      const doc = costruisciPDFControllo({
-        azienda,
-        operatore,
-        attestati: attestatiUtente,
-        drone: droneSelezionato,
-        permessi: permessiZona,
-        impianto: impiantoSel,
-      });
-      const url = doc.output("bloburl");
-      setPdfUrlControllo(url);
-      window.open(url, "_blank");
-    } catch (err) {
-      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
-    }
-    setGenerandoPdfControllo(false);
-  };
-
-  const controllaMeteo = async () => {
-    if (!impiantoSel?.zona) return;
-    setCaricandoMeteo(true);
-    setErroreMeteo(null);
-    try {
-      const [datiMeteo, datiSpaziali] = await Promise.all([
-        recuperaMeteo(impiantoSel.zona),
-        recuperaMeteoSpaziale().catch(() => null),
-      ]);
-      setMeteo(datiMeteo);
-      setMeteoSpaziale(datiSpaziali);
-    } catch (err) {
-      setErroreMeteo(err.message || "Non sono riuscito a recuperare il meteo.");
-    }
-    setCaricandoMeteo(false);
-  };
-
-  const toggleChecklist = (idx) => {
-    setChecklistSpuntati((prev) => ({ ...prev, [idx]: !prev[idx] }));
-  };
-
-  const aggiungiVoceChecklist = async () => {
-    if (!nuovaVoceChecklist.trim()) return;
-    const nuovaLista = [...(checklistItems || []), nuovaVoceChecklist.trim()];
-    setChecklistItems(nuovaLista);
-    setNuovaVoceChecklist("");
-    await salvaChecklistSuDb(nuovaLista);
-  };
-
-  const rimuoviVoceChecklist = async (idx) => {
-    const nuovaLista = checklistItems.filter((_, i) => i !== idx);
-    setChecklistItems(nuovaLista);
-    await salvaChecklistSuDb(nuovaLista);
-  };
-
-  const salvaChecklistSuDb = async (lista) => {
-    await supabase.from("checklist_voli").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    if (lista.length > 0) {
-      await supabase.from("checklist_voli").insert(lista.map((testo, ordine) => ({ testo, ordine })));
-    }
-  };
-
   const salvaSuDb = async () => {
     if (!impiantoSel) return;
     setSalvataggio("saving");
@@ -3546,7 +4052,6 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         operatore: operatore || null,
         prossimo_controllo: prossimoControllo ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(prossimoControllo)); return d.toISOString().slice(0, 10); })() : null,
         tipo_ispezione: tipoIspezione,
-        checklist_completata: checklistItems ? checklistItems.every((_, i) => checklistSpuntati[i]) : false,
         drone_usato: droneUsato || null,
         scenario_volo: scenarioVolo || null,
         altezza_volo: altezzaVolo ? Number(altezzaVolo) : null,
@@ -3775,119 +4280,6 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                   <input type="number" placeholder="es. 850" value={irraggiamento} onChange={(e) => setIrraggiamento(e.target.value)} style={inputStyle} />
                 </div>
               )}
-            </div>
-          )}
-          {impiantoSel && (
-            <div style={{ marginTop: 18, background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px 0", display: "flex", alignItems: "center", gap: 6 }}>🌤️ Preparazione volo</h3>
-              <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>Controlla meteo e attività solare prima di partire — le condizioni possono cambiare all'ultimo momento.</p>
-
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" onClick={controllaMeteo} disabled={caricandoMeteo} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600 }}>
-                  {caricandoMeteo ? "Controllo in corso..." : "Controlla meteo e attività solare"}
-                </button>
-                <a href="https://www.d-flight.it" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}>
-                  🗺️ Apri D-Flight
-                </a>
-              </div>
-
-              {erroreMeteo && <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8 }}>{erroreMeteo}</p>}
-
-              {meteo && (
-                <div style={{ marginTop: 12, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 }}>
-                  <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Meteo a {meteo.nomeLocalita}, adesso</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12.5 }}>
-                    <div>🌡️ {meteo.temperature_2m}°C</div>
-                    <div>💨 {meteo.wind_speed_10m} km/h {meteo.wind_gusts_10m ? `(raffiche ${meteo.wind_gusts_10m})` : ""}</div>
-                    <div>🌧️ {meteo.precipitation} mm</div>
-                    <div>☁️ {meteo.cloud_cover}% nuvole</div>
-                  </div>
-                  {meteo.wind_speed_10m > 30 && (
-                    <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8, marginBottom: 0 }}>⚠️ Vento sostenuto: valuta se rimandare il volo.</p>
-                  )}
-                </div>
-              )}
-
-              {meteoSpaziale && (
-                <div style={{ marginTop: 10, background: "#161a1f", border: `1px solid ${meteoSpaziale.colore}55`, borderRadius: 6, padding: 12 }}>
-                  <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 4px 0" }}>Attività geomagnetica (indice Kp: {meteoSpaziale.kp})</p>
-                  <p style={{ fontSize: 12.5, color: meteoSpaziale.colore, margin: 0, fontWeight: 600 }}>{meteoSpaziale.testo}</p>
-                </div>
-              )}
-
-              <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
-                <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 8px 0" }}>Checklist pre-volo</p>
-                {(checklistItems || []).map((voce, idx) => (
-                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: checklistSpuntati[idx] ? "#4ade80" : "#c3cad4", flex: 1, cursor: "pointer" }}>
-                      <input type="checkbox" checked={!!checklistSpuntati[idx]} onChange={() => toggleChecklist(idx)} />
-                      {voce}
-                    </label>
-                    <button type="button" onClick={() => rimuoviVoceChecklist(idx)} title="Rimuovi voce" style={{ background: "none", border: "none", color: "#6b7480", fontSize: 13, padding: "0 4px" }}>×</button>
-                  </div>
-                ))}
-                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <input type="text" placeholder="Aggiungi voce personalizzata..." value={nuovaVoceChecklist} onChange={(e) => setNuovaVoceChecklist(e.target.value)} onKeyDown={(e) => e.key === "Enter" && aggiungiVoceChecklist()} style={{ ...inputStyle, flex: 1, fontSize: 12.5, padding: "6px 10px" }} />
-                  <button type="button" onClick={aggiungiVoceChecklist} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>+ Aggiungi</button>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
-                <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 4px 0" }}>🚔 In caso di controllo</p>
-                <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 10px 0" }}>Riepilogo dei documenti da mostrare a chi ti ferma — patentini, drone, permessi.</p>
-
-                <div style={{ marginBottom: 10 }}>
-                  <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Drone utilizzato in questa missione</label>
-                  <select value={droneSelId} onChange={(e) => setDroneSelId(e.target.value)} style={{ ...inputStyle, fontSize: 12.5 }}>
-                    <option value="">— Nessuno selezionato —</option>
-                    {droniUtente.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
-                  </select>
-                </div>
-
-                <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
-                  <strong>Attestati:</strong>{" "}
-                  {attestatiUtente.length === 0 ? "nessuno registrato" : attestatiUtente.map((a) => {
-                    const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
-                    return <span key={a.id} style={{ color: scaduto ? "#ff9c9c" : "#4ade80" }}>{a.tipo}{scaduto ? " (scaduto!) " : " ✓ "}</span>;
-                  })}
-                </div>
-                {(() => {
-                  const assicurazione = attestatiUtente.find((a) => a.tipo.toLowerCase().includes("assicura"));
-                  const scadutaAssicurazione = assicurazione?.data_scadenza && new Date(assicurazione.data_scadenza) < new Date();
-                  return (
-                    <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
-                      <strong>Assicurazione:</strong>{" "}
-                      {assicurazione
-                        ? <span style={{ color: scadutaAssicurazione ? "#ff9c9c" : "#4ade80" }}>{scadutaAssicurazione ? "SCADUTA il " : "valida fino al "}{assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}</span>
-                        : <span style={{ color: "#ff9c9c" }}>non registrata — aggiungila in "Attestati"</span>}
-                    </div>
-                  );
-                })()}
-                <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
-                  <strong>Permessi per questa zona:</strong> {permessiZona.length === 0 ? "nessuno specifico registrato" : `${permessiZona.length} trovato/i`}
-                </div>
-
-                {dflightShot && (
-                  <div style={{ marginTop: 8 }}>
-                    <span style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight di questa missione</span>
-                    <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
-                  </div>
-                )}
-
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                  <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
-                    📱 Mostra a schermo pieno
-                  </button>
-                  <button type="button" onClick={scaricaPdfControllo} disabled={generandoPdfControllo} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 14px", borderRadius: 6, fontSize: 12.5 }}>
-                    <FileDown size={13} /> {generandoPdfControllo ? "Preparazione..." : "Scarica PDF"}
-                  </button>
-                </div>
-                {pdfUrlControllo && (
-                  <a href={pdfUrlControllo} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 6, fontSize: 11, color: "#3d8bfd" }}>
-                    Se non si è aperto automaticamente, apri il PDF qui
-                  </a>
-                )}
-              </div>
             </div>
           )}
           {impiantoSel && (
@@ -4241,62 +4633,6 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
           </div>
         </div>
       )}
-
-      {mostraSchermoControllo && (() => {
-        const assicurazione = attestatiUtente.find((a) => a.tipo.toLowerCase().includes("assicura"));
-        return (
-          <div style={{ position: "fixed", inset: 0, background: "#fff", color: "#161a1f", zIndex: 1000, overflow: "auto", padding: "20px 18px" }}>
-            <button onClick={() => setMostraSchermoControllo(false)} style={{ position: "sticky", top: 0, float: "right", background: "#161a1f", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>
-              Chiudi ✕
-            </button>
-            <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px 0" }}>Documenti pilota</h1>
-            <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{operatore || azienda.nome} — {impiantoSel?.nome}</p>
-
-            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0", borderTop: "2px solid #eee", paddingTop: 16 }}>Attestati</h2>
-            {attestatiUtente.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : attestatiUtente.map((a) => {
-              const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
-              return (
-                <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14, borderBottom: "1px solid #f0f0f0" }}>
-                  <span>{a.tipo}</span>
-                  <span style={{ color: scaduto ? "#d32f2f" : "#2e7d32", fontWeight: 600 }}>{a.data_scadenza ? `${scaduto ? "SCADUTO " : ""}${formatData(a.data_scadenza)}` : "senza scadenza"}</span>
-                </div>
-              );
-            })}
-
-            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Assicurazione</h2>
-            {assicurazione ? (
-              <p style={{ fontSize: 15, fontWeight: 700, color: (assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date()) ? "#d32f2f" : "#2e7d32" }}>
-                {formatData(assicurazione.data_scadenza)}
-              </p>
-            ) : <p style={{ fontSize: 13, color: "#d32f2f" }}>Non registrata</p>}
-
-            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Drone</h2>
-            {droneSelezionato ? (
-              <div style={{ fontSize: 14, lineHeight: 1.8 }}>
-                <div><strong>{droneSelezionato.nome}</strong></div>
-                <div>Modello: {droneSelezionato.modello || "—"}</div>
-                <div>Matricola: {droneSelezionato.matricola || "—"}</div>
-                <div>Classe: {droneSelezionato.marcatura_classe || "—"}</div>
-                <div>D-Flight: {droneSelezionato.registrazione_dflight || "—"}</div>
-              </div>
-            ) : <p style={{ fontSize: 13, color: "#888" }}>Nessun drone selezionato.</p>}
-
-            <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Permessi per questa zona</h2>
-            {permessiZona.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno specifico registrato.</p> : permessiZona.map((p) => (
-              <div key={p.id} style={{ fontSize: 14, padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
-                {p.impianto} — <strong>{{ in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[p.stato] || p.stato}</strong>
-              </div>
-            ))}
-
-            {dflightShot && (
-              <>
-                <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Screenshot D-Flight</h2>
-                <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid #ddd" }} />
-              </>
-            )}
-          </div>
-        );
-      })()}
     </div>
   );
 }
