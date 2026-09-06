@@ -3491,6 +3491,7 @@ function PianificazioneVolo({ azienda, impianti }) {
         data_prevista: dataPrevista,
         drone_id: droneSelId || null,
         dflight_screenshot_url: dflightUrl,
+        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati },
       };
       if (editingId) {
         await supabase.from("piani_volo").update(payload).eq("id", editingId);
@@ -3513,6 +3514,12 @@ function PianificazioneVolo({ azienda, impianti }) {
     setDataPrevista(p.data_prevista || new Date().toISOString().slice(0, 10));
     setDroneSelId(p.drone_id || "");
     setDflightShot(p.dflight_screenshot_url ? { dataUrl: p.dflight_screenshot_url, remota: true } : null);
+    if (p.checklist_stato && p.checklist_stato.voci) {
+      setChecklistItems(p.checklist_stato.voci);
+      setChecklistSpuntati(p.checklist_stato.spuntati || {});
+    } else {
+      setChecklistSpuntati({});
+    }
     setMeteo(null);
     setMeteoSpaziale(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -3705,6 +3712,11 @@ function PianificazioneVolo({ azienda, impianti }) {
                 <div>
                   <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.impianto_nome} {editingId === p.id && <span style={{ color: "#ff8c42", fontWeight: 400, fontSize: 11.5 }}>— in modifica</span>}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3" }}>{formatData(p.data_prevista)} · {p.tipo_ispezione}</div>
+                  {p.checklist_stato?.voci?.length > 0 && (() => {
+                    const tot = p.checklist_stato.voci.length;
+                    const fatti = Object.values(p.checklist_stato.spuntati || {}).filter(Boolean).length;
+                    return <div style={{ fontSize: 11, color: fatti === tot ? "#4ade80" : "#f5b942", marginTop: 2 }}>Checklist: {fatti}/{tot} {fatti === tot ? "✓ completa" : ""}</div>;
+                  })()}
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => apriPiano(p)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Apri / Modifica</button>
