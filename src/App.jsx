@@ -3388,6 +3388,7 @@ function PianificazioneVolo({ azienda, impianti }) {
   const [mostraSchermoControllo, setMostraSchermoControllo] = useState(false);
   const [salvandoPiano, setSalvandoPiano] = useState(false);
   const [pianiSalvati, setPianiSalvati] = useState([]);
+  const [editingId, setEditingId] = useState(null);
 
   const caricaTutto = async () => {
     const [{ data: checklist }, { data: att }, { data: drn }, { data: perm }, { data: piani }] = await Promise.all([
@@ -3474,7 +3475,7 @@ function PianificazioneVolo({ azienda, impianti }) {
     if (!impiantoSel) return;
     setSalvandoPiano(true);
     try {
-      let dflightUrl = null;
+      let dflightUrl = dflightShot?.remota ? dflightShot.dataUrl : null;
       if (dflightShot?.blob) {
         const nomeFile = `dflight-piano-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
         const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, dflightShot.blob);
@@ -3483,24 +3484,52 @@ function PianificazioneVolo({ azienda, impianti }) {
           dflightUrl = pub?.publicUrl || null;
         }
       }
-      await supabase.from("piani_volo").insert({
+      const payload = {
         impianto_id: impiantoSel.id,
         impianto_nome: impiantoSel.nome,
         tipo_ispezione: tipoIspezione,
         data_prevista: dataPrevista,
         drone_id: droneSelId || null,
         dflight_screenshot_url: dflightUrl,
-      });
+      };
+      if (editingId) {
+        await supabase.from("piani_volo").update(payload).eq("id", editingId);
+      } else {
+        await supabase.from("piani_volo").insert(payload);
+      }
       await caricaTutto();
-      alert("Piano di volo salvato.");
+      setEditingId(null);
+      alert(editingId ? "Piano di volo aggiornato." : "Piano di volo salvato.");
     } catch (err) {
       alert("Non sono riuscito a salvare il piano: " + (err?.message || err));
     }
     setSalvandoPiano(false);
   };
 
+  const apriPiano = (p) => {
+    setEditingId(p.id);
+    setImpiantoSel(impianti.find((i) => i.id === p.impianto_id) || null);
+    setTipoIspezione(p.tipo_ispezione || "fotovoltaico");
+    setDataPrevista(p.data_prevista || new Date().toISOString().slice(0, 10));
+    setDroneSelId(p.drone_id || "");
+    setDflightShot(p.dflight_screenshot_url ? { dataUrl: p.dflight_screenshot_url, remota: true } : null);
+    setMeteo(null);
+    setMeteoSpaziale(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const annullaModifica = () => {
+    setEditingId(null);
+    setImpiantoSel(null);
+    setDroneSelId("");
+    setDflightShot(null);
+    setMeteo(null);
+    setMeteoSpaziale(null);
+  };
+
   const eliminaPiano = async (id) => {
     if (!window.confirm("Eliminare questo piano di volo?")) return;
+    if (editingId === id) annullaModifica();
     await supabase.from("piani_volo").delete().eq("id", id);
     caricaTutto();
   };
@@ -3654,9 +3683,16 @@ function PianificazioneVolo({ azienda, impianti }) {
             )}
           </div>
 
-          <button type="button" onClick={salvaPiano} disabled={salvandoPiano} style={{ marginTop: 18, width: "100%", background: "#4ade80", color: "#0a1a0f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 700, fontSize: 13.5 }}>
-            {salvandoPiano ? "Salvataggio..." : "💾 Salva questo piano di volo"}
-          </button>
+          <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+            <button type="button" onClick={salvaPiano} disabled={salvandoPiano} style={{ flex: 1, background: "#4ade80", color: "#0a1a0f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 700, fontSize: 13.5 }}>
+              {salvandoPiano ? "Salvataggio..." : editingId ? "💾 Aggiorna piano di volo" : "💾 Salva questo piano di volo"}
+            </button>
+            {editingId && (
+              <button type="button" onClick={annullaModifica} style={{ background: "transparent", border: "1px solid #333a45", color: "#8b95a3", padding: "10px 16px", borderRadius: 6, fontSize: 13.5 }}>
+                Annulla
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -3665,12 +3701,15 @@ function PianificazioneVolo({ azienda, impianti }) {
           <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 10px 0" }}>Piani di volo salvati</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {pianiSalvati.map((p) => (
-              <div key={p.id} style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div key={p.id} style={{ background: "#1b2028", border: editingId === p.id ? "1px solid #ff8c42" : "1px solid #262b33", borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.impianto_nome}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.impianto_nome} {editingId === p.id && <span style={{ color: "#ff8c42", fontWeight: 400, fontSize: 11.5 }}>— in modifica</span>}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3" }}>{formatData(p.data_prevista)} · {p.tipo_ispezione}</div>
                 </div>
-                <button onClick={() => eliminaPiano(p.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => apriPiano(p)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Apri / Modifica</button>
+                  <button onClick={() => eliminaPiano(p.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
+                </div>
               </div>
             ))}
           </div>
