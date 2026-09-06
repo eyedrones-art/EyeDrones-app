@@ -40,6 +40,15 @@ function caricaImmagine(dataUrl) {
 
 // ritaglia un primo piano quadrato attorno al punto (xPercent, yPercent) di un'immagine già caricata
 // checklist di base pre-volo, personalizzabile da ogni pilota
+// risorse consigliate a TUTTI i piloti che usano l'app — link di affiliazione/partnership,
+// diversi da quelli personali che ogni utente può salvare nei propri attestati.
+// aggiorna qui gli URL quando sono pronti i link di affiliazione veri.
+const RISORSE_CONSIGLIATE = [
+  // esempio (da riempire quando pronto):
+  // { nome: "Assicurazione RC drone — Coverdrone", url: "https://www.coverdrone.com/it/?ref=IL_TUO_CODICE", descrizione: "Polizza RC obbligatoria per uso professionale." },
+  // { nome: "Corso A2 online", url: "https://...", descrizione: "Prepara l'esame A2 e sostienilo online." },
+];
+
 const CHECKLIST_DEFAULT = [
   "Batteria drone carica",
   "Batteria radiocomando/schermo carica",
@@ -2803,6 +2812,7 @@ function Attestati({ attestati, azienda, onReload }) {
   const [tipo, setTipo] = useState(TIPI_ATTESTATO_SUGGERITI[0]);
   const [tipoAltro, setTipoAltro] = useState("");
   const [numeroRiferimento, setNumeroRiferimento] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
   const [dataConseguimento, setDataConseguimento] = useState("");
   const [dataScadenza, setDataScadenza] = useState("");
   const [note, setNote] = useState("");
@@ -2811,7 +2821,7 @@ function Attestati({ attestati, azienda, onReload }) {
 
   const resetForm = () => {
     setTipo(TIPI_ATTESTATO_SUGGERITI[0]); setTipoAltro(""); setNumeroRiferimento("");
-    setDataConseguimento(""); setDataScadenza(""); setNote(""); setDocumento(null); setEditingId(null);
+    setDataConseguimento(""); setDataScadenza(""); setNote(""); setLinkUrl(""); setDocumento(null); setEditingId(null);
   };
 
   const apriModifica = (a) => {
@@ -2819,6 +2829,7 @@ function Attestati({ attestati, azienda, onReload }) {
     setTipo(TIPI_ATTESTATO_SUGGERITI.includes(a.tipo) ? a.tipo : "Altro");
     setTipoAltro(TIPI_ATTESTATO_SUGGERITI.includes(a.tipo) ? "" : a.tipo);
     setNumeroRiferimento(a.numero_riferimento || "");
+    setLinkUrl(a.link_url || "");
     setDataConseguimento(a.data_conseguimento || "");
     setDataScadenza(a.data_scadenza || "");
     setNote(a.note || "");
@@ -2854,6 +2865,7 @@ function Attestati({ attestati, azienda, onReload }) {
         data_conseguimento: dataConseguimento || null,
         data_scadenza: dataScadenza || null,
         note: note || null,
+        link_url: linkUrl || null,
       };
       if (documentoUrl) payload.documento_url = documentoUrl;
       let error;
@@ -2905,7 +2917,21 @@ function Attestati({ attestati, azienda, onReload }) {
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo attestato</>}
         </button>
       </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Tieni traccia di patentini, attestati e scadenze — utile anche in vista dei nuovi requisiti (4 attestati per scenari Specific dal dicembre 2026).</p>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0" }}>Tieni traccia di patentini, attestati e scadenze — utile anche in vista dei nuovi requisiti (4 attestati per scenari Specific dal dicembre 2026).</p>
+
+      {RISORSE_CONSIGLIATE.length > 0 && (
+        <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
+          <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Servizi consigliati</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {RISORSE_CONSIGLIATE.map((r) => (
+              <a key={r.nome} href={r.url} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none" }}>
+                <div style={{ fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{r.nome} ↗</div>
+                {r.descrizione && <div style={{ fontSize: 11.5, color: "#6b7480" }}>{r.descrizione}</div>}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2950,6 +2976,10 @@ function Attestati({ attestati, azienda, onReload }) {
             )}
           </div>
           <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Link utile (opzionale — es. sito assicuratore, portale rinnovo)</label>
+            <input type="url" placeholder="https://..." value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note (opzionale)</label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
@@ -2975,6 +3005,11 @@ function Attestati({ attestati, azienda, onReload }) {
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {a.link_url && (
+                    <a href={a.link_url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#4ade80", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
+                      🔗 Link
+                    </a>
+                  )}
                   {a.documento_url && (
                     <a href={a.documento_url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#3d8bfd", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
                       <FileDown size={12} /> Documento
