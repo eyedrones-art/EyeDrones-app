@@ -1305,7 +1305,7 @@ function AppShell({ session }) {
         {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} />}
-        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} />}
+        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} />}
         {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} />}
@@ -3777,10 +3777,12 @@ function PianificazioneVolo({ azienda, impianti }) {
 
 // --- Documenti controllo (accesso rapido dal menu, senza dover pianificare prima un volo) -----------------------------------------------------------
 
-function DocumentiControllo({ azienda }) {
+function DocumentiControllo({ azienda, impianti }) {
+  const [impiantoSel, setImpiantoSel] = useState(null);
   const [attestatiUtente, setAttestatiUtente] = useState([]);
   const [droniUtente, setDroniUtente] = useState([]);
   const [permessiUtente, setPermessiUtente] = useState([]);
+  const [pianiUtente, setPianiUtente] = useState([]);
   const [droneSelId, setDroneSelId] = useState("");
   const [dflightShot, setDflightShot] = useState(null);
   const [generandoPdfControllo, setGenerandoPdfControllo] = useState(false);
@@ -3789,19 +3791,32 @@ function DocumentiControllo({ azienda }) {
 
   useEffect(() => {
     (async () => {
-      const [{ data: att }, { data: drn }, { data: perm }] = await Promise.all([
+      const [{ data: att }, { data: drn }, { data: perm }, { data: piani }] = await Promise.all([
         supabase.from("attestati").select("*"),
         supabase.from("droni").select("*"),
         supabase.from("permessi").select("*"),
+        supabase.from("piani_volo").select("*"),
       ]);
       setAttestatiUtente(att || []);
       setDroniUtente(drn || []);
       setPermessiUtente(perm || []);
+      setPianiUtente(piani || []);
     })();
   }, []);
 
   const droneSelezionato = droniUtente.find((d) => d.id === droneSelId) || null;
   const assicurazione = attestatiUtente.find((a) => a.tipo.toLowerCase().includes("assicura"));
+
+  // permessi collegati all'impianto scelto (se ne hai scelto uno), altrimenti tutti
+  const permessiFiltrati = impiantoSel
+    ? permessiUtente.filter((p) => p.impianto_id === impiantoSel.id || (p.impianto && p.impianto.toLowerCase().includes(impiantoSel.nome.toLowerCase())))
+    : permessiUtente;
+
+  // recupero automaticamente l'ultimo screenshot D-Flight collegato a questo impianto (da un permesso o da un piano di volo), se ce n'è uno e non ne hai caricato uno nuovo a mano
+  const screenshotAutomatico = impiantoSel && !dflightShot
+    ? [...permessiUtente.filter((p) => p.impianto_id === impiantoSel.id && p.dflight_screenshot_url), ...pianiUtente.filter((p) => p.impianto_id === impiantoSel.id && p.dflight_screenshot_url)]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]?.dflight_screenshot_url
+    : null;
 
   const caricaDflightShot = (e) => {
     const file = e.target.files?.[0];
@@ -3815,7 +3830,7 @@ function DocumentiControllo({ azienda }) {
   const scaricaPdfControllo = () => {
     setGenerandoPdfControllo(true);
     try {
-      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiUtente, impianto: null });
+      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiFiltrati, impianto: impiantoSel });
       const url = doc.output("bloburl");
       setPdfUrlControllo(url);
       window.open(url, "_blank");
@@ -3828,9 +3843,17 @@ function DocumentiControllo({ azienda }) {
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>🚔 Documenti controllo</h1>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0", maxWidth: 560 }}>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0", maxWidth: 560 }}>
         Accesso rapido a tutto quello che potrebbero chiederti le forze dell'ordine — sempre a portata di mano, senza dover pianificare prima un volo.
       </p>
+
+      <div style={{ marginBottom: 16, maxWidth: 320 }}>
+        <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Impianto su cui stai lavorando (opzionale)</label>
+        <select value={impiantoSel?.id || ""} onChange={(e) => { setImpiantoSel(impianti.find((i) => i.id === e.target.value) || null); setDflightShot(null); }} style={inputStyle}>
+          <option value="">— Nessuno / vedi tutto —</option>
+          {impianti.map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}
+        </select>
+      </div>
 
       <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, maxWidth: 560 }}>
         <div style={{ marginBottom: 10 }}>
@@ -3841,32 +3864,63 @@ function DocumentiControllo({ azienda }) {
           </select>
         </div>
 
-        <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
-          <strong>Attestati:</strong>{" "}
-          {attestatiUtente.length === 0 ? "nessuno registrato" : attestatiUtente.map((a) => {
-            const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
-            return <span key={a.id} style={{ color: scaduto ? "#ff9c9c" : "#4ade80" }}>{a.tipo}{scaduto ? " (scaduto!) " : " ✓ "}</span>;
-          })}
+        <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 6 }}>
+          <strong style={{ display: "block", marginBottom: 4 }}>Attestati:</strong>
+          {attestatiUtente.length === 0 ? "nessuno registrato" : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {attestatiUtente.map((a) => {
+                const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
+                return (
+                  <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ color: scaduto ? "#ff9c9c" : "#4ade80" }}>{a.tipo}{scaduto ? " (scaduto!)" : " ✓"}</span>
+                    {a.documento_url && (
+                      <a href={a.documento_url} target="_blank" rel="noreferrer" style={{ color: "#3d8bfd", fontSize: 11, textDecoration: "none" }}>📄 apri documento</a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-        <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
+        <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 6 }}>
           <strong>Assicurazione:</strong>{" "}
           {assicurazione
             ? (() => {
                 const scaduta = assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date();
-                return <span style={{ color: scaduta ? "#ff9c9c" : "#4ade80" }}>{scaduta ? "SCADUTA il " : "valida fino al "}{assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}</span>;
+                return (
+                  <>
+                    <span style={{ color: scaduta ? "#ff9c9c" : "#4ade80" }}>{scaduta ? "SCADUTA il " : "valida fino al "}{assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}</span>
+                    {assicurazione.documento_url && <a href={assicurazione.documento_url} target="_blank" rel="noreferrer" style={{ color: "#3d8bfd", fontSize: 11, marginLeft: 8, textDecoration: "none" }}>📄 apri documento</a>}
+                  </>
+                );
               })()
             : <span style={{ color: "#ff9c9c" }}>non registrata — aggiungila in "Attestati"</span>}
         </div>
+        {droneSelezionato && (
+          <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 6 }}>
+            <strong>Documento del drone:</strong>{" "}
+            {droneSelezionato.documento_url ? (
+              <a href={droneSelezionato.documento_url} target="_blank" rel="noreferrer" style={{ color: "#3d8bfd", fontSize: 11.5, textDecoration: "none" }}>📄 apri documento</a>
+            ) : <span style={{ color: "#8b95a3" }}>nessuno caricato</span>}
+          </div>
+        )}
         <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
-          <strong>Permessi registrati:</strong> {permessiUtente.length === 0 ? "nessuno" : `${permessiUtente.length}`}
+          <strong>Permessi{impiantoSel ? " per questo impianto" : ""}:</strong> {permessiFiltrati.length === 0 ? "nessuno" : `${permessiFiltrati.length}`}
         </div>
 
         <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight di oggi (facoltativo)</label>
+          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight {impiantoSel ? "di questo impianto" : "di oggi"} (facoltativo)</label>
           {dflightShot ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
               <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+            </div>
+          ) : screenshotAutomatico ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <a href={screenshotAutomatico} target="_blank" rel="noreferrer">
+                <img src={screenshotAutomatico} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
+              </a>
+              <span style={{ fontSize: 10.5, color: "#6b7480" }}>recuperato automaticamente da un permesso/piano di volo</span>
             </div>
           ) : (
             <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
@@ -3900,24 +3954,30 @@ function DocumentiControllo({ azienda }) {
             Chiudi ✕
           </button>
           <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px 0" }}>Documenti pilota</h1>
-          <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{azienda.nome}</p>
+          <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{azienda.nome}{impiantoSel ? ` — ${impiantoSel.nome}` : ""}</p>
 
           <h2 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0", borderTop: "2px solid #eee", paddingTop: 16 }}>Attestati</h2>
           {attestatiUtente.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : attestatiUtente.map((a) => {
             const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
             return (
-              <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14, borderBottom: "1px solid #f0f0f0" }}>
+              <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", fontSize: 14, borderBottom: "1px solid #f0f0f0" }}>
                 <span>{a.tipo}</span>
-                <span style={{ color: scaduto ? "#d32f2f" : "#2e7d32", fontWeight: 600 }}>{a.data_scadenza ? `${scaduto ? "SCADUTO " : ""}${formatData(a.data_scadenza)}` : "senza scadenza"}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ color: scaduto ? "#d32f2f" : "#2e7d32", fontWeight: 600 }}>{a.data_scadenza ? `${scaduto ? "SCADUTO " : ""}${formatData(a.data_scadenza)}` : "senza scadenza"}</span>
+                  {a.documento_url && <a href={a.documento_url} target="_blank" rel="noreferrer" style={{ color: "#1565c0", fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Apri documento →</a>}
+                </div>
               </div>
             );
           })}
 
           <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Assicurazione</h2>
           {assicurazione ? (
-            <p style={{ fontSize: 15, fontWeight: 700, color: (assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date()) ? "#d32f2f" : "#2e7d32" }}>
-              {formatData(assicurazione.data_scadenza)}
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: (assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date()) ? "#d32f2f" : "#2e7d32" }}>
+                {formatData(assicurazione.data_scadenza)}
+              </p>
+              {assicurazione.documento_url && <a href={assicurazione.documento_url} target="_blank" rel="noreferrer" style={{ color: "#1565c0", fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Apri documento →</a>}
+            </div>
           ) : <p style={{ fontSize: 13, color: "#d32f2f" }}>Non registrata</p>}
 
           <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Drone</h2>
@@ -3928,20 +3988,22 @@ function DocumentiControllo({ azienda }) {
               <div>Matricola: {droneSelezionato.matricola || "—"}</div>
               <div>Classe: {droneSelezionato.marcatura_classe || "—"}</div>
               <div>D-Flight: {droneSelezionato.registrazione_dflight || "—"}</div>
+              {droneSelezionato.documento_url && <a href={droneSelezionato.documento_url} target="_blank" rel="noreferrer" style={{ color: "#1565c0", fontSize: 14, fontWeight: 600, textDecoration: "underline", display: "inline-block", marginTop: 4 }}>Apri documento drone →</a>}
             </div>
           ) : <p style={{ fontSize: 13, color: "#888" }}>Nessun drone selezionato.</p>}
 
-          <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Permessi</h2>
-          {permessiUtente.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : permessiUtente.map((p) => (
-            <div key={p.id} style={{ fontSize: 14, padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
-              {p.impianto} — <strong>{{ in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[p.stato] || p.stato}</strong>
+          <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Permessi{impiantoSel ? ` — ${impiantoSel.nome}` : ""}</h2>
+          {permessiFiltrati.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : permessiFiltrati.map((p) => (
+            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, padding: "8px 0", borderBottom: "1px solid #f0f0f0" }}>
+              <span>{p.impianto} — <strong>{{ in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[p.stato] || p.stato}</strong></span>
+              {p.documento_url && <a href={p.documento_url} target="_blank" rel="noreferrer" style={{ color: "#1565c0", fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Apri foglio →</a>}
             </div>
           ))}
 
-          {dflightShot && (
+          {(dflightShot || screenshotAutomatico) && (
             <>
               <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Screenshot D-Flight</h2>
-              <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid #ddd" }} />
+              <img src={dflightShot ? dflightShot.dataUrl : screenshotAutomatico} alt="D-Flight" style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid #ddd" }} />
             </>
           )}
         </div>
@@ -3949,6 +4011,7 @@ function DocumentiControllo({ azienda }) {
     </div>
   );
 }
+
 
 function Impostazioni({ azienda, setAzienda, piano }) {
   const proAttivo = piano === "pro";
