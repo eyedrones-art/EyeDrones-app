@@ -1564,7 +1564,7 @@ function StatCard({ label, value, sub, accent }) {
   );
 }
 
-function ImpiantoRow({ imp, onClick, onDelete }) {
+function ImpiantoRow({ imp, onClick, onDelete, onEdit }) {
   return (
     <div onClick={onClick} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px", textAlign: "left", flexWrap: "wrap", gap: 8, cursor: "pointer" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1585,6 +1585,11 @@ function ImpiantoRow({ imp, onClick, onDelete }) {
             Apri
           </button>
         )}
+        {onEdit && (
+          <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+            Modifica
+          </button>
+        )}
         {onDelete && (
           <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
             Elimina
@@ -1600,16 +1605,35 @@ function ImpiantoRow({ imp, onClick, onDelete }) {
 
 function ListaImpianti({ impianti, loading, onReload, onOpenImpianto }) {
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ nome: "", zona: "", kwp: "", cliente: "" });
   const [saving, setSaving] = useState(false);
   const [eliminandoId, setEliminandoId] = useState(null);
 
+  const resetForm = () => {
+    setForm({ nome: "", zona: "", kwp: "", cliente: "" });
+    setEditingId(null);
+  };
+
+  const apriModifica = (imp) => {
+    setEditingId(imp.id);
+    setForm({ nome: imp.nome || "", zona: imp.zona || "", kwp: imp.kwp != null ? String(imp.kwp) : "", cliente: imp.cliente || "" });
+    setShowForm(true);
+  };
+
   const salva = async () => {
     if (!form.nome) return;
     setSaving(true);
-    await supabase.from("impianti").insert({ nome: form.nome, zona: form.zona, kwp: form.kwp ? Number(form.kwp) : null, cliente: form.cliente });
+    const payload = { nome: form.nome, zona: form.zona, kwp: form.kwp ? Number(form.kwp) : null, cliente: form.cliente };
+    let error;
+    if (editingId) {
+      ({ error } = await supabase.from("impianti").update(payload).eq("id", editingId));
+    } else {
+      ({ error } = await supabase.from("impianti").insert(payload));
+    }
     setSaving(false);
-    setForm({ nome: "", zona: "", kwp: "", cliente: "" });
+    if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
+    resetForm();
     setShowForm(false);
     onReload();
   };
@@ -1627,19 +1651,20 @@ function ListaImpianti({ impianti, loading, onReload, onOpenImpianto }) {
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Impianti</h1>
-        <button onClick={() => setShowForm(!showForm)} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo impianto</>}
         </button>
       </div>
 
       {showForm && (
         <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }}>
+          {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un impianto esistente</div>}
           <input placeholder="Nome impianto" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} style={inputStyle} />
           <input placeholder="Zona / località" value={form.zona} onChange={(e) => setForm({ ...form, zona: e.target.value })} style={inputStyle} />
           <input placeholder="Potenza (kWp)" type="number" value={form.kwp} onChange={(e) => setForm({ ...form, kwp: e.target.value })} style={inputStyle} />
           <input placeholder="Cliente" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} style={inputStyle} />
           <button onClick={salva} disabled={!form.nome || saving} style={{ marginTop: 6, background: form.nome ? "#ff8c42" : "#333a45", color: form.nome ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
-            {saving ? "Salvataggio..." : "Salva impianto"}
+            {saving ? "Salvataggio..." : editingId ? "Aggiorna impianto" : "Salva impianto"}
           </button>
         </div>
       )}
@@ -1649,7 +1674,7 @@ function ListaImpianti({ impianti, loading, onReload, onOpenImpianto }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {impianti.map((imp) => (
-            <ImpiantoRow key={imp.id} imp={imp} onClick={() => onOpenImpianto(imp)} onDelete={eliminandoId === imp.id ? undefined : () => eliminaImpianto(imp.id, imp.nome)} />
+            <ImpiantoRow key={imp.id} imp={imp} onClick={() => onOpenImpianto(imp)} onEdit={() => apriModifica(imp)} onDelete={eliminandoId === imp.id ? undefined : () => eliminaImpianto(imp.id, imp.nome)} />
           ))}
         </div>
       )}
