@@ -220,7 +220,7 @@ async function generaRitagliAnomalie(fotoConDataUrl, anomalieList) {
 }
 
 // costruisce il documento PDF del report, condiviso tra nuova ispezione e visualizzazione di un report salvato
-function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, piano, ritagli }) {
+function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, piano, ritagli, tipoIspezione }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const oranje = [255, 140, 66];
   const grigio = [110, 120, 130];
@@ -334,7 +334,7 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
     if (y + 7 + imgH > 280) { doc.addPage(); y = 20; }
     doc.setFontSize(13);
     doc.setTextColor(20, 20, 20);
-    doc.text(fotoConDataUrl.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica", 15, y);
+    doc.text(fotoConDataUrl.length > 1 ? `${tipoIspezione === "danni" ? "Foto" : "Foto termica"} ${idx + 1}` : (tipoIspezione === "danni" ? "Foto" : "Foto termica"), 15, y);
     y += 7;
     try {
       doc.addImage(f.dataUrl, "PNG", 15, y, imgW, imgH);
@@ -1119,7 +1119,7 @@ const CATEGORIE_FOTOVOLTAICO = [
   { key: "Hotspot singolo (classe A)", descrizione: "Punto isolato di surriscaldamento su una singola cella, spesso per micro-fratture interne o difetti di saldatura.", azione: "Verifica visiva ravvicinata; se persiste, sostituzione del pannello." },
   { key: "Hotspot multipli (classe B)", descrizione: "Più punti di surriscaldamento all'interno dello stesso modulo, tipico di celle multiple danneggiate o disconnesse.", azione: "Ispezione approfondita del modulo; probabile sostituzione." },
   { key: "Sotto-stringa calda (classe C)", descrizione: "Porzione del modulo (sotto-stringa) uniformemente più calda del resto, spesso per diodo di bypass attivo o guasto.", azione: "Controllo elettrico della scatola di giunzione e del diodo di bypass." },
-  { key: "Modulo uniformemente caldo (classe D)", descrizione: "L'intero modulo risulta più caldo rispetto ai moduli adiacenti, possibile cella in cortocircuito o degrado diffuso.", azione: "Verifica elettrica del modulo (curva I-V) e valutazione sostituzione." },
+  { key: "Modulo uniformemente caldo (classe D)", descrizione: "L'intero modulo risulta più caldo rispetto ai moduli adiacenti, possibile cella in cortocircuito o degrado diffuso.", azione: "Test elettrico approfondito del modulo (verifica delle prestazioni) e valutazione sostituzione." },
   { key: "Stringa disconnessa (classe E)", descrizione: "Intera serie di moduli fredda o scollegata, tipico di un guasto a monte (fusibile, connettore, cablaggio).", azione: "Controllo del quadro stringhe e della continuità elettrica." },
   { key: "Cella fratturata", descrizione: "Rottura fisica visibile della cella, riduce la produzione e può peggiorare nel tempo.", azione: "Sostituzione del pannello consigliata." },
   { key: "Ombreggiamento", descrizione: "Zona d'ombra ricorrente (vegetazione, strutture) che abbassa la resa del modulo.", azione: "Valutare potatura o rimozione dell'ostacolo." },
@@ -1129,7 +1129,7 @@ const CATEGORIE_FOTOVOLTAICO = [
 ];
 
 const CATEGORIE_ELETTRICO = [
-  { key: "Connessione/morsetto surriscaldato", descrizione: "Punto di giunzione elettrica con temperatura anomala, spesso per contatto allentato o ossidato.", azione: "Serraggio o sostituzione del morsetto; intervento prioritario se il delta termico è elevato." },
+  { key: "Connessione/morsetto surriscaldato", descrizione: "Punto di giunzione elettrica con temperatura anomala, spesso per contatto allentato o ossidato.", azione: "Serraggio o sostituzione del morsetto; intervento prioritario se la temperatura è molto più alta rispetto alle zone vicine." },
   { key: "Interruttore/sezionatore anomalo", descrizione: "Componente di manovra con segnatura termica fuori norma rispetto ai componenti adiacenti.", azione: "Verifica elettrica del componente da parte di tecnico abilitato." },
   { key: "Trasformatore in sovratemperatura", descrizione: "Temperatura del trasformatore superiore ai valori attesi in relazione al carico.", azione: "Controllo del carico e del sistema di raffreddamento." },
   { key: "Cavo/conduttore anomalo", descrizione: "Tratto di cavo con riscaldamento localizzato, possibile sovraccarico o danneggiamento dell'isolante.", azione: "Verifica della sezione del cavo rispetto al carico e dello stato dell'isolamento." },
@@ -1986,6 +1986,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
         anomalieList: anomalieNormalizzate,
         piano,
         ritagli,
+        tipoIspezione: ispezione.tipo_ispezione,
       });
       const url = doc.output("bloburl");
       setPdfUrl(url);
@@ -2080,7 +2081,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
           return (
             <div key={f.id} style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: 0 }}>{fotoIspezione.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica"}</h3>
+                <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: 0 }}>{fotoIspezione.length > 1 ? `${ispezione.tipo_ispezione === "danni" ? "Foto" : "Foto termica"} ${idx + 1}` : (ispezione.tipo_ispezione === "danni" ? "Foto" : "Foto termica")}</h3>
                 {modificaReport && (
                   <button onClick={() => eliminaFotoDalReport(f.id)} style={{ background: "none", border: "1px solid #ddd", color: "#c62828", borderRadius: 5, padding: "3px 9px", fontSize: 11 }}>
                     🗑️ Elimina foto
@@ -4357,6 +4358,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
   const [irraggiamento, setIrraggiamento] = useState("");
   const [note, setNote] = useState("");
+  const [didascalieFoto, setDidascalieFoto] = useState({}); // { [id locale foto]: testo }
   const [prossimoControllo, setProssimoControllo] = useState("");
   const [operatore, setOperatore] = useState("");
   const [droneUsato, setDroneUsato] = useState("");
@@ -4454,7 +4456,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
         const url = pub?.publicUrl || null;
         if (!url) continue;
-        const { data: fotoRow, error: eFoto } = await supabase.from("foto").insert({ ispezione_id: isp.id, url }).select().single();
+        const { data: fotoRow, error: eFoto } = await supabase.from("foto").insert({ ispezione_id: isp.id, url, didascalia: didascalieFoto[f.id] || null }).select().single();
         if (eFoto) continue;
         mappaIdLocaleADb[f.id] = fotoRow.id;
         if (!primoUrlFoto) primoUrlFoto = url;
@@ -4500,6 +4502,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       anomalieList: anomalie,
       piano,
       ritagli,
+      tipoIspezione,
     });
     const url = doc.output("bloburl");
     setPdfUrl(url);
@@ -4600,7 +4603,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Nuova ispezione</h1>
       <div style={{ display: "flex", gap: 6, marginBottom: 24, flexWrap: "wrap" }}>
-        {["Impianto", "Foto termica", "Report"].map((label, i) => (
+        {["Impianto", tipoIspezione === "danni" ? "Foto" : "Foto termica", "Report"].map((label, i) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ width: 22, height: 22, borderRadius: "50%", background: step === i + 1 ? "#ff8c42" : step > i + 1 ? "#3d8bfd" : "#262b33", color: step >= i + 1 ? "#161a1f" : "#8b95a3", fontSize: 11.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }} className="mono">{i + 1}</div>
             <span style={{ fontSize: 12.5, color: step === i + 1 ? "#fff" : "#8b95a3" }}>{label}</span>
@@ -4933,7 +4936,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               const anomalieFoto = anomalie.filter((a) => a.fotoId === f.id);
               return (
                 <div key={f.id} style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
-                  <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>{foto.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica"}</h3>
+                  <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>{foto.length > 1 ? `${tipoIspezione === "danni" ? "Foto" : "Foto termica"} ${idx + 1}` : (tipoIspezione === "danni" ? "Foto" : "Foto termica")}</h3>
                   <div style={{ position: "relative", width: "100%" }}>
                     <img src={f.dataUrl} alt="foto ispezione" style={{ width: "100%", borderRadius: 4, display: "block" }} />
                     {anomalieFoto.map((a, i) => {
@@ -4947,6 +4950,15 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                         </React.Fragment>
                       );
                     })}
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="Didascalia (facoltativa)"
+                      value={didascalieFoto[f.id] || ""}
+                      onChange={(e) => setDidascalieFoto({ ...didascalieFoto, [f.id]: e.target.value })}
+                      style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", fontSize: 12 }}
+                    />
                   </div>
                   {anomalieFoto.length > 0 && (
                     <div style={{ marginTop: 12 }}>
