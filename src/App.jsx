@@ -255,7 +255,7 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
     ["Ora ispezione", dati.ora || "—"],
     ["Eseguita da", dati.operatore || "—"],
     ["Coordinate GPS", dati.coordinateGps || "—"],
-    ["Irraggiamento solare", dati.irraggiamento ? `${dati.irraggiamento} W/m²` : "—"],
+    ...(tipoIspezione === "fotovoltaico" ? [["Irraggiamento solare", dati.irraggiamento ? `${dati.irraggiamento} W/m²` : "—"]] : []),
     ["Anomalie rilevate", String(anomalieList.length)],
     ["Prossimo controllo", dati.prossimoControlloFormattato || "—"],
   ];
@@ -2043,7 +2043,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
               ["Ora ispezione", ispezione.ora || "—"],
               ["Eseguita da", ispezione.operatore || "—"],
               ["Coordinate GPS", ispezione.coordinate_gps || "—"],
-              ["Irraggiamento solare", ispezione.irraggiamento ? `${ispezione.irraggiamento} W/m²` : "—"],
+              ...(ispezione.tipo_ispezione === "fotovoltaico" ? [["Irraggiamento solare", ispezione.irraggiamento ? `${ispezione.irraggiamento} W/m²` : "—"]] : []),
               ["Anomalie rilevate", String(anomalieIspezione.length)],
               ["Prossimo controllo", ispezione.prossimo_controllo ? formatData(ispezione.prossimo_controllo) : "—"],
             ].map(([label, val]) => (
@@ -2065,8 +2065,12 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
             <input type="text" value={campiModificabili.operatore} onChange={(e) => setCampiModificabili({ ...campiModificabili, operatore: e.target.value })} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd" }} />
             <label style={{ fontSize: 11.5, color: "#6b7480" }}>Coordinate GPS</label>
             <input type="text" value={campiModificabili.coordinate_gps} onChange={(e) => setCampiModificabili({ ...campiModificabili, coordinate_gps: e.target.value })} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd" }} />
-            <label style={{ fontSize: 11.5, color: "#6b7480" }}>Irraggiamento (W/m²)</label>
-            <input type="number" value={campiModificabili.irraggiamento} onChange={(e) => setCampiModificabili({ ...campiModificabili, irraggiamento: e.target.value })} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd" }} />
+            {ispezione.tipo_ispezione === "fotovoltaico" && (
+              <>
+                <label style={{ fontSize: 11.5, color: "#6b7480" }}>Irraggiamento (W/m²)</label>
+                <input type="number" value={campiModificabili.irraggiamento} onChange={(e) => setCampiModificabili({ ...campiModificabili, irraggiamento: e.target.value })} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd" }} />
+              </>
+            )}
             <label style={{ fontSize: 11.5, color: "#6b7480" }}>Note</label>
             <textarea rows={3} value={campiModificabili.note} onChange={(e) => { setCampiModificabili({ ...campiModificabili, note: e.target.value }); setCampiSalvatiOk(false); }} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", resize: "vertical", fontFamily: "inherit" }} />
             <button onClick={salvaCampiBase} disabled={salvandoCampi} style={{ marginTop: 4, background: "#ff8c42", color: "#161a1f", border: "none", padding: "8px 0", borderRadius: 6, fontWeight: 600, fontSize: 12.5 }}>
@@ -4921,7 +4925,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 ["Ora ispezione", ora || "—"],
                 ["Eseguita da", operatore || "—"],
                 ["Coordinate GPS", coordinateGps || "—"],
-                ["Irraggiamento solare", irraggiamento ? `${irraggiamento} W/m²` : "—"],
+                ...(tipoIspezione === "fotovoltaico" ? [["Irraggiamento solare", irraggiamento ? `${irraggiamento} W/m²` : "—"]] : []),
                 ["Anomalie rilevate", String(anomalie.length)],
                 ["Prossimo controllo", prossimoControllo ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(prossimoControllo)); return formatData(d); })() : "—"],
               ].map(([label, val]) => (
