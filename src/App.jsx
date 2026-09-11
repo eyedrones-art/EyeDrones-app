@@ -1818,6 +1818,19 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
   const [generandoRegistro, setGenerandoRegistro] = useState(false);
   const [pdfUrlRegistro, setPdfUrlRegistro] = useState(null);
   const [ritagliSchermo, setRitagliSchermo] = useState(new Map());
+  const [modificaReport, setModificaReport] = useState(false);
+  const [fotoAttivaModificaId, setFotoAttivaModificaId] = useState(null);
+  const [pendingPinModifica, setPendingPinModifica] = useState(null);
+  const [caricandoFoto, setCaricandoFoto] = useState(false);
+  const [campiModificabili, setCampiModificabili] = useState({
+    ora: ispezione.ora || "",
+    operatore: ispezione.operatore || "",
+    irraggiamento: ispezione.irraggiamento || "",
+    coordinate_gps: ispezione.coordinate_gps || "",
+    note: ispezione.note || "",
+  });
+  const [salvandoCampi, setSalvandoCampi] = useState(false);
+  const imgRefModifica = useRef(null);
 
   useEffect(() => {
     let annullato = false;
@@ -1847,6 +1860,73 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
     setSalvandoPermesso(false);
     if (error) { alert("Aggiornamento non riuscito: " + error.message); return; }
     setModificaPermesso(false);
+    onReload && onReload();
+  };
+
+  const aggiungiFotoAlReport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCaricandoFoto(true);
+    try {
+      const nomeFile = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${file.name.split(".").pop()}`;
+      const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, file);
+      if (eUp) throw eUp;
+      const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
+      const { error: eIns } = await supabase.from("foto").insert({ ispezione_id: ispezione.id, url: pub.publicUrl });
+      if (eIns) throw eIns;
+      onReload && onReload();
+    } catch (err) {
+      alert("Non sono riuscito a caricare la foto: " + (err?.message || err));
+    }
+    setCaricandoFoto(false);
+    e.target.value = "";
+  };
+
+  const eliminaFotoDalReport = async (fotoId) => {
+    if (!window.confirm("Eliminare questa foto? Verranno eliminate anche le anomalie segnate su di essa.")) return;
+    await supabase.from("anomalie").delete().eq("foto_id", fotoId);
+    await supabase.from("foto").delete().eq("id", fotoId);
+    onReload && onReload();
+  };
+
+  const handleImgClickModifica = (e, fotoId) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setFotoAttivaModificaId(fotoId);
+    setPendingPinModifica({ x, y });
+  };
+
+  const confermaNuovaAnomalia = async (categoria, gravita) => {
+    if (!pendingPinModifica) return;
+    await supabase.from("anomalie").insert({
+      ispezione_id: ispezione.id,
+      foto_id: fotoAttivaModificaId,
+      categoria, gravita,
+      pos_x: pendingPinModifica.x,
+      pos_y: pendingPinModifica.y,
+    });
+    setPendingPinModifica(null);
+    setFotoAttivaModificaId(null);
+    onReload && onReload();
+  };
+
+  const eliminaAnomaliaEsistente = async (anomaliaId) => {
+    await supabase.from("anomalie").delete().eq("id", anomaliaId);
+    onReload && onReload();
+  };
+
+  const salvaCampiBase = async () => {
+    setSalvandoCampi(true);
+    const { error } = await supabase.from("ispezioni").update({
+      ora: campiModificabili.ora || null,
+      operatore: campiModificabili.operatore || null,
+      irraggiamento: campiModificabili.irraggiamento ? Number(campiModificabili.irraggiamento) : null,
+      coordinate_gps: campiModificabili.coordinate_gps || null,
+      note: campiModificabili.note || null,
+    }).eq("id", ispezione.id);
+    setSalvandoCampi(false);
+    if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
     onReload && onReload();
   };
 
@@ -1905,6 +1985,13 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <button onClick={onBack} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5, marginBottom: 14, padding: 0 }}>&larr; {impianto.nome}</button>
 
+      <div style={{ maxWidth: 520, marginBottom: 12 }}>
+        <button onClick={() => setModificaReport(!modificaReport)} style={{ display: "flex", alignItems: "center", gap: 6, background: modificaReport ? "#ff8c42" : "#1f2530", color: modificaReport ? "#161a1f" : "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
+          {modificaReport ? "✓ Modalità modifica attiva" : "✏️ Modifica report"}
+        </button>
+        {modificaReport && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "6px 0 0 0" }}>Tocca una foto per aggiungere un'anomalia, o la × su un pallino per toglierla. Carica nuove foto sotto.</p>}
+      </div>
+
       <div style={{ background: "#ffffff", color: "#1a1a1a", width: "100%", maxWidth: 520, borderRadius: 4, padding: "28px 30px", boxShadow: "0 4px 24px rgba(0,0,0,0.35)" }}>
         {azienda.logo && (
           <img src={azienda.logo} alt="logo" style={{ height: 34, maxWidth: 130, objectFit: "contain", marginBottom: 14, marginLeft: "auto", marginRight: "auto", display: "block" }} />
@@ -1912,34 +1999,68 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 3px 0", fontFamily: "'IBM Plex Sans', sans-serif" }}>Report ispezione termografica</h2>
         <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 18px 0" }}>{azienda.nome} — ispezioni con drone e termocamera</p>
 
-        <div style={{ borderTop: "1px solid #e5e5e5", paddingTop: 12 }}>
-          {[
-            ["Impianto", impianto?.nome],
-            ["Località", impianto?.zona],
-            ["Potenza installata", `${impianto?.kwp} kWp`],
-            ["Cliente", impianto?.cliente],
-            ["Data ispezione", formatData(ispezione.data)],
-            ["Ora ispezione", ispezione.ora || "—"],
-            ["Eseguita da", ispezione.operatore || "—"],
-            ["Coordinate GPS", ispezione.coordinate_gps || "—"],
-            ["Irraggiamento solare", ispezione.irraggiamento ? `${ispezione.irraggiamento} W/m²` : "—"],
-            ["Anomalie rilevate", String(anomalieIspezione.length)],
-            ["Prossimo controllo", ispezione.prossimo_controllo ? formatData(ispezione.prossimo_controllo) : "—"],
-          ].map(([label, val]) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
-              <span style={{ color: "#6b7480" }}>{label}</span>
-              <span className="mono" style={{ color: "#1a1a1a" }}>{val}</span>
+        {!modificaReport ? (
+          <div style={{ borderTop: "1px solid #e5e5e5", paddingTop: 12 }}>
+            {[
+              ["Impianto", impianto?.nome],
+              ["Località", impianto?.zona],
+              ["Potenza installata", `${impianto?.kwp} kWp`],
+              ["Cliente", impianto?.cliente],
+              ["Data ispezione", formatData(ispezione.data)],
+              ["Ora ispezione", ispezione.ora || "—"],
+              ["Eseguita da", ispezione.operatore || "—"],
+              ["Coordinate GPS", ispezione.coordinate_gps || "—"],
+              ["Irraggiamento solare", ispezione.irraggiamento ? `${ispezione.irraggiamento} W/m²` : "—"],
+              ["Anomalie rilevate", String(anomalieIspezione.length)],
+              ["Prossimo controllo", ispezione.prossimo_controllo ? formatData(ispezione.prossimo_controllo) : "—"],
+            ].map(([label, val]) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
+                <span style={{ color: "#6b7480" }}>{label}</span>
+                <span className="mono" style={{ color: "#1a1a1a" }}>{val}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ borderTop: "1px solid #e5e5e5", paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
+              <span style={{ color: "#6b7480" }}>Impianto / Cliente</span>
+              <span style={{ color: "#999" }}>{impianto?.nome} — modifica in "Impianti"</span>
             </div>
-          ))}
-        </div>
+            <label style={{ fontSize: 11.5, color: "#6b7480" }}>Ora ispezione</label>
+            <input type="time" value={campiModificabili.ora} onChange={(e) => setCampiModificabili({ ...campiModificabili, ora: e.target.value })} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd" }} />
+            <label style={{ fontSize: 11.5, color: "#6b7480" }}>Eseguita da</label>
+            <input type="text" value={campiModificabili.operatore} onChange={(e) => setCampiModificabili({ ...campiModificabili, operatore: e.target.value })} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd" }} />
+            <label style={{ fontSize: 11.5, color: "#6b7480" }}>Coordinate GPS</label>
+            <input type="text" value={campiModificabili.coordinate_gps} onChange={(e) => setCampiModificabili({ ...campiModificabili, coordinate_gps: e.target.value })} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd" }} />
+            <label style={{ fontSize: 11.5, color: "#6b7480" }}>Irraggiamento (W/m²)</label>
+            <input type="number" value={campiModificabili.irraggiamento} onChange={(e) => setCampiModificabili({ ...campiModificabili, irraggiamento: e.target.value })} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd" }} />
+            <label style={{ fontSize: 11.5, color: "#6b7480" }}>Note</label>
+            <textarea rows={3} value={campiModificabili.note} onChange={(e) => setCampiModificabili({ ...campiModificabili, note: e.target.value })} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", resize: "vertical", fontFamily: "inherit" }} />
+            <button onClick={salvaCampiBase} disabled={salvandoCampi} style={{ marginTop: 4, background: "#ff8c42", color: "#161a1f", border: "none", padding: "8px 0", borderRadius: 6, fontWeight: 600, fontSize: 12.5 }}>
+              {salvandoCampi ? "Salvataggio..." : "Salva questi dati"}
+            </button>
+          </div>
+        )}
 
         {fotoIspezione.map((f, idx) => {
           const anomalieFoto = anomalieIspezione.filter((a) => a.foto_id === f.id);
           return (
             <div key={f.id} style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
-              <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>{fotoIspezione.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica"}</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: 0 }}>{fotoIspezione.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica"}</h3>
+                {modificaReport && (
+                  <button onClick={() => eliminaFotoDalReport(f.id)} style={{ background: "none", border: "1px solid #ddd", color: "#c62828", borderRadius: 5, padding: "3px 9px", fontSize: 11 }}>
+                    🗑️ Elimina foto
+                  </button>
+                )}
+              </div>
               <div style={{ position: "relative", width: "100%" }}>
-                <img src={f.url} alt="foto ispezione" style={{ width: "100%", borderRadius: 4, display: "block" }} />
+                <img
+                  src={f.url}
+                  alt="foto ispezione"
+                  onClick={modificaReport ? (e) => handleImgClickModifica(e, f.id) : undefined}
+                  style={{ width: "100%", borderRadius: 4, display: "block", cursor: modificaReport ? "crosshair" : "default" }}
+                />
                 {anomalieFoto.map((a, i) => {
                   const sev = SEVERITY.find((s) => s.key === a.gravita);
                   return (
@@ -1948,10 +2069,25 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
                       <div style={{ position: "absolute", left: `${a.pos_x}%`, top: `${a.pos_y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(6px, -22px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
                         {i + 1}
                       </div>
+                      {modificaReport && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); eliminaAnomaliaEsistente(a.id); }}
+                          title="Elimina questa anomalia"
+                          style={{ position: "absolute", left: `${a.pos_x}%`, top: `${a.pos_y}%`, transform: "translate(14px, -34px)", width: 16, height: 16, borderRadius: "50%", background: "#c62828", border: "1px solid #fff", color: "#fff", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                        >×</button>
+                      )}
                     </React.Fragment>
                   );
                 })}
+                {pendingPinModifica && fotoAttivaModificaId === f.id && (
+                  <div style={{ position: "absolute", left: `${pendingPinModifica.x}%`, top: `${pendingPinModifica.y}%`, transform: "translate(-50%,-50%)" }}>
+                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#ff8c42", border: "2px solid #161a1f" }} />
+                  </div>
+                )}
               </div>
+              {pendingPinModifica && fotoAttivaModificaId === f.id && (
+                <AnomaliaPopup onConfirm={confermaNuovaAnomalia} onCancel={() => { setPendingPinModifica(null); setFotoAttivaModificaId(null); }} categorie={CATEGORIE_PER_TIPO[ispezione.tipo_ispezione] || CATEGORIE_FOTOVOLTAICO} />
+              )}
               {anomalieFoto.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   {anomalieFoto.map((a, i) => (
@@ -1962,6 +2098,15 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
             </div>
           );
         })}
+
+        {modificaReport && (
+          <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #ccc", borderRadius: 6, padding: "10px 16px", color: "#6b7480", fontSize: 12.5, cursor: "pointer" }}>
+              <Upload size={13} /> {caricandoFoto ? "Caricamento..." : "+ Aggiungi foto al report"}
+              <input type="file" accept="image/*" onChange={aggiungiFotoAlReport} disabled={caricandoFoto} style={{ display: "none" }} />
+            </label>
+          </div>
+        )}
 
         {(() => {
           const anomalieSenzaFoto = anomalieIspezione.filter((a) => !fotoIspezione.some((f) => f.id === a.foto_id));
