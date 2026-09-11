@@ -272,7 +272,7 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
   doc.line(15, y, 195, y);
   y += 10;
 
-  const disegnaAnomalia = (a, numero) => {
+  const disegnaAnomalia = (a, numero, fotoNumero) => {
     const info = TUTTE_LE_CATEGORIE.find((c) => c.key === a.categoria);
     const sev = SEVERITY.find((s) => s.key === a.gravita);
     const ritaglio = ritagli && ritagli.get ? ritagli.get(a.id) : null;
@@ -296,6 +296,12 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
       doc.setTextColor(22, 26, 31);
       doc.text(String(numero), xImg + 7, y - 5 + 8.5, { align: "center" });
       doc.setFont(undefined, "normal");
+      if (fotoNumero) {
+        doc.setFillColor(0, 0, 0);
+        doc.setFontSize(8);
+        doc.setTextColor(255, 255, 255);
+        doc.text(`Foto ${fotoNumero}`, xImg + latoImg - 3, y - 5 + 6, { align: "right" });
+      }
       y += latoImg + 8;
     } else {
       doc.setFillColor(...oranje);
@@ -304,7 +310,7 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
 
     doc.setFontSize(11.5);
     doc.setTextColor(20, 20, 20);
-    doc.text(`${numero}. ${a.categoria}`, xTesto, y);
+    doc.text(`${fotoNumero ? `Foto ${fotoNumero} — ` : ""}${numero}. ${a.categoria}`, xTesto, y);
     doc.setFontSize(9);
     doc.setTextColor(sev.color === "#ff4d4d" ? 220 : 150, 90, 60);
     doc.text(`[${sev.label.toUpperCase()}]`, xTesto + larghezzaTesto - 30, y);
@@ -323,13 +329,13 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
   };
 
   fotoConDataUrl.forEach((f, idx) => {
+    const imgW = 170;
+    const imgH = imgW * (300 / 480);
+    if (y + 7 + imgH > 280) { doc.addPage(); y = 20; }
     doc.setFontSize(13);
     doc.setTextColor(20, 20, 20);
     doc.text(fotoConDataUrl.length > 1 ? `Foto termica ${idx + 1}` : "Foto termica", 15, y);
     y += 7;
-    const imgW = 170;
-    const imgH = imgW * (300 / 480);
-    if (y + imgH > 280) { doc.addPage(); y = 20; }
     try {
       doc.addImage(f.dataUrl, "PNG", 15, y, imgW, imgH);
       anomalieList.filter((a) => a.fotoId === f.id).forEach((a, i) => {
@@ -375,18 +381,20 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
 
     const anomalieFoto = anomalieList.filter((a) => a.fotoId === f.id);
     if (anomalieFoto.length > 0) {
+      if (y > 255) { doc.addPage(); y = 20; }
       doc.setFontSize(11.5);
       doc.setTextColor(20, 20, 20);
       doc.text("Anomalie rilevate in questa foto", 15, y);
       y += 8;
       anomalieFoto.forEach((a, i) => {
-        disegnaAnomalia(a, i + 1);
+        disegnaAnomalia(a, i + 1, fotoConDataUrl.length > 1 ? idx + 1 : null);
       });
     }
   });
 
   const anomalieSenzaFoto = anomalieList.filter((a) => !fotoConDataUrl.some((f) => f.id === a.fotoId));
   if (anomalieSenzaFoto.length > 0) {
+    if (y > 255) { doc.addPage(); y = 20; }
     doc.setFontSize(13);
     doc.setTextColor(20, 20, 20);
     doc.text("Altre anomalie", 15, y);
@@ -408,14 +416,15 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
   }
 
   if (dati.note) {
+    doc.setFontSize(10);
+    const noteLines = doc.splitTextToSize(dati.note, 170);
+    if (y + 7 + noteLines.length * 4.5 > 280) { doc.addPage(); y = 20; }
     doc.setFontSize(13);
     doc.setTextColor(20, 20, 20);
     doc.text("Note", 15, y);
     y += 7;
     doc.setFontSize(10);
     doc.setTextColor(...grigio);
-    const noteLines = doc.splitTextToSize(dati.note, 170);
-    if (y + noteLines.length * 4.5 > 280) { doc.addPage(); y = 20; }
     doc.text(noteLines, 15, y);
     y += noteLines.length * 4.5 + 10;
   }
@@ -1841,6 +1850,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
     note: ispezione.note || "",
   });
   const [salvandoCampi, setSalvandoCampi] = useState(false);
+  const [campiSalvatiOk, setCampiSalvatiOk] = useState(false);
   const [didascalieModifica, setDidascalieModifica] = useState({});
   const [salvandoDidascaliaId, setSalvandoDidascaliaId] = useState(null);
   const imgRefModifica = useRef(null);
@@ -1938,6 +1948,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
 
   const salvaCampiBase = async () => {
     setSalvandoCampi(true);
+    setCampiSalvatiOk(false);
     const { error } = await supabase.from("ispezioni").update({
       ora: campiModificabili.ora || null,
       operatore: campiModificabili.operatore || null,
@@ -1947,6 +1958,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
     }).eq("id", ispezione.id);
     setSalvandoCampi(false);
     if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
+    setCampiSalvatiOk(true);
     onReload && onReload();
   };
 
@@ -2055,10 +2067,11 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
             <label style={{ fontSize: 11.5, color: "#6b7480" }}>Irraggiamento (W/m²)</label>
             <input type="number" value={campiModificabili.irraggiamento} onChange={(e) => setCampiModificabili({ ...campiModificabili, irraggiamento: e.target.value })} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd" }} />
             <label style={{ fontSize: 11.5, color: "#6b7480" }}>Note</label>
-            <textarea rows={3} value={campiModificabili.note} onChange={(e) => setCampiModificabili({ ...campiModificabili, note: e.target.value })} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", resize: "vertical", fontFamily: "inherit" }} />
+            <textarea rows={3} value={campiModificabili.note} onChange={(e) => { setCampiModificabili({ ...campiModificabili, note: e.target.value }); setCampiSalvatiOk(false); }} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", resize: "vertical", fontFamily: "inherit" }} />
             <button onClick={salvaCampiBase} disabled={salvandoCampi} style={{ marginTop: 4, background: "#ff8c42", color: "#161a1f", border: "none", padding: "8px 0", borderRadius: 6, fontWeight: 600, fontSize: 12.5 }}>
               {salvandoCampi ? "Salvataggio..." : "Salva questi dati"}
             </button>
+            {campiSalvatiOk && <p style={{ fontSize: 11.5, color: "#2e7d32", fontWeight: 600, margin: 0 }}>✓ Salvato correttamente</p>}
           </div>
         )}
 
@@ -2127,7 +2140,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
               {anomalieFoto.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   {anomalieFoto.map((a, i) => (
-                    <BloccoAnomalia key={a.id} a={{ categoria: a.categoria, gravita: a.gravita }} numero={i + 1} ritaglio={ritagliSchermo.get(a.id)} />
+                    <BloccoAnomalia key={a.id} a={{ categoria: a.categoria, gravita: a.gravita }} numero={i + 1} ritaglio={ritagliSchermo.get(a.id)} fotoNumero={fotoIspezione.length > 1 ? idx + 1 : undefined} />
                   ))}
                 </div>
               )}
@@ -2164,7 +2177,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
           </div>
         )}
 
-        {ispezione.note && (
+        {!modificaReport && ispezione.note && (
           <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
             <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 8px 0" }}>Note</h3>
             <p style={{ fontSize: 12, color: "#333", margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{ispezione.note}</p>
@@ -4938,7 +4951,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                   {anomalieFoto.length > 0 && (
                     <div style={{ marginTop: 12 }}>
                       {anomalieFoto.map((a, i) => (
-                        <BloccoAnomalia key={a.id} a={a} numero={i + 1} ritaglio={ritagliSchermo.get(a.id)} />
+                        <BloccoAnomalia key={a.id} a={a} numero={i + 1} ritaglio={ritagliSchermo.get(a.id)} fotoNumero={foto.length > 1 ? idx + 1 : undefined} />
                       ))}
                     </div>
                   )}
@@ -4992,7 +5005,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   );
 }
 
-function BloccoAnomalia({ a, numero, ritaglio }) {
+function BloccoAnomalia({ a, numero, ritaglio, fotoNumero }) {
   const info = TUTTE_LE_CATEGORIE.find((c) => c.key === a.categoria);
   const sev = SEVERITY.find((s) => s.key === a.gravita);
   return (
@@ -5003,11 +5016,16 @@ function BloccoAnomalia({ a, numero, ritaglio }) {
           <div style={{ position: "absolute", top: 8, left: 8, width: 26, height: 26, borderRadius: "50%", background: sev.color, color: "#161a1f", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
             {numero}
           </div>
+          {fotoNumero && (
+            <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.65)", color: "#fff", fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 4 }}>
+              Foto {fotoNumero}
+            </div>
+          )}
         </div>
       )}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <span style={{ fontSize: 12.5, fontWeight: 600 }}>{numero}. {a.categoria}</span>
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>{fotoNumero ? `Foto ${fotoNumero} — ` : ""}{numero}. {a.categoria}</span>
           <span style={{ fontSize: 10, fontWeight: 700, color: sev.color }}>{sev.label.toUpperCase()}</span>
         </div>
         <p style={{ fontSize: 11.5, color: "#555", margin: "3px 0" }}>{info.descrizione}</p>
