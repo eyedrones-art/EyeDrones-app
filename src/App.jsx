@@ -360,7 +360,18 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
         doc.setFont(undefined, "normal");
       });
     } catch (e) {}
-    y += imgH + 10;
+    y += imgH + 4;
+
+    if (f.didascalia) {
+      doc.setFontSize(9.5);
+      doc.setFont(undefined, "italic");
+      doc.setTextColor(...grigio);
+      const righeDidascalia = doc.splitTextToSize(f.didascalia, 170);
+      doc.text(righeDidascalia, 15, y);
+      doc.setFont(undefined, "normal");
+      y += righeDidascalia.length * 4.5 + 4;
+    }
+    y += 6;
 
     const anomalieFoto = anomalieList.filter((a) => a.fotoId === f.id);
     if (anomalieFoto.length > 0) {
@@ -1830,6 +1841,8 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
     note: ispezione.note || "",
   });
   const [salvandoCampi, setSalvandoCampi] = useState(false);
+  const [didascalieModifica, setDidascalieModifica] = useState({});
+  const [salvandoDidascaliaId, setSalvandoDidascaliaId] = useState(null);
   const imgRefModifica = useRef(null);
 
   useEffect(() => {
@@ -1889,6 +1902,13 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
     onReload && onReload();
   };
 
+  const salvaDidascalia = async (fotoId) => {
+    setSalvandoDidascaliaId(fotoId);
+    await supabase.from("foto").update({ didascalia: didascalieModifica[fotoId] || null }).eq("id", fotoId);
+    setSalvandoDidascaliaId(null);
+    onReload && onReload();
+  };
+
   const handleImgClickModifica = (e, fotoId) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -1934,7 +1954,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
     setGenerando(true);
     try {
       const fotoConDataUrl = await Promise.all(
-        fotoIspezione.map(async (f) => ({ id: f.id, dataUrl: await urlToDataUrl(f.url) }))
+        fotoIspezione.map(async (f) => ({ id: f.id, dataUrl: await urlToDataUrl(f.url), didascalia: f.didascalia }))
       );
       const anomalieNormalizzate = anomalieIspezione.map((a) => ({ ...a, fotoId: a.foto_id, x: a.pos_x, y: a.pos_y }));
       const ritagli = await generaRitagliAnomalie(fotoConDataUrl, anomalieNormalizzate);
@@ -2087,6 +2107,22 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
               </div>
               {pendingPinModifica && fotoAttivaModificaId === f.id && (
                 <AnomaliaPopup onConfirm={confermaNuovaAnomalia} onCancel={() => { setPendingPinModifica(null); setFotoAttivaModificaId(null); }} categorie={CATEGORIE_PER_TIPO[ispezione.tipo_ispezione] || CATEGORIE_FOTOVOLTAICO} />
+              )}
+              {modificaReport ? (
+                <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
+                  <input
+                    type="text"
+                    placeholder="Didascalia (facoltativa)"
+                    value={didascalieModifica[f.id] !== undefined ? didascalieModifica[f.id] : (f.didascalia || "")}
+                    onChange={(e) => setDidascalieModifica({ ...didascalieModifica, [f.id]: e.target.value })}
+                    style={{ ...inputStyle, flex: 1, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", fontSize: 12 }}
+                  />
+                  <button onClick={() => salvaDidascalia(f.id)} disabled={salvandoDidascaliaId === f.id} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 5, padding: "0 12px", fontSize: 11.5, fontWeight: 600 }}>
+                    {salvandoDidascaliaId === f.id ? "..." : "Salva"}
+                  </button>
+                </div>
+              ) : f.didascalia && (
+                <p style={{ fontSize: 12, color: "#555", fontStyle: "italic", margin: "8px 0 0 0" }}>{f.didascalia}</p>
               )}
               {anomalieFoto.length > 0 && (
                 <div style={{ marginTop: 12 }}>
