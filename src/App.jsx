@@ -1217,6 +1217,8 @@ function AppShell({ session }) {
   const [moduli, setModuli] = useState(null); // null = non ancora scelto ("ispezioni", "riprese" o entrambi separati da virgola)
   const [voliManuali, setVoliManuali] = useState([]);
   const [nuovoVolo, setNuovoVolo] = useState(false);
+  const [vistaVoli, setVistaVoli] = useState("voli"); // "voli" | "galleria"
+  const [fileRapidi, setFileRapidi] = useState(null); // file scelti dalla prima pagina, da allegare a un nuovo volo
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
@@ -1312,6 +1314,14 @@ function AppShell({ session }) {
     return { ...imp, ultima: ispezioniImp[0] ? formatData(ispezioniImp[0].data) : "Nessuna ispezione", anomalie: anomalieImp.length };
   });
 
+  // navigazione: "Foto e video" nel menu è la galleria del registro voli
+  const vai = (chiave) => {
+    if (chiave === "galleria") { setVistaVoli("galleria"); setPage("registro-voli"); return; }
+    if (chiave === "registro-voli") setVistaVoli("voli");
+    setPage(chiave);
+  };
+  const paginaMenu = page === "registro-voli" && vistaVoli === "galleria" ? "galleria" : page;
+
   const usaIspezioni = !moduli || moduli.includes("ispezioni");
   const usaRiprese = !moduli || moduli.includes("riprese");
   const voliDashboard = [...voliManuali, ...costruisciVoliDaIspezioni(ispezioni, impianti)].sort((a, b) => {
@@ -1348,7 +1358,7 @@ function AppShell({ session }) {
         }
       `}</style>
 
-      <Sidebar page={page} setPage={setPage} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} />
+      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {dbError && (
@@ -1356,12 +1366,12 @@ function AppShell({ session }) {
             Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.
           </div>
         )}
-        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} onNav={setPage} onNuovoVolo={() => { setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} />}
         {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} />}
-        {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => setNuovoVolo(false)} onCambiato={caricaVoli} />}
+        {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} />}
         {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
@@ -1467,6 +1477,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     ] : []),
     { intestazione: "Voli e riprese" },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
+    { key: "galleria", label: "Foto e video", icon: Camera },
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
@@ -1621,7 +1632,7 @@ function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
   );
 }
 
-function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, onNav, onNuovoVolo }) {
+function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, onNav, onNuovoVolo, onAggiungiFile }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
 
@@ -1710,14 +1721,22 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
 
       {usaRiprese && (
         <section style={{ marginBottom: 28 }}>
-          <TitoloSezione emoji="🎬" titolo="Voli e riprese" azione={<button onClick={onNuovoVolo} style={btnPrimario}><Plus size={14} /> Nuovo volo</button>} />
+          <TitoloSezione emoji="🎬" titolo="Voli e riprese" azione={
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <label style={{ ...btnPrimario, cursor: "pointer" }}>
+                <Camera size={14} /> Aggiungi foto o video
+                <input type="file" accept="image/*,video/*" multiple onChange={(e) => { const files = Array.from(e.target.files || []); e.target.value = ""; if (files.length > 0) onAggiungiFile(files); }} style={{ display: "none" }} />
+              </label>
+              <button onClick={onNuovoVolo} style={{ ...btnPrimario, background: "#262b33", color: "#e7eaee", border: "1px solid #333a45" }}><Plus size={14} /> Nuovo volo</button>
+            </div>
+          } />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 14 }}>
             <StatCard label="Voli registrati" value={voli.length} sub="nel tuo registro" />
             <StatCard label="Tempo di volo" value={formattaDurata(minutiVoli)} sub="dove la durata è indicata" accent="#ff8c42" />
             <StatCard label={`Voli nel ${annoCorrente}`} value={voliAnno} sub="da inizio anno" />
           </div>
           {ultimiVoli.length === 0 ? (
-            <EmptyState text="Nessun volo ancora. Registra il primo con «Nuovo volo»: puoi allegare subito foto e video." />
+            <EmptyState text="Nessun volo ancora. Tocca «Aggiungi foto o video» per iniziare: creiamo noi il volo di oggi con quello che scegli." />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {ultimiVoli.map((v) => {
@@ -4666,7 +4685,7 @@ function costruisciPDFLogbook({ azienda, voli, titolo }) {
   return doc;
 }
 
-function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato }) {
+function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali }) {
   const [voli, setVoli] = useState([]);
   const [media, setMedia] = useState([]);
   const [caricando, setCaricando] = useState(true);
@@ -4686,7 +4705,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   const [gpsInCorso, setGpsInCorso] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
-  const [vista, setVista] = useState("voli"); // voli | galleria
+  const setVista = (v) => { if (onVista) onVista(v); }; // voli | galleria (lo stato vive nell'app, così il menu può aprire la galleria)
   const [fileInAttesa, setFileInAttesa] = useState([]); // allegati scelti nel modulo, caricati al salvataggio
   const [linkInAttesa, setLinkInAttesa] = useState([]);
   const [linkFormNuovo, setLinkFormNuovo] = useState("");
@@ -4706,7 +4725,13 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   };
 
   useEffect(() => { carica(); }, []);
-  useEffect(() => { if (aprireNuovo) { apriNuovo(); onAperto && onAperto(); } }, [aprireNuovo]);
+  useEffect(() => {
+    if (aprireNuovo) {
+      apriNuovo();
+      if (fileIniziali && fileIniziali.length > 0) aggiungiFileAlModulo(fileIniziali);
+      onAperto && onAperto();
+    }
+  }, [aprireNuovo]);
 
   // le ispezioni sono voli a tutti gli effetti: le mostro nel registro (sola lettura)
   const voliDaIspezioni = includiIspezioni ? costruisciVoliDaIspezioni(ispezioni, impianti) : [];
@@ -4762,9 +4787,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
 
   const chiudiForm = () => { azzeraAllegati(); setShowForm(false); setEditingId(null); setForm(formVoloVuoto()); };
 
-  const scegliFileForm = (e) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = "";
+  const aggiungiFileAlModulo = (files) => {
     const nuovi = [];
     const scartati = [];
     files.forEach((file) => {
@@ -4776,6 +4799,22 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
     });
     if (scartati.length > 0) alert("Alcuni file non sono stati aggiunti:\n- " + scartati.join("\n- "));
     setFileInAttesa((prev) => [...prev, ...nuovi]);
+  };
+
+  const scegliFileForm = (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    aggiungiFileAlModulo(files);
+  };
+
+  // pulsante in cima: scegli i file e si apre il modulo già con gli allegati dentro
+  const scegliFileRapido = (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    if (!showForm) apriNuovo();
+    aggiungiFileAlModulo(files);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const rimuoviFileInAttesa = (indice) => {
@@ -4912,6 +4951,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
     setCaricandoMediaId(voloId);
     const scartati = await caricaFileVolo(voloId, files);
     setCaricandoMediaId(null);
+    setEspansoId(voloId);
     if (scartati.length > 0) alert("Alcuni file non sono stati caricati:\n- " + scartati.join("\n- "));
     carica();
   };
@@ -4963,7 +5003,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
     .sort((a, b) => String(b.volo.data || "").localeCompare(String(a.volo.data || "")));
 
   const galleriaJsx = mediaGalleria.length === 0 ? (
-    <EmptyState text="Nessuna foto o video ancora. Aggiungili dal modulo «Nuovo volo», oppure aprendo un volo dall'elenco." />
+    <EmptyState text="Nessuna foto o video ancora. Tocca «Aggiungi foto / video» qui in alto: crei subito il volo di oggi con quello che scegli." />
   ) : (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
       {mediaGalleria.map(({ m, volo }) => (
@@ -4995,6 +5035,10 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Registro voli</h1>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, background: "#241d16", color: "#ffb877", border: "1px solid #ff8c42", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+            <Camera size={14} /> Aggiungi foto / video
+            <input type="file" accept="image/*,video/*" multiple onChange={scegliFileRapido} style={{ display: "none" }} />
+          </label>
           <button onClick={scaricaPdf} disabled={generandoPdf || visibili.length === 0} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
             <FileDown size={14} /> {generandoPdf ? "Preparazione..." : "PDF"}
           </button>
@@ -5021,6 +5065,54 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       {showForm && (
         <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, marginBottom: 20, maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
           {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un volo esistente</div>}
+
+          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "#c3cad4" }}>📎 Foto e video di questo volo <span style={{ color: "#6b7480", fontWeight: 400 }}>(facoltativo)</span></div>
+            <label style={{ display: "inline-flex", alignSelf: "flex-start", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "9px 14px", color: "#c3cad4", fontSize: 12.5, cursor: "pointer" }}>
+              <Upload size={14} /> Scegli foto e video
+              <input type="file" accept="image/*,video/*" multiple onChange={scegliFileForm} style={{ display: "none" }} />
+            </label>
+            {fileInAttesa.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(76px, 1fr))", gap: 8 }}>
+                {fileInAttesa.map((x, i) => (
+                  <div key={i} style={{ position: "relative" }}>
+                    {x.anteprima ? (
+                      <img src={x.anteprima} alt={x.file.name} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, display: "block" }} />
+                    ) : (
+                      <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: 6, background: "#0e1116", border: "1px solid #333a45", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: 4, overflow: "hidden" }}>
+                        <span style={{ fontSize: 20 }}>🎬</span>
+                        <span style={{ fontSize: 9.5, color: "#8b95a3", textAlign: "center", wordBreak: "break-all", lineHeight: 1.2 }}>{x.file.name.slice(0, 22)}</span>
+                      </div>
+                    )}
+                    <button type="button" onClick={() => rimuoviFileInAttesa(i)} title="Togli" style={{ position: "absolute", top: 3, right: 3, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.75)", color: "#fff", border: "none", fontSize: 12, lineHeight: 1, padding: 0 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 6 }}>
+              <input type="text" placeholder="Oppure incolla il link di un video (Drive, YouTube, WeTransfer...)" value={linkFormNuovo} onChange={(e) => setLinkFormNuovo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aggiungiLinkInAttesa(); } }} style={{ ...inputStyle, fontSize: 12.5, padding: "7px 10px" }} />
+              <button type="button" onClick={aggiungiLinkInAttesa} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>+ Link</button>
+            </div>
+            {linkInAttesa.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {linkInAttesa.map((l, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#3d8bfd" }}>
+                    <span style={{ flex: 1, wordBreak: "break-all" }}>🔗 {l}</span>
+                    <button type="button" onClick={() => setLinkInAttesa((prev) => prev.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 14 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {(fileInAttesa.length > 0 || linkInAttesa.length > 0) && (
+              <div>
+                <button type="button" onClick={salva} disabled={!form.data || salvando} style={{ width: "100%", background: "#ff8c42", color: "#161a1f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 700, fontSize: 13.5 }}>
+                  {salvando ? "Salvataggio..." : "💾 Salva subito"}
+                </button>
+                <p style={{ fontSize: 10.5, color: "#8b95a3", margin: "5px 0 0 0" }}>Data e ora sono già quelle di adesso: luogo, drone e il resto puoi completarli anche dopo.</p>
+              </div>
+            )}
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>I file vengono caricati quando salvi. I video possono pesare al massimo {MAX_VIDEO_MB} MB: per quelli più lunghi usa un link.</p>
+          </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 130 }}>
@@ -5096,46 +5188,6 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
           <div>
             <label style={lbl}>Note (facoltativo)</label>
             <textarea rows={3} placeholder="es. vento debole, batterie usate: 3, autorizzazione ottenuta..." value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
-          </div>
-
-          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: "#c3cad4" }}>📎 Foto e video di questo volo <span style={{ color: "#6b7480", fontWeight: 400 }}>(facoltativo)</span></div>
-            <label style={{ display: "inline-flex", alignSelf: "flex-start", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "9px 14px", color: "#c3cad4", fontSize: 12.5, cursor: "pointer" }}>
-              <Upload size={14} /> Scegli foto e video
-              <input type="file" accept="image/*,video/*" multiple onChange={scegliFileForm} style={{ display: "none" }} />
-            </label>
-            {fileInAttesa.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(76px, 1fr))", gap: 8 }}>
-                {fileInAttesa.map((x, i) => (
-                  <div key={i} style={{ position: "relative" }}>
-                    {x.anteprima ? (
-                      <img src={x.anteprima} alt={x.file.name} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, display: "block" }} />
-                    ) : (
-                      <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: 6, background: "#0e1116", border: "1px solid #333a45", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: 4, overflow: "hidden" }}>
-                        <span style={{ fontSize: 20 }}>🎬</span>
-                        <span style={{ fontSize: 9.5, color: "#8b95a3", textAlign: "center", wordBreak: "break-all", lineHeight: 1.2 }}>{x.file.name.slice(0, 22)}</span>
-                      </div>
-                    )}
-                    <button type="button" onClick={() => rimuoviFileInAttesa(i)} title="Togli" style={{ position: "absolute", top: 3, right: 3, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.75)", color: "#fff", border: "none", fontSize: 12, lineHeight: 1, padding: 0 }}>×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 6 }}>
-              <input type="text" placeholder="Oppure incolla il link di un video (Drive, YouTube, WeTransfer...)" value={linkFormNuovo} onChange={(e) => setLinkFormNuovo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aggiungiLinkInAttesa(); } }} style={{ ...inputStyle, fontSize: 12.5, padding: "7px 10px" }} />
-              <button type="button" onClick={aggiungiLinkInAttesa} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>+ Link</button>
-            </div>
-            {linkInAttesa.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {linkInAttesa.map((l, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#3d8bfd" }}>
-                    <span style={{ flex: 1, wordBreak: "break-all" }}>🔗 {l}</span>
-                    <button type="button" onClick={() => setLinkInAttesa((prev) => prev.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 14 }}>×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>I file vengono caricati quando premi «Salva volo». I video possono pesare al massimo {MAX_VIDEO_MB} MB: per quelli più lunghi usa un link.</p>
           </div>
 
           <button onClick={salva} disabled={!form.data || salvando} style={{ marginTop: 2, background: form.data ? "#ff8c42" : "#333a45", color: form.data ? "#161a1f" : "#6b7480", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
@@ -5218,6 +5270,10 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                       </div>
                       {!v._derived && (
                         <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#8b95a3" }}>
+                          <label onClick={(e) => e.stopPropagation()} title="Aggiungi foto o video a questo volo" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid #ff8c4288", borderRadius: 6, padding: "5px 10px", color: "#ffb877", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                            <Camera size={13} /> {caricandoMediaId === v.id ? "Carico..." : "Foto/video"}
+                            <input type="file" accept="image/*,video/*" multiple disabled={caricandoMediaId === v.id} onChange={(e) => aggiungiMedia(v.id, e)} style={{ display: "none" }} />
+                          </label>
                           {nFoto > 0 && <span>📷 {nFoto}</span>}
                           {nVideo > 0 && <span>🎬 {nVideo}</span>}
                           {nLink > 0 && <span>🔗 {nLink}</span>}
