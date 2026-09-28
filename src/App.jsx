@@ -1391,7 +1391,18 @@ function AppShell({ session }) {
     <div className="app-shell" style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: "transparent", color: "#e7eaee", minHeight: "100vh", display: "flex", width: "100%" }}>
       <style>{`
         * { box-sizing: border-box; }
-        button { font-family: inherit; cursor: pointer; }
+        html { scroll-behavior: smooth; }
+        button { font-family: inherit; cursor: pointer; transition: filter .12s ease, transform .12s ease, opacity .12s ease; }
+        button:not(:disabled):hover { filter: brightness(1.1); }
+        button:not(:disabled):active { filter: brightness(0.94); transform: translateY(0.5px); }
+        input, select, textarea { transition: border-color .15s ease, background .15s ease; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #ff8c42 !important; }
+        h1, h2, h3 { letter-spacing: -0.012em; }
+        ::selection { background: #ff8c4255; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333a45; border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: #454c59; }
         .mono { font-family: 'IBM Plex Mono', monospace; }
         .app-shell { flex-direction: row; }
         .sidebar { width: 220px; flex-direction: column; }
@@ -1484,7 +1495,7 @@ function Login() {
           <img src={LOGO_EYEDRONES} alt="Eyedrones" style={{ width: 52, height: 52, objectFit: "contain", position: "relative", zIndex: 1 }} />
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 17, position: "relative", zIndex: 1 }}>Eyedrones</span>
         </div>
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 10, padding: 22, position: "relative", overflow: "hidden" }}>
+        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 22, position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
           {modo !== "recupera" && (
             <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
@@ -1738,7 +1749,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
     usaIspezioni ? `${impianti.length} ${impianti.length === 1 ? "impianto monitorato" : "impianti monitorati"}` : null,
     usaRiprese ? `${voli.length} ${voli.length === 1 ? "volo registrato" : "voli registrati"}` : null,
   ].filter(Boolean).join(" · ");
-  const btnPrimario = { display: "flex", alignItems: "center", gap: 6, background: "#ff8c42", color: "#161a1f", border: "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 };
+  const btnPrimario = { display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 };
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
@@ -1807,7 +1818,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
                 const tipo = TIPI_ATTIVITA_VOLO.find((t) => t.key === v.tipo_attivita) || TIPI_ATTIVITA_VOLO[TIPI_ATTIVITA_VOLO.length - 1];
                 const dettaglio = [v.luogo, v.drone_nome, v.durata_minuti ? formattaDurata(v.durata_minuti) : null].filter(Boolean).join(" · ");
                 return (
-                  <button key={v.id} onClick={() => onNav("registro-voli")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "10px 14px", color: "#e7eaee" }}>
+                  <button key={v.id} onClick={() => onNav("registro-voli")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "10px 14px", color: "#e7eaee" }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{formatData(v.data)}</div>
                       <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>{dettaglio || "—"}</div>
@@ -1847,7 +1858,7 @@ function EmptyState({ text }) {
 
 function StatCard({ label, value, sub, accent }) {
   return (
-    <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "16px 18px" }}>
+    <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "16px 18px" }}>
       <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 8 }}>{label}</div>
       <div className="mono" style={{ fontSize: 24, fontWeight: 600, color: accent || "#fff" }}>{value}</div>
       <div style={{ fontSize: 11.5, color: "#6b7480", marginTop: 4 }}>{sub}</div>
@@ -1857,7 +1868,7 @@ function StatCard({ label, value, sub, accent }) {
 
 function ImpiantoRow({ imp, onClick, onDelete, onEdit }) {
   return (
-    <div onClick={onClick} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px", textAlign: "left", flexWrap: "wrap", gap: 8, cursor: "pointer" }}>
+    <div onClick={onClick} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", textAlign: "left", flexWrap: "wrap", gap: 8, cursor: "pointer" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: imp.anomalie > 4 ? "#ff4d4d" : imp.anomalie > 0 ? "#f5b942" : "#4ade80", flexShrink: 0 }} />
         <div>
@@ -1948,7 +1959,7 @@ function ListaImpianti({ impianti, loading, onReload, onOpenImpianto }) {
       </div>
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }}>
           {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un impianto esistente</div>}
           <input placeholder="Nome impianto" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} style={inputStyle} />
           <input placeholder="Zona / località" value={form.zona} onChange={(e) => setForm({ ...form, zona: e.target.value })} style={inputStyle} />
@@ -1973,7 +1984,7 @@ function ListaImpianti({ impianti, loading, onReload, onOpenImpianto }) {
   );
 }
 
-const inputStyle = { width: "100%", background: "#161a1f", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "9px 12px", fontSize: 13.5 };
+const inputStyle = { width: "100%", background: "#161a1f", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "9px 12px", fontSize: 13.5, transition: "border-color .15s ease, background .15s ease" };
 
 // --- Dettaglio impianto -----------------------------------------------------------
 
@@ -2064,7 +2075,7 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda,
           {storico.map((s) => {
             const sev = SEVERITY.find((sv) => sv.key === s.gravitaMax);
             return (
-              <div key={s.id} onClick={() => setIspezioneAperta(s.id)} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "11px 16px", flexWrap: "wrap", gap: 8, cursor: "pointer" }}>
+              <div key={s.id} onClick={() => setIspezioneAperta(s.id)} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "11px 16px", flexWrap: "wrap", gap: 8, cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   {s.fotoUrl && <img src={s.fotoUrl} alt="" style={{ width: 40, height: 26, objectFit: "cover", borderRadius: 4 }} />}
                   <div>
@@ -2344,7 +2355,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
             )}
             <label style={{ fontSize: 11.5, color: "#6b7480" }}>Note</label>
             <textarea rows={3} value={campiModificabili.note} onChange={(e) => { setCampiModificabili({ ...campiModificabili, note: e.target.value }); setCampiSalvatiOk(false); }} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", resize: "vertical", fontFamily: "inherit" }} />
-            <button onClick={salvaCampiBase} disabled={salvandoCampi} style={{ marginTop: 4, background: "#ff8c42", color: "#161a1f", border: "none", padding: "8px 0", borderRadius: 6, fontWeight: 600, fontSize: 12.5 }}>
+            <button onClick={salvaCampiBase} disabled={salvandoCampi} style={{ marginTop: 4, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 0", borderRadius: 6, fontWeight: 600, fontSize: 12.5 }}>
               {salvandoCampi ? "Salvataggio..." : "Salva questi dati"}
             </button>
             {campiSalvatiOk && <p style={{ fontSize: 11.5, color: "#2e7d32", fontWeight: 600, margin: 0 }}>✓ Salvato correttamente</p>}
@@ -2390,7 +2401,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
                 })}
                 {pendingPinModifica && fotoAttivaModificaId === f.id && (
                   <div style={{ position: "absolute", left: `${pendingPinModifica.x}%`, top: `${pendingPinModifica.y}%`, transform: "translate(-50%,-50%)" }}>
-                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#ff8c42", border: "2px solid #161a1f" }} />
+                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", border: "2px solid #161a1f" }} />
                   </div>
                 )}
               </div>
@@ -2406,7 +2417,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
                     onChange={(e) => setDidascalieModifica({ ...didascalieModifica, [f.id]: e.target.value })}
                     style={{ ...inputStyle, flex: 1, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", fontSize: 12 }}
                   />
-                  <button onClick={() => salvaDidascalia(f.id)} disabled={salvandoDidascaliaId === f.id} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 5, padding: "0 12px", fontSize: 11.5, fontWeight: 600 }}>
+                  <button onClick={() => salvaDidascalia(f.id)} disabled={salvandoDidascaliaId === f.id} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 5, padding: "0 12px", fontSize: 11.5, fontWeight: 600 }}>
                     {salvandoDidascaliaId === f.id ? "..." : "Salva"}
                   </button>
                 </div>
@@ -2466,7 +2477,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
       </div>
 
       {(ispezione.drone_usato || ispezione.scenario_volo || ispezione.altezza_volo || ispezione.buffer_sicurezza || ispezione.dflight_screenshot_url || ispezione.ora_atterraggio || ispezione.coordinate_gps || ispezione.zona_rossa) && (
-        <div style={{ maxWidth: 520, marginTop: 16, background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16 }}>
+        <div style={{ maxWidth: 520, marginTop: 16, background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16 }}>
           <h3 style={{ fontSize: 13, fontWeight: 600, margin: "0 0 4px 0", color: "#c3cad4" }}>📋 Dati di volo — registro interno</h3>
           <p style={{ fontSize: 10.5, color: "#6b7480", margin: "0 0 12px 0" }}>Non incluso nel report per il cliente — solo per la tua documentazione.</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -2545,7 +2556,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={salvaStatoPermesso} disabled={salvandoPermesso} style={{ background: "#ff8c42", color: "#161a1f", border: "none", padding: "7px 14px", borderRadius: 5, fontWeight: 600, fontSize: 12 }}>
+                    <button onClick={salvaStatoPermesso} disabled={salvandoPermesso} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "7px 14px", borderRadius: 5, fontWeight: 600, fontSize: 12 }}>
                       {salvandoPermesso ? "Salvataggio..." : "Salva"}
                     </button>
                     <button onClick={() => setModificaPermesso(false)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", padding: "7px 14px", borderRadius: 5, fontSize: 12 }}>
@@ -2594,7 +2605,7 @@ function BloccoPiano({ titolo, testo, pianoRichiesto = "Pro", onVai }) {
       <div style={{ maxWidth: 440, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 10, padding: 20 }}>
         <p style={{ fontSize: 13.5, color: "#ffb877", margin: "0 0 10px 0", fontWeight: 600 }}>🔒 Funzione del piano {pianoRichiesto}</p>
         <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0", lineHeight: 1.5 }}>{testo}</p>
-        {onVai && <button onClick={onVai} style={{ background: "#ff8c42", color: "#161a1f", border: "none", padding: "8px 16px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>Vedi i piani</button>}
+        {onVai && <button onClick={onVai} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 16px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>Vedi i piani</button>}
       </div>
     </div>
   );
@@ -2619,7 +2630,7 @@ function Abbonamento({ piano }) {
       ],
     },
     {
-      chiave: "pilota", nome: "Pilota", prezzo: "3,90€/mese", annuale: "oppure 35€ all'anno", sotto: "Per foto, video e FPV",
+      chiave: "pilota", nome: "Pilota", prezzo: "6,90€/mese", annuale: "oppure 59€ all'anno", sotto: "Per foto, video e FPV",
       caratteristiche: [
         { testo: "Voli, foto e video senza limiti di numero", incluso: true },
         { testo: "Batterie illimitate con avvisi su cicli e stoccaggio", incluso: true },
@@ -2652,7 +2663,7 @@ function Abbonamento({ piano }) {
           return (
             <div key={p.chiave} style={{ background: "#1b2028", border: attivo ? "2px solid #ff8c42" : "1px solid #262b33", borderRadius: 10, padding: 20, position: "relative", display: "flex", flexDirection: "column" }}>
               {attivo && (
-                <span style={{ position: "absolute", top: -10, left: 16, background: "#ff8c42", color: "#161a1f", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>PIANO ATTUALE</span>
+                <span style={{ position: "absolute", top: -10, left: 16, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>PIANO ATTUALE</span>
               )}
               {!attivo && p.badge && (
                 <span style={{ position: "absolute", top: -10, left: 16, background: "#4ade80", color: "#161a1f", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>{p.badge}</span>
@@ -2670,7 +2681,7 @@ function Abbonamento({ piano }) {
                 ))}
               </div>
               {superiore && (
-                <a href={linkUpgrade(p.chiave)} target={LINK_PAGAMENTO[p.chiave] ? "_blank" : undefined} rel="noreferrer" style={{ display: "block", textAlign: "center", marginTop: 18, background: "#ff8c42", color: "#161a1f", padding: "9px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, textDecoration: "none" }}>
+                <a href={linkUpgrade(p.chiave)} target={LINK_PAGAMENTO[p.chiave] ? "_blank" : undefined} rel="noreferrer" style={{ display: "block", textAlign: "center", marginTop: 18, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", padding: "9px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, textDecoration: "none" }}>
                   Passa a {p.nome}
                 </a>
               )}
@@ -2693,6 +2704,16 @@ function Abbonamento({ piano }) {
 // --- Impostazioni (white label) -----------------------------------------------------------
 
 // --- Preventivi -----------------------------------------------------------
+
+// righe tipiche di un preventivo per riprese aeree: solo descrizioni, l'importo lo decide il pilota caso per caso
+const VOCI_MODELLO_RIPRESE = [
+  "Sopralluogo e pianificazione del volo",
+  "Ripresa aerea — foto",
+  "Ripresa aerea — video",
+  "Montaggio e color correction",
+  "Consegna file (formato e risoluzione da concordare)",
+  "Licenza d'uso commerciale",
+];
 
 const STATI_PREVENTIVO = [
   { key: "inviato", label: "Inviato", color: "#3d8bfd" },
@@ -2732,6 +2753,12 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
     ];
     // rimuovo eventuali righe vuote residue prima di aggiungere quelle calcolate
     const vociPulite = voci.filter((v) => v.descrizione || v.importo);
+    setVoci([...vociPulite, ...nuoveVoci]);
+  };
+  // modello per riprese (video/foto/FPV): solo le voci tipiche, senza importo — lo scegli tu in base al lavoro
+  const aggiungiVociRiprese = () => {
+    const vociPulite = voci.filter((v) => v.descrizione || v.importo);
+    const nuoveVoci = VOCI_MODELLO_RIPRESE.map((descrizione) => ({ descrizione, importo: "" }));
     setVoci([...vociPulite, ...nuoveVoci]);
   };
   const aggiornaVoce = (idx, campo, valore) => {
@@ -2824,7 +2851,7 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
       </div>
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, marginBottom: 20, maxWidth: 540, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 540, display: "flex", flexDirection: "column", gap: 12 }}>
           {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un preventivo esistente</div>}
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome cliente</label>
@@ -2848,6 +2875,14 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
               </button>
             </div>
             <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Usa le tue tariffe da Impostazioni ({Number(azienda.tariffaBase) || 0}€ base + {Number(azienda.tariffaKwp) || 0}€/kWp) e aggiunge le righe qui sotto, che restano modificabili.</p>
+          </div>
+
+          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "10px 12px" }}>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 6 }}>Modello rapido per riprese aeree — video, foto, FPV (opzionale)</label>
+            <button type="button" onClick={aggiungiVociRiprese} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 12.5, fontWeight: 600 }}>
+              Aggiungi voci standard
+            </button>
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Aggiunge le righe tipiche di un lavoro di ripresa, senza importo: lo scrivi tu, perché varia molto da caso a caso.</p>
           </div>
 
           <div>
@@ -2919,7 +2954,7 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
               else if (giorni <= 5) promemoria = { testo: `Scade tra ${giorni} giorni, nessuna risposta`, colore: "#f5b942" };
             }
             return (
-              <div key={p.id} style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+              <div key={p.id} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.cliente} {p.numero && <span style={{ color: "#6b7480", fontWeight: 400, fontSize: 12 }}>· {p.numero}</span>}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
@@ -3071,7 +3106,7 @@ function Permessi({ permessi, impianti, azienda, piano, onReload }) {
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Richiedi e traccia i permessi di volo per zone soggette a restrizioni, prima ancora di fare il rilievo.</p>
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Collega a un impianto esistente (opzionale)</label>
             <select value={impiantoIdSel} onChange={(e) => selezionaImpianto(e.target.value)} style={inputStyle}>
@@ -3202,7 +3237,7 @@ function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando
   };
 
   return (
-    <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px" }}>
+    <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px" }}>
       <div onClick={onToggle} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", flexWrap: "wrap", gap: 8 }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.impianto}</div>
@@ -3291,7 +3326,7 @@ function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando
                 </div>
               )}
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={salvaStato} disabled={cambiando} style={{ background: "#ff8c42", color: "#161a1f", border: "none", padding: "7px 14px", borderRadius: 5, fontWeight: 600, fontSize: 12 }}>
+                <button onClick={salvaStato} disabled={cambiando} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "7px 14px", borderRadius: 5, fontWeight: 600, fontSize: 12 }}>
                   {cambiando ? "Salvataggio..." : "Salva"}
                 </button>
                 <button onClick={() => setModificaStato(false)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", padding: "7px 14px", borderRadius: 5, fontSize: 12 }}>
@@ -3450,7 +3485,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
       </div>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0" }}>Tieni traccia di patentini, attestati e scadenze. Per le operazioni in categoria Specific (scenari standard STS) controlla sempre i requisiti aggiornati sul sito ENAC.</p>
 
-      <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
+      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 14, marginBottom: 20, maxWidth: 460 }}>
         <label style={{ fontSize: 11.5, fontWeight: 600, color: "#c3cad4", display: "block", marginBottom: 6 }}>Il tuo prossimo obiettivo formativo</label>
         <select value={obiettivoSel} onChange={(e) => salvaObiettivo(e.target.value)} disabled={salvandoObiettivo} style={inputStyle}>
           {OBIETTIVI_FORMATIVI.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
@@ -3487,7 +3522,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
       )}
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Tipo di attestato</label>
             <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={inputStyle}>
@@ -3536,7 +3571,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note (opzionale)</label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
-          <button onClick={salvaAttestato} disabled={salvataggio} style={{ marginTop: 4, background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          <button onClick={salvaAttestato} disabled={salvataggio} style={{ marginTop: 4, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
             {salvataggio ? "Salvataggio..." : editingId ? "Aggiorna attestato" : "Salva attestato"}
           </button>
         </div>
@@ -3549,7 +3584,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
           {attestati.map((a) => {
             const stato = statoScadenza(a.data_scadenza);
             return (
-              <div key={a.id} style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+              <div key={a.id} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{a.tipo}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
@@ -3724,7 +3759,7 @@ function Droni({ droni, azienda, onReload }) {
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Tieni traccia di modelli, matricole, registrazione D-Flight e scadenze di manutenzione della tua flotta.</p>
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome / etichetta</label>
             <input placeholder="es. Matrice 4T principale" value={nome} onChange={(e) => setNome(e.target.value)} style={inputStyle} />
@@ -3799,7 +3834,7 @@ function Droni({ droni, azienda, onReload }) {
           {droni.map((d) => {
             const stato = statoManutenzione(d.prossima_manutenzione);
             return (
-              <div key={d.id} style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+              <div key={d.id} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{d.nome}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
@@ -3910,7 +3945,7 @@ function AnalisiTermica({ piano }) {
         Carica una foto termica radiometrica originale del drone (R-JPEG, non modificata da altri software). Ricalcoliamo la temperatura reale di ogni pixel e la ricoloriamo con la palette che scegli.
       </p>
 
-      <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, maxWidth: 480, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 480, display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
           <label style={{ fontSize: 12, color: "#8b95a3", display: "block", marginBottom: 6 }}>Foto termica (R-JPEG)</label>
           {fotoOriginale ? (
@@ -4267,9 +4302,9 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati }) {
       )}
 
       {destinazione && (
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, maxWidth: 620 }}>
+        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 620 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" onClick={controllaMeteo} disabled={caricandoMeteo} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600 }}>
+            <button type="button" onClick={controllaMeteo} disabled={caricandoMeteo} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600 }}>
               {caricandoMeteo ? "Controllo in corso..." : "Controlla meteo e attività solare"}
             </button>
             <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}>
@@ -4367,7 +4402,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati }) {
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-              <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
+              <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
                 📱 Mostra a schermo pieno
               </button>
               <button type="button" onClick={scaricaPdfControllo} disabled={generandoPdfControllo} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 14px", borderRadius: 6, fontSize: 12.5 }}>
@@ -4564,7 +4599,7 @@ function DocumentiControllo({ azienda, impianti }) {
         </select>
       </div>
 
-      <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, maxWidth: 560 }}>
+      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 560 }}>
         <div style={{ marginBottom: 10 }}>
           <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Drone che stai usando</label>
           <select value={droneSelId} onChange={(e) => setDroneSelId(e.target.value)} style={{ ...inputStyle, fontSize: 12.5 }}>
@@ -4640,7 +4675,7 @@ function DocumentiControllo({ azienda, impianti }) {
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
-          <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
+          <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
             📱 Mostra a schermo pieno
           </button>
           <button type="button" onClick={scaricaPdfControllo} disabled={generandoPdfControllo} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 14px", borderRadius: 6, fontSize: 12.5 }}>
@@ -5071,7 +5106,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
         </div>
 
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          <button onClick={() => aggiungiCiclo(b)} title="Un volo fatto con questa batteria" style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 700 }}>+1 ciclo</button>
+          <button onClick={() => aggiungiCiclo(b)} title="Un volo fatto con questa batteria" style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 700 }}>+1 ciclo</button>
           <button onClick={() => togliCiclo(b)} disabled={cicli === 0} title="Correggi un ciclo aggiunto per errore" style={{ ...piccolo, opacity: cicli === 0 ? 0.4 : 1 }}>−1</button>
           {conStato && (
             <div style={{ display: "flex", gap: 4, marginLeft: 6 }}>
@@ -5118,13 +5153,13 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
       {mostraLimite && (
         <div style={{ maxWidth: 460, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 10, padding: 16, marginBottom: 18 }}>
           <p style={{ fontSize: 13.5, color: "#ffb877", margin: "0 0 8px 0", fontWeight: 600 }}>Hai raggiunto il limite del piano Free</p>
-          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 12px 0", lineHeight: 1.5 }}>Il piano Free include fino a {LIMITI_FREE.batterie} batterie. Con il piano Pilota (3,90 €/mese) puoi aggiungerne quante vuoi.</p>
-          <button onClick={onVaiAbbonamento} style={{ background: "#ff8c42", color: "#161a1f", border: "none", padding: "8px 16px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>Vedi i piani</button>
+          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 12px 0", lineHeight: 1.5 }}>Il piano Free include fino a {LIMITI_FREE.batterie} batterie. Con il piano Pilota (6,90 €/mese) puoi aggiungerne quante vuoi.</p>
+          <button onClick={onVaiAbbonamento} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 16px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>Vedi i piani</button>
         </div>
       )}
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, marginBottom: 20, maxWidth: 520, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 520, display: "flex", flexDirection: "column", gap: 12 }}>
           {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando una batteria esistente</div>}
           <div>
             <label style={lbl}>Nome / etichetta</label>
@@ -5360,7 +5395,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   const salva = async () => {
     if (!form.data) return;
     if (!editingId && piano === "free" && voli.length >= LIMITI_FREE.voli) {
-      if (window.confirm(`Hai raggiunto i ${LIMITI_FREE.voli} voli del piano Free. Con il piano Pilota (3,90 €/mese) puoi registrarne senza limiti. Vuoi vedere i piani?`)) onVaiAbbonamento && onVaiAbbonamento();
+      if (window.confirm(`Hai raggiunto i ${LIMITI_FREE.voli} voli del piano Free. Con il piano Pilota (6,90 €/mese) puoi registrarne senza limiti. Vuoi vedere i piani?`)) onVaiAbbonamento && onVaiAbbonamento();
       return;
     }
     setSalvando(true);
@@ -5608,7 +5643,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       )}
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, marginBottom: 20, maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
           {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un volo esistente</div>}
 
           <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -5650,7 +5685,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             )}
             {(fileInAttesa.length > 0 || linkInAttesa.length > 0) && (
               <div>
-                <button type="button" onClick={salva} disabled={!form.data || salvando} style={{ width: "100%", background: "#ff8c42", color: "#161a1f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 700, fontSize: 13.5 }}>
+                <button type="button" onClick={salva} disabled={!form.data || salvando} style={{ width: "100%", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 700, fontSize: 13.5 }}>
                   {salvando ? "Salvataggio..." : "💾 Salva subito"}
                 </button>
                 <p style={{ fontSize: 10.5, color: "#8b95a3", margin: "5px 0 0 0" }}>Data e ora sono già quelle di adesso: luogo, drone e il resto puoi completarli anche dopo.</p>
@@ -5932,7 +5967,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli }) {
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Impostazioni azienda</h1>
       <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 24px 0" }}>Personalizza i report con il tuo brand — verranno usati in tutti i PDF generati.</p>
 
-      <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 24, maxWidth: 560 }}>
+      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 24, maxWidth: 560 }}>
         <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Come usi l'app</h3>
         <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>Scegli cosa ti serve: nel menu e nella prima pagina vedrai solo le sezioni giuste.</p>
         <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Salva" />
@@ -6301,7 +6336,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 <span style={{ fontSize: 16 }}>{mostraDatiVolo ? "▾" : "▸"}</span> 📋 Dati di volo (per il registro voli) <span style={{ fontWeight: 400, color: "#8b95a3", fontSize: 12.5 }}>— opzionale</span>
               </button>
               {mostraDatiVolo && (
-                <div style={{ marginTop: 10, background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ marginTop: 10, background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
                   <div>
                     <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 5, fontWeight: 500 }}>Drone utilizzato</label>
                     <input type="text" placeholder="es. DJI Matrice 4T" value={droneUsato} onChange={(e) => setDroneUsato(e.target.value)} style={inputStyle} />
@@ -6539,7 +6574,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               )}
               <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
                 <button onClick={() => setStep(1)} style={{ background: "transparent", border: "1px solid #333a45", color: "#c3cad4", padding: "9px 16px", borderRadius: 6, fontSize: 13 }}>Indietro</button>
-                <button onClick={vaiAlReport} style={{ background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>Genera report</button>
+                <button onClick={vaiAlReport} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "9px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>Genera report</button>
               </div>
             </div>
           )}
@@ -6723,7 +6758,7 @@ function AnomaliaPopup({ onConfirm, onCancel, categorie = CATEGORIE_FOTOVOLTAICO
           </button>
         ))}
       </div>
-      <button onClick={() => onConfirm(categoria, gravita)} style={{ width: "100%", background: "#ff8c42", color: "#161a1f", border: "none", padding: "7px 0", borderRadius: 5, fontWeight: 600, fontSize: 12.5 }}>Conferma</button>
+      <button onClick={() => onConfirm(categoria, gravita)} style={{ width: "100%", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "7px 0", borderRadius: 5, fontWeight: 600, fontSize: 12.5 }}>Conferma</button>
     </div>
   );
 }
