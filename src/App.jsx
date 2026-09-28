@@ -1214,6 +1214,9 @@ function AppShell({ session }) {
   const [permessi, setPermessi] = useState([]);
   const [attestati, setAttestati] = useState([]);
   const [droni, setDroni] = useState([]);
+  const [moduli, setModuli] = useState(null); // null = non ancora scelto ("ispezioni", "riprese" o entrambi separati da virgola)
+  const [voliManuali, setVoliManuali] = useState([]);
+  const [nuovoVolo, setNuovoVolo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
@@ -1228,6 +1231,7 @@ function AppShell({ session }) {
     }
     if (profilo) {
       setPiano(profilo.piano || "free");
+      setModuli(profilo.moduli || null);
       setAzienda({
         nome: profilo.azienda_nome || "Eyedrones",
         logo: profilo.azienda_logo || LOGO_EYEDRONES,
@@ -1246,6 +1250,18 @@ function AppShell({ session }) {
       tariffa_base: nuovaAzienda.tariffaBase,
       tariffa_kwp: nuovaAzienda.tariffaKwp,
     }).eq("user_id", session.user.id);
+  };
+
+  const salvaModuli = async (nuovi) => {
+    setModuli(nuovi);
+    const { error } = await supabase.from("profili").update({ moduli: nuovi }).eq("user_id", session.user.id);
+    if (error) alert("Non sono riuscito a salvare la scelta sul tuo account (" + error.message + "). Per ora vale solo finché tieni aperta l'app: controlla di aver eseguito lo script SQL degli aggiornamenti.");
+  };
+
+  // i voli si leggono a parte: se la tabella non esiste ancora, il resto dell'app funziona lo stesso
+  const caricaVoli = async () => {
+    const { data } = await supabase.from("voli").select("*").order("data", { ascending: false });
+    setVoliManuali(data || []);
   };
 
   const loadData = async () => {
@@ -1279,7 +1295,7 @@ function AppShell({ session }) {
     setLoading(false);
   };
 
-  useEffect(() => { caricaProfilo(); loadData(); }, []);
+  useEffect(() => { caricaProfilo(); loadData(); caricaVoli(); }, []);
 
   // quanti report ha gi\u00e0 generato l'utente nel mese corrente (log persistente: non si azzera cancellando impianti/ispezioni)
   const oggi = new Date();
@@ -1294,6 +1310,14 @@ function AppShell({ session }) {
     const idsIsp = ispezioniImp.map((i) => i.id);
     const anomalieImp = anomalieAll.filter((a) => idsIsp.includes(a.ispezione_id));
     return { ...imp, ultima: ispezioniImp[0] ? formatData(ispezioniImp[0].data) : "Nessuna ispezione", anomalie: anomalieImp.length };
+  });
+
+  const usaIspezioni = !moduli || moduli.includes("ispezioni");
+  const usaRiprese = !moduli || moduli.includes("riprese");
+  const voliDashboard = [...voliManuali, ...costruisciVoliDaIspezioni(ispezioni, impianti)].sort((a, b) => {
+    const da = `${a.data || ""} ${a.ora ? String(a.ora).slice(0, 5) : "00:00"}`;
+    const db = `${b.data || ""} ${b.ora ? String(b.ora).slice(0, 5) : "00:00"}`;
+    return db.localeCompare(da);
   });
 
   return (
@@ -1324,7 +1348,7 @@ function AppShell({ session }) {
         }
       `}</style>
 
-      <Sidebar page={page} setPage={setPage} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} />
+      <Sidebar page={page} setPage={setPage} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {dbError && (
@@ -1332,14 +1356,14 @@ function AppShell({ session }) {
             Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.
           </div>
         )}
-        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} />}
+        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} onNav={setPage} onNuovoVolo={() => { setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} />}
         {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} />}
-        {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} />}
+        {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => setNuovoVolo(false)} onCambiato={caricaVoli} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} />}
-        {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} />}
+        {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
@@ -1432,19 +1456,26 @@ function Login() {
 
 // --- Sidebar -----------------------------------------------------------
 
-function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza }) {
+function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni }) {
   const items = [
-    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { key: "impianti", label: "Impianti", icon: Sun },
-    { key: "nuova", label: "Nuova ispezione", icon: Plus },
-    { key: "pianificazione", label: "Pianificazione volo", icon: Sun },
+    { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
+    ...(usaIspezioni ? [
+      { intestazione: "Ispezioni" },
+      { key: "impianti", label: "Impianti", icon: Sun },
+      { key: "nuova", label: "Nuova ispezione", icon: Plus },
+      { key: "pianificazione", label: "Pianificazione volo", icon: Sun },
+    ] : []),
+    { intestazione: "Voli e riprese" },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
+    { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
-    { key: "preventivi", label: "Preventivi", icon: FileText },
     { key: "permessi", label: "Permessi", icon: ShieldCheck },
     { key: "attestati", label: "Attestati", icon: Award },
     { key: "droni", label: "I miei droni", icon: Plane },
+    { intestazione: "Lavoro" },
+    { key: "preventivi", label: "Preventivi", icon: FileText },
+    { intestazione: "Account" },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
   ];
@@ -1456,6 +1487,13 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
         <div style={{ position: "absolute", bottom: -1, left: 0, width: 46, height: 2, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
       </div>
       {items.map((it) => {
+        if (it.intestazione) {
+          return (
+            <div key={"h-" + it.intestazione} className="sidebar-label" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#5b6572", padding: "14px 10px 4px 10px" }}>
+              {it.intestazione}
+            </div>
+          );
+        }
         const Icon = it.icon;
         if (it.esterno) {
           return (
@@ -1525,43 +1563,185 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
 
 // --- Dashboard -----------------------------------------------------------
 
-function Dashboard({ impianti, loading, onOpenImpianto, onNuova }) {
+function TitoloSezione({ emoji, titolo, azione }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "0 0 12px 0", paddingBottom: 8, borderBottom: "1px solid #262b33" }}>
+      <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}><span>{emoji}</span>{titolo}</h2>
+      {azione}
+    </div>
+  );
+}
+
+// scelta di cosa fa il pilota con il drone: decide quali sezioni vedere nel menu e nella prima pagina
+function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
+  const daModuli = (m) => ({ ispezioni: !m || m.includes("ispezioni"), riprese: !m || m.includes("riprese") });
+  const [sel, setSel] = useState(daModuli(moduli));
+  const [salvando, setSalvando] = useState(false);
+  const [salvato, setSalvato] = useState(false);
+  useEffect(() => { setSel(daModuli(moduli)); }, [moduli]);
+  const nessuno = !sel.ispezioni && !sel.riprese;
+
+  const salva = async () => {
+    if (nessuno) return;
+    setSalvando(true);
+    await onSave([sel.ispezioni ? "ispezioni" : null, sel.riprese ? "riprese" : null].filter(Boolean).join(","));
+    setSalvando(false);
+    setSalvato(true);
+    setTimeout(() => setSalvato(false), 2500);
+  };
+
+  const opzione = (chiave, emoji, titolo, testo) => (
+    <button
+      type="button"
+      onClick={() => setSel({ ...sel, [chiave]: !sel[chiave] })}
+      style={{ textAlign: "left", flex: 1, minWidth: 230, background: sel[chiave] ? "#241d16" : "#161a1f", border: sel[chiave] ? "1px solid #ff8c42" : "1px solid #333a45", borderRadius: 8, padding: "12px 14px", color: "#e7eaee" }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 600 }}>
+        <span style={{ fontSize: 18 }}>{emoji}</span>{titolo}
+        <span style={{ marginLeft: "auto", color: sel[chiave] ? "#ff8c42" : "#4a505a", fontSize: 15 }}>{sel[chiave] ? "✓" : "○"}</span>
+      </div>
+      <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 4, lineHeight: 1.4 }}>{testo}</div>
+    </button>
+  );
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {opzione("ispezioni", "🔍", "Ispezioni tecniche", "Fotovoltaico, edifici, danni, impianti elettrici: impianti, report con foto e anomalie, pianificazione dei voli.")}
+        {opzione("riprese", "🎬", "Video, foto e FPV", "Registro voli con galleria di foto e video, per chi vola per riprese, lavoro o passione.")}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+        <button type="button" onClick={salva} disabled={nessuno || salvando} style={{ background: nessuno ? "#333a45" : "#ff8c42", color: nessuno ? "#6b7480" : "#161a1f", border: "none", padding: "8px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          {salvando ? "Salvataggio..." : testoBottone}
+        </button>
+        {nessuno && <span style={{ fontSize: 11.5, color: "#f5b942" }}>Scegline almeno una.</span>}
+        {salvato && <span style={{ fontSize: 11.5, color: "#4ade80" }}>✓ Salvato</span>}
+      </div>
+    </div>
+  );
+}
+
+function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, onNav, onNuovoVolo }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
+
+  const minutiVoli = voli.reduce((s, v) => s + (Number(v.durata_minuti) || 0), 0);
+  const annoCorrente = String(new Date().getFullYear());
+  const voliAnno = voli.filter((v) => (v.data || "").startsWith(annoCorrente)).length;
+  const ultimiVoli = voli.slice(0, 4);
+
+  // scadenze di attestati e manutenzioni dei droni (valide per tutti i piloti)
+  const voci = [
+    ...attestati.filter((a) => a.data_scadenza).map((a) => ({ id: "a" + a.id, nome: a.tipo, stato: statoScadenza(a.data_scadenza), vai: "attestati" })),
+    ...droni.filter((d) => d.prossima_manutenzione).map((d) => ({ id: "d" + d.id, nome: `Manutenzione — ${d.nome}`, stato: statoManutenzione(d.prossima_manutenzione), vai: "droni" })),
+  ];
+  const urgenti = voci.filter((v) => v.stato && v.stato.livello !== "ok");
+
+  const bloccoScadenze = (
+    <section style={{ marginBottom: 28 }}>
+      <TitoloSezione emoji="🪪" titolo="Documenti e scadenze" />
+      {urgenti.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {urgenti.map((v) => (
+            <button key={v.id} onClick={() => onNav(v.vai)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#1b2028", border: `1px solid ${v.stato.colore}55`, borderRadius: 8, padding: "10px 14px", color: "#e7eaee", fontSize: 13 }}>
+              <span>{v.nome}</span>
+              <span style={{ color: v.stato.colore, fontWeight: 600, fontSize: 12 }}>{v.stato.testo}</span>
+            </button>
+          ))}
+        </div>
+      ) : voci.length > 0 ? (
+        <div style={{ background: "#16221b", border: "1px solid #24422f", borderRadius: 8, padding: "10px 14px", color: "#4ade80", fontSize: 12.5 }}>
+          ✓ Tutto in regola: nessun attestato o manutenzione in scadenza nei prossimi 30 giorni.
+        </div>
+      ) : (
+        <EmptyState text="Aggiungi i tuoi attestati e i tuoi droni per tenere d'occhio scadenze e manutenzioni." />
+      )}
+    </section>
+  );
+
+  const sottotitolo = [
+    usaIspezioni ? `${impianti.length} ${impianti.length === 1 ? "impianto monitorato" : "impianti monitorati"}` : null,
+    usaRiprese ? `${voli.length} ${voli.length === 1 ? "volo registrato" : "voli registrati"}` : null,
+  ].filter(Boolean).join(" · ");
+  const btnPrimario = { display: "flex", alignItems: "center", gap: 6, background: "#ff8c42", color: "#161a1f", border: "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 };
+
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 26, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Panoramica</h1>
-          <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "4px 0 0 0" }}>{impianti.length} impianti monitorati</p>
-        </div>
-        <button onClick={onNuova} style={{ display: "flex", alignItems: "center", gap: 6, background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 16px", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
-          <Plus size={15} /> Nuova ispezione
-        </button>
+      <div style={{ marginBottom: 22 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Panoramica</h1>
+        <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "4px 0 0 0" }}>{sottotitolo}</p>
       </div>
 
-      {loading ? (
-        <LoadingBlock />
-      ) : (
-        <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 26 }}>
-            <StatCard label="Potenza monitorata" value={`${(totKwp / 1000).toFixed(2)} MWp`} sub={`su ${impianti.length} impianti`} />
-            <StatCard label="Anomalie aperte" value={totAnomalie} sub={`su ${impianti.filter((i) => i.anomalie > 0).length} impianti`} accent="#ff8c42" />
-            <StatCard label="Ispezioni totali" value={impianti.reduce((s, i) => s + (i.anomalie >= 0 ? 1 : 0), 0)} sub="registrate a sistema" />
-          </div>
+      {moduli === null && (
+        <div style={{ background: "linear-gradient(135deg, #241d16, #1b2028)", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginBottom: 28, maxWidth: 720 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px 0" }}>Come usi il drone?</h3>
+          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0" }}>Scegli cosa ti serve: mostreremo solo le sezioni giuste nel menu e in questa pagina. Puoi cambiare idea quando vuoi da Impostazioni.</p>
+          <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Conferma" />
+        </div>
+      )}
 
-          <h2 style={{ fontSize: 14, fontWeight: 600, color: "#c3cad4", marginBottom: 12 }}>Impianti</h2>
-          {impianti.length === 0 ? (
-            <EmptyState text="Nessun impianto ancora. Vai su 'Impianti' per aggiungerne uno." />
+      {urgenti.length > 0 && bloccoScadenze}
+
+      {usaIspezioni && (
+        <section style={{ marginBottom: 28 }}>
+          <TitoloSezione emoji="🔍" titolo="Ispezioni" azione={<button onClick={onNuova} style={btnPrimario}><Plus size={14} /> Nuova ispezione</button>} />
+          {loading ? (
+            <LoadingBlock />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {impianti.map((imp) => (
-                <ImpiantoRow key={imp.id} imp={imp} onClick={() => onOpenImpianto(imp)} />
-              ))}
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 18 }}>
+                <StatCard label="Potenza monitorata" value={`${(totKwp / 1000).toFixed(2)} MWp`} sub={`su ${impianti.length} ${impianti.length === 1 ? "impianto" : "impianti"}`} />
+                <StatCard label="Anomalie aperte" value={totAnomalie} sub={`su ${impianti.filter((i) => i.anomalie > 0).length} ${impianti.filter((i) => i.anomalie > 0).length === 1 ? "impianto" : "impianti"}`} accent="#ff8c42" />
+                <StatCard label="Ispezioni totali" value={numIspezioni} sub="registrate a sistema" />
+              </div>
+              {impianti.length === 0 ? (
+                <EmptyState text="Nessun impianto ancora. Vai su 'Impianti' per aggiungerne uno." />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {impianti.map((imp) => (
+                    <ImpiantoRow key={imp.id} imp={imp} onClick={() => onOpenImpianto(imp)} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      )}
+
+      {usaRiprese && (
+        <section style={{ marginBottom: 28 }}>
+          <TitoloSezione emoji="🎬" titolo="Voli e riprese" azione={<button onClick={onNuovoVolo} style={btnPrimario}><Plus size={14} /> Nuovo volo</button>} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 14 }}>
+            <StatCard label="Voli registrati" value={voli.length} sub="nel tuo registro" />
+            <StatCard label="Tempo di volo" value={formattaDurata(minutiVoli)} sub="dove la durata è indicata" accent="#ff8c42" />
+            <StatCard label={`Voli nel ${annoCorrente}`} value={voliAnno} sub="da inizio anno" />
+          </div>
+          {ultimiVoli.length === 0 ? (
+            <EmptyState text="Nessun volo ancora. Registra il primo con «Nuovo volo»: puoi allegare subito foto e video." />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {ultimiVoli.map((v) => {
+                const tipo = TIPI_ATTIVITA_VOLO.find((t) => t.key === v.tipo_attivita) || TIPI_ATTIVITA_VOLO[TIPI_ATTIVITA_VOLO.length - 1];
+                const dettaglio = [v.luogo, v.drone_nome, v.durata_minuti ? formattaDurata(v.durata_minuti) : null].filter(Boolean).join(" · ");
+                return (
+                  <button key={v.id} onClick={() => onNav("registro-voli")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: "10px 14px", color: "#e7eaee" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{formatData(v.data)}</div>
+                      <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>{dettaglio || "—"}</div>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: tipo.colore + "22", color: tipo.colore }}>{tipo.emoji} {tipo.label}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
-        </>
+          <button onClick={() => onNav("registro-voli")} style={{ marginTop: 10, background: "none", border: "none", color: "#3d8bfd", fontSize: 12.5, padding: 0 }}>
+            Apri il registro voli e la galleria →
+          </button>
+        </section>
       )}
+
+      {urgenti.length === 0 && bloccoScadenze}
     </div>
   );
 }
@@ -4373,6 +4553,22 @@ function percorsoStorageDaUrl(url) {
   return parti.length > 1 ? decodeURIComponent(parti[1].split("?")[0]) : null;
 }
 
+// le ispezioni sono voli a tutti gli effetti: le trasformo in voci di registro (sola lettura)
+function costruisciVoliDaIspezioni(ispezioni, impianti) {
+  return (ispezioni || []).map((i) => {
+    const imp = (impianti || []).find((x) => x.id === i.impianto_id);
+    return {
+      id: "isp-" + i.id, _derived: true, data: i.data, ora: i.ora,
+      durata_minuti: minutiTra(i.ora, i.ora_atterraggio),
+      drone_nome: i.drone_usato || null,
+      luogo: imp ? `${imp.nome}${imp.zona ? " — " + imp.zona : ""}` : null,
+      coordinate_gps: i.coordinate_gps || null,
+      tipo_attivita: "ispezione", categoria_operativa: i.scenario_volo || null,
+      altezza_max: i.altezza_volo || null, cliente: imp?.cliente || null, note: null,
+    };
+  });
+}
+
 // PDF del registro voli in ordine cronologico (logbook stampabile)
 function costruisciPDFLogbook({ azienda, voli, titolo }) {
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
@@ -4470,7 +4666,7 @@ function costruisciPDFLogbook({ azienda, voli, titolo }) {
   return doc;
 }
 
-function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
+function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato }) {
   const [voli, setVoli] = useState([]);
   const [media, setMedia] = useState([]);
   const [caricando, setCaricando] = useState(true);
@@ -4490,6 +4686,10 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
   const [gpsInCorso, setGpsInCorso] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
+  const [vista, setVista] = useState("voli"); // voli | galleria
+  const [fileInAttesa, setFileInAttesa] = useState([]); // allegati scelti nel modulo, caricati al salvataggio
+  const [linkInAttesa, setLinkInAttesa] = useState([]);
+  const [linkFormNuovo, setLinkFormNuovo] = useState("");
 
   const carica = async () => {
     setCaricando(true);
@@ -4502,23 +4702,14 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
     setVoli(v || []);
     setMedia(m || []);
     setCaricando(false);
+    onCambiato && onCambiato();
   };
 
   useEffect(() => { carica(); }, []);
+  useEffect(() => { if (aprireNuovo) { apriNuovo(); onAperto && onAperto(); } }, [aprireNuovo]);
 
   // le ispezioni sono voli a tutti gli effetti: le mostro nel registro (sola lettura)
-  const voliDaIspezioni = includiIspezioni ? (ispezioni || []).map((i) => {
-    const imp = (impianti || []).find((x) => x.id === i.impianto_id);
-    return {
-      id: "isp-" + i.id, _derived: true, data: i.data, ora: i.ora,
-      durata_minuti: minutiTra(i.ora, i.ora_atterraggio),
-      drone_nome: i.drone_usato || null,
-      luogo: imp ? `${imp.nome}${imp.zona ? " — " + imp.zona : ""}` : null,
-      coordinate_gps: i.coordinate_gps || null,
-      tipo_attivita: "ispezione", categoria_operativa: i.scenario_volo || null,
-      altezza_max: i.altezza_volo || null, cliente: imp?.cliente || null, note: null,
-    };
-  }) : [];
+  const voliDaIspezioni = includiIspezioni ? costruisciVoliDaIspezioni(ispezioni, impianti) : [];
 
   const tutti = [...voli, ...voliDaIspezioni].sort((a, b) => {
     const da = `${a.data || ""} ${a.ora ? String(a.ora).slice(0, 5) : "00:00"}`;
@@ -4540,9 +4731,17 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
     if (v.drone_nome && v.durata_minuti) perDrone[v.drone_nome] = (perDrone[v.drone_nome] || 0) + Number(v.durata_minuti);
   });
 
-  const apriNuovo = () => { setEditingId(null); setForm(formVoloVuoto()); setShowForm(true); };
+  const azzeraAllegati = () => {
+    fileInAttesa.forEach((x) => { if (x.anteprima) URL.revokeObjectURL(x.anteprima); });
+    setFileInAttesa([]);
+    setLinkInAttesa([]);
+    setLinkFormNuovo("");
+  };
+
+  const apriNuovo = () => { azzeraAllegati(); setEditingId(null); setForm(formVoloVuoto()); setShowForm(true); };
 
   const apriModifica = (v) => {
+    azzeraAllegati();
     setEditingId(v.id);
     const inElenco = v.drone_id && (droni || []).some((d) => d.id === v.drone_id);
     setForm({
@@ -4561,7 +4760,38 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const chiudiForm = () => { setShowForm(false); setEditingId(null); setForm(formVoloVuoto()); };
+  const chiudiForm = () => { azzeraAllegati(); setShowForm(false); setEditingId(null); setForm(formVoloVuoto()); };
+
+  const scegliFileForm = (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    const nuovi = [];
+    const scartati = [];
+    files.forEach((file) => {
+      const isVideo = file.type.startsWith("video/");
+      const isFoto = file.type.startsWith("image/");
+      if (!isVideo && !isFoto) { scartati.push(`${file.name} (formato non supportato)`); return; }
+      if (isVideo && file.size > MAX_VIDEO_MB * 1024 * 1024) { scartati.push(`${file.name} (video oltre ${MAX_VIDEO_MB} MB: usa il link)`); return; }
+      nuovi.push({ file, anteprima: isFoto ? URL.createObjectURL(file) : null });
+    });
+    if (scartati.length > 0) alert("Alcuni file non sono stati aggiunti:\n- " + scartati.join("\n- "));
+    setFileInAttesa((prev) => [...prev, ...nuovi]);
+  };
+
+  const rimuoviFileInAttesa = (indice) => {
+    setFileInAttesa((prev) => {
+      const x = prev[indice];
+      if (x && x.anteprima) URL.revokeObjectURL(x.anteprima);
+      return prev.filter((_, i) => i !== indice);
+    });
+  };
+
+  const aggiungiLinkInAttesa = () => {
+    const t = linkFormNuovo.trim();
+    if (!t) return;
+    setLinkInAttesa((prev) => [...prev, t]);
+    setLinkFormNuovo("");
+  };
 
   const salva = async () => {
     if (!form.data) return;
@@ -4581,12 +4811,34 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
       cliente: form.cliente.trim() || null,
       note: form.note.trim() || null,
     };
-    const { error } = editingId
-      ? await supabase.from("voli").update(payload).eq("id", editingId)
-      : await supabase.from("voli").insert(payload);
+    let voloId = editingId;
+    let erroreSalvataggio = null;
+    if (editingId) {
+      const { error } = await supabase.from("voli").update(payload).eq("id", editingId);
+      erroreSalvataggio = error;
+    } else {
+      const { data: nuovo, error } = await supabase.from("voli").insert(payload).select().single();
+      erroreSalvataggio = error;
+      voloId = nuovo ? nuovo.id : null;
+    }
+    if (erroreSalvataggio || !voloId) {
+      setSalvando(false);
+      alert("Salvataggio non riuscito: " + ((erroreSalvataggio && erroreSalvataggio.message) || "errore sconosciuto"));
+      return;
+    }
+    const problemi = [];
+    if (fileInAttesa.length > 0) {
+      const scartati = await caricaFileVolo(voloId, fileInAttesa.map((x) => x.file));
+      problemi.push(...scartati);
+    }
+    for (const l of linkInAttesa) {
+      const errLink = await inserisciLinkVolo(voloId, l);
+      if (errLink) problemi.push(`${l} (${errLink})`);
+    }
     setSalvando(false);
-    if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
+    if (problemi.length > 0) alert("Il volo è stato salvato, ma alcuni allegati no:\n- " + problemi.join("\n- "));
     chiudiForm();
+    setEspansoId(voloId);
     carica();
   };
 
@@ -4616,11 +4868,8 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
     );
   };
 
-  const aggiungiMedia = async (voloId, e) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = "";
-    if (files.length === 0) return;
-    setCaricandoMediaId(voloId);
+  // carica una lista di file per un volo; restituisce l'elenco dei file scartati, con il motivo
+  const caricaFileVolo = async (voloId, files) => {
     const scartati = [];
     for (const file of files) {
       try {
@@ -4628,7 +4877,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
         const isFoto = file.type.startsWith("image/");
         if (!isVideo && !isFoto) { scartati.push(`${file.name} (formato non supportato)`); continue; }
         if (isVideo && file.size > MAX_VIDEO_MB * 1024 * 1024) {
-          scartati.push(`${file.name} (video oltre ${MAX_VIDEO_MB} MB: usa "Aggiungi link")`);
+          scartati.push(`${file.name} (video oltre ${MAX_VIDEO_MB} MB: usa il link)`);
           continue;
         }
         const daCaricare = isFoto ? await ridimensionaImmagine(file) : file;
@@ -4641,20 +4890,35 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
         const { error: eIns } = await supabase.from("voli_media").insert({ volo_id: voloId, tipo: isVideo ? "video" : "foto", url: pub.publicUrl, nome: file.name });
         if (eIns) throw eIns;
       } catch (err) {
-        scartati.push(`${file.name} (${err?.message || "errore"})`);
+        scartati.push(`${file.name} (${(err && err.message) || "errore"})`);
       }
     }
+    return scartati;
+  };
+
+  // salva un link esterno; restituisce il messaggio d'errore oppure null se è andato bene
+  const inserisciLinkVolo = async (voloId, testo) => {
+    let url = String(testo || "").trim();
+    if (!url) return null;
+    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+    const { error } = await supabase.from("voli_media").insert({ volo_id: voloId, tipo: "link", url, nome: url.replace(/^https?:\/\//i, "").slice(0, 60) });
+    return error ? error.message : null;
+  };
+
+  const aggiungiMedia = async (voloId, e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    setCaricandoMediaId(voloId);
+    const scartati = await caricaFileVolo(voloId, files);
     setCaricandoMediaId(null);
     if (scartati.length > 0) alert("Alcuni file non sono stati caricati:\n- " + scartati.join("\n- "));
     carica();
   };
 
   const aggiungiLink = async (voloId) => {
-    let url = linkNuovo.trim();
-    if (!url) return;
-    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
-    const { error } = await supabase.from("voli_media").insert({ volo_id: voloId, tipo: "link", url, nome: url.replace(/^https?:\/\//i, "").slice(0, 60) });
-    if (error) { alert("Non sono riuscito a salvare il link: " + error.message); return; }
+    const errLink = await inserisciLinkVolo(voloId, linkNuovo);
+    if (errLink) { alert("Non sono riuscito a salvare il link: " + errLink); return; }
     setLinkNuovo("");
     carica();
   };
@@ -4693,6 +4957,36 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
   const riga = (label, valore) => (
     <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>{label}: </span>{valore}</div>
   );
+  const mediaGalleria = media
+    .map((m) => ({ m, volo: visibili.find((v) => v.id === m.volo_id) }))
+    .filter((x) => x.volo)
+    .sort((a, b) => String(b.volo.data || "").localeCompare(String(a.volo.data || "")));
+
+  const galleriaJsx = mediaGalleria.length === 0 ? (
+    <EmptyState text="Nessuna foto o video ancora. Aggiungili dal modulo «Nuovo volo», oppure aprendo un volo dall'elenco." />
+  ) : (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+      {mediaGalleria.map(({ m, volo }) => (
+        <div key={m.id} style={{ gridColumn: m.tipo === "video" ? "span 2" : undefined }}>
+          {m.tipo === "foto" && (
+            <img src={m.url} alt={m.nome || "foto"} loading="lazy" onClick={() => setLightbox(m)} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, cursor: "pointer", display: "block", background: "#000" }} />
+          )}
+          {m.tipo === "video" && (
+            <video src={m.url} controls preload="metadata" playsInline style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#000", display: "block" }} />
+          )}
+          {m.tipo === "link" && (
+            <a href={m.url} target="_blank" rel="noreferrer" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, aspectRatio: "1 / 1", background: "#161a1f", border: "1px solid #333a45", borderRadius: 6, color: "#3d8bfd", fontSize: 11, textDecoration: "none", padding: 6, textAlign: "center", wordBreak: "break-all", overflow: "hidden" }}>
+              <span style={{ fontSize: 20 }}>🔗</span>{m.nome}
+            </a>
+          )}
+          <button onClick={() => { setVista("voli"); setEspansoId(volo.id); }} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 11, padding: "4px 0 0 0", textAlign: "left", width: "100%" }}>
+            {formatData(volo.data)}{volo.luogo ? ` · ${volo.luogo}` : ""}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+
   const nessunDroneInElenco = (droni || []).length === 0;
   const mostraNomeDroneLibero = nessunDroneInElenco || form.drone_id === "__altro";
 
@@ -4804,10 +5098,49 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
             <textarea rows={3} placeholder="es. vento debole, batterie usate: 3, autorizzazione ottenuta..." value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
 
+          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "#c3cad4" }}>📎 Foto e video di questo volo <span style={{ color: "#6b7480", fontWeight: 400 }}>(facoltativo)</span></div>
+            <label style={{ display: "inline-flex", alignSelf: "flex-start", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "9px 14px", color: "#c3cad4", fontSize: 12.5, cursor: "pointer" }}>
+              <Upload size={14} /> Scegli foto e video
+              <input type="file" accept="image/*,video/*" multiple onChange={scegliFileForm} style={{ display: "none" }} />
+            </label>
+            {fileInAttesa.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(76px, 1fr))", gap: 8 }}>
+                {fileInAttesa.map((x, i) => (
+                  <div key={i} style={{ position: "relative" }}>
+                    {x.anteprima ? (
+                      <img src={x.anteprima} alt={x.file.name} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, display: "block" }} />
+                    ) : (
+                      <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: 6, background: "#0e1116", border: "1px solid #333a45", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: 4, overflow: "hidden" }}>
+                        <span style={{ fontSize: 20 }}>🎬</span>
+                        <span style={{ fontSize: 9.5, color: "#8b95a3", textAlign: "center", wordBreak: "break-all", lineHeight: 1.2 }}>{x.file.name.slice(0, 22)}</span>
+                      </div>
+                    )}
+                    <button type="button" onClick={() => rimuoviFileInAttesa(i)} title="Togli" style={{ position: "absolute", top: 3, right: 3, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.75)", color: "#fff", border: "none", fontSize: 12, lineHeight: 1, padding: 0 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 6 }}>
+              <input type="text" placeholder="Oppure incolla il link di un video (Drive, YouTube, WeTransfer...)" value={linkFormNuovo} onChange={(e) => setLinkFormNuovo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aggiungiLinkInAttesa(); } }} style={{ ...inputStyle, fontSize: 12.5, padding: "7px 10px" }} />
+              <button type="button" onClick={aggiungiLinkInAttesa} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>+ Link</button>
+            </div>
+            {linkInAttesa.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {linkInAttesa.map((l, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#3d8bfd" }}>
+                    <span style={{ flex: 1, wordBreak: "break-all" }}>🔗 {l}</span>
+                    <button type="button" onClick={() => setLinkInAttesa((prev) => prev.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 14 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>I file vengono caricati quando premi «Salva volo». I video possono pesare al massimo {MAX_VIDEO_MB} MB: per quelli più lunghi usa un link.</p>
+          </div>
+
           <button onClick={salva} disabled={!form.data || salvando} style={{ marginTop: 2, background: form.data ? "#ff8c42" : "#333a45", color: form.data ? "#161a1f" : "#6b7480", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
             {salvando ? "Salvataggio..." : editingId ? "Aggiorna volo" : "Salva volo"}
           </button>
-          {!editingId && <p style={{ fontSize: 11, color: "#6b7480", margin: 0 }}>Foto e video li aggiungi subito dopo, aprendo il volo dall'elenco.</p>}
         </div>
       )}
 
@@ -4830,6 +5163,11 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
             </div>
           )}
 
+          <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+            <button onClick={() => setVista("voli")} style={chip(vista === "voli", "#ff8c42")}>📋 Voli</button>
+            <button onClick={() => setVista("galleria")} style={chip(vista === "galleria", "#ff8c42")}>🖼️ Galleria ({media.length})</button>
+          </div>
+
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
             <button onClick={() => setFiltroTipo("tutti")} style={chip(filtroTipo === "tutti", "#e7eaee")}>Tutti</button>
             {TIPI_ATTIVITA_VOLO.map((t) => (
@@ -4850,7 +5188,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
             </label>
           </div>
 
-          {tutti.length === 0 ? (
+          {vista === "galleria" ? galleriaJsx : tutti.length === 0 ? (
             <EmptyState text="Nessun volo registrato. Premi «Nuovo volo» per aggiungere il primo." />
           ) : visibili.length === 0 ? (
             <EmptyState text="Nessun volo corrisponde ai filtri scelti." />
@@ -4960,7 +5298,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
   );
 }
 
-function Impostazioni({ azienda, setAzienda, piano }) {
+function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli }) {
   const proAttivo = piano === "pro";
 
   const handleLogo = (e) => {
@@ -4975,6 +5313,12 @@ function Impostazioni({ azienda, setAzienda, piano }) {
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Impostazioni azienda</h1>
       <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 24px 0" }}>Personalizza i report con il tuo brand — verranno usati in tutti i PDF generati.</p>
+
+      <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 16, marginBottom: 24, maxWidth: 560 }}>
+        <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Come usi l'app</h3>
+        <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>Scegli cosa ti serve: nel menu e nella prima pagina vedrai solo le sezioni giuste.</p>
+        <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Salva" />
+      </div>
 
       {!proAttivo && (
         <div style={{ maxWidth: 420, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 12.5, color: "#ffb877" }}>
