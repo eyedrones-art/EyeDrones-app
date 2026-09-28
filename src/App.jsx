@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 
@@ -1337,6 +1337,7 @@ function AppShell({ session }) {
         {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} />}
+        {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} />}
         {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
@@ -1437,6 +1438,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { key: "impianti", label: "Impianti", icon: Sun },
     { key: "nuova", label: "Nuova ispezione", icon: Plus },
     { key: "pianificazione", label: "Pianificazione volo", icon: Sun },
+    { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "preventivi", label: "Preventivi", icon: FileText },
@@ -4289,6 +4291,674 @@ function DocumentiControllo({ azienda, impianti }) {
   );
 }
 
+
+// --- Registro voli generale (video / foto / FPV / ispezioni) -----------------------------------------------------------
+
+const TIPI_ATTIVITA_VOLO = [
+  { key: "video", label: "Video", emoji: "🎬", colore: "#a78bfa" },
+  { key: "foto", label: "Foto", emoji: "📷", colore: "#3d8bfd" },
+  { key: "fpv", label: "FPV", emoji: "🏎️", colore: "#ff8c42" },
+  { key: "ispezione", label: "Ispezione", emoji: "🔍", colore: "#4ade80" },
+  { key: "altro", label: "Altro", emoji: "✈️", colore: "#8b95a3" },
+];
+
+const CATEGORIE_OPERATIVE_VOLO = [
+  { key: "aperta_a1", label: "Aperta A1" },
+  { key: "aperta_a2", label: "Aperta A2" },
+  { key: "aperta_a3", label: "Aperta A3" },
+  { key: "sts01", label: "STS-01" },
+  { key: "sts02", label: "STS-02" },
+  { key: "specifica", label: "Operazione specifica" },
+  { key: "altro", label: "Altro" },
+];
+
+const MAX_VIDEO_MB = 50;
+
+function etichettaCategoriaVolo(k) {
+  if (!k) return "—";
+  if (k === "aperta") return "Categoria Aperta"; // arriva dalle ispezioni, dove A1/A2/A3 non è specificato
+  return CATEGORIE_OPERATIVE_VOLO.find((c) => c.key === k)?.label || k;
+}
+
+function formVoloVuoto() {
+  return {
+    data: new Date().toISOString().slice(0, 10),
+    ora: new Date().toTimeString().slice(0, 5),
+    durata: "", drone_id: "", drone_nome: "", luogo: "", coordinate_gps: "",
+    tipo_attivita: "video", categoria_operativa: "aperta_a1",
+    altezza_max: "", cliente: "", note: "",
+  };
+}
+
+// minuti tra due orari "HH:MM" (per ricavare la durata delle ispezioni da decollo/atterraggio)
+function minutiTra(ora1, ora2) {
+  if (!ora1 || !ora2) return null;
+  const [h1, m1] = String(ora1).split(":").map(Number);
+  const [h2, m2] = String(ora2).split(":").map(Number);
+  if ([h1, m1, h2, m2].some((n) => Number.isNaN(n))) return null;
+  const diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+  return diff > 0 ? diff : null;
+}
+
+function formattaDurata(min) {
+  const m = Number(min);
+  if (!m) return "—";
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  if (h === 0) return `${r} min`;
+  return r === 0 ? `${h} h` : `${h} h ${r} min`;
+}
+
+// riduce le foto molto grandi (max 2400px sul lato lungo) per non consumare spazio inutilmente
+function ridimensionaImmagine(file, maxLato = 2400) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scala = Math.min(1, maxLato / Math.max(img.naturalWidth, img.naturalHeight));
+      if (scala === 1 && file.size < 3 * 1024 * 1024) { URL.revokeObjectURL(url); resolve(file); return; }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.naturalWidth * scala);
+      canvas.height = Math.round(img.naturalHeight * scala);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => { URL.revokeObjectURL(url); resolve(blob || file); }, "image/jpeg", 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
+function percorsoStorageDaUrl(url) {
+  const parti = String(url).split("/foto-ispezioni/");
+  return parti.length > 1 ? decodeURIComponent(parti[1].split("?")[0]) : null;
+}
+
+// PDF del registro voli in ordine cronologico (logbook stampabile)
+function costruisciPDFLogbook({ azienda, voli, titolo }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+  const grigio = [110, 120, 130];
+  const colonne = [
+    { t: "Data", w: 26 }, { t: "Ora", w: 14 }, { t: "Durata", w: 20 }, { t: "Drone", w: 42 },
+    { t: "Luogo", w: 62 }, { t: "Attività", w: 24 }, { t: "Categoria", w: 36 }, { t: "Cliente", w: 43 },
+  ];
+  const larghezzaTot = colonne.reduce((s, c) => s + c.w, 0);
+  const taglia = (txt, w) => {
+    const righe = doc.splitTextToSize(String(txt || "—"), w - 2);
+    return righe.length > 1 ? righe[0].replace(/\s+$/, "") + "…" : (righe[0] || "—");
+  };
+
+  const ordinati = [...voli].sort((a, b) => {
+    const da = `${a.data || ""} ${a.ora ? String(a.ora).slice(0, 5) : "00:00"}`;
+    const db = `${b.data || ""} ${b.ora ? String(b.ora).slice(0, 5) : "00:00"}`;
+    return da.localeCompare(db);
+  });
+  const minutiTotali = ordinati.reduce((s, v) => s + (Number(v.durata_minuti) || 0), 0);
+
+  let xTitolo = 15;
+  if (azienda.logo) {
+    try { doc.addImage(azienda.logo, "PNG", 15, 8, 18, 11, undefined, "FAST"); xTitolo = 38; } catch (e) {}
+  }
+  doc.setFontSize(16);
+  doc.setTextColor(20, 20, 20);
+  doc.text(titolo || "Registro voli", xTitolo, 15);
+  doc.setFontSize(9);
+  doc.setTextColor(...grigio);
+  doc.text(`${azienda.nome} — ${ordinati.length} voli — tempo di volo totale: ${formattaDurata(minutiTotali)}`, xTitolo, 20);
+
+  let y = 30;
+  const disegnaIntestazione = () => {
+    doc.setFillColor(235, 237, 240);
+    doc.rect(15, y - 5, larghezzaTot, 7.5, "F");
+    doc.setFontSize(9);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(30, 30, 30);
+    let x = 15;
+    colonne.forEach((c) => { doc.text(c.t, x + 1, y); x += c.w; });
+    doc.setFont(undefined, "normal");
+    y += 7;
+  };
+  disegnaIntestazione();
+
+  ordinati.forEach((v, idx) => {
+    if (y > 192) { doc.addPage(); y = 18; disegnaIntestazione(); }
+    if (idx % 2 === 1) {
+      doc.setFillColor(248, 249, 250);
+      doc.rect(15, y - 4.5, larghezzaTot, 6.5, "F");
+    }
+    const tipo = TIPI_ATTIVITA_VOLO.find((t) => t.key === v.tipo_attivita);
+    const valori = [
+      formatData(v.data),
+      v.ora ? String(v.ora).slice(0, 5) : "—",
+      formattaDurata(v.durata_minuti),
+      v.drone_nome,
+      v.luogo,
+      tipo ? tipo.label : "—",
+      etichettaCategoriaVolo(v.categoria_operativa),
+      v.cliente,
+    ];
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 30, 30);
+    let x = 15;
+    colonne.forEach((c, i) => { doc.text(taglia(valori[i], c.w), x + 1, y); x += c.w; });
+    y += 6.5;
+  });
+
+  if (ordinati.length === 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(...grigio);
+    doc.text("Nessun volo registrato per i filtri selezionati.", 15, y + 4);
+  } else {
+    if (y > 188) { doc.addPage(); y = 18; }
+    y += 3;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, y - 3, 15 + larghezzaTot, y - 3);
+    doc.setFontSize(10);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(20, 20, 20);
+    doc.text(`Totale: ${ordinati.length} voli — ${formattaDurata(minutiTotali)}`, 15, y + 3);
+    doc.setFont(undefined, "normal");
+  }
+
+  const pagine = doc.getNumberOfPages();
+  for (let i = 1; i <= pagine; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(...grigio);
+    doc.text(`Generato da ${azienda.nome}`, 15, 203);
+    doc.text(`Pagina ${i}/${pagine}`, 15 + larghezzaTot, 203, { align: "right" });
+  }
+  return doc;
+}
+
+function RegistroVoli({ azienda, droni, ispezioni, impianti }) {
+  const [voli, setVoli] = useState([]);
+  const [media, setMedia] = useState([]);
+  const [caricando, setCaricando] = useState(true);
+  const [errore, setErrore] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(formVoloVuoto());
+  const [salvando, setSalvando] = useState(false);
+  const [filtroTipo, setFiltroTipo] = useState("tutti");
+  const [filtroAnno, setFiltroAnno] = useState("tutti");
+  const [cerca, setCerca] = useState("");
+  const [includiIspezioni, setIncludiIspezioni] = useState(true);
+  const [espansoId, setEspansoId] = useState(null);
+  const [caricandoMediaId, setCaricandoMediaId] = useState(null);
+  const [linkNuovo, setLinkNuovo] = useState("");
+  const [lightbox, setLightbox] = useState(null);
+  const [gpsInCorso, setGpsInCorso] = useState(false);
+  const [generandoPdf, setGenerandoPdf] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+
+  const carica = async () => {
+    setCaricando(true);
+    setErrore(null);
+    const [{ data: v, error: e1 }, { data: m, error: e2 }] = await Promise.all([
+      supabase.from("voli").select("*").order("data", { ascending: false }),
+      supabase.from("voli_media").select("*").order("created_at", { ascending: true }),
+    ]);
+    if (e1 || e2) setErrore((e1 || e2).message);
+    setVoli(v || []);
+    setMedia(m || []);
+    setCaricando(false);
+  };
+
+  useEffect(() => { carica(); }, []);
+
+  // le ispezioni sono voli a tutti gli effetti: le mostro nel registro (sola lettura)
+  const voliDaIspezioni = includiIspezioni ? (ispezioni || []).map((i) => {
+    const imp = (impianti || []).find((x) => x.id === i.impianto_id);
+    return {
+      id: "isp-" + i.id, _derived: true, data: i.data, ora: i.ora,
+      durata_minuti: minutiTra(i.ora, i.ora_atterraggio),
+      drone_nome: i.drone_usato || null,
+      luogo: imp ? `${imp.nome}${imp.zona ? " — " + imp.zona : ""}` : null,
+      coordinate_gps: i.coordinate_gps || null,
+      tipo_attivita: "ispezione", categoria_operativa: i.scenario_volo || null,
+      altezza_max: i.altezza_volo || null, cliente: imp?.cliente || null, note: null,
+    };
+  }) : [];
+
+  const tutti = [...voli, ...voliDaIspezioni].sort((a, b) => {
+    const da = `${a.data || ""} ${a.ora ? String(a.ora).slice(0, 5) : "00:00"}`;
+    const db = `${b.data || ""} ${b.ora ? String(b.ora).slice(0, 5) : "00:00"}`;
+    return db.localeCompare(da);
+  });
+  const anni = [...new Set(tutti.map((v) => (v.data || "").slice(0, 4)).filter(Boolean))].sort().reverse();
+  const q = cerca.trim().toLowerCase();
+  const visibili = tutti.filter((v) =>
+    (filtroTipo === "tutti" || v.tipo_attivita === filtroTipo) &&
+    (filtroAnno === "tutti" || (v.data || "").startsWith(filtroAnno)) &&
+    (!q || [v.luogo, v.cliente, v.note, v.drone_nome].some((t) => t && String(t).toLowerCase().includes(q)))
+  );
+  const minutiTotali = visibili.reduce((s, v) => s + (Number(v.durata_minuti) || 0), 0);
+  const annoCorrente = String(new Date().getFullYear());
+  const voliQuestAnno = tutti.filter((v) => (v.data || "").startsWith(annoCorrente)).length;
+  const perDrone = {};
+  visibili.forEach((v) => {
+    if (v.drone_nome && v.durata_minuti) perDrone[v.drone_nome] = (perDrone[v.drone_nome] || 0) + Number(v.durata_minuti);
+  });
+
+  const apriNuovo = () => { setEditingId(null); setForm(formVoloVuoto()); setShowForm(true); };
+
+  const apriModifica = (v) => {
+    setEditingId(v.id);
+    const inElenco = v.drone_id && (droni || []).some((d) => d.id === v.drone_id);
+    setForm({
+      data: v.data || "",
+      ora: v.ora ? String(v.ora).slice(0, 5) : "",
+      durata: v.durata_minuti != null ? String(v.durata_minuti) : "",
+      drone_id: inElenco ? v.drone_id : (v.drone_nome ? "__altro" : ""),
+      drone_nome: inElenco ? "" : (v.drone_nome || ""),
+      luogo: v.luogo || "", coordinate_gps: v.coordinate_gps || "",
+      tipo_attivita: v.tipo_attivita || "video",
+      categoria_operativa: v.categoria_operativa || "aperta_a1",
+      altezza_max: v.altezza_max != null ? String(v.altezza_max) : "",
+      cliente: v.cliente || "", note: v.note || "",
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const chiudiForm = () => { setShowForm(false); setEditingId(null); setForm(formVoloVuoto()); };
+
+  const salva = async () => {
+    if (!form.data) return;
+    setSalvando(true);
+    const droneScelto = (droni || []).find((d) => d.id === form.drone_id);
+    const payload = {
+      data: form.data,
+      ora: form.ora || null,
+      durata_minuti: form.durata ? Number(form.durata) : null,
+      drone_id: droneScelto ? droneScelto.id : null,
+      drone_nome: droneScelto ? droneScelto.nome : (form.drone_nome.trim() || null),
+      luogo: form.luogo.trim() || null,
+      coordinate_gps: form.coordinate_gps.trim() || null,
+      tipo_attivita: form.tipo_attivita,
+      categoria_operativa: form.categoria_operativa,
+      altezza_max: form.altezza_max ? Number(form.altezza_max) : null,
+      cliente: form.cliente.trim() || null,
+      note: form.note.trim() || null,
+    };
+    const { error } = editingId
+      ? await supabase.from("voli").update(payload).eq("id", editingId)
+      : await supabase.from("voli").insert(payload);
+    setSalvando(false);
+    if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
+    chiudiForm();
+    carica();
+  };
+
+  const eliminaVolo = async (v) => {
+    if (!window.confirm("Eliminare questo volo e tutti i suoi media? L'operazione non è reversibile.")) return;
+    const files = media.filter((m) => m.volo_id === v.id && m.tipo !== "link").map((m) => percorsoStorageDaUrl(m.url)).filter(Boolean);
+    if (files.length) await supabase.storage.from("foto-ispezioni").remove(files);
+    const { error } = await supabase.from("voli").delete().eq("id", v.id);
+    if (error) { alert("Eliminazione non riuscita: " + error.message); return; }
+    if (espansoId === v.id) setEspansoId(null);
+    carica();
+  };
+
+  const usaPosizione = () => {
+    if (!navigator.geolocation) { alert("Questo dispositivo non supporta la posizione."); return; }
+    setGpsInCorso(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm((f) => ({ ...f, coordinate_gps: `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}` }));
+        setGpsInCorso(false);
+      },
+      () => {
+        alert("Non riesco a leggere la posizione. Controlla di aver dato il permesso al browser.");
+        setGpsInCorso(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const aggiungiMedia = async (voloId, e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    setCaricandoMediaId(voloId);
+    const scartati = [];
+    for (const file of files) {
+      try {
+        const isVideo = file.type.startsWith("video/");
+        const isFoto = file.type.startsWith("image/");
+        if (!isVideo && !isFoto) { scartati.push(`${file.name} (formato non supportato)`); continue; }
+        if (isVideo && file.size > MAX_VIDEO_MB * 1024 * 1024) {
+          scartati.push(`${file.name} (video oltre ${MAX_VIDEO_MB} MB: usa "Aggiungi link")`);
+          continue;
+        }
+        const daCaricare = isFoto ? await ridimensionaImmagine(file) : file;
+        const convertita = isFoto && daCaricare !== file;
+        const ext = convertita ? "jpg" : ((file.name.split(".").pop() || (isVideo ? "mp4" : "jpg")).toLowerCase());
+        const nomeFile = `volo-${voloId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, daCaricare, { contentType: convertita ? "image/jpeg" : file.type });
+        if (eUp) throw eUp;
+        const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
+        const { error: eIns } = await supabase.from("voli_media").insert({ volo_id: voloId, tipo: isVideo ? "video" : "foto", url: pub.publicUrl, nome: file.name });
+        if (eIns) throw eIns;
+      } catch (err) {
+        scartati.push(`${file.name} (${err?.message || "errore"})`);
+      }
+    }
+    setCaricandoMediaId(null);
+    if (scartati.length > 0) alert("Alcuni file non sono stati caricati:\n- " + scartati.join("\n- "));
+    carica();
+  };
+
+  const aggiungiLink = async (voloId) => {
+    let url = linkNuovo.trim();
+    if (!url) return;
+    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+    const { error } = await supabase.from("voli_media").insert({ volo_id: voloId, tipo: "link", url, nome: url.replace(/^https?:\/\//i, "").slice(0, 60) });
+    if (error) { alert("Non sono riuscito a salvare il link: " + error.message); return; }
+    setLinkNuovo("");
+    carica();
+  };
+
+  const eliminaMedia = async (m) => {
+    if (!window.confirm("Eliminare questo elemento?")) return;
+    if (m.tipo !== "link") {
+      const percorso = percorsoStorageDaUrl(m.url);
+      if (percorso) await supabase.storage.from("foto-ispezioni").remove([percorso]);
+    }
+    await supabase.from("voli_media").delete().eq("id", m.id);
+    carica();
+  };
+
+  const scaricaPdf = () => {
+    setGenerandoPdf(true);
+    try {
+      const titolo = filtroAnno !== "tutti" ? `Registro voli ${filtroAnno}` : "Registro voli";
+      const doc = costruisciPDFLogbook({ azienda, voli: visibili, titolo });
+      const url = doc.output("bloburl");
+      setPdfUrl(url);
+      window.open(url, "_blank");
+    } catch (err) {
+      alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
+    }
+    setGenerandoPdf(false);
+  };
+
+  const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
+  const chip = (attivo, colore) => ({
+    background: attivo ? colore + "22" : "transparent",
+    border: `1px solid ${attivo ? colore : "#333a45"}`,
+    color: attivo ? colore : "#8b95a3",
+    borderRadius: 999, padding: "5px 12px", fontSize: 12, fontWeight: 600,
+  });
+  const riga = (label, valore) => (
+    <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>{label}: </span>{valore}</div>
+  );
+  const nessunDroneInElenco = (droni || []).length === 0;
+  const mostraNomeDroneLibero = nessunDroneInElenco || form.drone_id === "__altro";
+
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Registro voli</h1>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={scaricaPdf} disabled={generandoPdf || visibili.length === 0} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
+            <FileDown size={14} /> {generandoPdf ? "Preparazione..." : "PDF"}
+          </button>
+          <button onClick={() => (showForm ? chiudiForm() : apriNuovo())} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+            {showForm ? "Annulla" : <><Plus size={14} /> Nuovo volo</>}
+          </button>
+        </div>
+      </div>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 18px 0", maxWidth: 600 }}>
+        Il tuo diario di volo: video, foto, FPV o ispezioni. Per ogni volo salvi dove, quando e con quale drone, e alleghi le foto e i video di quel giorno.
+      </p>
+      {pdfUrl && (
+        <a href={pdfUrl} target="_blank" rel="noreferrer" style={{ display: "block", margin: "-10px 0 14px 0", fontSize: 11.5, color: "#3d8bfd" }}>
+          Se non si è aperto automaticamente, apri il PDF qui
+        </a>
+      )}
+
+      {errore && (
+        <div style={{ margin: "0 0 16px 0", padding: "10px 14px", background: "#2a1616", border: "1px solid #5a2a2a", borderRadius: 8, color: "#ff9c9c", fontSize: 12.5, maxWidth: 560 }}>
+          Impossibile leggere il registro voli: {errore}. Controlla di aver eseguito lo script SQL "registro voli" su Supabase.
+        </div>
+      )}
+
+      {showForm && (
+        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 18, marginBottom: 20, maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
+          {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un volo esistente</div>}
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 130 }}>
+              <label style={lbl}>Data</label>
+              <input type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1, minWidth: 110 }}>
+              <label style={lbl}>Ora decollo</label>
+              <input type="time" value={form.ora} onChange={(e) => setForm({ ...form, ora: e.target.value })} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1, minWidth: 110 }}>
+              <label style={lbl}>Durata (minuti)</label>
+              <input type="number" min="0" placeholder="es. 18" value={form.durata} onChange={(e) => setForm({ ...form, durata: e.target.value })} style={inputStyle} />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 150 }}>
+              <label style={lbl}>Tipo di attività</label>
+              <select value={form.tipo_attivita} onChange={(e) => setForm({ ...form, tipo_attivita: e.target.value })} style={inputStyle}>
+                {TIPI_ATTIVITA_VOLO.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: 150 }}>
+              <label style={lbl}>Categoria operativa</label>
+              <select value={form.categoria_operativa} onChange={(e) => setForm({ ...form, categoria_operativa: e.target.value })} style={inputStyle}>
+                {CATEGORIE_OPERATIVE_VOLO.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style={lbl}>Drone</label>
+            {!nessunDroneInElenco && (
+              <select value={form.drone_id} onChange={(e) => setForm({ ...form, drone_id: e.target.value })} style={inputStyle}>
+                <option value="">— Nessuno —</option>
+                {droni.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
+                <option value="__altro">Altro (scrivo il nome a mano)</option>
+              </select>
+            )}
+            {mostraNomeDroneLibero && (
+              <input type="text" placeholder="es. DJI Avata 2" value={form.drone_nome} onChange={(e) => setForm({ ...form, drone_nome: e.target.value })} style={{ ...inputStyle, marginTop: nessunDroneInElenco ? 0 : 8 }} />
+            )}
+            {nessunDroneInElenco && <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>Registra i tuoi droni in "I miei droni" per sceglierli da un elenco.</p>}
+          </div>
+
+          <div>
+            <label style={lbl}>Luogo</label>
+            <input type="text" placeholder="es. Lago di Viverone" value={form.luogo} onChange={(e) => setForm({ ...form, luogo: e.target.value })} style={inputStyle} />
+          </div>
+
+          <div>
+            <label style={lbl}>Coordinate GPS (facoltativo)</label>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input type="text" placeholder="es. 45.0703, 7.6869" value={form.coordinate_gps} onChange={(e) => setForm({ ...form, coordinate_gps: e.target.value })} style={{ ...inputStyle, flex: 1, minWidth: 160 }} />
+              <button type="button" onClick={usaPosizione} disabled={gpsInCorso} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>
+                {gpsInCorso ? "Cerco..." : "📍 Usa la mia posizione"}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 120 }}>
+              <label style={lbl}>Altezza max (m)</label>
+              <input type="number" min="0" placeholder="es. 60" value={form.altezza_max} onChange={(e) => setForm({ ...form, altezza_max: e.target.value })} style={inputStyle} />
+            </div>
+            <div style={{ flex: 2, minWidth: 180 }}>
+              <label style={lbl}>Cliente / committente (facoltativo)</label>
+              <input type="text" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} style={inputStyle} />
+            </div>
+          </div>
+
+          <div>
+            <label style={lbl}>Note (facoltativo)</label>
+            <textarea rows={3} placeholder="es. vento debole, batterie usate: 3, autorizzazione ottenuta..." value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+          </div>
+
+          <button onClick={salva} disabled={!form.data || salvando} style={{ marginTop: 2, background: form.data ? "#ff8c42" : "#333a45", color: form.data ? "#161a1f" : "#6b7480", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+            {salvando ? "Salvataggio..." : editingId ? "Aggiorna volo" : "Salva volo"}
+          </button>
+          {!editingId && <p style={{ fontSize: 11, color: "#6b7480", margin: 0 }}>Foto e video li aggiungi subito dopo, aprendo il volo dall'elenco.</p>}
+        </div>
+      )}
+
+      {caricando ? <LoadingBlock /> : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 16, maxWidth: 620 }}>
+            <StatCard label="Voli mostrati" value={visibili.length} sub={filtroTipo === "tutti" && filtroAnno === "tutti" && !q ? "in totale" : "con i filtri attivi"} />
+            <StatCard label="Tempo di volo" value={formattaDurata(minutiTotali)} sub="dove la durata è indicata" accent="#ff8c42" />
+            <StatCard label={`Voli nel ${annoCorrente}`} value={voliQuestAnno} sub="da inizio anno" />
+          </div>
+
+          {Object.keys(perDrone).length > 0 && (
+            <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: "10px 14px", marginBottom: 16, maxWidth: 620 }}>
+              <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 6px 0" }}>Tempo di volo per drone</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 18px" }}>
+                {Object.entries(perDrone).map(([nome, min]) => (
+                  <span key={nome} style={{ fontSize: 12.5, color: "#c3cad4" }}>{nome}: <strong style={{ color: "#fff" }}>{formattaDurata(min)}</strong></span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+            <button onClick={() => setFiltroTipo("tutti")} style={chip(filtroTipo === "tutti", "#e7eaee")}>Tutti</button>
+            {TIPI_ATTIVITA_VOLO.map((t) => (
+              <button key={t.key} onClick={() => setFiltroTipo(t.key)} style={chip(filtroTipo === t.key, t.colore)}>{t.emoji} {t.label}</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16, maxWidth: 620 }}>
+            <input type="text" placeholder="Cerca per luogo, cliente, drone, note..." value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 200, fontSize: 12.5, padding: "7px 10px" }} />
+            {anni.length > 1 && (
+              <select value={filtroAnno} onChange={(e) => setFiltroAnno(e.target.value)} style={{ ...inputStyle, width: "auto", fontSize: 12.5, padding: "7px 10px" }}>
+                <option value="tutti">Tutti gli anni</option>
+                {anni.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            )}
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#8b95a3", cursor: "pointer" }}>
+              <input type="checkbox" checked={includiIspezioni} onChange={(e) => setIncludiIspezioni(e.target.checked)} />
+              Includi le ispezioni
+            </label>
+          </div>
+
+          {tutti.length === 0 ? (
+            <EmptyState text="Nessun volo registrato. Premi «Nuovo volo» per aggiungere il primo." />
+          ) : visibili.length === 0 ? (
+            <EmptyState text="Nessun volo corrisponde ai filtri scelti." />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {visibili.map((v) => {
+                const tipo = TIPI_ATTIVITA_VOLO.find((t) => t.key === v.tipo_attivita) || TIPI_ATTIVITA_VOLO[TIPI_ATTIVITA_VOLO.length - 1];
+                const mediaVolo = v._derived ? [] : media.filter((m) => m.volo_id === v.id);
+                const nFoto = mediaVolo.filter((m) => m.tipo === "foto").length;
+                const nVideo = mediaVolo.filter((m) => m.tipo === "video").length;
+                const nLink = mediaVolo.filter((m) => m.tipo === "link").length;
+                const aperto = espansoId === v.id;
+                const sottotitolo = [v.luogo, v.drone_nome, v.durata_minuti ? formattaDurata(v.durata_minuti) : null].filter(Boolean).join(" · ");
+                return (
+                  <div key={v.id} style={{ background: "#1b2028", border: aperto ? "1px solid #ff8c42" : "1px solid #262b33", borderRadius: 8, padding: "12px 16px" }}>
+                    <div
+                      onClick={() => { if (v._derived) return; setEspansoId(aperto ? null : v.id); setLinkNuovo(""); }}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", cursor: v._derived ? "default" : "pointer" }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: "#fff", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span>{formatData(v.data)}{v.ora ? ` · ${String(v.ora).slice(0, 5)}` : ""}</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: tipo.colore + "22", color: tipo.colore }}>{tipo.emoji} {tipo.label}</span>
+                          {v._derived && <span style={{ fontSize: 10.5, color: "#6b7480" }}>da ispezione</span>}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 3 }}>{sottotitolo || "—"}</div>
+                      </div>
+                      {!v._derived && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#8b95a3" }}>
+                          {nFoto > 0 && <span>📷 {nFoto}</span>}
+                          {nVideo > 0 && <span>🎬 {nVideo}</span>}
+                          {nLink > 0 && <span>🔗 {nLink}</span>}
+                          <ChevronRight size={15} color="#6b7480" style={{ transform: aperto ? "rotate(90deg)" : "none" }} />
+                        </div>
+                      )}
+                    </div>
+
+                    {aperto && !v._derived && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #262b33", display: "flex", flexDirection: "column", gap: 6 }}>
+                        {riga("Categoria", etichettaCategoriaVolo(v.categoria_operativa))}
+                        {v.altezza_max ? riga("Altezza max", `${v.altezza_max} m`) : null}
+                        {v.cliente ? riga("Cliente", v.cliente) : null}
+                        {v.coordinate_gps ? (
+                          <div style={{ fontSize: 12.5 }}>
+                            <span style={{ color: "#8b95a3" }}>GPS: </span>
+                            <a href={`https://www.google.com/maps?q=${encodeURIComponent(v.coordinate_gps)}`} target="_blank" rel="noreferrer" style={{ color: "#3d8bfd" }}>{v.coordinate_gps} ↗</a>
+                          </div>
+                        ) : null}
+                        {v.note ? <div style={{ fontSize: 12.5, whiteSpace: "pre-wrap" }}><span style={{ color: "#8b95a3" }}>Note: </span>{v.note}</div> : null}
+
+                        {mediaVolo.length > 0 && (
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 8, marginTop: 6 }}>
+                            {mediaVolo.map((m) => (
+                              <div key={m.id} style={{ position: "relative", gridColumn: m.tipo === "video" ? "span 2" : undefined }}>
+                                {m.tipo === "foto" && (
+                                  <img src={m.url} alt={m.nome || "foto"} loading="lazy" onClick={() => setLightbox(m)} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, cursor: "pointer", display: "block", background: "#000" }} />
+                                )}
+                                {m.tipo === "video" && (
+                                  <video src={m.url} controls preload="metadata" playsInline style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#000", display: "block" }} />
+                                )}
+                                {m.tipo === "link" && (
+                                  <a href={m.url} target="_blank" rel="noreferrer" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, aspectRatio: "1 / 1", background: "#161a1f", border: "1px solid #333a45", borderRadius: 6, color: "#3d8bfd", fontSize: 11, textDecoration: "none", padding: 6, textAlign: "center", wordBreak: "break-all", overflow: "hidden" }}>
+                                    <span style={{ fontSize: 20 }}>🔗</span>{m.nome}
+                                  </a>
+                                )}
+                                <button onClick={() => eliminaMedia(m)} title="Elimina" style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,0.75)", color: "#fff", border: "none", fontSize: 13, lineHeight: 1, padding: 0 }}>×</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+                            <Upload size={13} /> {caricandoMediaId === v.id ? "Caricamento..." : "Aggiungi foto / video"}
+                            <input type="file" accept="image/*,video/*" multiple disabled={caricandoMediaId === v.id} onChange={(e) => aggiungiMedia(v.id, e)} style={{ display: "none" }} />
+                          </label>
+                          <div style={{ display: "flex", gap: 6, flex: 1, minWidth: 220 }}>
+                            <input type="text" placeholder="Link video (Drive, YouTube, WeTransfer...)" value={linkNuovo} onChange={(e) => setLinkNuovo(e.target.value)} onKeyDown={(e) => e.key === "Enter" && aggiungiLink(v.id)} style={{ ...inputStyle, fontSize: 12.5, padding: "7px 10px" }} />
+                            <button onClick={() => aggiungiLink(v.id)} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>+ Link</button>
+                          </div>
+                        </div>
+                        <p style={{ fontSize: 10.5, color: "#6b7480", margin: "2px 0 0 0" }}>
+                          I video caricati qui possono pesare al massimo {MAX_VIDEO_MB} MB. Per quelli più lunghi salvali su Drive o YouTube e incolla il link.
+                        </p>
+
+                        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                          <button onClick={() => apriModifica(v)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Modifica</button>
+                          <button onClick={() => eliminaVolo(v)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Elimina</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
+          <img src={lightbox.url} alt={lightbox.nome || "foto"} style={{ maxWidth: "96vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 6 }} />
+          <button onClick={() => setLightbox(null)} style={{ position: "fixed", top: 12, right: 12, background: "#161a1f", color: "#fff", border: "1px solid #333a45", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>Chiudi ✕</button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Impostazioni({ azienda, setAzienda, piano }) {
   const proAttivo = piano === "pro";
