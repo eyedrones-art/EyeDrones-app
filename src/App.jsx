@@ -1125,6 +1125,20 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
     y += noteLines.length * 4.5 + 8;
   }
 
+  // --- diciture legali (personalizzabili in Impostazioni) ---
+  const testoLegale = (azienda.noteLegaliPreventivo || NOTE_LEGALI_PREVENTIVO_DEFAULT).replace("{validita}", String(preventivo.validita_giorni || 30));
+  if (testoLegale) {
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setDrawColor(225, 225, 225);
+    doc.line(15, y, 195, y);
+    y += 7;
+    doc.setFontSize(7.5);
+    doc.setTextColor(...grigioChiaro);
+    const righeLegali = doc.splitTextToSize(testoLegale, 180);
+    doc.text(righeLegali, 15, y);
+    y += righeLegali.length * 3.6 + 8;
+  }
+
   if (y > 250) { doc.addPage(); y = 20; }
   doc.setDrawColor(225, 225, 225);
   doc.line(15, y, 195, y);
@@ -1242,7 +1256,7 @@ export default function App() {
 function AppShell({ session }) {
   const [page, setPage] = useState("dashboard");
   const [impiantoAttivo, setImpiantoAttivo] = useState(null);
-  const [azienda, setAzienda] = useState({ nome: "Eyedrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12 });
+  const [azienda, setAzienda] = useState({ nome: "Eyedrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "" });
   const [piano, setPiano] = useState("free");
   const [profiloCaricato, setProfiloCaricato] = useState(false);
 
@@ -1284,6 +1298,7 @@ function AppShell({ session }) {
         logo: profilo.azienda_logo || LOGO_EYEDRONES,
         tariffaBase: profilo.tariffa_base ?? 150,
         tariffaKwp: profilo.tariffa_kwp ?? 0.12,
+        noteLegaliPreventivo: profilo.preventivo_note_legali || "",
       });
     }
     setProfiloCaricato(true);
@@ -1296,6 +1311,7 @@ function AppShell({ session }) {
       azienda_logo: nuovaAzienda.logo,
       tariffa_base: nuovaAzienda.tariffaBase,
       tariffa_kwp: nuovaAzienda.tariffaKwp,
+      preventivo_note_legali: nuovaAzienda.noteLegaliPreventivo,
     }).eq("user_id", session.user.id);
   };
 
@@ -2715,6 +2731,9 @@ const VOCI_MODELLO_RIPRESE = [
   "Licenza d'uso commerciale",
 ];
 
+// Testo di partenza, generico: Ivan può modificarlo liberamente da Impostazioni. Non è una consulenza legale.
+const NOTE_LEGALI_PREVENTIVO_DEFAULT = "Il presente preventivo ha validità di {validita} giorni dalla data di emissione, salvo diversa indicazione. I prezzi indicati si intendono IVA esclusa, se dovuta. Il documento non costituisce fattura. L'accettazione si intende tramite conferma scritta (email o messaggio) prima dell'inizio dei lavori. Eventuali variazioni delle condizioni operative (meteo, permessi aggiuntivi, accessibilità del sito) potranno comportare un adeguamento dei tempi o dei costi, da concordare preventivamente.";
+
 const STATI_PREVENTIVO = [
   { key: "inviato", label: "Inviato", color: "#3d8bfd" },
   { key: "accettato", label: "Accettato", color: "#4ade80" },
@@ -2732,6 +2751,7 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
   const [validitaGiorni, setValiditaGiorni] = useState("30");
   const [note, setNote] = useState("");
   const [kwp, setKwp] = useState("");
+  const [dataPreventivo, setDataPreventivo] = useState(() => new Date().toISOString().slice(0, 10));
   const [salvataggio, setSalvataggio] = useState(false);
   const [cambiandoStato, setCambiandoStato] = useState(null);
 
@@ -2771,6 +2791,7 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
     setCliente(""); setLuogoIntervento(""); setOggetto("");
     setVoci([{ descrizione: "", importo: "" }]); setScontoImporto("");
     setValiditaGiorni("30"); setNote(""); setKwp(""); setEditingId(null);
+    setDataPreventivo(new Date().toISOString().slice(0, 10));
   };
 
   const apriModifica = (p) => {
@@ -2782,6 +2803,7 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
     setScontoImporto(p.sconto_importo ? String(p.sconto_importo) : "");
     setValiditaGiorni(p.validita_giorni ? String(p.validita_giorni) : "30");
     setNote(p.note || "");
+    setDataPreventivo(p.data ? String(p.data).slice(0, 10) : new Date().toISOString().slice(0, 10));
     setShowForm(true);
   };
 
@@ -2797,6 +2819,7 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
     const vociPulite = voci.filter((v) => v.descrizione || v.importo).map((v) => ({ descrizione: v.descrizione, importo: Number(v.importo) || 0 }));
     const payload = {
       cliente,
+      data: dataPreventivo,
       luogo_intervento: luogoIntervento || null,
       oggetto: oggetto || null,
       voci: vociPulite,
@@ -2853,9 +2876,15 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
       {showForm && (
         <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 540, display: "flex", flexDirection: "column", gap: 12 }}>
           {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un preventivo esistente</div>}
-          <div>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome cliente</label>
-            <input placeholder="es. Mario Rossi" value={cliente} onChange={(e) => setCliente(e.target.value)} style={inputStyle} />
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 2 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome cliente</label>
+              <input placeholder="es. Mario Rossi" value={cliente} onChange={(e) => setCliente(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Data preventivo</label>
+              <input type="date" value={dataPreventivo} onChange={(e) => setDataPreventivo(e.target.value)} style={inputStyle} />
+            </div>
           </div>
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Luogo intervento</label>
@@ -3493,9 +3522,11 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
         {obiettivoSalvatoOk && <p style={{ fontSize: 11, color: "#4ade80", margin: "6px 0 0 0" }}>✓ Salvato</p>}
       </div>
 
-      {CORSI_CONSIGLIATI.length > 0 && (
-        <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
-          <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Corsi consigliati</p>
+      <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
+        <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Corsi consigliati</p>
+        {CORSI_CONSIGLIATI.length === 0 ? (
+          <p style={{ fontSize: 11.5, color: "#6b7480", margin: 0, lineHeight: 1.5 }}>Nessun corso ancora aggiunto — qui compariranno, ad esempio, corsi di fotogrammetria o FPV.</p>
+        ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {CORSI_CONSIGLIATI.map((c) => (
               <a key={c.nome} href={c.url} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none" }}>
@@ -3504,8 +3535,8 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
               </a>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {RISORSE_CONSIGLIATE.length > 0 && (
         <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
@@ -3757,6 +3788,20 @@ function Droni({ droni, azienda, onReload }) {
         </button>
       </div>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Tieni traccia di modelli, matricole, registrazione D-Flight e scadenze di manutenzione della tua flotta.</p>
+
+      {showForm && !editingId && (() => {
+        const assicurazioneConsigliata = RISORSE_CONSIGLIATE.find((r) => r.nome.toLowerCase().includes("assicura"));
+        return (
+          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: "10px 14px", marginBottom: 14, maxWidth: 460, fontSize: 12, color: "#c3cad4" }}>
+            💡 Ricorda: ogni drone dev'essere assicurato, anche in categoria Aperta.{" "}
+            {assicurazioneConsigliata ? (
+              <a href={assicurazioneConsigliata.url} target="_blank" rel="noreferrer" style={{ color: "#4ade80", fontWeight: 600 }}>{assicurazioneConsigliata.nome} ↗</a>
+            ) : (
+              <span style={{ color: "#6b7480" }}>Trovi il link per un preventivo in "Attestati".</span>
+            )}
+          </div>
+        );
+      })()}
 
       {showForm && (
         <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -6023,6 +6068,23 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli }) {
             </div>
           </div>
         </div>
+
+        <div style={{ borderTop: "1px solid #262b33", paddingTop: 18 }}>
+          <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Diciture legali nei preventivi</h3>
+          <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0", lineHeight: 1.5 }}>
+            Compare in fondo a ogni preventivo in PDF. Il testo qui sotto è un punto di partenza generico, non una consulenza legale: fattelo controllare da un commercialista o da chi ti segue, soprattutto una volta aperta la partita IVA. "{"{validita}"}" viene sostituito con i giorni di validità che imposti su ogni preventivo.
+          </p>
+          <textarea
+            rows={5}
+            placeholder={NOTE_LEGALI_PREVENTIVO_DEFAULT}
+            value={azienda.noteLegaliPreventivo}
+            onChange={(e) => setAzienda({ ...azienda, noteLegaliPreventivo: e.target.value })}
+            style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }}
+          />
+          {!azienda.noteLegaliPreventivo && (
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Campo vuoto: nei PDF viene usato il testo di partenza mostrato come suggerimento qui sopra.</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -6030,6 +6092,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli }) {
 
 function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuestoMese }) {
   const [step, setStep] = useState(1);
+  const [dataIspezione, setDataIspezione] = useState(() => new Date().toISOString().slice(0, 10));
   const [impiantoSel, setImpiantoSel] = useState(null);
   const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
   const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
@@ -6092,7 +6155,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
 
       const { data: isp, error: e1 } = await supabase.from("ispezioni").insert({
         impianto_id: impiantoSel.id,
-        data: new Date().toISOString().slice(0, 10),
+        data: dataIspezione,
         ora: ora || null,
         irraggiamento: irraggiamento ? Number(irraggiamento) : null,
         note: note || null,
@@ -6174,7 +6237,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     const doc = costruisciPDF({
       azienda,
       impianto: impiantoSel,
-      dati: { dataFormattata: formatData(new Date()), ora, operatore, irraggiamento, note, prossimoControlloFormattato, coordinateGps },
+      dati: { dataFormattata: formatData(dataIspezione), ora, operatore, irraggiamento, note, prossimoControlloFormattato, coordinateGps },
       fotoConDataUrl: foto.map((f) => ({ ...f, didascalia: didascalieFoto[f.id] || null })),
       anomalieList: anomalie,
       piano,
@@ -6318,6 +6381,10 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
           )}
           {impiantoSel && (
             <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Data ispezione</label>
+                <input type="date" value={dataIspezione} onChange={(e) => setDataIspezione(e.target.value)} style={inputStyle} />
+              </div>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ora ispezione</label>
                 <input type="time" value={ora} onChange={(e) => setOra(e.target.value)} style={inputStyle} />
@@ -6608,7 +6675,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 ["Località", impiantoSel?.zona],
                 ["Potenza installata", `${impiantoSel?.kwp} kWp`],
                 ["Cliente", impiantoSel?.cliente],
-                ["Data ispezione", formatData(new Date())],
+                ["Data ispezione", formatData(dataIspezione)],
                 ["Ora ispezione", ora || "—"],
                 ["Eseguita da", operatore || "—"],
                 ["Coordinate GPS", coordinateGps || "—"],
