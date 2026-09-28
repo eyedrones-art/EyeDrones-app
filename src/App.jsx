@@ -43,6 +43,18 @@ function caricaImmagine(dataUrl) {
 // risorse consigliate a TUTTI i piloti che usano l'app — link di affiliazione/partnership,
 // diversi da quelli personali che ogni utente può salvare nei propri attestati.
 // aggiorna qui gli URL quando sono pronti i link di affiliazione veri.
+// stesso principio di RISORSE_CONSIGLIATE, ma per corsi di formazione (es. il corso di Andrea Pinotti, o altri): {nome, descrizione, url}
+const CORSI_CONSIGLIATI = [
+];
+
+const OBIETTIVI_FORMATIVI = [
+  { key: "", label: "Nessun obiettivo particolare al momento" },
+  { key: "a2", label: "Passare da Open A1/A3 a Open A2" },
+  { key: "sts", label: "Ottenere gli attestati per gli scenari Specific (STS)" },
+  { key: "termografia", label: "Certificazione termografica (Livello 1 o 2)" },
+  { key: "altro", label: "Altro" },
+];
+
 const RISORSE_CONSIGLIATE = [
   // esempio (da riempire quando pronto):
   // { nome: "Assicurazione RC drone — Coverdrone", url: "https://www.coverdrone.com/it/?ref=IL_TUO_CODICE", descrizione: "Polizza RC obbligatoria per uso professionale." },
@@ -65,7 +77,7 @@ const CHECKLIST_DEFAULT = [
 // recupera il meteo in tempo reale per una zona (servizio pubblico gratuito, nessuna chiave richiesta)
 // ---- Piani e limiti -----------------------------------------------------------
 // Free: tutto funziona ma con quantità limitate. Pilota toglie i limiti di quantità. Pro aggiunge gli strumenti di lavoro.
-const LIMITI_FREE = { voli: 30, media: 30, batterie: 3, reportMese: 4 };
+const LIMITI_FREE = { voli: 30, batterie: 3, reportMese: 4 };
 // Link di pagamento Stripe (Payment Link): quando li crei su Stripe, incollali qui e i pulsanti "Passa a..." li useranno.
 const LINK_PAGAMENTO = { pilota: "", pro: "" };
 const NOME_PIANO = { free: "Free", pilota: "Pilota", pro: "Pro" };
@@ -1244,10 +1256,12 @@ function AppShell({ session }) {
   const [attestati, setAttestati] = useState([]);
   const [droni, setDroni] = useState([]);
   const [moduli, setModuli] = useState(null); // null = non ancora scelto ("ispezioni", "riprese" o entrambi separati da virgola)
+  const [obiettivoFormativo, setObiettivoFormativo] = useState("");
   const [voliManuali, setVoliManuali] = useState([]);
   const [nuovoVolo, setNuovoVolo] = useState(false);
   const [vistaVoli, setVistaVoli] = useState("voli"); // "voli" | "galleria"
   const [fileRapidi, setFileRapidi] = useState(null); // file scelti dalla prima pagina, da allegare a un nuovo volo
+  const [prefillVolo, setPrefillVolo] = useState(null); // dati di un piano di volo, da precompilare aprendo "Nuovo volo"
   const [batterie, setBatterie] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
@@ -1264,6 +1278,7 @@ function AppShell({ session }) {
     if (profilo) {
       setPiano(profilo.piano || "free");
       setModuli(profilo.moduli || null);
+      setObiettivoFormativo(profilo.obiettivo_formativo || "");
       setAzienda({
         nome: profilo.azienda_nome || "Eyedrones",
         logo: profilo.azienda_logo || LOGO_EYEDRONES,
@@ -1288,6 +1303,12 @@ function AppShell({ session }) {
     setModuli(nuovi);
     const { error } = await supabase.from("profili").update({ moduli: nuovi }).eq("user_id", session.user.id);
     if (error) alert("Non sono riuscito a salvare la scelta sul tuo account (" + error.message + "). Per ora vale solo finché tieni aperta l'app: controlla di aver eseguito lo script SQL degli aggiornamenti.");
+  };
+
+  const salvaObiettivoFormativo = async (valore) => {
+    setObiettivoFormativo(valore);
+    const { error } = await supabase.from("profili").update({ obiettivo_formativo: valore }).eq("user_id", session.user.id);
+    if (error) alert("Non sono riuscito a salvare l'obiettivo sul tuo account (" + error.message + "). Controlla di aver eseguito lo script SQL degli aggiornamenti.");
   };
 
   // i voli si leggono a parte: se la tabella non esiste ancora, il resto dell'app funziona lo stesso
@@ -1406,15 +1427,15 @@ function AppShell({ session }) {
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} />}
         {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
-        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} />}
-        {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} />}
+        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} />}
         {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
-        {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} />}
+        {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} obiettivoFormativo={obiettivoFormativo} onSalvaObiettivo={salvaObiettivoFormativo} />}
         {page === "droni" && <Droni droni={droni} azienda={azienda} onReload={loadData} />}
       </div>
     </div>
@@ -2589,7 +2610,7 @@ function Abbonamento({ piano }) {
       chiave: "free", nome: "Free", prezzo: "Gratis", sotto: "Per provare l'app",
       caratteristiche: [
         { testo: `Fino a ${LIMITI_FREE.voli} voli nel registro`, incluso: true },
-        { testo: `Fino a ${LIMITI_FREE.media} tra foto, video e link`, incluso: true },
+        { testo: "Foto e video senza limite di numero", incluso: true },
         { testo: `Fino a ${LIMITI_FREE.batterie} batterie con conteggio dei cicli`, incluso: true },
         { testo: "Pianificazione volo con meteo e indice Kp", incluso: true },
         { testo: "Attestati, droni e documenti per i controlli", incluso: true },
@@ -3304,7 +3325,7 @@ function statoScadenza(dataScadenza) {
   return { livello: "ok", testo: `Valido fino al ${formatData(dataScadenza)}`, colore: "#4ade80" };
 }
 
-function Attestati({ attestati, azienda, onReload }) {
+function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaObiettivo }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [tipo, setTipo] = useState(TIPI_ATTESTATO_SUGGERITI[0]);
@@ -3316,6 +3337,18 @@ function Attestati({ attestati, azienda, onReload }) {
   const [note, setNote] = useState("");
   const [documento, setDocumento] = useState(null);
   const [salvataggio, setSalvataggio] = useState(false);
+  const [obiettivoSel, setObiettivoSel] = useState(obiettivoFormativo || "");
+  const [salvandoObiettivo, setSalvandoObiettivo] = useState(false);
+  const [obiettivoSalvatoOk, setObiettivoSalvatoOk] = useState(false);
+
+  const salvaObiettivo = async (valore) => {
+    setObiettivoSel(valore);
+    setSalvandoObiettivo(true);
+    await onSalvaObiettivo(valore);
+    setSalvandoObiettivo(false);
+    setObiettivoSalvatoOk(true);
+    setTimeout(() => setObiettivoSalvatoOk(false), 2000);
+  };
 
   const resetForm = () => {
     setTipo(TIPI_ATTESTATO_SUGGERITI[0]); setTipoAltro(""); setNumeroRiferimento("");
@@ -3416,6 +3449,28 @@ function Attestati({ attestati, azienda, onReload }) {
         </button>
       </div>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0" }}>Tieni traccia di patentini, attestati e scadenze. Per le operazioni in categoria Specific (scenari standard STS) controlla sempre i requisiti aggiornati sul sito ENAC.</p>
+
+      <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
+        <label style={{ fontSize: 11.5, fontWeight: 600, color: "#c3cad4", display: "block", marginBottom: 6 }}>Il tuo prossimo obiettivo formativo</label>
+        <select value={obiettivoSel} onChange={(e) => salvaObiettivo(e.target.value)} disabled={salvandoObiettivo} style={inputStyle}>
+          {OBIETTIVI_FORMATIVI.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+        {obiettivoSalvatoOk && <p style={{ fontSize: 11, color: "#4ade80", margin: "6px 0 0 0" }}>✓ Salvato</p>}
+      </div>
+
+      {CORSI_CONSIGLIATI.length > 0 && (
+        <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
+          <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Corsi consigliati</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {CORSI_CONSIGLIATI.map((c) => (
+              <a key={c.nome} href={c.url} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none" }}>
+                <div style={{ fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{c.nome} ↗</div>
+                {c.descrizione && <div style={{ fontSize: 11.5, color: "#6b7480" }}>{c.descrizione}</div>}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {RISORSE_CONSIGLIATE.length > 0 && (
         <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
@@ -3915,8 +3970,10 @@ const ETICHETTE_TIPO_PIANO = {
   fotovoltaico: "Fotovoltaico termico", danni: "Danni / assicurativa", edifici: "Termografia edifici", elettrico: "Impianti elettrici",
   video: "Video", foto: "Foto", fpv: "FPV", altro: "Altro",
 };
+// il vocabolario dei tipi nella Pianificazione (ispezioni + riprese) non è lo stesso del Registro voli: le 4 ispezioni diventano genericamente "ispezione" là
+const MAPPA_TIPO_PIANO_A_REGISTRO = { fotovoltaico: "ispezione", danni: "ispezione", edifici: "ispezione", elettrico: "ispezione", video: "video", foto: "foto", fpv: "fpv", altro: "altro" };
 
-function PianificazioneVolo({ azienda, impianti }) {
+function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati }) {
   const [impiantoSel, setImpiantoSel] = useState(null);
   const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
   const [dataPrevista, setDataPrevista] = useState(() => new Date().toISOString().slice(0, 10));
@@ -4352,7 +4409,13 @@ function PianificazioneVolo({ azienda, impianti }) {
                     return <div style={{ fontSize: 11, color: fatti === tot ? "#4ade80" : "#f5b942", marginTop: 2 }}>Checklist: {fatti}/{tot} {fatti === tot ? "✓ completa" : ""}</div>;
                   })()}
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button onClick={() => onVaiRegistroConDati({
+                    data: p.data_prevista || new Date().toISOString().slice(0, 10),
+                    luogo: p.impianto_nome || "",
+                    drone_id: p.drone_id || "",
+                    tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
+                  })} style={{ background: "#241d16", border: "1px solid #ff8c42", color: "#ffb877", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, fontWeight: 600 }}>📷 Aggiungi foto/video</button>
                   <button onClick={() => apriPiano(p)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Apri / Modifica</button>
                   <button onClick={() => eliminaPiano(p.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
                 </div>
@@ -4679,7 +4742,8 @@ const CATEGORIE_OPERATIVE_VOLO = [
   { key: "altro", label: "Altro" },
 ];
 
-const MAX_VIDEO_MB = 50;
+// Non c'è più un tetto impostato da noi sui video: carichiamo qualunque file e, se Supabase lo rifiuta perché supera
+// il "Global file size limit" del progetto (nella pagina Storage → Settings), mostriamo il messaggio d'errore reale.
 
 function etichettaCategoriaVolo(k) {
   if (!k) return "—";
@@ -5146,7 +5210,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
   );
 }
 
-function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, batterie, onBatterieCambiate, piano, onVaiAbbonamento }) {
+function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento }) {
   const [voli, setVoli] = useState([]);
   const [media, setMedia] = useState([]);
   const [caricando, setCaricando] = useState(true);
@@ -5189,6 +5253,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   useEffect(() => {
     if (aprireNuovo) {
       apriNuovo();
+      if (prefillIniziale) setForm((f) => ({ ...f, ...prefillIniziale }));
       if (fileIniziali && fileIniziali.length > 0) aggiungiFileAlModulo(fileIniziali);
       onAperto && onAperto();
     }
@@ -5255,7 +5320,6 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       const isVideo = file.type.startsWith("video/");
       const isFoto = file.type.startsWith("image/");
       if (!isVideo && !isFoto) { scartati.push(`${file.name} (formato non supportato)`); return; }
-      if (isVideo && file.size > MAX_VIDEO_MB * 1024 * 1024) { scartati.push(`${file.name} (video oltre ${MAX_VIDEO_MB} MB: usa il link)`); return; }
       nuovi.push({ file, anteprima: isFoto ? URL.createObjectURL(file) : null });
     });
     if (scartati.length > 0) alert("Alcuni file non sono stati aggiunti:\n- " + scartati.join("\n- "));
@@ -5345,13 +5409,12 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       }
       onBatterieCambiate && onBatterieCambiate();
     }
-    const budget = nuovoBudget();
     if (fileInAttesa.length > 0) {
-      const scartati = await caricaFileVolo(voloId, fileInAttesa.map((x) => x.file), budget);
+      const scartati = await caricaFileVolo(voloId, fileInAttesa.map((x) => x.file));
       problemi.push(...scartati);
     }
     for (const l of linkInAttesa) {
-      const errLink = await inserisciLinkVolo(voloId, l, budget);
+      const errLink = await inserisciLinkVolo(voloId, l);
       if (errLink) problemi.push(`${l} (${errLink})`);
     }
     setSalvando(false);
@@ -5387,22 +5450,14 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
     );
   };
 
-  // nel piano Free i media hanno un tetto: il "budget" tiene il conto di quanti ne restano
-  const nuovoBudget = () => ({ n: piano === "free" ? Math.max(0, LIMITI_FREE.media - media.length) : Infinity });
-
-  // carica una lista di file per un volo; restituisce l'elenco dei file scartati, con il motivo
-  const caricaFileVolo = async (voloId, files, budget) => {
+  // carica una lista di file per un volo; restituisce l'elenco dei file scartati, con il motivo (nessun limite di numero: solo un file che Supabase stesso rifiuta finisce qui)
+  const caricaFileVolo = async (voloId, files) => {
     const scartati = [];
     for (const file of files) {
       try {
-        if (budget && budget.n <= 0) { scartati.push(`${file.name} (limite del piano Free: ${LIMITI_FREE.media} tra foto, video e link)`); continue; }
         const isVideo = file.type.startsWith("video/");
         const isFoto = file.type.startsWith("image/");
         if (!isVideo && !isFoto) { scartati.push(`${file.name} (formato non supportato)`); continue; }
-        if (isVideo && file.size > MAX_VIDEO_MB * 1024 * 1024) {
-          scartati.push(`${file.name} (video oltre ${MAX_VIDEO_MB} MB: usa il link)`);
-          continue;
-        }
         const daCaricare = isFoto ? await ridimensionaImmagine(file) : file;
         const convertita = isFoto && daCaricare !== file;
         const ext = convertita ? "jpg" : ((file.name.split(".").pop() || (isVideo ? "mp4" : "jpg")).toLowerCase());
@@ -5412,7 +5467,6 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
         const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
         const { error: eIns } = await supabase.from("voli_media").insert({ volo_id: voloId, tipo: isVideo ? "video" : "foto", url: pub.publicUrl, nome: file.name });
         if (eIns) throw eIns;
-        if (budget) budget.n -= 1;
       } catch (err) {
         scartati.push(`${file.name} (${(err && err.message) || "errore"})`);
       }
@@ -5421,13 +5475,11 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   };
 
   // salva un link esterno; restituisce il messaggio d'errore oppure null se è andato bene
-  const inserisciLinkVolo = async (voloId, testo, budget) => {
+  const inserisciLinkVolo = async (voloId, testo) => {
     let url = String(testo || "").trim();
     if (!url) return null;
     if (!/^https?:\/\//i.test(url)) url = "https://" + url;
-    if (budget && budget.n <= 0) return `limite del piano Free: ${LIMITI_FREE.media} tra foto, video e link`;
     const { error } = await supabase.from("voli_media").insert({ volo_id: voloId, tipo: "link", url, nome: url.replace(/^https?:\/\//i, "").slice(0, 60) });
-    if (!error && budget) budget.n -= 1;
     return error ? error.message : null;
   };
 
@@ -5436,7 +5488,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
     e.target.value = "";
     if (files.length === 0) return;
     setCaricandoMediaId(voloId);
-    const scartati = await caricaFileVolo(voloId, files, nuovoBudget());
+    const scartati = await caricaFileVolo(voloId, files);
     setCaricandoMediaId(null);
     setEspansoId(voloId);
     if (scartati.length > 0) alert("Alcuni file non sono stati caricati:\n- " + scartati.join("\n- "));
@@ -5444,7 +5496,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   };
 
   const aggiungiLink = async (voloId) => {
-    const errLink = await inserisciLinkVolo(voloId, linkNuovo, nuovoBudget());
+    const errLink = await inserisciLinkVolo(voloId, linkNuovo);
     if (errLink) { alert("Non sono riuscito a salvare il link: " + errLink); return; }
     setLinkNuovo("");
     carica();
@@ -5539,8 +5591,8 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       </p>
       {piano === "free" && (
         <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "-8px 0 16px 0" }}>
-          Piano Free: {voli.length}/{LIMITI_FREE.voli} voli · {media.length}/{LIMITI_FREE.media} foto, video e link.{" "}
-          <button onClick={onVaiAbbonamento} style={{ background: "none", border: "none", color: "#3d8bfd", padding: 0, fontSize: 11.5 }}>Togli i limiti con Pilota →</button>
+          Piano Free: {voli.length}/{LIMITI_FREE.voli} voli. Foto, video e link non hanno un limite di numero.{" "}
+          <button onClick={onVaiAbbonamento} style={{ background: "none", border: "none", color: "#3d8bfd", padding: 0, fontSize: 11.5 }}>Togli il limite dei voli con Pilota →</button>
         </p>
       )}
       {pdfUrl && (
@@ -5604,7 +5656,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                 <p style={{ fontSize: 10.5, color: "#8b95a3", margin: "5px 0 0 0" }}>Data e ora sono già quelle di adesso: luogo, drone e il resto puoi completarli anche dopo.</p>
               </div>
             )}
-            <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>I file vengono caricati quando salvi. I video possono pesare al massimo {MAX_VIDEO_MB} MB: per quelli più lunghi usa un link.</p>
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>I file vengono caricati quando salvi. Se un video molto pesante non si carica, o carichi il link, oppure alza il "Global file size limit" nelle impostazioni Storage di Supabase.</p>
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -5837,7 +5889,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                           </div>
                         </div>
                         <p style={{ fontSize: 10.5, color: "#6b7480", margin: "2px 0 0 0" }}>
-                          I video caricati qui possono pesare al massimo {MAX_VIDEO_MB} MB. Per quelli più lunghi salvali su Drive o YouTube e incolla il link.
+                          Se un video molto pesante non si carica, salvalo su Drive o YouTube e incolla il link, oppure alza il "Global file size limit" nelle impostazioni Storage di Supabase.
                         </p>
 
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
