@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 
@@ -256,8 +256,8 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
     ["Eseguita da", dati.operatore || "—"],
     ["Coordinate GPS", dati.coordinateGps || "—"],
     ...(tipoIspezione === "fotovoltaico" ? [["Irraggiamento solare", dati.irraggiamento ? `${dati.irraggiamento} W/m²` : "—"]] : []),
-    ["Anomalie rilevate", String(anomalieList.length)],
-    ["Prossimo controllo", dati.prossimoControlloFormattato || "—"],
+    ...(tipoIspezione === "danni" && anomalieList.length === 0 ? [] : [["Anomalie rilevate", String(anomalieList.length)]]),
+    ...(tipoIspezione !== "danni" ? [["Prossimo controllo", dati.prossimoControlloFormattato || "—"]] : []),
   ];
   righe.forEach(([label, val]) => {
     doc.setTextColor(...grigio);
@@ -404,7 +404,7 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
     });
   }
 
-  if (anomalieList.length === 0) {
+  if (anomalieList.length === 0 && tipoIspezione !== "danni") {
     doc.setFontSize(13);
     doc.setTextColor(20, 20, 20);
     doc.text("Anomalie e raccomandazioni", 15, y);
@@ -1309,7 +1309,9 @@ function AppShell({ session }) {
         .main-content { padding: 28px 32px; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
+        .logout-fab { display: none; }
         @media (max-width: 680px) {
+          .logout-fab { display: flex; position: fixed; top: 8px; right: 8px; z-index: 900; align-items: center; gap: 5px; background: #2a1616; color: #ff9c9c; border: 1px solid #5a2a2a; border-radius: 8px; padding: 8px 11px; font-size: 12px; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
           .app-shell { flex-direction: column; }
           .sidebar { width: 100%; flex-direction: row; padding: 10px 12px; align-items: center; gap: 6px; overflow-x: auto; border-right: none; border-bottom: 1px solid #262b33; }
           .sidebar-brand { padding: 0 10px 0 0 !important; margin: 0 !important; }
@@ -1318,6 +1320,7 @@ function AppShell({ session }) {
           .nav-item { flex-direction: column; gap: 3px !important; padding: 6px 10px !important; font-size: 10px !important; border-left: none !important; border-bottom: 2px solid transparent; }
           .nav-item.active { border-bottom: 2px solid #ff8c42 !important; }
           .main-content { padding: 18px 16px; }
+          .sidebar { padding-right: 96px !important; }
         }
       `}</style>
 
@@ -1507,10 +1510,13 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
         <a href={`mailto:${SUPPORT_EMAIL}`} style={{ display: "block", fontSize: 11, color: "#3d8bfd", padding: "0 10px 8px 10px", textDecoration: "none" }}>
           Assistenza
         </a>
-        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", background: "transparent", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "7px 10px", fontSize: 12 }}>
-          Esci
+        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "9px 10px", fontSize: 13, fontWeight: 600 }}>
+          <LogOut size={14} /> Esci
         </button>
       </div>
+      <button className="logout-fab" onClick={() => supabase.auth.signOut()} aria-label="Esci dall'account">
+        <LogOut size={15} /> Esci
+      </button>
     </div>
   );
 }
@@ -2044,8 +2050,8 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
               ["Eseguita da", ispezione.operatore || "—"],
               ["Coordinate GPS", ispezione.coordinate_gps || "—"],
               ...(ispezione.tipo_ispezione === "fotovoltaico" ? [["Irraggiamento solare", ispezione.irraggiamento ? `${ispezione.irraggiamento} W/m²` : "—"]] : []),
-              ["Anomalie rilevate", String(anomalieIspezione.length)],
-              ["Prossimo controllo", ispezione.prossimo_controllo ? formatData(ispezione.prossimo_controllo) : "—"],
+              ...(ispezione.tipo_ispezione === "danni" && anomalieIspezione.length === 0 ? [] : [["Anomalie rilevate", String(anomalieIspezione.length)]]),
+              ...(ispezione.tipo_ispezione !== "danni" ? [["Prossimo controllo", ispezione.prossimo_controllo ? formatData(ispezione.prossimo_controllo) : "—"]] : []),
             ].map(([label, val]) => (
               <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
                 <span style={{ color: "#6b7480" }}>{label}</span>
@@ -2175,7 +2181,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
           );
         })()}
 
-        {anomalieIspezione.length === 0 && (
+        {anomalieIspezione.length === 0 && ispezione.tipo_ispezione !== "danni" && (
           <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
             <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Anomalie e raccomandazioni</h3>
             <p style={{ fontSize: 12, color: "#6b7480" }}>Nessuna anomalia rilevata durante l'ispezione.</p>
@@ -4424,7 +4430,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         irraggiamento: irraggiamento ? Number(irraggiamento) : null,
         note: note || null,
         operatore: operatore || null,
-        prossimo_controllo: prossimoControllo ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(prossimoControllo)); return d.toISOString().slice(0, 10); })() : null,
+        prossimo_controllo: tipoIspezione !== "danni" && prossimoControllo ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(prossimoControllo)); return d.toISOString().slice(0, 10); })() : null,
         tipo_ispezione: tipoIspezione,
         drone_usato: droneUsato || null,
         scenario_volo: scenarioVolo || null,
@@ -4502,7 +4508,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       azienda,
       impianto: impiantoSel,
       dati: { dataFormattata: formatData(new Date()), ora, operatore, irraggiamento, note, prossimoControlloFormattato, coordinateGps },
-      fotoConDataUrl: foto,
+      fotoConDataUrl: foto.map((f) => ({ ...f, didascalia: didascalieFoto[f.id] || null })),
       anomalieList: anomalie,
       piano,
       ritagli,
@@ -4871,20 +4877,34 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 </p>
               )}
               {pendingPin && <AnomaliaPopup onConfirm={confermaPin} onCancel={() => setPendingPin(null)} categorie={CATEGORIE_PER_TIPO[tipoIspezione] || CATEGORIE_FOTOVOLTAICO} />}
+              {fotoAttiva && (
+                <div style={{ marginTop: 12, maxWidth: 480 }}>
+                  <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Didascalia sotto questa foto (facoltativa)</label>
+                  <input
+                    type="text"
+                    placeholder="es. Tegole rotte sul lato sud del tetto"
+                    value={didascalieFoto[fotoAttiva.id] || ""}
+                    onChange={(e) => setDidascalieFoto({ ...didascalieFoto, [fotoAttiva.id]: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+              )}
               <div style={{ marginTop: 16, maxWidth: 480 }}>
                 <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Note / commenti (opzionale)</label>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Osservazioni aggiuntive sull'ispezione..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", width: "100%" }} />
               </div>
-              <div style={{ marginTop: 12, maxWidth: 240 }}>
-                <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Prossimo controllo tra</label>
-                <select value={prossimoControllo} onChange={(e) => setProssimoControllo(e.target.value)} style={inputStyle}>
-                  <option value="">Nessuno</option>
-                  <option value="1">1 mese</option>
-                  <option value="3">3 mesi</option>
-                  <option value="6">6 mesi</option>
-                  <option value="12">1 anno</option>
-                </select>
-              </div>
+              {tipoIspezione !== "danni" && (
+                <div style={{ marginTop: 12, maxWidth: 240 }}>
+                  <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Prossimo controllo tra</label>
+                  <select value={prossimoControllo} onChange={(e) => setProssimoControllo(e.target.value)} style={inputStyle}>
+                    <option value="">Nessuno</option>
+                    <option value="1">1 mese</option>
+                    <option value="3">3 mesi</option>
+                    <option value="6">6 mesi</option>
+                    <option value="12">1 anno</option>
+                  </select>
+                </div>
+              )}
               <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
                 <button onClick={() => setStep(1)} style={{ background: "transparent", border: "1px solid #333a45", color: "#c3cad4", padding: "9px 16px", borderRadius: 6, fontSize: 13 }}>Indietro</button>
                 <button onClick={vaiAlReport} style={{ background: "#ff8c42", color: "#161a1f", border: "none", padding: "9px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>Genera report</button>
@@ -4926,8 +4946,8 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 ["Eseguita da", operatore || "—"],
                 ["Coordinate GPS", coordinateGps || "—"],
                 ...(tipoIspezione === "fotovoltaico" ? [["Irraggiamento solare", irraggiamento ? `${irraggiamento} W/m²` : "—"]] : []),
-                ["Anomalie rilevate", String(anomalie.length)],
-                ["Prossimo controllo", prossimoControllo ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(prossimoControllo)); return formatData(d); })() : "—"],
+                ...(tipoIspezione === "danni" && anomalie.length === 0 ? [] : [["Anomalie rilevate", String(anomalie.length)]]),
+                ...(tipoIspezione !== "danni" ? [["Prossimo controllo", prossimoControllo ? (() => { const d = new Date(); d.setMonth(d.getMonth() + Number(prossimoControllo)); return formatData(d); })() : "—"]] : []),
               ].map(([label, val]) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12.5 }}>
                   <span style={{ color: "#6b7480" }}>{label}</span>
@@ -4955,15 +4975,9 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                       );
                     })}
                   </div>
-                  <div style={{ marginTop: 8 }}>
-                    <input
-                      type="text"
-                      placeholder="Didascalia (facoltativa)"
-                      value={didascalieFoto[f.id] || ""}
-                      onChange={(e) => setDidascalieFoto({ ...didascalieFoto, [f.id]: e.target.value })}
-                      style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", fontSize: 12 }}
-                    />
-                  </div>
+                  {didascalieFoto[f.id] && (
+                    <p style={{ fontSize: 12, color: "#555", fontStyle: "italic", margin: "8px 0 0 0" }}>{didascalieFoto[f.id]}</p>
+                  )}
                   {anomalieFoto.length > 0 && (
                     <div style={{ marginTop: 12 }}>
                       {anomalieFoto.map((a, i) => (
@@ -4988,7 +5002,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               );
             })()}
 
-            {anomalie.length === 0 && (
+            {anomalie.length === 0 && tipoIspezione !== "danni" && (
               <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
                 <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: "0 0 10px 0" }}>Anomalie e raccomandazioni</h3>
                 <p style={{ fontSize: 12, color: "#6b7480" }}>Nessuna anomalia rilevata durante l'ispezione.</p>
