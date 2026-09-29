@@ -1451,10 +1451,10 @@ function AppShell({ session }) {
           </div>
         )}
         {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
-        {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} />}
+        {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
-        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} />}
         {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
@@ -1921,7 +1921,7 @@ function ImpiantoRow({ imp, onClick, onDelete, onEdit }) {
 
 // --- Lista impianti -----------------------------------------------------------
 
-function ListaImpianti({ impianti, loading, onReload, onOpenImpianto }) {
+function ListaImpianti({ impianti, loading, onReload, onOpenImpianto, ispezioni, fotoAll }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ nome: "", zona: "", kwp: "", cliente: "" });
@@ -1959,6 +1959,9 @@ function ListaImpianti({ impianti, loading, onReload, onOpenImpianto }) {
   const eliminaImpianto = async (id, nome) => {
     if (!window.confirm(`Eliminare "${nome}"? Verranno eliminate anche tutte le sue ispezioni e anomalie. L'operazione non è reversibile.`)) return;
     setEliminandoId(id);
+    const idIspezioniImpianto = ispezioni.filter((i) => i.impianto_id === id).map((i) => i.id);
+    const percorsiFoto = fotoAll.filter((f) => idIspezioniImpianto.includes(f.ispezione_id)).map((f) => percorsoStorageDaUrl(f.url)).filter(Boolean);
+    if (percorsiFoto.length > 0) await supabase.storage.from("foto-ispezioni").remove(percorsiFoto);
     const { error } = await supabase.from("impianti").delete().eq("id", id);
     setEliminandoId(null);
     if (error) { alert("Eliminazione non riuscita: " + error.message); return; }
@@ -2037,6 +2040,8 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda,
   const eliminaIspezione = async (id) => {
     if (!window.confirm("Eliminare questa ispezione e le sue anomalie? L'operazione non è reversibile.")) return;
     setEliminandoId(id);
+    const percorsiFoto = fotoAll.filter((f) => f.ispezione_id === id).map((f) => percorsoStorageDaUrl(f.url)).filter(Boolean);
+    if (percorsiFoto.length > 0) await supabase.storage.from("foto-ispezioni").remove(percorsiFoto);
     const { error } = await supabase.from("ispezioni").delete().eq("id", id);
     setEliminandoId(null);
     if (error) { alert("Eliminazione non riuscita: " + error.message); return; }
@@ -2205,6 +2210,11 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
 
   const eliminaFotoDalReport = async (fotoId) => {
     if (!window.confirm("Eliminare questa foto? Verranno eliminate anche le anomalie segnate su di essa.")) return;
+    const fotoDaRimuovere = fotoIspezione.find((f) => f.id === fotoId);
+    if (fotoDaRimuovere) {
+      const percorso = percorsoStorageDaUrl(fotoDaRimuovere.url);
+      if (percorso) await supabase.storage.from("foto-ispezioni").remove([percorso]);
+    }
     await supabase.from("anomalie").delete().eq("foto_id", fotoId);
     await supabase.from("foto").delete().eq("id", fotoId);
     onReload && onReload();
@@ -2240,6 +2250,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
   };
 
   const eliminaAnomaliaEsistente = async (anomaliaId) => {
+    if (!window.confirm("Eliminare questa anomalia dal report? L'operazione non è reversibile.")) return;
     await supabase.from("anomalie").delete().eq("id", anomaliaId);
     onReload && onReload();
   };
@@ -3131,6 +3142,11 @@ function Permessi({ permessi, impianti, azienda, piano, onReload }) {
 
   const eliminaPermesso = async (id) => {
     if (!window.confirm("Eliminare questo permesso?")) return;
+    const p = permessi.find((x) => x.id === id);
+    if (p?.documento_url) {
+      const percorso = percorsoStorageDaUrl(p.documento_url);
+      if (percorso) await supabase.storage.from("foto-ispezioni").remove([percorso]);
+    }
     await supabase.from("permessi").delete().eq("id", id);
     onReload();
   };
@@ -3492,6 +3508,11 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
 
   const eliminaAttestato = async (id) => {
     if (!window.confirm("Eliminare questo attestato?")) return;
+    const a = attestati.find((x) => x.id === id);
+    if (a?.documento_url) {
+      const percorso = percorsoStorageDaUrl(a.documento_url);
+      if (percorso) await supabase.storage.from("foto-ispezioni").remove([percorso]);
+    }
     await supabase.from("attestati").delete().eq("id", id);
     onReload();
   };
@@ -3769,6 +3790,11 @@ function Droni({ droni, azienda, onReload }) {
 
   const eliminaDrone = async (id) => {
     if (!window.confirm("Eliminare questo drone dal registro?")) return;
+    const d = droni.find((x) => x.id === id);
+    if (d?.documento_url) {
+      const percorso = percorsoStorageDaUrl(d.documento_url);
+      if (percorso) await supabase.storage.from("foto-ispezioni").remove([percorso]);
+    }
     await supabase.from("droni").delete().eq("id", id);
     onReload();
   };
@@ -4064,7 +4090,7 @@ const ETICHETTE_TIPO_PIANO = {
 // il vocabolario dei tipi nella Pianificazione (ispezioni + riprese) non è lo stesso del Registro voli: le 4 ispezioni diventano genericamente "ispezione" là
 const MAPPA_TIPO_PIANO_A_REGISTRO = { fotovoltaico: "ispezione", danni: "ispezione", edifici: "ispezione", elettrico: "ispezione", video: "video", foto: "foto", fpv: "fpv", altro: "altro" };
 
-function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati }) {
+function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }) {
   const [impiantoSel, setImpiantoSel] = useState(null);
   const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
   const [dataPrevista, setDataPrevista] = useState(() => new Date().toISOString().slice(0, 10));
@@ -4093,7 +4119,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati }) {
 
   const caricaTutto = async () => {
     const [{ data: checklist }, { data: att }, { data: drn }, { data: perm }, { data: piani }] = await Promise.all([
-      supabase.from("checklist_voli").select("*").order("ordine", { ascending: true }),
+      supabase.from("checklist_voli").select("*").eq("user_id", session.user.id).order("ordine", { ascending: true }),
       supabase.from("attestati").select("*"),
       supabase.from("droni").select("*"),
       supabase.from("permessi").select("*"),
@@ -4163,8 +4189,12 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati }) {
   const toggleChecklist = (idx) => setChecklistSpuntati((prev) => ({ ...prev, [idx]: !prev[idx] }));
 
   const salvaChecklistSuDb = async (lista) => {
-    await supabase.from("checklist_voli").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    if (lista.length > 0) await supabase.from("checklist_voli").insert(lista.map((testo, ordine) => ({ testo, ordine })));
+    const { error: eDel } = await supabase.from("checklist_voli").delete().eq("user_id", session.user.id);
+    if (eDel) { alert("Non sono riuscito a salvare la checklist: " + eDel.message); return; }
+    if (lista.length > 0) {
+      const { error: eIns } = await supabase.from("checklist_voli").insert(lista.map((testo, ordine) => ({ testo, ordine, user_id: session.user.id })));
+      if (eIns) alert("Non sono riuscito a salvare la checklist: " + eIns.message);
+    }
   };
   const aggiungiVoceChecklist = async () => {
     if (!nuovaVoceChecklist.trim()) return;
@@ -4277,6 +4307,11 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati }) {
   const eliminaPiano = async (id) => {
     if (!window.confirm("Eliminare questo piano di volo?")) return;
     if (editingId === id) annullaModifica();
+    const p = pianiSalvati.find((x) => x.id === id);
+    if (p?.dflight_screenshot_url) {
+      const percorso = percorsoStorageDaUrl(p.dflight_screenshot_url);
+      if (percorso) await supabase.storage.from("foto-ispezioni").remove([percorso]);
+    }
     await supabase.from("piani_volo").delete().eq("id", id);
     caricaTutto();
   };
