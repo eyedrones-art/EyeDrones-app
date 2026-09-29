@@ -290,7 +290,7 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
   const righe = [
     ["Impianto", `${impianto?.nome}`],
     ["Località", impianto?.zona],
-    ["Potenza installata", `${impianto?.kwp} kWp`],
+    ...(impianto?.kwp ? [["Potenza installata", `${impianto?.kwp} kWp`]] : []),
     ["Cliente", impianto?.cliente],
     ["Data ispezione", dati.dataFormattata],
     ["Ora ispezione", dati.ora || "—"],
@@ -605,7 +605,7 @@ function costruisciPDFRiassuntoImpianto({ azienda, impianto, storico, piano }) {
   const righeInfo = [
     ["Impianto", impianto?.nome],
     ["Località", impianto?.zona],
-    ["Potenza installata", `${impianto?.kwp} kWp`],
+    ...(impianto?.kwp ? [["Potenza installata", `${impianto?.kwp} kWp`]] : []),
     ["Cliente", impianto?.cliente],
     ["Ispezioni totali", String(storico.length)],
     ["Anomalie totali rilevate", String(storico.reduce((s, i) => s + i.anomalie, 0))],
@@ -1895,7 +1895,7 @@ function ImpiantoRow({ imp, onClick, onDelete, onEdit }) {
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-        <div className="mono" style={{ fontSize: 12.5, color: "#c3cad4" }}>{imp.kwp} kWp</div>
+        {imp.kwp ? <div className="mono" style={{ fontSize: 12.5, color: "#c3cad4" }}>{imp.kwp} kWp</div> : null}
         <div style={{ fontSize: 12.5, color: imp.anomalie > 0 ? "#ff8c42" : "#4ade80" }}>{imp.anomalie} anomalie</div>
         <div style={{ fontSize: 12, color: "#6b7480" }}>{imp.ultima}</div>
         {onDelete && (
@@ -2064,7 +2064,7 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda,
       <button onClick={onBack} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5, marginBottom: 14, padding: 0 }}>&larr; Impianti</button>
       <div style={{ marginBottom: 22 }}>
         <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0 }}>{impianto.nome}</h1>
-        <p style={{ color: "#8b95a3", fontSize: 13, margin: "4px 0 0 0" }}>{impianto.zona} &middot; {impianto.cliente} &middot; {impianto.kwp} kWp</p>
+        <p style={{ color: "#8b95a3", fontSize: 13, margin: "4px 0 0 0" }}>{[impianto.zona, impianto.cliente, impianto.kwp ? `${impianto.kwp} kWp` : null].filter(Boolean).join(" \u00b7 ")}</p>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
@@ -2335,7 +2335,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
             {[
               ["Impianto", impianto?.nome],
               ["Località", impianto?.zona],
-              ["Potenza installata", `${impianto?.kwp} kWp`],
+              ...(impianto?.kwp ? [["Potenza installata", `${impianto?.kwp} kWp`]] : []),
               ["Cliente", impianto?.cliente],
               ["Data ispezione", formatData(ispezione.data)],
               ["Ora ispezione", ispezione.ora || "—"],
@@ -2375,6 +2375,13 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
               {salvandoCampi ? "Salvataggio..." : "Salva questi dati"}
             </button>
             {campiSalvatiOk && <p style={{ fontSize: 11.5, color: "#2e7d32", fontWeight: 600, margin: 0 }}>✓ Salvato correttamente</p>}
+          </div>
+        )}
+
+        {fotoIspezione.length > 0 && ispezione.tipo_ispezione !== "danni" && (
+          <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14, fontSize: 11.5, color: "#6b7480" }}>
+            🌡️ Per cambiare palette o leggere la temperatura esatta, apri la foto originale con{" "}
+            <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ color: "#2e7d32", fontWeight: 600 }}>DJI Thermal Analysis Tool ↗</a> (gratis, Windows).
           </div>
         )}
 
@@ -2733,6 +2740,10 @@ const VOCI_MODELLO_RIPRESE = [
 
 // Testo di partenza, generico: Ivan può modificarlo liberamente da Impostazioni. Non è una consulenza legale.
 const NOTE_LEGALI_PREVENTIVO_DEFAULT = "Il presente preventivo ha validità di {validita} giorni dalla data di emissione, salvo diversa indicazione. I prezzi indicati si intendono IVA esclusa, se dovuta. Il documento non costituisce fattura. L'accettazione si intende tramite conferma scritta (email o messaggio) prima dell'inizio dei lavori. Eventuali variazioni delle condizioni operative (meteo, permessi aggiuntivi, accessibilità del sito) potranno comportare un adeguamento dei tempi o dei costi, da concordare preventivamente.";
+
+// Link ufficiale DJI: cambia palette e legge le temperature esatte dalle foto termiche originali (R-JPEG), gratis, sul computer.
+// Le versioni più recenti (dalla 3.4) leggono anche i file del Matrice 4T.
+const LINK_DJI_THERMAL_TOOL = "https://www.dji.com/downloads/softwares/dji-dtat3";
 
 const STATI_PREVENTIVO = [
   { key: "inviato", label: "Inviato", color: "#3d8bfd" },
@@ -6536,6 +6547,13 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
 
       {step === 2 && (
         <div>
+          {tipoIspezione !== "danni" && (
+            <div style={{ maxWidth: 420, background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#c3cad4" }}>
+              🌡️ Per cambiare palette o leggere la temperatura esatta di un punto, apri la foto originale (R-JPEG) con{" "}
+              <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ color: "#4ade80", fontWeight: 600 }}>DJI Thermal Analysis Tool ↗</a>
+              {" "}— gratis, sul computer (Windows). Qui carichi l'immagine così com'è.
+            </div>
+          )}
           {foto.length === 0 ? (
             <div style={{ maxWidth: 420 }}>
               <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 220, border: "1px dashed #333a45", borderRadius: 10, color: "#8b95a3", fontSize: 13, cursor: "pointer" }}>
@@ -6673,7 +6691,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               {[
                 ["Impianto", impiantoSel?.nome],
                 ["Località", impiantoSel?.zona],
-                ["Potenza installata", `${impiantoSel?.kwp} kWp`],
+                ...(impiantoSel?.kwp ? [["Potenza installata", `${impiantoSel?.kwp} kWp`]] : []),
                 ["Cliente", impiantoSel?.cliente],
                 ["Data ispezione", formatData(dataIspezione)],
                 ["Ora ispezione", ora || "—"],
