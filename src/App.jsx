@@ -1387,6 +1387,9 @@ function AppShell({ session }) {
     return { ...imp, ultima: ispezioniImp[0] ? formatData(ispezioniImp[0].data) : "Nessuna ispezione", anomalie: anomalieImp.length };
   });
 
+  // l'impianto selezionato è "in diretta": se lo modifichi altrove (es. svuoti il kWp), qui non resta mai una fotografia vecchia
+  const impiantoCorrente = impiantoAttivo ? impiantiConStat.find((i) => i.id === impiantoAttivo.id) : null;
+
   // navigazione: "Foto e video" nel menu è la galleria del registro voli
   const vai = (chiave) => {
     if (chiave === "galleria") { setVistaVoli("galleria"); setPage("registro-voli"); return; }
@@ -1452,7 +1455,7 @@ function AppShell({ session }) {
         )}
         {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
-        {page === "impianto" && impiantoAttivo && <DettaglioImpianto impianto={impiantoAttivo} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoAttivo.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
+        {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} />}
