@@ -2393,9 +2393,11 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
         )}
 
         {fotoIspezione.length > 0 && ispezione.tipo_ispezione !== "danni" && (
-          <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14, fontSize: 11.5, color: "#6b7480" }}>
-            🌡️ Per cambiare palette o leggere la temperatura esatta, apri la foto originale con{" "}
-            <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ color: "#2e7d32", fontWeight: 600 }}>DJI Thermal Analysis Tool ↗</a> (gratis, Windows).
+          <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
+            <div style={{ background: "#eef6ed", border: "1px solid #cfe8cc", borderRadius: 6, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <span style={{ fontSize: 11.5, color: "#2e5c2b" }}>🌡️ Vuoi cambiare palette o leggere la temperatura esatta di un punto?</span>
+              <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ background: "#2e7d32", color: "#fff", fontSize: 11.5, fontWeight: 700, padding: "6px 12px", borderRadius: 5, textDecoration: "none", whiteSpace: "nowrap" }}>Apri DJI Thermal Analysis Tool ↗</a>
+            </div>
           </div>
         )}
 
@@ -6611,10 +6613,9 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       {step === 2 && (
         <div>
           {tipoIspezione !== "danni" && (
-            <div style={{ maxWidth: 420, background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#c3cad4" }}>
-              🌡️ Per cambiare palette o leggere la temperatura esatta di un punto, apri la foto originale (R-JPEG) con{" "}
-              <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ color: "#4ade80", fontWeight: 600 }}>DJI Thermal Analysis Tool ↗</a>
-              {" "}— gratis, sul computer (Windows). Qui carichi l'immagine così com'è.
+            <div style={{ maxWidth: 460, background: "#16211a", border: "1px solid #2e5c2b", borderRadius: 8, padding: "12px 14px", marginBottom: 14 }}>
+              <p style={{ fontSize: 12, color: "#c3cad4", margin: "0 0 8px 0" }}>🌡️ Per cambiare palette o leggere la temperatura esatta di un punto, apri la foto originale (R-JPEG) sul computer, gratis. Qui carichi l'immagine così com'è.</p>
+              <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ display: "inline-block", background: "#4ade80", color: "#0a1a0f", fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 6, textDecoration: "none" }}>Apri DJI Thermal Analysis Tool ↗</a>
             </div>
           )}
           {foto.length === 0 ? (
