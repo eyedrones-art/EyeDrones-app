@@ -2760,8 +2760,9 @@ const VOCI_MODELLO_RIPRESE = [
 const NOTE_LEGALI_PREVENTIVO_DEFAULT = "Il presente preventivo ha validità di {validita} giorni dalla data di emissione, salvo diversa indicazione. I prezzi indicati si intendono IVA esclusa, se dovuta. Il documento non costituisce fattura. L'accettazione si intende tramite conferma scritta (email o messaggio) prima dell'inizio dei lavori. Eventuali variazioni delle condizioni operative (meteo, permessi aggiuntivi, accessibilità del sito) potranno comportare un adeguamento dei tempi o dei costi, da concordare preventivamente.";
 
 // Link ufficiale DJI: cambia palette e legge le temperature esatte dalle foto termiche originali (R-JPEG), gratis, sul computer.
-// Le versioni più recenti (dalla 3.4) leggono anche i file del Matrice 4T.
-const LINK_DJI_THERMAL_TOOL = "https://www.dji.com/downloads/softwares/dji-dtat3";
+// Punta alla pagina download del Matrice 4 (drone di Ivan): elenco semplice con link .exe diretto, niente pagine che si bloccano.
+// Le versioni più recenti (dalla 3.4) leggono anche i file del Matrice 4T. Verificare periodicamente che il link resti valido.
+const LINK_DJI_THERMAL_TOOL = "https://enterprise.dji.com/matrice-4-series/downloads";
 
 const STATI_PREVENTIVO = [
   { key: "inviato", label: "Inviato", color: "#3d8bfd" },
