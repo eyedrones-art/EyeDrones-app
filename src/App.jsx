@@ -77,7 +77,7 @@ const CHECKLIST_DEFAULT = [
 // recupera il meteo in tempo reale per una zona (servizio pubblico gratuito, nessuna chiave richiesta)
 // ---- Piani e limiti -----------------------------------------------------------
 // Free: tutto funziona ma con quantità limitate. Pilota toglie i limiti di quantità. Pro aggiunge gli strumenti di lavoro.
-const LIMITI_FREE = { voli: 30, batterie: 3, reportMese: 4 };
+const LIMITI_FREE = { voli: 15, batterie: 2, reportMese: 4 };
 // Link di pagamento Stripe (Payment Link): quando li crei su Stripe, incollali qui e i pulsanti "Passa a..." li useranno.
 const LINK_PAGAMENTO = { pilota: "", pro: "" };
 const NOME_PIANO = { free: "Free", pilota: "Pilota", pro: "Pro" };
@@ -2660,6 +2660,7 @@ function Abbonamento({ piano }) {
         { testo: "Pianificazione volo con meteo e indice Kp", incluso: true },
         { testo: "Attestati, droni e documenti per i controlli", incluso: true },
         { testo: `${LIMITI_FREE.reportMese} report di ispezione al mese`, incluso: true },
+        { testo: "Esportazione CSV del registro voli", incluso: false },
         { testo: "Preventivi e logo personalizzato", incluso: false },
       ],
     },
@@ -2671,6 +2672,7 @@ function Abbonamento({ piano }) {
         { testo: "Pianificazione volo con meteo e indice Kp", incluso: true },
         { testo: "Attestati, droni e documenti per i controlli", incluso: true },
         { testo: `${LIMITI_FREE.reportMese} report di ispezione al mese`, incluso: true },
+        { testo: "Esportazione CSV del registro voli", incluso: true },
         { testo: "Preventivi e logo personalizzato", incluso: false },
       ],
     },
@@ -5652,6 +5654,26 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
     setGenerandoPdf(false);
   };
 
+  // esportazione CSV: dati grezzi, comodi per backup, un datore di lavoro/cliente, o importarli altrove
+  const scaricaCsv = () => {
+    if (piano === "free") { onVaiAbbonamento && onVaiAbbonamento(); return; }
+    const intestazione = ["Data", "Ora", "Durata (min)", "Drone", "Luogo", "Coordinate GPS", "Tipo attività", "Categoria operativa", "Altezza max (m)", "Cliente", "Note"];
+    const escapeCsv = (v) => { const t = String(v ?? "").replace(/"/g, '""'); return /[",\n;]/.test(t) ? `"${t}"` : t; };
+    const righe = visibili.map((v) => [
+      v.data || "", v.ora ? String(v.ora).slice(0, 5) : "", v.durata_minuti ?? "", v.drone_nome || "",
+      v.luogo || "", v.coordinate_gps || "", (TIPI_ATTIVITA_VOLO.find((t) => t.key === v.tipo_attivita) || {}).label || v.tipo_attivita || "",
+      etichettaCategoriaVolo(v.categoria_operativa), v.altezza_max ?? "", v.cliente || "", v.note || "",
+    ].map(escapeCsv).join(";"));
+    const csv = "\uFEFF" + [intestazione.map(escapeCsv).join(";"), ...righe].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `registro-voli${filtroAnno !== "tutti" ? "-" + filtroAnno : ""}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
   const chip = (attivo, colore) => ({
     background: attivo ? colore + "22" : "transparent",
@@ -5706,6 +5728,9 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
           </label>
           <button onClick={scaricaPdf} disabled={generandoPdf || visibili.length === 0} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
             <FileDown size={14} /> {generandoPdf ? "Preparazione..." : "PDF"}
+          </button>
+          <button onClick={scaricaCsv} disabled={visibili.length === 0} title={piano === "free" ? "Esportazione CSV: disponibile dal piano Pilota" : "Scarica i dati in formato CSV"} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: piano === "free" ? "#8b95a3" : "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
+            {piano === "free" ? "🔒" : <FileDown size={14} />} CSV
           </button>
           <button onClick={() => (showForm ? chiudiForm() : apriNuovo())} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
             {showForm ? "Annulla" : <><Plus size={14} /> Nuovo volo</>}
