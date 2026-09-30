@@ -99,6 +99,50 @@ function valutaGiorno(g, limiteVento = 30) {
   return g.ventoMax < limiteVento && g.raffiche < Math.round(limiteVento * 1.5) && g.pioggia < 1;
 }
 
+// istante (Date) in cui il sole raggiunge l'altezza indicata (gradi) il giorno dato, al mattino o alla sera.
+// formula astronomica standard (equazione dell'alba), precisa a 1-2 minuti: nessun servizio esterno.
+// restituisce null se quel giorno il sole non arriva a quell'altezza (es. estate/inverno polare)
+function istanteSole(dataIso, lat, lon, altezza, mattina) {
+  const rad = Math.PI / 180;
+  const [a, m, g] = dataIso.split("-").map(Number);
+  const n = Math.round(Date.UTC(a, m - 1, g, 12) / 86400000 + 2440587.5 - 2451545.0);
+  const jStar = n + 0.0009 - lon / 360;
+  const M = (357.5291 + 0.98560028 * jStar) % 360;
+  const C = 1.9148 * Math.sin(M * rad) + 0.02 * Math.sin(2 * M * rad) + 0.0003 * Math.sin(3 * M * rad);
+  const lambda = (M + C + 180 + 102.9372) % 360;
+  const jTransito = 2451545.0 + jStar + 0.0053 * Math.sin(M * rad) - 0.0069 * Math.sin(2 * lambda * rad);
+  const sinDecl = Math.sin(lambda * rad) * Math.sin(23.4397 * rad);
+  const cosDecl = Math.cos(Math.asin(sinDecl));
+  const cosOmega = (Math.sin(altezza * rad) - Math.sin(lat * rad) * sinDecl) / (Math.cos(lat * rad) * cosDecl);
+  if (cosOmega < -1 || cosOmega > 1) return null;
+  const omega = Math.acos(cosOmega) / rad;
+  const j = mattina ? jTransito - omega / 360 : jTransito + omega / 360;
+  return new Date((j - 2440587.5) * 86400000);
+}
+
+// orari di luce utili per le riprese: alba, tramonto, ora d'oro (sole tra -4° e +6°) e ora blu (tra -6° e -4°)
+function calcolaLuce(dataIso, lat, lon) {
+  const t = (alt, mattina) => istanteSole(dataIso, lat, lon, alt, mattina);
+  return {
+    alba: t(-0.833, true),
+    tramonto: t(-0.833, false),
+    oraBluMattina: [t(-6, true), t(-4, true)],
+    oraOroMattina: [t(-4, true), t(6, true)],
+    oraOroSera: [t(6, false), t(-4, false)],
+    oraBluSera: [t(-4, false), t(-6, false)],
+  };
+}
+
+// ora locale del luogo del volo (non del telefono), es. "18:42"
+function formattaOraLuogo(d, timeZone) {
+  if (!d) return "—";
+  try {
+    return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", timeZone });
+  } catch (e) {
+    return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  }
+}
+
 async function recuperaMeteo(zona) {
   let latitude, longitude, name;
   if (zona && typeof zona === "object") {
@@ -127,7 +171,7 @@ async function recuperaMeteo(zona) {
     };
   });
 
-  return { nomeLocalita: name, ...meteoData.current, prossimiGiorni };
+  return { nomeLocalita: name, ...meteoData.current, prossimiGiorni, lat: latitude, lon: longitude, fusoOrario: meteoData.timezone };
 }
 
 // recupera l'indice geomagnetico planetario Kp, attuale e previsto nei prossimi giorni (servizio pubblico NOAA, nessuna chiave richiesta)
@@ -1226,6 +1270,13 @@ const CATEGORIE_PER_TIPO = {
 // --- Shell -----------------------------------------------------------
 
 export default function App() {
+  // link di consegna al cliente: pagina pubblica, senza login
+  const tokenGalleria = new URLSearchParams(window.location.search).get("galleria");
+  if (tokenGalleria) return <GalleriaCondivisa token={tokenGalleria} />;
+  return <AppAutenticata />;
+}
+
+function AppAutenticata() {
   const [session, setSession] = useState(undefined); // undefined = ancora in caricamento, null = non loggato
 
   useEffect(() => {
@@ -4193,6 +4244,9 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
   const giornoPrevistoBase = meteo?.prossimiGiorni?.find((g) => g.data === dataPrevista);
   const giornoPrevisto = giornoPrevistoBase ? { ...giornoPrevistoBase, adatto: valutaGiorno(giornoPrevistoBase, limiteVento) } : undefined;
   const kpPrevisto = meteoSpaziale?.previsioneGiorni?.find((g) => g.giorno === dataPrevista);
+  const luce = meteo && meteo.lat != null && dataPrevista ? calcolaLuce(dataPrevista, meteo.lat, meteo.lon) : null;
+  const oraLuce = (d) => formattaOraLuogo(d, meteo?.fusoOrario);
+  const fasciaLuce = ([da, a]) => (da && a ? `${oraLuce(da)} – ${oraLuce(a)}` : "—");
 
   const toggleChecklist = (idx) => setChecklistSpuntati((prev) => ({ ...prev, [idx]: !prev[idx] }));
 
@@ -4426,6 +4480,23 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
           )}
           {meteo && !giornoPrevisto && (
             <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8 }}>La data scelta è oltre i 16 giorni di previsione disponibile — riprova più vicino alla data.</p>
+          )}
+
+          {luce && (
+            <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #f5b94255", borderRadius: 6, padding: 12 }}>
+              <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Luce del {formatData(dataPrevista)} · orari del luogo del volo</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12.5 }}>
+                <div>🌅 Alba {oraLuce(luce.alba)}</div>
+                <div>🌇 Tramonto {oraLuce(luce.tramonto)}</div>
+                <div style={{ color: "#f5b942" }}>✨ Ora d'oro {fasciaLuce(luce.oraOroMattina)}</div>
+                <div style={{ color: "#f5b942" }}>✨ Ora d'oro {fasciaLuce(luce.oraOroSera)}</div>
+                <div style={{ color: "#7fa8ff" }}>🔵 Ora blu {fasciaLuce(luce.oraBluMattina)}</div>
+                <div style={{ color: "#7fa8ff" }}>🔵 Ora blu {fasciaLuce(luce.oraBluSera)}</div>
+              </div>
+              {["video", "foto", "fpv"].includes(tipoIspezione) && (
+                <p style={{ fontSize: 11, color: "#6b7480", margin: "8px 0 0 0" }}>L'ora d'oro dà la luce più calda e morbida per le riprese. Prima dell'alba e dopo il tramonto controlla le regole per il volo notturno e le luci anticollisione del drone.</p>
+              )}
+            </div>
           )}
 
           {kpPrevisto ? (
@@ -4857,6 +4928,231 @@ function DocumentiControllo({ azienda, impianti }) {
 
 
 // --- Registro voli generale (video / foto / FPV / ispezioni) -----------------------------------------------------------
+
+// --- Consegna al cliente: link pubblico alla galleria di un volo -------------------------------
+// i dati vivono nella tabella "condivisioni" (script supabase/condivisioni-galleria.sql);
+// la pagina pubblica legge solo tramite la funzione galleria_condivisa, mai le tabelle direttamente.
+
+const SCADENZE_CONDIVISIONE = [
+  { giorni: 7, label: "7 giorni" },
+  { giorni: 30, label: "30 giorni" },
+  { giorni: 90, label: "90 giorni" },
+  { giorni: 0, label: "Nessuna scadenza" },
+];
+
+function linkCondivisione(token) {
+  return `${window.location.origin}/?galleria=${token}`;
+}
+
+async function copiaNegliAppunti(testo) {
+  try {
+    await navigator.clipboard.writeText(testo);
+    return true;
+  } catch (e) {
+    window.prompt("Copia il link:", testo);
+    return false;
+  }
+}
+
+function CondivisioneVolo({ volo, nMedia }) {
+  const [links, setLinks] = useState(null);
+  const [aperto, setAperto] = useState(false);
+  const [scadenza, setScadenza] = useState(30);
+  const [messaggio, setMessaggio] = useState("");
+  const [creando, setCreando] = useState(false);
+  const [errore, setErrore] = useState(null);
+  const [copiatoId, setCopiatoId] = useState(null);
+
+  const carica = async () => {
+    const { data, error } = await supabase.from("condivisioni").select("*").eq("volo_id", String(volo.id)).order("created_at", { ascending: false });
+    if (error) {
+      setErrore(/relation|does not exist|schema cache/i.test(error.message) ? "Per usare i link di consegna esegui prima lo script SQL «condivisioni-galleria.sql» in Supabase." : error.message);
+      setLinks([]);
+      return;
+    }
+    setErrore(null);
+    setLinks(data || []);
+  };
+
+  useEffect(() => { carica(); }, [volo.id]);
+
+  const crea = async () => {
+    setCreando(true);
+    setErrore(null);
+    const titolo = [volo.luogo, formatData(volo.data)].filter(Boolean).join(" · ");
+    const scade_il = scadenza > 0 ? new Date(Date.now() + scadenza * 86400000).toISOString() : null;
+    const { data, error } = await supabase.from("condivisioni").insert({ volo_id: String(volo.id), titolo, messaggio: messaggio.trim() || null, scade_il }).select().single();
+    setCreando(false);
+    if (error) { setErrore(error.message); return; }
+    setMessaggio("");
+    setAperto(false);
+    await carica();
+    if (await copiaNegliAppunti(linkCondivisione(data.token))) setCopiatoId(data.id);
+  };
+
+  const disattiva = async (c) => {
+    if (!window.confirm("Disattivare questo link? Il cliente non potrà più aprire la galleria.")) return;
+    const { error } = await supabase.from("condivisioni").update({ attiva: false }).eq("id", c.id);
+    if (error) { setErrore(error.message); return; }
+    carica();
+  };
+
+  const copia = async (c) => {
+    if (await copiaNegliAppunti(linkCondivisione(c.token))) {
+      setCopiatoId(c.id);
+      setTimeout(() => setCopiatoId((id) => (id === c.id ? null : id)), 2000);
+    }
+  };
+
+  const ora = new Date();
+  const attivi = (links || []).filter((c) => c.attiva && (!c.scade_il || new Date(c.scade_il) > ora));
+
+  return (
+    <div style={{ marginTop: 8, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>📤 Consegna al cliente</span>
+        {!aperto && (
+          <button onClick={() => setAperto(true)} disabled={nMedia === 0} title={nMedia === 0 ? "Aggiungi prima foto o video a questo volo" : "Crea un link da mandare al cliente"} style={{ background: nMedia === 0 ? "#262b33" : "#ff8c42", color: nMedia === 0 ? "#6b7480" : "#161a1f", border: "none", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 600 }}>
+            + Crea link
+          </button>
+        )}
+      </div>
+      <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Il cliente apre la galleria di questo volo senza account e può scaricare foto e video.</p>
+
+      {aperto && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Scadenza del link</label>
+            <select value={scadenza} onChange={(e) => setScadenza(Number(e.target.value))} style={inputStyle}>
+              {SCADENZE_CONDIVISIONE.map((s) => <option key={s.giorni} value={s.giorni}>{s.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Messaggio per il cliente (facoltativo)</label>
+            <textarea rows={2} placeholder="es. Ecco le riprese di sabato, i file sono in 4K." value={messaggio} onChange={(e) => setMessaggio(e.target.value)} style={{ ...inputStyle, resize: "vertical" }} />
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={crea} disabled={creando} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{creando ? "Creazione..." : "Crea e copia il link"}</button>
+            <button onClick={() => setAperto(false)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
+          </div>
+        </div>
+      )}
+
+      {errore && <p style={{ fontSize: 11.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore}</p>}
+
+      {attivi.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+          {attivi.map((c) => (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12 }}>
+              <span className="mono" style={{ color: "#c3cad4", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{linkCondivisione(c.token)}</span>
+              <span style={{ color: "#6b7480" }}>{c.scade_il ? `scade il ${formatData(c.scade_il)}` : "senza scadenza"}</span>
+              <button onClick={() => copia(c)} style={{ background: "#262b33", border: "1px solid #333a45", color: copiatoId === c.id ? "#4ade80" : "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5 }}>{copiatoId === c.id ? "✓ Copiato" : "Copia"}</button>
+              <a href={`https://wa.me/?text=${encodeURIComponent(`${c.titolo ? c.titolo + " — " : ""}ecco le tue foto e i tuoi video: ${linkCondivisione(c.token)}`)}`} target="_blank" rel="noreferrer" style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5, textDecoration: "none" }}>WhatsApp</a>
+              <button onClick={() => disattiva(c)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "4px 10px", fontSize: 11.5 }}>Disattiva</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// pagina pubblica aperta dal cliente (?galleria=TOKEN): nessun login richiesto
+function GalleriaCondivisa({ token }) {
+  const [dati, setDati] = useState(undefined); // undefined = caricamento, null = link non valido
+  const [errore, setErrore] = useState(null);
+  const [lightbox, setLightbox] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase.rpc("galleria_condivisa", { p_token: token });
+      if (error) {
+        // token non nel formato giusto = link sbagliato, non un errore da mostrare
+        if (/uuid/i.test(error.message)) setDati(null);
+        else { setErrore(error.message); setDati(null); }
+        return;
+      }
+      setDati(data || null);
+    })();
+  }, [token]);
+
+  // link per scaricare direttamente il file (Supabase Storage lo consente con ?download)
+  const linkDownload = (m) => (/\/storage\/v1\/object\/public\//.test(m.url) ? `${m.url}${m.url.includes("?") ? "&" : "?"}download=${encodeURIComponent(m.nome || "")}` : m.url);
+
+  const pagina = { minHeight: "100vh", background: "#12151a", color: "#e7eaee", fontFamily: "'IBM Plex Sans', sans-serif", padding: "24px 16px" };
+
+  if (dati === undefined) {
+    return <div style={{ ...pagina, display: "flex", alignItems: "center", justifyContent: "center", color: "#8b95a3" }}>Caricamento...</div>;
+  }
+  if (!dati) {
+    return (
+      <div style={{ ...pagina, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+        <div style={{ maxWidth: 380 }}>
+          <div style={{ fontSize: 36, marginBottom: 8 }}>🔒</div>
+          <h1 style={{ fontSize: 18, margin: "0 0 8px 0" }}>Galleria non disponibile</h1>
+          <p style={{ fontSize: 13, color: "#8b95a3", margin: 0 }}>Il link è scaduto, è stato disattivato oppure non è corretto. Chiedi un nuovo link a chi ti ha fatto le riprese.</p>
+          {errore && <p style={{ fontSize: 11, color: "#6b7480", marginTop: 12 }}>{errore}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  const media = dati.media || [];
+  const file = media.filter((m) => m.tipo !== "link");
+  const links = media.filter((m) => m.tipo === "link");
+
+  return (
+    <div style={pagina}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+          <img src={dati.azienda_logo || LOGO_EYEDRONES} alt={dati.azienda_nome || "Eyedrones"} style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6 }} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: "#8b95a3" }}>{dati.azienda_nome || "Eyedrones"}</div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>{dati.titolo || [dati.luogo, formatData(dati.data)].filter(Boolean).join(" · ") || "Le tue riprese"}</h1>
+          </div>
+        </div>
+
+        {dati.messaggio && <p style={{ fontSize: 14, color: "#c3cad4", whiteSpace: "pre-wrap", margin: "0 0 16px 0" }}>{dati.messaggio}</p>}
+        <p style={{ fontSize: 12, color: "#6b7480", margin: "0 0 16px 0" }}>
+          {file.length} file{dati.scade_il ? ` · disponibile fino al ${formatData(dati.scade_il)}: scarica i file prima di questa data` : ""}
+        </p>
+
+        {media.length === 0 && <p style={{ fontSize: 13, color: "#8b95a3" }}>Non ci sono ancora file in questa galleria.</p>}
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
+          {file.map((m) => (
+            <div key={m.id} style={{ gridColumn: m.tipo === "video" ? "span 2" : undefined, minWidth: 0 }}>
+              {m.tipo === "foto" && (
+                <img src={m.url} alt={m.nome || "foto"} loading="lazy" onClick={() => setLightbox(m)} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, cursor: "pointer", display: "block", background: "#000" }} />
+              )}
+              {m.tipo === "video" && (
+                <video src={m.url} controls preload="metadata" playsInline style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#000", display: "block" }} />
+              )}
+              <a href={linkDownload(m)} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 4, fontSize: 12, color: "#ffb877" }}>⬇ Scarica</a>
+            </div>
+          ))}
+        </div>
+
+        {links.length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 8px 0" }}>Link ai file</p>
+            {links.map((m) => (
+              <a key={m.id} href={m.url} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 13, color: "#3d8bfd", marginBottom: 6, wordBreak: "break-all" }}>🔗 {m.nome || m.url}</a>
+            ))}
+          </div>
+        )}
+
+        <p style={{ fontSize: 11, color: "#5b6572", marginTop: 32, textAlign: "center" }}>Galleria condivisa con Eyedrones</p>
+      </div>
+
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 50, cursor: "zoom-out" }}>
+          <img src={lightbox.url} alt={lightbox.nome || "foto"} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 const TIPI_ATTIVITA_VOLO = [
   { key: "video", label: "Video", emoji: "🎬", colore: "#a78bfa" },
@@ -6048,6 +6344,8 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         <p style={{ fontSize: 10.5, color: "#6b7480", margin: "2px 0 0 0" }}>
                           Se un video molto pesante non si carica, salvalo su Drive o YouTube e incolla il link, oppure alza il "Global file size limit" nelle impostazioni Storage di Supabase.
                         </p>
+
+                        <CondivisioneVolo volo={v} nMedia={mediaVolo.length} />
 
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                           <button onClick={() => apriModifica(v)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Modifica</button>
