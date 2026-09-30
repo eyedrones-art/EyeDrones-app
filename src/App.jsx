@@ -10,7 +10,7 @@ const LOGO_EYEDRONES = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFACA
 // inizio del logo precedente (stemma con ali): chi lo aveva salvato come logo azienda passa automaticamente al nuovo
 const LOGO_PRECEDENTE_PREFISSO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFACAYAAADNkKWqAADN0ElEQVR42uz9V5ccV5YmCn77mLl7aB2BENBaEwRAkAS11kkmmU";
 
-const SUPPORT_EMAIL = "eyedrones@libero.it";
+const SUPPORT_EMAIL = "info@eyedrones.it";
 
 // informativa privacy e condizioni d'uso (es. pagine generate con Iubenda): incolla qui gli indirizzi quando sono pronti.
 // finché sono vuoti i link non compaiono e la registrazione non chiede di accettarle.
