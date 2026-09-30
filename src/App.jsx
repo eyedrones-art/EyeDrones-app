@@ -1527,6 +1527,7 @@ function AppShell({ session }) {
       <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <AvvisoInstallaApp />
         {dbError && (
           <div style={{ margin: 16, padding: "10px 14px", background: "#2a1616", border: "1px solid #5a2a2a", borderRadius: 8, color: "#ff9c9c", fontSize: 12.5 }}>
             Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.
@@ -1897,6 +1898,70 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     </div>
     <MenuTelefono items={items} page={page} setPage={setPage} userEmail={userEmail} piano={piano} usaIspezioni={usaIspezioni} avvisi={avvisi} />
     </>
+  );
+}
+
+// avviso "Installa l'app": su Android usa il pulsante di sistema, su iPhone spiega i passaggi di Safari.
+// sparisce se l'app è già installata; "Non ora" lo nasconde per 30 giorni (solo su questo dispositivo)
+const CHIAVE_INSTALLA_NASCOSTO = "eyedrones_installa_nascosto_fino";
+
+function AvvisoInstallaApp() {
+  const giaInstallata = () => window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  const suIphone = /iphone|ipad|ipod/i.test(window.navigator.userAgent) || (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
+  const nascostoPerOra = () => {
+    try { return Number(localStorage.getItem(CHIAVE_INSTALLA_NASCOSTO) || 0) > Date.now(); } catch (e) { return false; }
+  };
+  const [evento, setEvento] = useState(() => window.__eventoInstallazione || null);
+  const [visibile, setVisibile] = useState(() => !giaInstallata() && !nascostoPerOra());
+  const [passiIphone, setPassiIphone] = useState(false);
+
+  useEffect(() => {
+    const suInstallabile = () => setEvento(window.__eventoInstallazione || null);
+    const suInstallata = () => { window.__eventoInstallazione = null; setVisibile(false); };
+    window.addEventListener("eyedrones-installabile", suInstallabile);
+    window.addEventListener("appinstalled", suInstallata);
+    return () => {
+      window.removeEventListener("eyedrones-installabile", suInstallabile);
+      window.removeEventListener("appinstalled", suInstallata);
+    };
+  }, []);
+
+  // su Android/Chrome compare solo quando il browser dice che si può installare; su iPhone sempre (lì non c'è l'evento)
+  if (!visibile || (!evento && !suIphone)) return null;
+
+  const nonOra = () => {
+    try { localStorage.setItem(CHIAVE_INSTALLA_NASCOSTO, String(Date.now() + 30 * 86400000)); } catch (e) { /* senza memoria: si nasconde solo per ora */ }
+    setVisibile(false);
+  };
+  const installa = async () => {
+    if (!evento) { setPassiIphone(true); return; }
+    evento.prompt();
+    const scelta = await evento.userChoice.catch(() => null);
+    window.__eventoInstallazione = null;
+    setEvento(null);
+    if (scelta && scelta.outcome === "accepted") setVisibile(false);
+  };
+
+  return (
+    <div style={{ margin: "12px 16px 0 16px", background: "linear-gradient(135deg, rgba(126, 58, 242, 0.18), rgba(255, 140, 66, 0.14)), #1b2028", border: "1px solid #ff8c4255", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <img src="/icon-192.png" alt="" style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 180 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700 }}>Installa Eyedrones sul telefono</div>
+        {!passiIphone ? (
+          <div style={{ fontSize: 12, color: "#aab3bf", marginTop: 2 }}>Si apre con un tocco dalla schermata Home, a schermo intero, come un'app vera. Gratis, niente store.</div>
+        ) : (
+          <ol style={{ fontSize: 12, color: "#c3cad4", margin: "4px 0 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
+            <li>Apri questa pagina con <strong>Safari</strong></li>
+            <li>Tocca <strong>Condividi</strong> (il quadrato con la freccia in su ⬆️)</li>
+            <li>Scegli <strong>«Aggiungi alla schermata Home»</strong>, poi <strong>Aggiungi</strong></li>
+          </ol>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        {!passiIphone && <button onClick={installa} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>Installa</button>}
+        <button onClick={nonOra} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "8px 12px", fontSize: 12.5 }}>{passiIphone ? "Fatto" : "Non ora"}</button>
+      </div>
+    </div>
   );
 }
 

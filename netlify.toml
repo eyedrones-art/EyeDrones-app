@@ -5,3 +5,15 @@
 
 [functions]
   included_files = ["netlify/functions/*.so.1", "netlify/functions/thermal-worker.js", "node_modules/dji-thermal-sdk/**"]
+
+# il service worker e il manifest devono essere sempre quelli aggiornati
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+    Cache-Control = "no-cache"
