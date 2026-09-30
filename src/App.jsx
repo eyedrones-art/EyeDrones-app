@@ -5348,7 +5348,7 @@ function CondivisioneVolo({ volo, nMedia }) {
   const attivi = (links || []).filter((c) => c.attiva && (!c.scade_il || new Date(c.scade_il) > ora));
 
   return (
-    <div style={{ marginTop: 8, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 10 }}>
+    <div id={`condividi-${volo.id}`} style={{ marginTop: 8, background: "#161a1f", border: "1px solid #ff8c4255", borderRadius: 6, padding: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>📤 Consegna al cliente</span>
         {!aperto && (
@@ -6628,6 +6628,19 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                             <Camera size={13} /> {caricandoMediaId === v.id ? "Carico..." : "Foto/video"}
                             <input type="file" accept="image/*,video/*" multiple disabled={caricandoMediaId === v.id} onChange={(e) => aggiungiMedia(v.id, e)} style={{ display: "none" }} />
                           </label>
+                          {mediaVolo.length > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEspansoId(v.id);
+                                setTimeout(() => document.getElementById(`condividi-${v.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+                              }}
+                              title="Crea un link per consegnare foto e video al cliente"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}
+                            >
+                              📤 Condividi
+                            </button>
+                          )}
                           {nFoto > 0 && <span>📷 {nFoto}</span>}
                           {nVideo > 0 && <span>🎬 {nVideo}</span>}
                           {nLink > 0 && <span>🔗 {nLink}</span>}
