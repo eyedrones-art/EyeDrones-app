@@ -81,7 +81,11 @@ const CHECKLIST_DEFAULT = [
 // Free: tutto funziona ma con quantità limitate. Pilota toglie i limiti di quantità. Pro aggiunge gli strumenti di lavoro.
 const LIMITI_FREE = { voli: 15, batterie: 2, reportMese: 4 };
 // Link di pagamento Stripe (Payment Link): quando li crei su Stripe, incollali qui e i pulsanti "Passa a..." li useranno.
-const LINK_PAGAMENTO = { pilota: "", pro: "" };
+const LINK_PAGAMENTO = { pilota: { mese: "", anno: "" }, pro: { mese: "", anno: "" } };
+// prezzi in euro: cambiali solo qui, la pagina Abbonamento calcola da sola "al mese" e "mesi gratis"
+const PREZZI_PIANO = { pilota: { mese: 5.9, anno: 59 }, pro: { mese: 9.9, anno: 89 } };
+const euro = (n) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+const mesiGratisAnnuale = (chiave) => Math.round(12 - PREZZI_PIANO[chiave].anno / PREZZI_PIANO[chiave].mese);
 const NOME_PIANO = { free: "Free", pilota: "Pilota", pro: "Pro" };
 const ORDINE_PIANO = { free: 0, pilota: 1, pro: 2 };
 const COLORE_PIANO = { free: "#f5b942", pilota: "#3d8bfd", pro: "#4ade80" };
@@ -2942,13 +2946,24 @@ function BloccoPiano({ titolo, testo, pianoRichiesto = "Pro", onVai }) {
 }
 
 function Abbonamento({ piano }) {
-  const linkUpgrade = (chiave) => LINK_PAGAMENTO[chiave]
-    ? LINK_PAGAMENTO[chiave]
-    : `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Richiesta upgrade piano ${NOME_PIANO[chiave]}`)}&body=${encodeURIComponent(`Ciao, vorrei passare al piano ${NOME_PIANO[chiave]} sul mio account Eyedrones.`)}`;
+  const [periodo, setPeriodo] = useState("mese"); // mese | anno
+  const [mesiPausa, setMesiPausa] = useState(1);
+  const nomePeriodo = periodo === "anno" ? "annuale" : "mensile";
+  const linkDiretto = (chiave) => (LINK_PAGAMENTO[chiave] || {})[periodo];
+  const linkUpgrade = (chiave) => linkDiretto(chiave)
+    ? linkDiretto(chiave)
+    : `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Richiesta upgrade piano ${NOME_PIANO[chiave]} (${nomePeriodo})`)}&body=${encodeURIComponent(`Ciao, vorrei passare al piano ${NOME_PIANO[chiave]} con pagamento ${nomePeriodo} sul mio account Eyedrones.`)}`;
+  // finché i pagamenti non sono automatici, la pausa si chiede per email come l'upgrade
+  const linkPausa = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Pausa abbonamento ${NOME_PIANO[piano] || ""}`)}&body=${encodeURIComponent(`Ciao, vorrei mettere in pausa il mio abbonamento Eyedrones per ${mesiPausa} ${mesiPausa === 1 ? "mese" : "mesi"}. I miei dati restano salvati e l'abbonamento riparte da solo alla fine della pausa.`)}`;
+  const prezzo = (chiave) => {
+    const pr = PREZZI_PIANO[chiave];
+    if (periodo === "anno") return { grande: `${euro(pr.anno / 12)}/mese`, dettaglio: `${euro(pr.anno)} una volta all'anno · ${mesiGratisAnnuale(chiave)} mesi gratis` };
+    return { grande: `${euro(pr.mese)}/mese`, dettaglio: `oppure ${euro(pr.anno)} all'anno (${mesiGratisAnnuale(chiave)} mesi gratis)` };
+  };
 
   const piani = [
     {
-      chiave: "free", nome: "Free", prezzo: "Gratis", sotto: "Per provare l'app",
+      chiave: "free", nome: "Free", grande: "Gratis", sotto: "Per provare l'app",
       caratteristiche: [
         { testo: `Fino a ${LIMITI_FREE.voli} voli nel registro`, incluso: true },
         { testo: "Foto e video senza limite di numero", incluso: true },
@@ -2961,7 +2976,7 @@ function Abbonamento({ piano }) {
       ],
     },
     {
-      chiave: "pilota", nome: "Pilota", prezzo: "6,90€/mese", annuale: "oppure 59€ all'anno", sotto: "Per foto, video e FPV",
+      chiave: "pilota", nome: "Pilota", ...prezzo("pilota"), sotto: "Per foto, video e FPV",
       caratteristiche: [
         { testo: "Voli, foto e video senza limiti di numero", incluso: true },
         { testo: "Batterie illimitate con avvisi su cicli e stoccaggio", incluso: true },
@@ -2973,7 +2988,7 @@ function Abbonamento({ piano }) {
       ],
     },
     {
-      chiave: "pro", nome: "Pro", prezzo: "9,90€/mese", annuale: "oppure 89€ all'anno", sotto: "Per chi lavora con i clienti", badge: "Tutto incluso",
+      chiave: "pro", nome: "Pro", ...prezzo("pro"), sotto: "Per chi lavora con i clienti", badge: "Tutto incluso",
       caratteristiche: [
         { testo: "Tutto quello che c'è nel piano Pilota", incluso: true },
         { testo: "Report di ispezione illimitati, senza filigrana", incluso: true },
@@ -2987,6 +3002,14 @@ function Abbonamento({ piano }) {
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Abbonamento</h1>
       <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 24px 0" }}>Sei attualmente sul piano <strong style={{ color: COLORE_PIANO[piano] || "#f5b942" }}>{NOME_PIANO[piano] || "Free"}</strong>.</p>
+
+      <div role="group" aria-label="Periodo di pagamento" style={{ display: "inline-flex", background: "#161a1f", border: "1px solid #333a45", borderRadius: 999, padding: 3, marginBottom: 22 }}>
+        {[["mese", "Mensile"], ["anno", "Annuale"]].map(([k, label]) => (
+          <button key={k} onClick={() => setPeriodo(k)} aria-pressed={periodo === k} style={{ border: "none", borderRadius: 999, padding: "7px 16px", fontSize: 13, fontWeight: 600, background: periodo === k ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "transparent", color: periodo === k ? "#161a1f" : "#8b95a3" }}>
+            {label}{k === "anno" && <span style={{ marginLeft: 6, fontSize: 11, color: periodo === k ? "#161a1f" : "#4ade80" }}>mesi gratis</span>}
+          </button>
+        ))}
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, maxWidth: 820 }}>
         {piani.map((p) => {
@@ -3002,8 +3025,8 @@ function Abbonamento({ piano }) {
               )}
               <h2 style={{ fontSize: 16, fontWeight: 700, margin: "4px 0 2px 0" }}>{p.nome}</h2>
               <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "0 0 10px 0" }}>{p.sotto}</p>
-              <p className="mono" style={{ fontSize: 20, fontWeight: 600, color: "#ff8c42", margin: 0 }}>{p.prezzo}</p>
-              <p style={{ fontSize: 11, color: "#6b7480", margin: "2px 0 16px 0", minHeight: 14 }}>{p.annuale || ""}</p>
+              <p className="mono" style={{ fontSize: 20, fontWeight: 600, color: "#ff8c42", margin: 0 }}>{p.grande}</p>
+              <p style={{ fontSize: 11, color: periodo === "anno" && p.dettaglio ? "#4ade80" : "#6b7480", margin: "2px 0 16px 0", minHeight: 14 }}>{p.dettaglio || ""}</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
                 {p.caratteristiche.map((c) => (
                   <div key={c.testo} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12.5, color: c.incluso ? "#e7eaee" : "#6b7480" }}>
@@ -3013,14 +3036,33 @@ function Abbonamento({ piano }) {
                 ))}
               </div>
               {superiore && (
-                <a href={linkUpgrade(p.chiave)} target={LINK_PAGAMENTO[p.chiave] ? "_blank" : undefined} rel="noreferrer" style={{ display: "block", textAlign: "center", marginTop: 18, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", padding: "9px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, textDecoration: "none" }}>
-                  Passa a {p.nome}
+                <a href={linkUpgrade(p.chiave)} target={linkDiretto(p.chiave) ? "_blank" : undefined} rel="noreferrer" style={{ display: "block", textAlign: "center", marginTop: 18, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", padding: "9px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, textDecoration: "none" }}>
+                  Passa a {p.nome}{periodo === "anno" ? " (annuale)" : ""}
                 </a>
               )}
             </div>
           );
         })}
       </div>
+
+      {piano === "free" && <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "16px 0 0 0", maxWidth: 820 }}>
+        ⏸️ Non voli d'inverno? Puoi <strong style={{ color: "#c3cad4" }}>mettere in pausa</strong> l'abbonamento da 1 a 3 mesi invece di disdirlo: i tuoi voli e documenti restano salvati e alla fine riparte da solo.
+      </p>}
+
+      {piano !== "free" && (
+        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 10, padding: 18, marginTop: 20, maxWidth: 820 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px 0" }}>⏸️ Metti in pausa l'abbonamento</h3>
+          <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "0 0 12px 0" }}>Durante la pausa non paghi e l'app torna alle funzioni del piano Free, ma non perdi nulla: voli, foto, batterie e documenti restano dove sono.</p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <select value={mesiPausa} onChange={(e) => setMesiPausa(Number(e.target.value))} style={{ ...inputStyle, width: "auto" }}>
+              <option value={1}>1 mese</option>
+              <option value={2}>2 mesi</option>
+              <option value={3}>3 mesi</option>
+            </select>
+            <a href={linkPausa} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>Chiedi la pausa</a>
+          </div>
+        </div>
+      )}
 
       <div style={{ borderTop: "1px solid #262b33", marginTop: 28, paddingTop: 20, maxWidth: 480 }}>
         <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 6px 0" }}>Serve assistenza?</h3>
@@ -5788,7 +5830,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
       {mostraLimite && (
         <div style={{ maxWidth: 460, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 10, padding: 16, marginBottom: 18 }}>
           <p style={{ fontSize: 13.5, color: "#ffb877", margin: "0 0 8px 0", fontWeight: 600 }}>Hai raggiunto il limite del piano Free</p>
-          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 12px 0", lineHeight: 1.5 }}>Il piano Free include fino a {LIMITI_FREE.batterie} batterie. Con il piano Pilota (6,90 €/mese) puoi aggiungerne quante vuoi.</p>
+          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 12px 0", lineHeight: 1.5 }}>Il piano Free include fino a {LIMITI_FREE.batterie} batterie. Con il piano Pilota ({euro(PREZZI_PIANO.pilota.mese)} al mese) puoi aggiungerne quante vuoi.</p>
           <button onClick={onVaiAbbonamento} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 16px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>Vedi i piani</button>
         </div>
       )}
@@ -6030,7 +6072,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   const salva = async () => {
     if (!form.data) return;
     if (!editingId && piano === "free" && voli.length >= LIMITI_FREE.voli) {
-      if (window.confirm(`Hai raggiunto i ${LIMITI_FREE.voli} voli del piano Free. Con il piano Pilota (6,90 €/mese) puoi registrarne senza limiti. Vuoi vedere i piani?`)) onVaiAbbonamento && onVaiAbbonamento();
+      if (window.confirm(`Hai raggiunto i ${LIMITI_FREE.voli} voli del piano Free. Con il piano Pilota (${euro(PREZZI_PIANO.pilota.mese)} al mese) puoi registrarne senza limiti. Vuoi vedere i piani?`)) onVaiAbbonamento && onVaiAbbonamento();
       return;
     }
     setSalvando(true);
