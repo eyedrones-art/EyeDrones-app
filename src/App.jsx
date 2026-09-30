@@ -12,6 +12,27 @@ const LOGO_PRECEDENTE_PREFISSO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA
 
 const SUPPORT_EMAIL = "eyedrones@libero.it";
 
+// informativa privacy e condizioni d'uso (es. pagine generate con Iubenda): incolla qui gli indirizzi quando sono pronti.
+// finché sono vuoti i link non compaiono e la registrazione non chiede di accettarle.
+const LINK_PRIVACY = "";
+const LINK_TERMINI = "";
+
+// link a privacy e condizioni, solo quelli già disponibili
+function LinkLegali({ stile, separatore = " · " }) {
+  const voci = [[LINK_PRIVACY, "Privacy"], [LINK_TERMINI, "Condizioni d'uso"]].filter(([u]) => u);
+  if (voci.length === 0) return null;
+  return (
+    <>
+      {voci.map(([u, label], i) => (
+        <React.Fragment key={u}>
+          {i > 0 && separatore}
+          <a href={u} target="_blank" rel="noreferrer" style={stile}>{label}</a>
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
+
 function formatData(d) {
   if (!d) return "—";
   const date = new Date(d);
@@ -1518,7 +1539,7 @@ function AppShell({ session }) {
         {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} />}
-        {page === "impostazioni" && <Impostazioni azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
+        {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
@@ -1640,6 +1661,7 @@ function Presentazione({ onAccedi, onRegistrati }) {
         <div className="lp-wrap" style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", padding: "20px", fontSize: 13, color: "#6b7480" }}>
           <span>© {new Date().getFullYear()} Eyedrones</span>
           <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: "#8b95a3", textDecoration: "none" }}>Contatti</a>
+          <LinkLegali stile={{ color: "#8b95a3", textDecoration: "none" }} separatore={null} />
           <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ color: "#8b95a3", textDecoration: "none" }}>D-Flight ↗</a>
         </div>
       </footer>
@@ -1678,9 +1700,12 @@ function Login({ modoIniziale = "login", onTorna }) {
   const [errore, setErrore] = useState(null);
   const [caricamento, setCaricamento] = useState(false);
   const [messaggio, setMessaggio] = useState(null);
+  const [accettato, setAccettato] = useState(false);
+  const chiediAccettazione = modo === "registrati" && (LINK_PRIVACY || LINK_TERMINI);
 
   const invia = async (e) => {
     e.preventDefault();
+    if (chiediAccettazione && !accettato) { setErrore("Per creare l'account conferma di aver letto l'informativa privacy e di accettare le condizioni d'uso."); return; }
     setErrore(null);
     setMessaggio(null);
     setCaricamento(true);
@@ -1729,6 +1754,16 @@ function Login({ modoIniziale = "login", onTorna }) {
             <input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
             {modo !== "recupera" && (
               <input type="password" required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} minLength={6} />
+            )}
+            {chiediAccettazione && (
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#aab3bf", lineHeight: 1.45, cursor: "pointer" }}>
+                <input type="checkbox" checked={accettato} onChange={(e) => setAccettato(e.target.checked)} style={{ marginTop: 2 }} />
+                <span>
+                  {LINK_PRIVACY && <>Ho letto l'<a href={LINK_PRIVACY} target="_blank" rel="noreferrer" style={{ color: "#ffb877" }}>informativa privacy</a></>}
+                  {LINK_PRIVACY && LINK_TERMINI && " e "}
+                  {LINK_TERMINI && <>{LINK_PRIVACY ? "accetto" : "Accetto"} le <a href={LINK_TERMINI} target="_blank" rel="noreferrer" style={{ color: "#ffb877" }}>condizioni d'uso</a></>}
+                </span>
+              </label>
             )}
             {errore && <p style={{ color: "#ff9c9c", fontSize: 12, margin: 0 }}>{errore}</p>}
             {messaggio && <p style={{ color: "#4ade80", fontSize: 12, margin: 0 }}>{messaggio}</p>}
@@ -2948,6 +2983,7 @@ function BloccoPiano({ titolo, testo, pianoRichiesto = "Pro", onVai }) {
 function Abbonamento({ piano }) {
   const [periodo, setPeriodo] = useState("mese"); // mese | anno
   const [mesiPausa, setMesiPausa] = useState(1);
+  const [vuoleDisdire, setVuoleDisdire] = useState(false);
   const nomePeriodo = periodo === "anno" ? "annuale" : "mensile";
   const linkDiretto = (chiave) => (LINK_PAGAMENTO[chiave] || {})[periodo];
   const linkUpgrade = (chiave) => linkDiretto(chiave)
@@ -2955,6 +2991,7 @@ function Abbonamento({ piano }) {
     : `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Richiesta upgrade piano ${NOME_PIANO[chiave]} (${nomePeriodo})`)}&body=${encodeURIComponent(`Ciao, vorrei passare al piano ${NOME_PIANO[chiave]} con pagamento ${nomePeriodo} sul mio account Eyedrones.`)}`;
   // finché i pagamenti non sono automatici, la pausa si chiede per email come l'upgrade
   const linkPausa = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Pausa abbonamento ${NOME_PIANO[piano] || ""}`)}&body=${encodeURIComponent(`Ciao, vorrei mettere in pausa il mio abbonamento Eyedrones per ${mesiPausa} ${mesiPausa === 1 ? "mese" : "mesi"}. I miei dati restano salvati e l'abbonamento riparte da solo alla fine della pausa.`)}`;
+  const linkDisdetta = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Disdetta abbonamento ${NOME_PIANO[piano] || ""}`)}&body=${encodeURIComponent("Ciao, vorrei disdire il mio abbonamento Eyedrones. Ho capito che resta attivo fino alla fine del periodo già pagato e che poi l'account torna al piano Free, senza perdere i dati.")}`;
   const prezzo = (chiave) => {
     const pr = PREZZI_PIANO[chiave];
     if (periodo === "anno") return { grande: `${euro(pr.anno / 12)}/mese`, dettaglio: `${euro(pr.anno)} una volta all'anno · ${mesiGratisAnnuale(chiave)} mesi gratis` };
@@ -3061,6 +3098,27 @@ function Abbonamento({ piano }) {
             </select>
             <a href={linkPausa} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>Chiedi la pausa</a>
           </div>
+        </div>
+      )}
+
+      {piano !== "free" && (
+        <div style={{ marginTop: 14, maxWidth: 820 }}>
+          {!vuoleDisdire ? (
+            <button onClick={() => setVuoleDisdire(true)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5, padding: 0, textDecoration: "underline" }}>Disdici l'abbonamento</button>
+          ) : (
+            <div style={{ background: "#1b2028", border: "1px solid #5a2a2a", borderRadius: 10, padding: 18 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 6px 0" }}>Vuoi davvero disdire?</h3>
+              <ul style={{ fontSize: 12.5, color: "#aab3bf", margin: "0 0 12px 0", paddingLeft: 18, lineHeight: 1.6 }}>
+                <li>L'abbonamento resta attivo fino alla fine del periodo già pagato, poi non paghi più nulla.</li>
+                <li>L'account torna al piano Free: i tuoi dati restano salvati, ma oltre i {LIMITI_FREE.voli} voli e le {LIMITI_FREE.batterie} batterie non potrai aggiungerne di nuovi.</li>
+                <li>Se ti serve solo una pausa d'inverno, con la <strong style={{ color: "#e7eaee" }}>pausa</strong> qui sopra non perdi le funzioni del tuo piano quando riprendi.</li>
+              </ul>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={() => setVuoleDisdire(false)} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600 }}>Tengo l'abbonamento</button>
+                <a href={linkDisdetta} style={{ background: "none", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>Disdici comunque</a>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -5424,7 +5482,7 @@ function GalleriaCondivisa({ token }) {
           </div>
         )}
 
-        <p style={{ fontSize: 11, color: "#5b6572", marginTop: 32, textAlign: "center" }}>Galleria condivisa con Eyedrones</p>
+        <p style={{ fontSize: 11, color: "#5b6572", marginTop: 32, textAlign: "center" }}>Galleria condivisa con Eyedrones{(LINK_PRIVACY || LINK_TERMINI) && " · "}<LinkLegali stile={{ color: "#6b7480" }} /></p>
       </div>
 
       {lightbox && (
@@ -6653,7 +6711,9 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   );
 }
 
-function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli }) {
+function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userEmail }) {
+  const [confermaEliminazione, setConfermaEliminazione] = useState("");
+  const linkEliminazione = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Richiesta eliminazione account Eyedrones")}&body=${encodeURIComponent(`Ciao, chiedo di eliminare definitivamente il mio account Eyedrones (${userEmail || ""}) con tutti i dati collegati: voli, foto, video, documenti, batterie, droni e link condivisi. Se ho un abbonamento attivo, vi chiedo di interromperlo.`)}`;
   const proAttivo = piano === "pro";
 
   const handleLogo = (e) => {
@@ -6677,7 +6737,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli }) {
 
       {!proAttivo && (
         <div style={{ maxWidth: 420, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 12.5, color: "#ffb877" }}>
-          Sei sul piano <strong>Free</strong>: il logo personalizzato è disponibile solo con il piano Pro.
+          Sei sul piano <strong>{NOME_PIANO[piano] || "Free"}</strong>: il logo personalizzato è disponibile solo con il piano Pro.
         </div>
       )}
 
@@ -6741,6 +6801,28 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli }) {
           {!azienda.noteLegaliPreventivo && (
             <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Campo vuoto: nei PDF viene usato il testo di partenza mostrato come suggerimento qui sopra.</p>
           )}
+        </div>
+
+        <div style={{ borderTop: "1px solid #262b33", paddingTop: 18 }}>
+          <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Account e privacy</h3>
+          <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 10px 0" }}>
+            Accesso con <strong style={{ color: "#c3cad4" }}>{userEmail}</strong>
+            {(LINK_PRIVACY || LINK_TERMINI) && <> · <LinkLegali stile={{ color: "#3d8bfd" }} /></>}
+          </p>
+          <div style={{ background: "#1f1719", border: "1px solid #5a2a2a", borderRadius: 8, padding: 14 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: "#ff9c9c", margin: "0 0 4px 0" }}>Elimina account</p>
+            <p style={{ fontSize: 12, color: "#aab3bf", margin: "0 0 10px 0", lineHeight: 1.5 }}>
+              Cancella per sempre l'account e tutti i dati: voli, foto, video, documenti, batterie, droni e link condivisi con i clienti. Non si può annullare: se vuoi tenerli, scarica prima il PDF dal Registro voli. La richiesta viene completata entro 30 giorni e ti arriva una conferma per email.
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <input placeholder='Scrivi ELIMINA per confermare' value={confermaEliminazione} onChange={(e) => setConfermaEliminazione(e.target.value)} style={{ ...inputStyle, width: 230 }} />
+              {confermaEliminazione.trim().toUpperCase() === "ELIMINA" ? (
+                <a href={linkEliminazione} style={{ background: "#5a2a2a", color: "#fff", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>Invia la richiesta di eliminazione</a>
+              ) : (
+                <span style={{ fontSize: 11.5, color: "#6b7480" }}>per sicurezza, serve la parola di conferma</span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
