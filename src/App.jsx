@@ -1,7 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
 import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
+
+// la mappa si carica solo quando la apri, così l'app resta leggera
+const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
 
 const SUPABASE_URL = "https://kywmesdqemxqjasixpzq.supabase.co";
 const SUPABASE_KEY = "sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ";
@@ -121,6 +124,22 @@ function leggiCoordinate(testo) {
   return { lat, lon };
 }
 
+// semaforo di una singola ora: verde = si vola tranquilli, giallo = con attenzione, rosso = meglio di no
+function valutaOra(o, limiteVento = 30) {
+  if (o.vento == null) return "grigio";
+  if (o.vento >= limiteVento || o.raffiche >= limiteVento * 1.5 || (o.pioggia || 0) >= 0.5 || (o.probPioggia || 0) >= 70 || (o.visibilita != null && o.visibilita < 1000)) return "rosso";
+  if (o.vento >= limiteVento * 0.7 || o.raffiche >= limiteVento || (o.probPioggia || 0) >= 40 || (o.visibilita != null && o.visibilita < 3000)) return "giallo";
+  return "verde";
+}
+const COLORE_SEMAFORO = { verde: "#4ade80", giallo: "#f5b942", rosso: "#ff6b6b", grigio: "#5b6572" };
+
+// minuti dalla mezzanotte, nell'ora del luogo del volo
+function minutiDelGiorno(d, timeZone) {
+  if (!d) return null;
+  const [hh, mm] = formattaOraLuogo(d, timeZone).split(":").map(Number);
+  return Number.isNaN(hh) ? null : hh * 60 + mm;
+}
+
 // semaforo meteo: il limite di vento può essere quello del drone scelto (30 km/h se non indicato)
 function valutaGiorno(g, limiteVento = 30) {
   return g.ventoMax < limiteVento && g.raffiche < Math.round(limiteVento * 1.5) && g.pioggia < 1;
@@ -160,6 +179,49 @@ function calcolaLuce(dataIso, lat, lon) {
   };
 }
 
+// posizione del sole (algoritmo standard, precisione di circa un grado): azimut da nord in senso orario e altezza sull'orizzonte
+function posizioneSole(data, lat, lon) {
+  const rad = Math.PI / 180;
+  const d = data.getTime() / 86400000 - 0.5 + 2440588 - 2451545;
+  const M = rad * (357.5291 + 0.98560028 * d);
+  const L = M + rad * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M)) + rad * 102.9372 + Math.PI;
+  const e = rad * 23.4397;
+  const dec = Math.asin(Math.sin(e) * Math.sin(L));
+  const ra = Math.atan2(Math.sin(L) * Math.cos(e), Math.cos(L));
+  const H = rad * (280.16 + 360.9856235 * d) + rad * lon - ra;
+  const phi = rad * lat;
+  const az = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi));
+  const alt = Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H));
+  return { azimut: ((az / rad) + 180 + 360) % 360, altezza: alt / rad };
+}
+
+const PUNTI_CARDINALI = ["Nord", "Nord-Est", "Est", "Sud-Est", "Sud", "Sud-Ovest", "Ovest", "Nord-Ovest"];
+const puntoCardinale = (gradi) => PUNTI_CARDINALI[Math.round(gradi / 45) % 8];
+
+// fase della luna: età dall'ultima luna nuova (riferimento 6 gennaio 2000) e percentuale illuminata
+function faseLuna(data) {
+  const sinodico = 29.530588853;
+  const eta = (((data.getTime() - Date.UTC(2000, 0, 6, 18, 14)) / 86400000) % sinodico + sinodico) % sinodico;
+  const illuminata = Math.round((1 - Math.cos((2 * Math.PI * eta) / sinodico)) / 2 * 100);
+  const fasi = [["🌑", "Luna nuova"], ["🌒", "Falce crescente"], ["🌓", "Primo quarto"], ["🌔", "Gibbosa crescente"], ["🌕", "Luna piena"], ["🌖", "Gibbosa calante"], ["🌗", "Ultimo quarto"], ["🌘", "Falce calante"]];
+  const [emoji, nome] = fasi[Math.round((eta / sinodico) * 8) % 8];
+  return { emoji, nome, illuminata };
+}
+
+// istante corrispondente a un orario "HH:MM" del giorno indicato nel fuso del luogo
+function dataDaOraLuogo(dataIso, hhmm, timeZone) {
+  const [a, m, g] = dataIso.split("-").map(Number);
+  const [hh, mm] = (hhmm || "12:00").split(":").map(Number);
+  const tentativo = Date.UTC(a, m - 1, g, hh, mm);
+  try {
+    const parti = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(new Date(tentativo)).map((p) => [p.type, p.value]));
+    const comeLocale = Date.UTC(Number(parti.year), Number(parti.month) - 1, Number(parti.day), Number(parti.hour), Number(parti.minute));
+    return new Date(tentativo - (comeLocale - tentativo));
+  } catch (e) {
+    return new Date(tentativo);
+  }
+}
+
 // ora locale del luogo del volo (non del telefono), es. "18:42"
 function formattaOraLuogo(d, timeZone) {
   if (!d) return "—";
@@ -180,7 +242,7 @@ async function recuperaMeteo(zona) {
     if (!geoData.results || geoData.results.length === 0) throw new Error("Località non trovata: controlla il nome, oppure scrivi le coordinate (es. 45.0703, 7.6869).");
     ({ latitude, longitude, name } = geoData.results[0]);
   }
-  const meteoRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation,cloud_cover,weather_code&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,precipitation_probability_max&forecast_days=16&timezone=auto`);
+  const meteoRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation,cloud_cover,weather_code&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,precipitation_probability_max&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation_probability,precipitation,cloud_cover,visibility&forecast_days=16&timezone=auto`);
   const meteoData = await meteoRes.json();
 
   // per ogni giorno, indico se le condizioni sembrano adatte al volo (vento e pioggia entro soglie ragionevoli)
@@ -198,7 +260,15 @@ async function recuperaMeteo(zona) {
     };
   });
 
-  return { nomeLocalita: name, ...meteoData.current, prossimiGiorni, lat: latitude, lon: longitude, fusoOrario: meteoData.timezone };
+  // previsione ora per ora (orari già nel fuso del luogo, es. "2026-10-02T18:00")
+  const h = meteoData.hourly || {};
+  const orari = (h.time || []).map((t, i) => ({
+    data: t.slice(0, 10), ora: Number(t.slice(11, 13)),
+    temperatura: h.temperature_2m?.[i], vento: h.wind_speed_10m?.[i], raffiche: h.wind_gusts_10m?.[i],
+    probPioggia: h.precipitation_probability?.[i], pioggia: h.precipitation?.[i], nuvole: h.cloud_cover?.[i], visibilita: h.visibility?.[i],
+  }));
+
+  return { nomeLocalita: name, ...meteoData.current, prossimiGiorni, orari, lat: latitude, lon: longitude, fusoOrario: meteoData.timezone };
 }
 
 // recupera l'indice geomagnetico planetario Kp, attuale e previsto nei prossimi giorni (servizio pubblico NOAA, nessuna chiave richiesta)
@@ -3220,6 +3290,25 @@ function Abbonamento({ piano }) {
 // --- Preventivi -----------------------------------------------------------
 
 // righe tipiche di un preventivo per riprese aeree: solo descrizioni, l'importo lo decide il pilota caso per caso
+// pacchetti pronti per i lavori di ripresa più comuni: righe e oggetto, l'importo resta da scrivere
+const PACCHETTI_PREVENTIVO = [
+  { key: "immobiliare", emoji: "🏠", nome: "Immobiliare", oggetto: "Riprese aeree per annuncio immobiliare", voci: [
+    "Sopralluogo e pianificazione del volo", "Foto aeree dell'immobile e del contesto (n. scatti da concordare)", "Video aereo breve per annuncio e social (30–60 s)", "Fotoritocco e correzione colore", "Consegna file in alta risoluzione tramite link", "Licenza d'uso per la pubblicazione dell'annuncio",
+  ] },
+  { key: "matrimonio", emoji: "💍", nome: "Matrimonio", oggetto: "Riprese aeree per matrimonio", voci: [
+    "Sopralluogo della location e verifica zone di volo", "Riprese aeree durante cerimonia e ricevimento", "Foto aeree di gruppo e degli sposi", "Montaggio video aereo (2–3 min) con musica", "Consegna file tramite galleria online", "Assistenza al videomaker principale (se presente)",
+  ] },
+  { key: "evento", emoji: "🎉", nome: "Evento", oggetto: "Riprese aeree per evento", voci: [
+    "Pianificazione del volo e verifica autorizzazioni per l'area", "Riprese aeree dell'evento (durata da concordare)", "Montaggio video riassuntivo", "Clip brevi per social", "Consegna file tramite link",
+  ] },
+  { key: "aziendale", emoji: "🏢", nome: "Video aziendale", oggetto: "Riprese aeree per video aziendale", voci: [
+    "Incontro iniziale e storyboard delle riprese aeree", "Sopralluogo e pianificazione del volo", "Giornata di riprese aeree", "Montaggio, color correction e musica su licenza", "Versioni per sito web e social (16:9 e 9:16)", "Licenza d'uso commerciale", "Consegna file in 4K",
+  ] },
+  { key: "fpv", emoji: "🥽", nome: "Volo FPV", oggetto: "Riprese FPV", voci: [
+    "Pianificazione del percorso e sopralluogo", "Riprese FPV (fly-through interno o esterno)", "Osservatore durante il volo", "Stabilizzazione e montaggio", "Consegna file in 4K",
+  ] },
+];
+
 const VOCI_MODELLO_RIPRESE = [
   "Sopralluogo e pianificazione del volo",
   "Ripresa aerea — foto",
@@ -3283,6 +3372,11 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
     const vociPulite = voci.filter((v) => v.descrizione || v.importo);
     const nuoveVoci = VOCI_MODELLO_RIPRESE.map((descrizione) => ({ descrizione, importo: "" }));
     setVoci([...vociPulite, ...nuoveVoci]);
+  };
+  const aggiungiPacchetto = (pk) => {
+    const vociPulite = voci.filter((v) => v.descrizione || v.importo);
+    setVoci([...vociPulite, ...pk.voci.map((descrizione) => ({ descrizione, importo: "" }))]);
+    if (!oggetto.trim()) setOggetto(pk.oggetto);
   };
   const aggiornaVoce = (idx, campo, valore) => {
     const nuove = [...voci];
@@ -3410,11 +3504,18 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
           </div>
 
           <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "10px 12px" }}>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 6 }}>Modello rapido per riprese aeree — video, foto, FPV (opzionale)</label>
-            <button type="button" onClick={aggiungiVociRiprese} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 12.5, fontWeight: 600 }}>
-              Aggiungi voci standard
-            </button>
-            <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Aggiunge le righe tipiche di un lavoro di ripresa, senza importo: lo scrivi tu, perché varia molto da caso a caso.</p>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 6 }}>Pacchetti pronti per riprese aeree (opzionale)</label>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {PACCHETTI_PREVENTIVO.map((pk) => (
+                <button key={pk.key} type="button" onClick={() => aggiungiPacchetto(pk)} style={{ background: "#262b33", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 }}>
+                  {pk.emoji} {pk.nome}
+                </button>
+              ))}
+              <button type="button" onClick={aggiungiVociRiprese} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "8px 12px", fontSize: 12.5 }}>
+                Voci generiche
+              </button>
+            </div>
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Aggiunge le righe tipiche di quel lavoro (e l'oggetto, se è vuoto), senza importo: lo scrivi tu, perché varia molto da caso a caso. Puoi modificare o togliere ogni riga.</p>
           </div>
 
           <div>
@@ -4607,6 +4708,96 @@ const ETICHETTE_TIPO_PIANO = {
 // il vocabolario dei tipi nella Pianificazione (ispezioni + riprese) non è lo stesso del Registro voli: le 4 ispezioni diventano genericamente "ispezione" là
 const MAPPA_TIPO_PIANO_A_REGISTRO = { fotovoltaico: "ispezione", danni: "ispezione", edifici: "ispezione", elettrico: "ispezione", video: "video", foto: "foto", fpv: "fpv", altro: "altro" };
 
+// --- Calcolatore filtri ND (regola dei 180°: tempo di scatto = 1 / (2 × fps)) ------------------------
+// luminosità tipica della scena in EV a ISO 100 (regola del "sole 16" e dintorni)
+const LUCE_SCENA = [
+  { ev: 15, label: "Sole pieno" },
+  { ev: 14, label: "Sole velato / neve o spiaggia al sole: scegli +1" },
+  { ev: 13, label: "Nuvoloso luminoso" },
+  { ev: 12, label: "Coperto / ombra aperta" },
+  { ev: 11, label: "Ora d'oro, sole basso" },
+];
+const FILTRI_ND = [[2, "ND4"], [3, "ND8"], [4, "ND16"], [5, "ND32"], [6, "ND64"], [7, "ND128"], [8, "ND256"], [10, "ND1000"]];
+
+function calcolaND({ fps, apertura, iso, ev }) {
+  const tempoGiusto = (apertura * apertura) / (Math.pow(2, ev) * (iso / 100)); // secondi, senza filtro
+  const tempoVoluto = 1 / (2 * fps);
+  const stop = Math.log2(tempoVoluto / tempoGiusto);
+  if (stop < 0.5) return { stop, filtro: null, tempoGiusto, tempoVoluto };
+  const [stopFiltro, filtro] = FILTRI_ND.reduce((best, f) => (Math.abs(f[0] - stop) < Math.abs(best[0] - stop) ? f : best));
+  return { stop, filtro, stopFiltro, tempoGiusto, tempoVoluto, tempoConFiltro: tempoGiusto * Math.pow(2, stopFiltro) };
+}
+
+const frazioneTempo = (t) => (t >= 1 ? `${t.toFixed(1)} s` : `1/${Math.round(1 / t)}`);
+
+function CalcolatoreND() {
+  const [aperto, setAperto] = useState(false);
+  const [fps, setFps] = useState(30);
+  const [apertura, setApertura] = useState(1.7);
+  const [iso, setIso] = useState(100);
+  const [ev, setEv] = useState(15);
+  const r = calcolaND({ fps, apertura, iso, ev });
+  const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
+  return (
+    <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 }}>
+      <button type="button" onClick={() => setAperto(!aperto)} style={{ background: "none", border: "none", color: "#e7eaee", fontSize: 12.5, fontWeight: 600, padding: 0, display: "flex", alignItems: "center", gap: 6, width: "100%", textAlign: "left" }}>
+        🎚️ Calcolatore filtri ND per video fluidi
+        <ChevronRight size={14} style={{ marginLeft: "auto", transform: aperto ? "rotate(90deg)" : "none", color: "#6b7480" }} />
+      </button>
+      {aperto && (
+        <>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            <div style={{ flex: 1, minWidth: 90 }}>
+              <label style={lbl}>Fotogrammi al secondo</label>
+              <select value={fps} onChange={(e) => setFps(Number(e.target.value))} style={inputStyle}>
+                {[24, 25, 30, 48, 50, 60, 100, 120].map((n) => <option key={n} value={n}>{n} fps</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: 90 }}>
+              <label style={lbl}>Apertura (f/)</label>
+              <select value={apertura} onChange={(e) => setApertura(Number(e.target.value))} style={inputStyle}>
+                {[1.7, 2, 2.8, 4, 5.6, 8, 11].map((n) => <option key={n} value={n}>f/{n}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: 90 }}>
+              <label style={lbl}>ISO</label>
+              <select value={iso} onChange={(e) => setIso(Number(e.target.value))} style={inputStyle}>
+                {[50, 100, 200, 400].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 2, minWidth: 170 }}>
+              <label style={lbl}>Luce</label>
+              <select value={ev} onChange={(e) => setEv(Number(e.target.value))} style={inputStyle}>
+                {LUCE_SCENA.map((l) => <option key={l.ev} value={l.ev}>{l.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ marginTop: 10, fontSize: 13 }}>
+            {r.filtro ? (
+              <>Monta un <strong style={{ color: "#ff8c42", fontSize: 15 }}>{r.filtro}</strong>: il tempo passa da {frazioneTempo(r.tempoGiusto)} a circa {frazioneTempo(r.tempoConFiltro)} (ideale {frazioneTempo(r.tempoVoluto)}).</>
+            ) : (
+              <>Non serve un filtro: con questa luce arrivi già a circa {frazioneTempo(r.tempoGiusto)} (ideale {frazioneTempo(r.tempoVoluto)}).</>
+            )}
+          </div>
+          <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Regola dei 180°: per un movimento naturale il tempo di scatto dovrebbe essere circa il doppio dei fotogrammi (30 fps → 1/60). È una stima: controlla l'istogramma e correggi di uno stop se serve. Aperture più comuni: DJI Mini 4 Pro e Air 3 f/1.7 fissa, Avata 2 f/2.8 fissa, Mavic 3 f/2.8 regolabile.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// controlli in più che compaiono quando il tipo di volo è FPV
+const CHECKLIST_FPV = [
+  "Visore carico e acceso, immagine nitida",
+  "Antenne di drone e visore avvitate e integre",
+  "Eliche montate bene, senza crepe",
+  "Failsafe impostato e provato (cosa fa se perde il segnale)",
+  "Canale video libero, nessun altro pilota sulla stessa frequenza",
+  "Registrazione DVR attiva",
+  "Osservatore accanto a te, pronto a tenere il drone a vista",
+  "Batterie del drone e del radiocomando cariche, cinghia fissata",
+];
+
 function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }) {
   const [impiantoSel, setImpiantoSel] = useState(null);
   const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
@@ -4617,6 +4808,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
   const [erroreMeteo, setErroreMeteo] = useState(null);
   const [checklistItems, setChecklistItems] = useState(null);
   const [checklistSpuntati, setChecklistSpuntati] = useState({});
+  const [checklistFpvSpuntati, setChecklistFpvSpuntati] = useState({});
+  const [oraSole, setOraSole] = useState("18:00");
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
   const [attestatiUtente, setAttestatiUtente] = useState([]);
   const [droniUtente, setDroniUtente] = useState([]);
@@ -4703,6 +4896,9 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
   const giornoPrevisto = giornoPrevistoBase ? { ...giornoPrevistoBase, adatto: valutaGiorno(giornoPrevistoBase, limiteVento) } : undefined;
   const kpPrevisto = meteoSpaziale?.previsioneGiorni?.find((g) => g.giorno === dataPrevista);
   const luce = meteo && meteo.lat != null && dataPrevista ? calcolaLuce(dataPrevista, meteo.lat, meteo.lon) : null;
+  const istanteSoleScelto = luce ? dataDaOraLuogo(dataPrevista, oraSole, meteo.fusoOrario) : null;
+  const sole = istanteSoleScelto ? posizioneSole(istanteSoleScelto, meteo.lat, meteo.lon) : null;
+  const luna = dataPrevista ? faseLuna(dataDaOraLuogo(dataPrevista, "22:00", meteo?.fusoOrario || "Europe/Rome")) : null;
   const oraLuce = (d) => formattaOraLuogo(d, meteo?.fusoOrario);
   const fasciaLuce = ([da, a]) => (da && a ? `${oraLuce(da)} – ${oraLuce(a)}` : "—");
 
@@ -4940,6 +5136,54 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
             <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8 }}>La data scelta è oltre i 16 giorni di previsione disponibile — riprova più vicino alla data.</p>
           )}
 
+          {meteo && (meteo.orari || []).some((o) => o.data === dataPrevista) && (() => {
+            const fuso = meteo.fusoOrario;
+            const albaMin = minutiDelGiorno(luce && luce.alba, fuso) ?? 360;
+            const tramontoMin = minutiDelGiorno(luce && luce.tramonto, fuso) ?? 1200;
+            const finestreOro = luce ? [luce.oraOroMattina, luce.oraOroSera].filter(([a, b]) => a && b).map(([a, b]) => [minutiDelGiorno(a, fuso), minutiDelGiorno(b, fuso)]) : [];
+            const inOro = (ora) => finestreOro.some(([a, b]) => ora * 60 < b && (ora + 1) * 60 > a);
+            // solo le ore con luce (da un'ora prima dell'alba a un'ora dopo il tramonto)
+            const ore = meteo.orari.filter((o) => o.data === dataPrevista && (o.ora + 1) * 60 > albaMin - 60 && o.ora * 60 < tramontoMin + 60)
+              .map((o) => ({ ...o, semaforo: valutaOra(o, limiteVento), oro: inOro(o.ora) }));
+            // finestre di ore verdi consecutive
+            const finestre = [];
+            ore.forEach((o) => {
+              const ultima = finestre[finestre.length - 1];
+              if (o.semaforo !== "verde") return;
+              if (ultima && ultima.fine === o.ora) { ultima.fine = o.ora + 1; ultima.oro = ultima.oro || o.oro; }
+              else finestre.push({ inizio: o.ora, fine: o.ora + 1, oro: o.oro });
+            });
+            finestre.sort((a, b) => (b.oro - a.oro) || ((b.fine - b.inizio) - (a.fine - a.inizio)));
+            const hh = (n) => `${String(n).padStart(2, "0")}:00`;
+            const riprese = ["video", "foto", "fpv"].includes(tipoIspezione);
+            return (
+              <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 }}>
+                <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Ora per ora · soglia vento {limiteVento} km/h · ✨ = ora d'oro</p>
+                {finestre.length > 0 ? (
+                  <div style={{ fontSize: 12.5, marginBottom: 8 }}>
+                    <span style={{ color: "#4ade80", fontWeight: 700 }}>Ore migliori: </span>
+                    {finestre.slice(0, 3).map((f, i) => (
+                      <span key={i}>{i > 0 ? " · " : ""}<strong>{hh(f.inizio)}–{hh(f.fine)}</strong>{f.oro ? <span style={{ color: "#f5b942" }}>{riprese ? " ✨ con ora d'oro: ideale per riprese" : " ✨"}</span> : ""}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "0 0 8px 0" }}>Nessuna ora pienamente favorevole quel giorno: valuta un'altra data o fai attenzione a vento e pioggia.</p>
+                )}
+                <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 4 }}>
+                  {ore.map((o) => (
+                    <div key={o.ora} title={`${hh(o.ora)} · vento ${Math.round(o.vento)} km/h, raffiche ${Math.round(o.raffiche)} · pioggia ${o.probPioggia ?? "—"}% · nuvole ${o.nuvole ?? "—"}%`} style={{ flex: "0 0 auto", width: 48, textAlign: "center", background: COLORE_SEMAFORO[o.semaforo] + "1f", border: `1px solid ${COLORE_SEMAFORO[o.semaforo]}66`, borderRadius: 6, padding: "5px 2px", fontSize: 10.5, color: "#c3cad4" }}>
+                      <div style={{ fontWeight: 700, color: "#e7eaee" }}>{String(o.ora).padStart(2, "0")}{o.oro ? "✨" : ""}</div>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORE_SEMAFORO[o.semaforo], margin: "3px auto" }} />
+                      <div>💨{Math.round(o.vento)}</div>
+                      <div style={{ color: "#8b95a3" }}>↑{Math.round(o.raffiche)}</div>
+                      <div style={{ color: (o.probPioggia || 0) >= 40 ? "#7fa8ff" : "#8b95a3" }}>☔{o.probPioggia ?? "—"}%</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {luce && (
             <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #f5b94255", borderRadius: 6, padding: 12 }}>
               <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Luce del {formatData(dataPrevista)} · orari del luogo del volo</p>
@@ -4951,6 +5195,34 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
                 <div style={{ color: "#7fa8ff" }}>🔵 Ora blu {fasciaLuce(luce.oraBluMattina)}</div>
                 <div style={{ color: "#7fa8ff" }}>🔵 Ora blu {fasciaLuce(luce.oraBluSera)}</div>
               </div>
+              {sole && (
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid #262b33", flexWrap: "wrap" }}>
+                  <svg width="54" height="54" viewBox="-30 -30 60 60" aria-hidden="true" style={{ flexShrink: 0 }}>
+                    <circle r="26" fill="none" stroke="#333a45" strokeWidth="1.5" />
+                    <text y="-17" textAnchor="middle" fontSize="8" fill="#8b95a3">N</text>
+                    <g transform={`rotate(${sole.azimut})`}>
+                      <line x1="0" y1="14" x2="0" y2="-16" stroke={sole.altezza > 0 ? "#f5b942" : "#5b6572"} strokeWidth="2.5" strokeLinecap="round" />
+                      <circle cy="-19" r="4.5" fill={sole.altezza > 0 ? "#f5b942" : "#5b6572"} />
+                    </g>
+                  </svg>
+                  <div style={{ fontSize: 12.5, flex: 1, minWidth: 180 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      ☀️ Sole alle
+                      <input type="time" value={oraSole} onChange={(e) => setOraSole(e.target.value)} style={{ ...inputStyle, width: "auto", padding: "4px 8px", fontSize: 12.5 }} />
+                    </div>
+                    <div style={{ marginTop: 4, color: "#c3cad4" }}>
+                      {sole.altezza > -0.8
+                        ? <>da <strong>{puntoCardinale(sole.azimut)}</strong> ({Math.round(sole.azimut)}°), alto {Math.round(sole.altezza)}° sull'orizzonte</>
+                        : <>sotto l'orizzonte (direzione {puntoCardinale(sole.azimut)})</>}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#6b7480", marginTop: 2 }}>La freccia indica da dove arriva la luce: con il sole alle spalle il soggetto è illuminato, controluce ottieni sagome e riflessi.</div>
+                  </div>
+                </div>
+              )}
+              {luna && (
+                <div style={{ fontSize: 12.5, marginTop: 8, color: "#c3cad4" }}>{luna.emoji} Luna: <strong>{luna.nome}</strong>, illuminata al {luna.illuminata}%</div>
+              )}
+              {["video", "fpv", "foto"].includes(tipoIspezione) && <CalcolatoreND />}
               {["video", "foto", "fpv"].includes(tipoIspezione) && (
                 <p style={{ fontSize: 11, color: "#6b7480", margin: "8px 0 0 0" }}>L'ora d'oro dà la luce più calda e morbida per le riprese. Prima dell'alba e dopo il tramonto controlla le regole per il volo notturno e le luci anticollisione del drone.</p>
               )}
@@ -4982,6 +5254,18 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
               <button type="button" onClick={aggiungiVoceChecklist} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>+ Aggiungi</button>
             </div>
           </div>
+
+          {tipoIspezione === "fpv" && (
+            <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
+              <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 8px 0" }}>🥽 Controlli FPV</p>
+              {CHECKLIST_FPV.map((voce, idx) => (
+                <label key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: checklistFpvSpuntati[idx] ? "#4ade80" : "#c3cad4", marginBottom: 6, cursor: "pointer" }}>
+                  <input type="checkbox" checked={!!checklistFpvSpuntati[idx]} onChange={() => setChecklistFpvSpuntati({ ...checklistFpvSpuntati, [idx]: !checklistFpvSpuntati[idx] })} />
+                  {voce}
+                </label>
+              ))}
+            </div>
+          )}
 
           <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
             <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 4px 0" }}>🚔 In caso di controllo</p>
@@ -5412,14 +5696,18 @@ async function copiaNegliAppunti(testo) {
   }
 }
 
-function CondivisioneVolo({ volo, nMedia }) {
+function CondivisioneVolo({ volo, nMedia, media }) {
   const [links, setLinks] = useState(null);
+  const [preferiti, setPreferiti] = useState({}); // id condivisione → [id media]
   const [aperto, setAperto] = useState(false);
   const [scadenza, setScadenza] = useState(30);
   const [messaggio, setMessaggio] = useState("");
+  const [conPin, setConPin] = useState(false);
+  const [conFiligrana, setConFiligrana] = useState(false);
   const [creando, setCreando] = useState(false);
   const [errore, setErrore] = useState(null);
   const [copiatoId, setCopiatoId] = useState(null);
+  const [preferitiAperti, setPreferitiAperti] = useState(null);
 
   const carica = async () => {
     const { data, error } = await supabase.from("condivisioni").select("*").eq("volo_id", String(volo.id)).order("created_at", { ascending: false });
@@ -5430,29 +5718,45 @@ function CondivisioneVolo({ volo, nMedia }) {
     }
     setErrore(null);
     setLinks(data || []);
+    const ids = (data || []).map((c) => c.id);
+    if (ids.length) {
+      const { data: pref } = await supabase.from("condivisioni_preferiti").select("*").in("condivisione_id", ids);
+      const mappa = {};
+      (pref || []).forEach((p) => { (mappa[p.condivisione_id] = mappa[p.condivisione_id] || []).push(p.media_id); });
+      setPreferiti(mappa);
+    }
   };
 
   useEffect(() => { carica(); }, [volo.id]);
+
+  const erroreScript = (msg) => (/column|schema cache/i.test(msg) ? "Per PIN e filigrana esegui prima lo script SQL «novita-riprese-fpv.sql» in Supabase." : msg);
 
   const crea = async () => {
     setCreando(true);
     setErrore(null);
     const titolo = [volo.luogo, formatData(volo.data)].filter(Boolean).join(" · ");
     const scade_il = scadenza > 0 ? new Date(Date.now() + scadenza * 86400000).toISOString() : null;
-    const { data, error } = await supabase.from("condivisioni").insert({ volo_id: String(volo.id), titolo, messaggio: messaggio.trim() || null, scade_il }).select().single();
+    const riga = { volo_id: String(volo.id), titolo, messaggio: messaggio.trim() || null, scade_il };
+    if (conPin) riga.pin = String(Math.floor(1000 + Math.random() * 9000));
+    if (conFiligrana) { riga.filigrana = true; riga.download = false; }
+    const { data, error } = await supabase.from("condivisioni").insert(riga).select().single();
     setCreando(false);
-    if (error) { setErrore(error.message); return; }
-    setMessaggio("");
+    if (error) { setErrore(erroreScript(error.message)); return; }
+    setMessaggio(""); setConPin(false); setConFiligrana(false);
     setAperto(false);
     await carica();
     if (await copiaNegliAppunti(linkCondivisione(data.token))) setCopiatoId(data.id);
   };
 
-  const disattiva = async (c) => {
-    if (!window.confirm("Disattivare questo link? Il cliente non potrà più aprire la galleria.")) return;
-    const { error } = await supabase.from("condivisioni").update({ attiva: false }).eq("id", c.id);
-    if (error) { setErrore(error.message); return; }
+  const aggiorna = async (c, campi) => {
+    const { error } = await supabase.from("condivisioni").update(campi).eq("id", c.id);
+    if (error) { setErrore(erroreScript(error.message)); return; }
     carica();
+  };
+
+  const disattiva = (c) => {
+    if (!window.confirm("Disattivare questo link? Il cliente non potrà più aprire la galleria.")) return;
+    aggiorna(c, { attiva: false });
   };
 
   const copia = async (c) => {
@@ -5464,6 +5768,13 @@ function CondivisioneVolo({ volo, nMedia }) {
 
   const ora = new Date();
   const attivi = (links || []).filter((c) => c.attiva && (!c.scade_il || new Date(c.scade_il) > ora));
+  const piccolo = { background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5, textDecoration: "none" };
+  const opzione = (checked, onChange, testo, sotto) => (
+    <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12.5, color: "#c3cad4", cursor: "pointer" }}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ marginTop: 2 }} />
+      <span>{testo}<span style={{ display: "block", fontSize: 10.5, color: "#6b7480" }}>{sotto}</span></span>
+    </label>
+  );
 
   return (
     <div id={`condividi-${volo.id}`} style={{ marginTop: 8, background: "#161a1f", border: "1px solid #ff8c4255", borderRadius: 6, padding: 10 }}>
@@ -5475,7 +5786,7 @@ function CondivisioneVolo({ volo, nMedia }) {
           </button>
         )}
       </div>
-      <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Il cliente apre la galleria di questo volo senza account e può scaricare foto e video.</p>
+      <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Il cliente apre la galleria di questo volo senza account, sceglie le preferite con il ❤️ e scarica foto e video.</p>
 
       {aperto && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
@@ -5487,8 +5798,10 @@ function CondivisioneVolo({ volo, nMedia }) {
           </div>
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Messaggio per il cliente (facoltativo)</label>
-            <textarea rows={2} placeholder="es. Ecco le riprese di sabato, i file sono in 4K." value={messaggio} onChange={(e) => setMessaggio(e.target.value)} style={{ ...inputStyle, resize: "vertical" }} />
+            <textarea rows={2} placeholder="es. Ecco le riprese di sabato: segna con il cuore le foto che vuoi in alta risoluzione." value={messaggio} onChange={(e) => setMessaggio(e.target.value)} style={{ ...inputStyle, resize: "vertical" }} />
           </div>
+          {opzione(conPin, setConPin, "🔒 Proteggi con un PIN", "Per aprire la galleria servirà un codice di 4 cifre, che mandi tu al cliente.")}
+          {opzione(conFiligrana, setConFiligrana, "💧 Filigrana e download bloccati", "Il cliente vede le anteprime con il tuo nome sopra e non può scaricare finché non sblocchi (per esempio dopo il pagamento).")}
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={crea} disabled={creando} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{creando ? "Creazione..." : "Crea e copia il link"}</button>
             <button onClick={() => setAperto(false)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
@@ -5499,18 +5812,59 @@ function CondivisioneVolo({ volo, nMedia }) {
       {errore && <p style={{ fontSize: 11.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore}</p>}
 
       {attivi.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
-          {attivi.map((c) => (
-            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12 }}>
-              <span className="mono" style={{ color: "#c3cad4", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{linkCondivisione(c.token)}</span>
-              <span style={{ color: "#6b7480" }}>{c.scade_il ? `scade il ${formatData(c.scade_il)}` : "senza scadenza"}</span>
-              <button onClick={() => copia(c)} style={{ background: "#262b33", border: "1px solid #333a45", color: copiatoId === c.id ? "#4ade80" : "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5 }}>{copiatoId === c.id ? "✓ Copiato" : "Copia"}</button>
-              <a href={`https://wa.me/?text=${encodeURIComponent(`${c.titolo ? c.titolo + " — " : ""}ecco le tue foto e i tuoi video: ${linkCondivisione(c.token)}`)}`} target="_blank" rel="noreferrer" style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5, textDecoration: "none" }}>WhatsApp</a>
-              <button onClick={() => disattiva(c)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "4px 10px", fontSize: 11.5 }}>Disattiva</button>
-            </div>
-          ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+          {attivi.map((c) => {
+            const pref = preferiti[c.id] || [];
+            const testoWa = `${c.titolo ? c.titolo + " — " : ""}ecco le tue foto e i tuoi video: ${linkCondivisione(c.token)}${c.pin ? ` (PIN: ${c.pin})` : ""}`;
+            return (
+              <div key={c.id} style={{ borderTop: "1px solid #262b33", paddingTop: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12 }}>
+                  <span className="mono" style={{ color: "#c3cad4", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{linkCondivisione(c.token)}</span>
+                  <span style={{ color: "#6b7480" }}>{c.scade_il ? `scade il ${formatData(c.scade_il)}` : "senza scadenza"}</span>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6, fontSize: 11.5, color: "#aab3bf" }}>
+                  {c.pin && <span style={{ ...piccolo, background: "#1f2530" }}>🔒 PIN <strong className="mono">{c.pin}</strong></span>}
+                  {c.filigrana && <span style={{ ...piccolo, background: "#1f2530" }}>💧 Filigrana</span>}
+                  {c.download === false ? <span style={{ ...piccolo, background: "#1f2530", color: "#f5b942" }}>⛔ Download bloccato</span> : null}
+                  <button onClick={() => setPreferitiAperti(preferitiAperti === c.id ? null : c.id)} disabled={pref.length === 0} style={{ ...piccolo, color: pref.length ? "#ff6b8b" : "#6b7480" }}>❤️ {pref.length} {pref.length === 1 ? "preferita" : "preferite"}</button>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                  <button onClick={() => copia(c)} style={{ ...piccolo, color: copiatoId === c.id ? "#4ade80" : piccolo.color }}>{copiatoId === c.id ? "✓ Copiato" : "Copia"}</button>
+                  <a href={`https://wa.me/?text=${encodeURIComponent(testoWa)}`} target="_blank" rel="noreferrer" style={piccolo}>WhatsApp</a>
+                  {c.download === false
+                    ? <button onClick={() => aggiorna(c, { download: true, filigrana: false })} style={{ ...piccolo, color: "#4ade80" }}>🔓 Sblocca download</button>
+                    : c.filigrana !== undefined && <button onClick={() => aggiorna(c, { download: false, filigrana: true })} style={piccolo}>💧 Blocca con filigrana</button>}
+                  <button onClick={() => disattiva(c)} style={{ ...piccolo, background: "none", color: "#ff9c9c" }}>Disattiva</button>
+                </div>
+                {preferitiAperti === c.id && pref.length > 0 && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: 6, marginTop: 8 }}>
+                    {pref.map((id) => {
+                      const m = (media || []).find((x) => String(x.id) === String(id));
+                      if (!m) return null;
+                      return m.tipo === "foto"
+                        ? <img key={id} src={m.url} alt={m.nome || ""} title={m.nome || ""} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 4 }} />
+                        : <div key={id} title={m.nome || ""} style={{ aspectRatio: "1 / 1", background: "#262b33", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, color: "#c3cad4", padding: 4, textAlign: "center", overflow: "hidden" }}>🎬 {m.nome}</div>;
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
+    </div>
+  );
+}
+
+// filigrana ripetuta sopra le anteprime: un deterrente, non una protezione assoluta
+function Filigrana({ testo }) {
+  return (
+    <div aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ transform: "rotate(-30deg)", display: "flex", flexDirection: "column", gap: 18, opacity: 0.38 }}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} style={{ whiteSpace: "nowrap", fontSize: 16, fontWeight: 800, color: "#fff", textShadow: "0 0 3px #000", letterSpacing: 1 }}>{`${testo} · ${testo} · ${testo}`}</div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -5520,19 +5874,38 @@ function GalleriaCondivisa({ token }) {
   const [dati, setDati] = useState(undefined); // undefined = caricamento, null = link non valido
   const [errore, setErrore] = useState(null);
   const [lightbox, setLightbox] = useState(null);
+  const [pin, setPin] = useState(null);
+  const [pinScritto, setPinScritto] = useState("");
+  const [preferiti, setPreferiti] = useState([]);
+  const [soloPreferiti, setSoloPreferiti] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase.rpc("galleria_condivisa", { p_token: token });
-      if (error) {
-        // token non nel formato giusto = link sbagliato, non un errore da mostrare
-        if (/uuid/i.test(error.message)) setDati(null);
-        else { setErrore(error.message); setDati(null); }
-        return;
-      }
-      setDati(data || null);
-    })();
-  }, [token]);
+  const carica = async (pinDaProvare) => {
+    const parametri = pinDaProvare ? { p_token: token, p_pin: pinDaProvare } : { p_token: token };
+    const { data, error } = await supabase.rpc("galleria_condivisa", parametri);
+    if (error) {
+      // token non nel formato giusto = link sbagliato, non un errore da mostrare
+      if (/uuid/i.test(error.message)) setDati(null);
+      else { setErrore(error.message); setDati(null); }
+      return;
+    }
+    if (data && data.richiede_pin) {
+      setDati({ richiedePin: true, pinErrato: !!pinDaProvare });
+      return;
+    }
+    if (pinDaProvare) setPin(pinDaProvare);
+    setPreferiti((data && data.preferiti) || []);
+    setDati(data || null);
+  };
+
+  useEffect(() => { carica(null); }, [token]);
+
+  const cambiaPreferito = async (m) => {
+    const id = String(m.id);
+    const ora = preferiti.map(String).includes(id);
+    setPreferiti(ora ? preferiti.filter((x) => String(x) !== id) : [...preferiti, id]);
+    const { error } = await supabase.rpc("galleria_preferito", { p_token: token, p_pin: pin, p_media_id: id, p_preferito: !ora });
+    if (error) setPreferiti(preferiti); // torna com'era se non è andata
+  };
 
   // link per scaricare direttamente il file (Supabase Storage lo consente con ?download)
   const linkDownload = (m) => (/\/storage\/v1\/object\/public\//.test(m.url) ? `${m.url}${m.url.includes("?") ? "&" : "?"}download=${encodeURIComponent(m.nome || "")}` : m.url);
@@ -5541,6 +5914,20 @@ function GalleriaCondivisa({ token }) {
 
   if (dati === undefined) {
     return <div style={{ ...pagina, display: "flex", alignItems: "center", justifyContent: "center", color: "#8b95a3" }}>Caricamento...</div>;
+  }
+  if (dati && dati.richiedePin) {
+    return (
+      <div style={{ ...pagina, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <form onSubmit={(e) => { e.preventDefault(); carica(pinScritto.trim()); }} style={{ maxWidth: 320, width: "100%", textAlign: "center" }}>
+          <div style={{ fontSize: 34, marginBottom: 6 }}>🔒</div>
+          <h1 style={{ fontSize: 18, margin: "0 0 6px 0" }}>Galleria protetta</h1>
+          <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 16px 0" }}>Inserisci il PIN che ti ha mandato chi ha fatto le riprese.</p>
+          <input inputMode="numeric" autoFocus maxLength={8} value={pinScritto} onChange={(e) => setPinScritto(e.target.value)} placeholder="PIN" style={{ ...inputStyle, textAlign: "center", fontSize: 22, letterSpacing: 8 }} />
+          {dati.pinErrato && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>PIN non corretto, riprova.</p>}
+          <button type="submit" style={{ marginTop: 12, width: "100%", background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 14 }}>Apri la galleria</button>
+        </form>
+      </div>
+    );
   }
   if (!dati) {
     return (
@@ -5556,8 +5943,14 @@ function GalleriaCondivisa({ token }) {
   }
 
   const media = dati.media || [];
-  const file = media.filter((m) => m.tipo !== "link");
+  const tuttiFile = media.filter((m) => m.tipo !== "link");
+  const idPreferiti = preferiti.map(String);
+  const file = soloPreferiti ? tuttiFile.filter((m) => idPreferiti.includes(String(m.id))) : tuttiFile;
   const links = media.filter((m) => m.tipo === "link");
+  const conFiligrana = !!dati.filigrana;
+  const puoScaricare = dati.download !== false;
+  const testoFiligrana = dati.azienda_nome || "Eyedrones";
+  const nienteMenu = conFiligrana ? (e) => e.preventDefault() : undefined;
 
   return (
     <div style={pagina}>
@@ -5571,27 +5964,45 @@ function GalleriaCondivisa({ token }) {
         </div>
 
         {dati.messaggio && <p style={{ fontSize: 14, color: "#c3cad4", whiteSpace: "pre-wrap", margin: "0 0 16px 0" }}>{dati.messaggio}</p>}
-        <p style={{ fontSize: 12, color: "#6b7480", margin: "0 0 16px 0" }}>
-          {file.length} file{dati.scade_il ? ` · disponibile fino al ${formatData(dati.scade_il)}: scarica i file prima di questa data` : ""}
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "0 0 16px 0" }}>
+          <p style={{ fontSize: 12, color: "#6b7480", margin: 0, flex: 1, minWidth: 200 }}>
+            {tuttiFile.length} file{dati.scade_il ? ` · disponibile fino al ${formatData(dati.scade_il)}` : ""}{puoScaricare && dati.scade_il ? ": scarica i file prima di questa data" : ""}
+          </p>
+          <button onClick={() => setSoloPreferiti(!soloPreferiti)} disabled={idPreferiti.length === 0 && !soloPreferiti} style={{ background: soloPreferiti ? "#ff6b8b22" : "#1b2028", border: "1px solid #ff6b8b66", color: "#ff8fa6", borderRadius: 999, padding: "6px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+            ❤️ {soloPreferiti ? "Mostra tutte" : `Le mie preferite (${idPreferiti.length})`}
+          </button>
+        </div>
+        {!puoScaricare && (
+          <p style={{ fontSize: 12.5, color: "#f5b942", background: "#2a2416", border: "1px solid #5a4a20", borderRadius: 8, padding: "8px 12px", margin: "0 0 16px 0" }}>
+            Queste sono anteprime. Segna con il ❤️ le foto e i video che vuoi: il download in alta qualità sarà disponibile quando {testoFiligrana} lo sbloccherà.
+          </p>
+        )}
 
         {media.length === 0 && <p style={{ fontSize: 13, color: "#8b95a3" }}>Non ci sono ancora file in questa galleria.</p>}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
-          {file.map((m) => (
-            <div key={m.id} style={{ gridColumn: m.tipo === "video" ? "span 2" : undefined, minWidth: 0 }}>
-              {m.tipo === "foto" && (
-                <img src={m.url} alt={m.nome || "foto"} loading="lazy" onClick={() => setLightbox(m)} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, cursor: "pointer", display: "block", background: "#000" }} />
-              )}
-              {m.tipo === "video" && (
-                <video src={m.url} controls preload="metadata" playsInline style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#000", display: "block" }} />
-              )}
-              <a href={linkDownload(m)} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 4, fontSize: 12, color: "#ffb877" }}>⬇ Scarica</a>
-            </div>
-          ))}
+          {file.map((m) => {
+            const amato = idPreferiti.includes(String(m.id));
+            return (
+              <div key={m.id} style={{ gridColumn: m.tipo === "video" ? "span 2" : undefined, minWidth: 0 }}>
+                <div style={{ position: "relative" }} onContextMenu={nienteMenu}>
+                  {m.tipo === "foto" && (
+                    <img src={m.url} alt={m.nome || "foto"} loading="lazy" draggable={!conFiligrana} onClick={() => setLightbox(m)} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, cursor: "pointer", display: "block", background: "#000", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: conFiligrana ? "none" : "default" }} />
+                  )}
+                  {m.tipo === "video" && (
+                    <video src={m.url} controls preload="metadata" playsInline controlsList={puoScaricare ? undefined : "nodownload"} style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#000", display: "block" }} />
+                  )}
+                  {conFiligrana && <Filigrana testo={testoFiligrana} />}
+                  <button onClick={() => cambiaPreferito(m)} aria-label={amato ? "Togli dalle preferite" : "Aggiungi alle preferite"} style={{ position: "absolute", top: 6, right: 6, width: 34, height: 34, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.55)", color: amato ? "#ff4d6d" : "#fff", fontSize: 17, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{amato ? "♥" : "♡"}</button>
+                </div>
+                {puoScaricare && <a href={linkDownload(m)} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 4, fontSize: 12, color: "#ffb877" }}>⬇ Scarica</a>}
+              </div>
+            );
+          })}
         </div>
+        {soloPreferiti && file.length === 0 && <p style={{ fontSize: 13, color: "#8b95a3" }}>Non hai ancora scelto nessuna preferita: tocca il ♡ sulle foto.</p>}
 
-        {links.length > 0 && (
+        {links.length > 0 && puoScaricare && (
           <div style={{ marginTop: 20 }}>
             <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 8px 0" }}>Link ai file</p>
             {links.map((m) => (
@@ -5604,8 +6015,224 @@ function GalleriaCondivisa({ token }) {
       </div>
 
       {lightbox && (
-        <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 50, cursor: "zoom-out" }}>
-          <img src={lightbox.url} alt={lightbox.nome || "foto"} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+        <div onClick={() => setLightbox(null)} onContextMenu={nienteMenu} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 50, cursor: "zoom-out" }}>
+          <div style={{ position: "relative", maxWidth: "100%", maxHeight: "100%" }}>
+            <img src={lightbox.url} alt={lightbox.nome || "foto"} draggable={!conFiligrana} style={{ maxWidth: "100%", maxHeight: "90vh", objectFit: "contain", display: "block" }} />
+            {conFiligrana && <Filigrana testo={testoFiligrana} />}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Liberatoria firmata sul telefono ----------------------------------------------------------
+// testi di partenza generici, modificabili prima della firma: non sono una consulenza legale
+
+const TESTI_LIBERATORIA = {
+  persona: "Il/la sottoscritto/a {nome} autorizza {operatore} a effettuare, in data {data} presso {luogo}, riprese fotografiche e video con drone nelle quali compare la propria immagine, e a utilizzarle per le finalità concordate (consegna al committente, portfolio, pubblicazione su sito web e social), a titolo gratuito.\n\nL'autorizzazione è data ai sensi dell'art. 10 del Codice Civile e degli artt. 96 e 97 della Legge 633/1941. Ne è vietato l'uso in contesti che ledano la dignità o il decoro della persona.\n\nI dati personali sono trattati secondo il Regolamento UE 2016/679 (GDPR) solo per queste finalità. L'autorizzazione può essere revocata in qualsiasi momento per gli utilizzi futuri scrivendo a {email}.",
+  proprieta: "Il/la sottoscritto/a {nome}, in qualità di proprietario o avente titolo dell'immobile/area situato in {luogo}, autorizza {operatore} al sorvolo con drone e alle riprese fotografiche e video dell'immobile/area in data {data}, e all'utilizzo delle immagini per le finalità concordate (consegna al committente, portfolio, pubblicazione su sito web e social).\n\nIl sorvolo avviene nel rispetto delle regole ENAC e del Regolamento UE 2019/947. I dati personali sono trattati secondo il Regolamento UE 2016/679 (GDPR) solo per queste finalità. L'autorizzazione può essere revocata per gli utilizzi futuri scrivendo a {email}.",
+};
+
+function testoLiberatoria(tipo, { nome, operatore, data, luogo, email }) {
+  return TESTI_LIBERATORIA[tipo]
+    .replaceAll("{nome}", nome || "_______________")
+    .replaceAll("{operatore}", operatore || "l'operatore")
+    .replaceAll("{data}", data || "_______")
+    .replaceAll("{luogo}", luogo || "_______________")
+    .replaceAll("{email}", email || SUPPORT_EMAIL);
+}
+
+// riquadro dove firmare con il dito (o il mouse)
+function AreaFirma({ onCambio }) {
+  const ref = useRef(null);
+  const disegnando = useRef(false);
+  const vuota = useRef(true);
+
+  useEffect(() => {
+    const c = ref.current;
+    const scala = window.devicePixelRatio || 1;
+    c.width = c.offsetWidth * scala;
+    c.height = c.offsetHeight * scala;
+    const ctx = c.getContext("2d");
+    ctx.scale(scala, scala);
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#111";
+  }, []);
+
+  const punto = (e) => {
+    const r = ref.current.getBoundingClientRect();
+    return [e.clientX - r.left, e.clientY - r.top];
+  };
+  const inizia = (e) => {
+    e.preventDefault();
+    ref.current.setPointerCapture(e.pointerId);
+    disegnando.current = true;
+    const ctx = ref.current.getContext("2d");
+    ctx.beginPath();
+    ctx.moveTo(...punto(e));
+  };
+  const muovi = (e) => {
+    if (!disegnando.current) return;
+    const ctx = ref.current.getContext("2d");
+    ctx.lineTo(...punto(e));
+    ctx.stroke();
+    if (vuota.current) { vuota.current = false; onCambio && onCambio(ref.current); }
+  };
+  const finisci = () => { disegnando.current = false; };
+  const cancella = () => {
+    const c = ref.current;
+    c.getContext("2d").clearRect(0, 0, c.width, c.height);
+    vuota.current = true;
+    onCambio && onCambio(null);
+  };
+
+  return (
+    <div>
+      <canvas ref={ref} onPointerDown={inizia} onPointerMove={muovi} onPointerUp={finisci} onPointerLeave={finisci}
+        style={{ width: "100%", height: 150, background: "#fff", borderRadius: 6, touchAction: "none", display: "block", cursor: "crosshair" }} />
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+        <span style={{ fontSize: 10.5, color: "#6b7480" }}>Firma qui con il dito</span>
+        <button type="button" onClick={cancella} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 11.5, padding: 0 }}>Cancella firma</button>
+      </div>
+    </div>
+  );
+}
+
+function costruisciPDFLiberatoria({ azienda, titolo, testo, nome, firmaDataUrl, luogo }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  let y = 18;
+  try { if (azienda?.logo) doc.addImage(azienda.logo, "PNG", 15, 10, 18, 18); } catch (e) { /* logo non leggibile: pazienza */ }
+  doc.setFont("helvetica", "bold"); doc.setFontSize(12);
+  doc.text(azienda?.nome || "Eyedrones", 38, 17);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(110);
+  doc.text("Operatore UAS", 38, 22);
+  doc.setTextColor(0);
+  y = 40;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+  doc.text(titolo, 15, y);
+  y += 10;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10.5);
+  const righe = doc.splitTextToSize(testo, 180);
+  doc.text(righe, 15, y, { lineHeightFactor: 1.45 });
+  y += righe.length * 5.6 + 12;
+  doc.setFontSize(10);
+  doc.text(`Luogo: ${luogo || "—"}`, 15, y);
+  doc.text(`Data e ora della firma: ${new Date().toLocaleString("it-IT", { dateStyle: "long", timeStyle: "short" })}`, 15, y + 6);
+  y += 18;
+  doc.text(`Firma di ${nome}:`, 15, y);
+  if (firmaDataUrl) doc.addImage(firmaDataUrl, "PNG", 15, y + 3, 80, 30);
+  doc.setDrawColor(150); doc.line(15, y + 34, 95, y + 34);
+  doc.setFontSize(8); doc.setTextColor(130);
+  doc.text("Documento firmato elettronicamente sul dispositivo dell'operatore con l'app Eyedrones.", 15, 287);
+  return doc;
+}
+
+function LiberatorieVolo({ volo, azienda }) {
+  const [elenco, setElenco] = useState(null);
+  const [mancaTabella, setMancaTabella] = useState(false);
+  const [aperto, setAperto] = useState(false);
+  const [tipo, setTipo] = useState("persona");
+  const [nome, setNome] = useState("");
+  const [testo, setTesto] = useState("");
+  const [testoModificato, setTestoModificato] = useState(false);
+  const [firma, setFirma] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState(null);
+
+  const carica = async () => {
+    const { data, error } = await supabase.from("liberatorie").select("*").eq("volo_id", String(volo.id)).order("created_at", { ascending: false });
+    if (error) { setMancaTabella(/relation|does not exist|schema cache/i.test(error.message)); setElenco([]); return; }
+    setElenco(data || []);
+  };
+  useEffect(() => { carica(); }, [volo.id]);
+
+  // il testo si riempie da solo finché non lo modifichi a mano
+  const testoAutomatico = testoLiberatoria(tipo, { nome, operatore: azienda?.nome, data: formatData(volo.data), luogo: volo.luogo, email: SUPPORT_EMAIL });
+  const testoFinale = testoModificato ? testo : testoAutomatico;
+
+  const salva = async () => {
+    if (!nome.trim() || !firma) return;
+    setSalvando(true);
+    setErrore(null);
+    try {
+      const titolo = tipo === "persona" ? "Liberatoria per l'utilizzo dell'immagine" : "Autorizzazione al sorvolo e alle riprese";
+      const doc = costruisciPDFLiberatoria({ azienda, titolo, testo: testoFinale, nome: nome.trim(), firmaDataUrl: firma.toDataURL("image/png"), luogo: volo.luogo });
+      const blob = doc.output("blob");
+      const percorso = `liberatorie/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.pdf`;
+      const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(percorso, blob, { contentType: "application/pdf" });
+      if (eUp) throw eUp;
+      const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(percorso);
+      const { error } = await supabase.from("liberatorie").insert({ volo_id: String(volo.id), tipo, nome: nome.trim(), pdf_url: pub.publicUrl, pdf_percorso: percorso });
+      if (error) throw error;
+      setAperto(false); setNome(""); setFirma(null); setTestoModificato(false);
+      carica();
+    } catch (e) {
+      setErrore("Non sono riuscito a salvare la liberatoria: " + (e.message || e));
+    }
+    setSalvando(false);
+  };
+
+  const elimina = async (l) => {
+    if (!window.confirm(`Eliminare la liberatoria di ${l.nome}?`)) return;
+    if (l.pdf_percorso) await supabase.storage.from("foto-ispezioni").remove([l.pdf_percorso]);
+    await supabase.from("liberatorie").delete().eq("id", l.id);
+    carica();
+  };
+
+  if (elenco === null) return null;
+  const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
+  const piccolo = { background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5, textDecoration: "none" };
+
+  return (
+    <div style={{ marginTop: 8, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>✍️ Liberatorie</span>
+        {!aperto && !mancaTabella && <button onClick={() => setAperto(true)} style={{ ...piccolo, color: "#ffb877", borderColor: "#ff8c4266", fontWeight: 600 }}>+ Fai firmare</button>}
+      </div>
+      {mancaTabella && <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Per le liberatorie esegui prima lo script SQL «novita-riprese-fpv.sql» in Supabase.</p>}
+      {!mancaTabella && elenco.length === 0 && !aperto && <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Persone riprese o proprietari di case e terreni firmano sul telefono: il PDF resta salvato in questo volo.</p>}
+
+      {aperto && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <label style={lbl}>Chi firma</label>
+              <select value={tipo} onChange={(e) => { setTipo(e.target.value); setTestoModificato(false); }} style={inputStyle}>
+                <option value="persona">Persona ripresa (uso dell'immagine)</option>
+                <option value="proprieta">Proprietario di casa o terreno (sorvolo)</option>
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <label style={lbl}>Nome e cognome</label>
+              <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="es. Mario Rossi" style={inputStyle} />
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Testo (puoi modificarlo prima della firma)</label>
+            <textarea rows={6} value={testoFinale} onChange={(e) => { setTesto(e.target.value); setTestoModificato(true); }} style={{ ...inputStyle, resize: "vertical", fontSize: 12.5, lineHeight: 1.5 }} />
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>Testo di partenza generico, non una consulenza legale: per lavori importanti fallo controllare da un professionista. Per i minorenni deve firmare un genitore.</p>
+          </div>
+          <AreaFirma onCambio={setFirma} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={salva} disabled={salvando || !nome.trim() || !firma} style={{ background: nome.trim() && firma ? "#ff8c42" : "#333a45", color: nome.trim() && firma ? "#161a1f" : "#6b7480", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{salvando ? "Salvataggio..." : "Salva liberatoria firmata"}</button>
+            <button onClick={() => { setAperto(false); setFirma(null); }} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
+          </div>
+        </div>
+      )}
+      {errore && <p style={{ fontSize: 11.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore}</p>}
+
+      {elenco.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+          {elenco.map((l) => (
+            <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5 }}>
+              <span style={{ flex: 1 }}>{l.tipo === "persona" ? "👤" : "🏠"} {l.nome} <span style={{ color: "#6b7480", fontSize: 11 }}>· {formatData(l.created_at)}</span></span>
+              <a href={l.pdf_url} target="_blank" rel="noreferrer" style={piccolo}>Apri PDF</a>
+              <button onClick={() => elimina(l)} style={{ ...piccolo, background: "none", color: "#ff9c9c" }}>Elimina</button>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -5849,6 +6476,7 @@ function formVoloVuoto() {
     durata: "", drone_id: "", drone_nome: "", luogo: "", coordinate_gps: "",
     tipo_attivita: "video", categoria_operativa: "aperta_a1",
     altezza_max: "", cliente: "", note: "", batterie_usate: [],
+    osservatore: "", visore: "", canale_video: "", _haFpv: false,
   };
 }
 
@@ -6301,6 +6929,332 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
   );
 }
 
+// --- Import dei voli dai file .SRT dei video DJI -----------------------------------------------
+// accanto a ogni video DJI c'è un file di sottotitoli .SRT (non criptato) con data, ora, GPS e altezza fotogramma per fotogramma
+
+function leggiSRT(testo, nomeFile) {
+  const istanti = [];
+  const reData = /(\d{4})[-.](\d{2})[-.](\d{2})[ T](\d{2}):(\d{2}):(\d{2})/g;
+  let m;
+  while ((m = reData.exec(testo))) istanti.push(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6])));
+  const numeri = (re) => [...testo.matchAll(re)].map((x) => Number(x[1])).filter((n) => Number.isFinite(n));
+  let lat = numeri(/latitude\s*[:=]\s*(-?\d+\.\d+)/gi);
+  let lon = numeri(/long?t?itude\s*[:=]\s*(-?\d+\.\d+)/gi);
+  if (lat.length === 0) {
+    // formato più vecchio: GPS(lon,lat,...)
+    const gps = [...testo.matchAll(/GPS\s*\(\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/gi)];
+    lon = gps.map((g) => Number(g[1]));
+    lat = gps.map((g) => Number(g[2]));
+  }
+  const altezze = [...numeri(/rel_alt\s*[:=]\s*(-?\d+(?:\.\d+)?)/gi), ...numeri(/\bH\s*[:]?\s*(-?\d+(?:\.\d+)?)\s*m\b/g), ...numeri(/BAROMETER\s*:\s*(-?\d+(?:\.\d+)?)/gi)];
+  // durata dalla fine dell'ultimo sottotitolo (00:01:23,456)
+  const fini = [...testo.matchAll(/-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{1,3})/g)];
+  const ultima = fini[fini.length - 1];
+  const durataSec = ultima ? Number(ultima[1]) * 3600 + Number(ultima[2]) * 60 + Number(ultima[3]) : (istanti.length > 1 ? (istanti[istanti.length - 1] - istanti[0]) / 1000 : 0);
+  const iGps = lat.findIndex((v, i) => Math.abs(v) > 0.01 && Math.abs(lon[i] || 0) > 0.01);
+  if (istanti.length === 0) return null;
+  return {
+    nomeFile,
+    inizio: istanti[0],
+    fine: new Date(istanti[0].getTime() + durataSec * 1000),
+    lat: iGps >= 0 ? lat[iGps] : null,
+    lon: iGps >= 0 ? lon[iGps] : null,
+    altezzaMax: altezze.length ? Math.max(...altezze) : null,
+  };
+}
+
+// clip a meno di 15 minuti l'una dall'altra = stesso volo
+function raggruppaInVoli(clip) {
+  const ordinate = [...clip].sort((a, b) => a.inizio - b.inizio);
+  const voli = [];
+  ordinate.forEach((c) => {
+    const ultimo = voli[voli.length - 1];
+    if (ultimo && c.inizio - ultimo.fine < 15 * 60000) {
+      ultimo.clip.push(c);
+      ultimo.fine = new Date(Math.max(ultimo.fine, c.fine));
+      if (ultimo.lat == null && c.lat != null) { ultimo.lat = c.lat; ultimo.lon = c.lon; }
+      if (c.altezzaMax != null) ultimo.altezzaMax = Math.max(ultimo.altezzaMax ?? -Infinity, c.altezzaMax);
+    } else {
+      voli.push({ inizio: c.inizio, fine: c.fine, lat: c.lat, lon: c.lon, altezzaMax: c.altezzaMax, clip: [c] });
+    }
+  });
+  return voli;
+}
+
+// nome del paese più vicino (OpenStreetMap), se non risponde pazienza
+async function luogoDaCoordinate(lat, lon) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&accept-language=it`);
+    const j = await r.json();
+    const a = j.address || {};
+    return a.village || a.town || a.city || a.hamlet || a.municipality || a.county || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+const due = (n) => String(n).padStart(2, "0");
+const dataLocaleIso = (d) => `${d.getFullYear()}-${due(d.getMonth() + 1)}-${due(d.getDate())}`;
+
+function ImportaSRT({ droni, numeroVoli, piano, onImportati, onVaiAbbonamento }) {
+  const [proposte, setProposte] = useState(null);
+  const [scelte, setScelte] = useState({});
+  const [droneId, setDroneId] = useState("");
+  const [tipo, setTipo] = useState("video");
+  const [lavoro, setLavoro] = useState(null);
+  const [errore, setErrore] = useState(null);
+
+  const scegliFile = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    setErrore(null);
+    setLavoro("Leggo i file...");
+    const clip = [];
+    for (const f of files) {
+      const c = leggiSRT(await f.text(), f.name);
+      if (c) clip.push(c);
+    }
+    if (clip.length === 0) { setLavoro(null); setErrore("Non ho trovato data e ora in questi file. Servono i file .SRT che i droni DJI salvano accanto ai video (attiva «Sottotitoli video» nelle impostazioni della fotocamera)."); return; }
+    const voli = raggruppaInVoli(clip);
+    setLavoro("Cerco i nomi dei luoghi...");
+    for (const v of voli) {
+      if (v.lat != null) { v.luogo = await luogoDaCoordinate(v.lat, v.lon); await new Promise((r) => setTimeout(r, 1100)); }
+    }
+    setLavoro(null);
+    setProposte(voli);
+    setScelte(Object.fromEntries(voli.map((_, i) => [i, true])));
+  };
+
+  const scelti = (proposte || []).filter((_, i) => scelte[i]);
+  const posti = piano === "free" ? Math.max(0, LIMITI_FREE.voli - numeroVoli) : Infinity;
+
+  const crea = async () => {
+    if (scelti.length > posti) {
+      if (window.confirm(`Con il piano Free puoi registrare ancora ${posti} ${posti === 1 ? "volo" : "voli"}. Con il piano Pilota sono senza limiti. Vuoi vedere i piani?`)) onVaiAbbonamento && onVaiAbbonamento();
+      return;
+    }
+    setLavoro("Creo i voli...");
+    const drone = (droni || []).find((d) => d.id === droneId);
+    const righe = scelti.map((v) => ({
+      data: dataLocaleIso(v.inizio),
+      ora: `${due(v.inizio.getHours())}:${due(v.inizio.getMinutes())}`,
+      durata_minuti: Math.max(1, Math.ceil((v.fine - v.inizio) / 60000)),
+      drone_id: drone ? drone.id : null,
+      drone_nome: drone ? drone.nome : null,
+      luogo: v.luogo || null,
+      coordinate_gps: v.lat != null ? `${v.lat.toFixed(6)}, ${v.lon.toFixed(6)}` : null,
+      tipo_attivita: tipo,
+      categoria_operativa: "aperta_a1",
+      altezza_max: v.altezzaMax != null ? Math.round(v.altezzaMax) : null,
+      note: `Importato da ${v.clip.map((c) => c.nomeFile).join(", ")}. La durata è quella registrata nei video: correggila se il volo è stato più lungo.`,
+    }));
+    const { error } = await supabase.from("voli").insert(righe);
+    setLavoro(null);
+    if (error) { setErrore("Non sono riuscito a creare i voli: " + error.message); return; }
+    setProposte(null);
+    onImportati && onImportati(righe.length);
+  };
+
+  const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
+  return (
+    <>
+      <label title="Crea i voli dai file .SRT che i droni DJI salvano accanto ai video" style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, cursor: "pointer" }}>
+        <Upload size={14} /> Importa da .SRT
+        <input type="file" accept=".srt,.SRT" multiple onChange={scegliFile} style={{ display: "none" }} />
+      </label>
+      {(proposte || lavoro || errore) && (
+        <div style={{ width: "100%", order: 99, background: "#1b2028", border: "1px solid #ff8c4255", borderRadius: 10, padding: 16, marginTop: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>📥 Voli trovati nei file</h3>
+            <button onClick={() => { setProposte(null); setErrore(null); setLavoro(null); }} style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={16} /></button>
+          </div>
+          {lavoro && <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "8px 0 0 0" }}>{lavoro}</p>}
+          {errore && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore}</p>}
+          {proposte && !lavoro && (
+            <>
+              <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 10px 0" }}>Video a meno di 15 minuti l'uno dall'altro sono messi nello stesso volo. Togli la spunta a quelli che non vuoi creare.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {proposte.map((v, i) => (
+                  <label key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "8px 10px", fontSize: 12.5, cursor: "pointer" }}>
+                    <input type="checkbox" checked={!!scelte[i]} onChange={() => setScelte({ ...scelte, [i]: !scelte[i] })} />
+                    <span style={{ flex: 1 }}>
+                      <strong>{formatData(dataLocaleIso(v.inizio))} · {due(v.inizio.getHours())}:{due(v.inizio.getMinutes())}</strong>
+                      <span style={{ color: "#8b95a3" }}> · {v.luogo || (v.lat != null ? `${v.lat.toFixed(4)}, ${v.lon.toFixed(4)}` : "luogo non disponibile")} · {Math.max(1, Math.ceil((v.fine - v.inizio) / 60000))} min{v.altezzaMax != null ? ` · max ${Math.round(v.altezzaMax)} m` : ""} · {v.clip.length} {v.clip.length === 1 ? "video" : "video"}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, alignItems: "flex-end" }}>
+                <div style={{ minWidth: 170 }}>
+                  <label style={lbl}>Drone</label>
+                  <select value={droneId} onChange={(e) => setDroneId(e.target.value)} style={inputStyle}>
+                    <option value="">— Non indicato —</option>
+                    {(droni || []).map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
+                  </select>
+                </div>
+                <div style={{ minWidth: 130 }}>
+                  <label style={lbl}>Tipo</label>
+                  <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={inputStyle}>
+                    {TIPI_ATTIVITA_VOLO.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
+                  </select>
+                </div>
+                <button onClick={crea} disabled={scelti.length === 0} style={{ background: scelti.length ? "#ff8c42" : "#333a45", color: scelti.length ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13, fontWeight: 700 }}>
+                  Crea {scelti.length} {scelti.length === 1 ? "volo" : "voli"}
+                </button>
+              </div>
+              <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Categoria impostata su Aperta A1: se serve la cambi aprendo il volo. I nomi dei luoghi arrivano da OpenStreetMap.</p>
+            </>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+// --- "Il mio anno in volo": statistiche e immagine da condividere sui social --------------------
+
+const MESI_IT = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
+
+function calcolaStatisticheAnno(voli, anno) {
+  const delAnno = voli.filter((v) => (v.data || "").startsWith(String(anno)));
+  const conta = (chiave) => {
+    const c = {};
+    delAnno.forEach((v) => { const k = chiave(v); if (k) c[k] = (c[k] || 0) + 1; });
+    return Object.entries(c).sort((a, b) => b[1] - a[1]);
+  };
+  const minuti = delAnno.reduce((s, v) => s + (Number(v.durata_minuti) || 0), 0);
+  const luoghi = new Set(delAnno.map((v) => (v.luogo || "").trim().toLowerCase()).filter(Boolean));
+  const drone = conta((v) => v.drone_nome)[0];
+  const tipo = conta((v) => v.tipo_attivita)[0];
+  const mese = conta((v) => (v.data || "").slice(5, 7))[0];
+  const altezze = delAnno.map((v) => Number(v.altezza_max)).filter((n) => n > 0);
+  return {
+    anno, voli: delAnno.length, minuti, luoghi: luoghi.size,
+    drone: drone ? drone[0] : null,
+    tipo: tipo ? (TIPI_ATTIVITA_VOLO.find((t) => t.key === tipo[0]) || null) : null,
+    mese: mese ? MESI_IT[Number(mese[0]) - 1] : null,
+    altezzaMax: altezze.length ? Math.max(...altezze) : null,
+  };
+}
+
+async function disegnaImmagineAnno(st, nome) {
+  const W = 1080, H = 1350;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  const sfondo = x.createLinearGradient(0, 0, W, H);
+  sfondo.addColorStop(0, "#1a1230"); sfondo.addColorStop(0.55, "#10121a"); sfondo.addColorStop(1, "#2a1810");
+  x.fillStyle = sfondo; x.fillRect(0, 0, W, H);
+  const alone = x.createRadialGradient(W * 0.85, H * 0.1, 0, W * 0.85, H * 0.1, 600);
+  alone.addColorStop(0, "rgba(255,140,66,0.25)"); alone.addColorStop(1, "rgba(255,140,66,0)");
+  x.fillStyle = alone; x.fillRect(0, 0, W, H);
+  try { const logo = await caricaImmagine(LOGO_EYEDRONES); x.drawImage(logo, 80, 80, 110, 110); } catch (e) { /* senza logo */ }
+  x.fillStyle = "#ffffff"; x.font = "700 44px sans-serif"; x.fillText("Eyedrones", 215, 150);
+  x.fillStyle = "#aab3bf"; x.font = "400 34px sans-serif"; x.fillText(nome || "", 215, 195);
+  const titolo = x.createLinearGradient(80, 0, 1000, 0);
+  titolo.addColorStop(0, "#a06bff"); titolo.addColorStop(1, "#ff8c42");
+  x.fillStyle = titolo; x.font = "800 96px sans-serif"; x.fillText(`Il mio ${st.anno}`, 80, 340);
+  x.fillStyle = "#ffffff"; x.font = "700 64px sans-serif"; x.fillText("in volo", 80, 420);
+  const ore = Math.floor(st.minuti / 60), min = st.minuti % 60;
+  const caselle = [
+    ["✈️", String(st.voli), st.voli === 1 ? "volo" : "voli"],
+    ["⏱", ore > 0 ? `${ore}h ${min}m` : `${min} min`, "in aria"],
+    ["📍", String(st.luoghi), st.luoghi === 1 ? "luogo" : "luoghi"],
+    ["⬆️", st.altezzaMax ? `${Math.round(st.altezzaMax)} m` : "—", "quota massima"],
+  ];
+  caselle.forEach(([icona, valore, etichetta], i) => {
+    const cx = 80 + (i % 2) * 470, cy = 500 + Math.floor(i / 2) * 260;
+    x.fillStyle = "rgba(255,255,255,0.06)";
+    x.beginPath(); x.roundRect ? x.roundRect(cx, cy, 440, 230, 28) : x.rect(cx, cy, 440, 230); x.fill();
+    x.fillStyle = "#ffffff"; x.font = "52px sans-serif"; x.fillText(icona, cx + 34, cy + 80);
+    x.fillStyle = "#ffffff"; x.font = "800 76px sans-serif"; x.fillText(valore, cx + 34, cy + 170);
+    x.fillStyle = "#aab3bf"; x.font = "400 32px sans-serif"; x.fillText(etichetta, cx + 34, cy + 212);
+  });
+  x.fillStyle = "#e7eaee"; x.font = "400 38px sans-serif";
+  let y = 1080;
+  if (st.drone) { x.fillText(`🚁 Drone del cuore: ${st.drone}`, 80, y); y += 58; }
+  if (st.tipo) { x.fillText(`${st.tipo.emoji} Più di tutto: ${st.tipo.label}`, 80, y); y += 58; }
+  if (st.mese) { x.fillText(`📅 Mese più attivo: ${st.mese}`, 80, y); }
+  x.fillStyle = "#6b7480"; x.font = "400 28px sans-serif"; x.fillText("app.eyedrones.it", 80, H - 60);
+  return new Promise((res) => c.toBlob(res, "image/png"));
+}
+
+function StatisticheAnno({ voli, azienda }) {
+  const anni = [...new Set(voli.map((v) => (v.data || "").slice(0, 4)).filter(Boolean))].sort().reverse();
+  const [aperto, setAperto] = useState(false);
+  const [anno, setAnno] = useState(anni[0] || String(new Date().getFullYear()));
+  const [lavoro, setLavoro] = useState(false);
+  const st = calcolaStatisticheAnno(voli, anno);
+
+  const condividi = async () => {
+    setLavoro(true);
+    try {
+      const blob = await disegnaImmagineAnno(st, azienda?.nome && azienda.nome !== "Eyedrones" ? azienda.nome : "");
+      const file = new File([blob], `il-mio-${anno}-in-volo.png`, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: `Il mio ${anno} in volo`, text: `Il mio ${anno} in volo con Eyedrones 🚁` });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = file.name; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      }
+    } catch (e) { /* condivisione annullata */ }
+    setLavoro(false);
+  };
+
+  const casella = (valore, etichetta) => (
+    <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: "10px 12px", minWidth: 110, flex: 1 }}>
+      <div className="mono" style={{ fontSize: 20, fontWeight: 700, color: "#fff" }}>{valore}</div>
+      <div style={{ fontSize: 11, color: "#8b95a3" }}>{etichetta}</div>
+    </div>
+  );
+  const ore = Math.floor(st.minuti / 60), min = st.minuti % 60;
+
+  return (
+    <>
+      <button onClick={() => setAperto(!aperto)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13 }}>
+        📊 Il mio anno
+      </button>
+      {aperto && (
+        <div style={{ width: "100%", order: 98, background: "linear-gradient(135deg, rgba(126,58,242,0.14), rgba(255,140,66,0.10)), #1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 16, marginTop: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Il mio {anno} in volo</h3>
+            {anni.length > 1 && (
+              <select value={anno} onChange={(e) => setAnno(e.target.value)} style={{ ...inputStyle, width: "auto", padding: "5px 10px" }}>
+                {anni.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            )}
+            <button onClick={() => setAperto(false)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#8b95a3" }}><X size={16} /></button>
+          </div>
+          {st.voli === 0 ? (
+            <p style={{ fontSize: 12.5, color: "#8b95a3", margin: 0 }}>Nessun volo registrato nel {anno}.</p>
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {casella(st.voli, st.voli === 1 ? "volo" : "voli")}
+                {casella(ore > 0 ? `${ore}h ${min}m` : `${min} min`, "in aria")}
+                {casella(st.luoghi, st.luoghi === 1 ? "luogo" : "luoghi diversi")}
+                {casella(st.altezzaMax ? `${Math.round(st.altezzaMax)} m` : "—", "quota massima")}
+              </div>
+              <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 10, display: "flex", gap: 14, flexWrap: "wrap" }}>
+                {st.drone && <span>🚁 Drone del cuore: <strong>{st.drone}</strong></span>}
+                {st.tipo && <span>{st.tipo.emoji} Più di tutto: <strong>{st.tipo.label}</strong></span>}
+                {st.mese && <span>📅 Mese più attivo: <strong>{st.mese}</strong></span>}
+              </div>
+              <button onClick={condividi} disabled={lavoro} style={{ marginTop: 12, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13, fontWeight: 700 }}>
+                {lavoro ? "Preparo l'immagine..." : "📲 Crea l'immagine da condividere"}
+              </button>
+              <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Un'immagine verticale pronta per Instagram, WhatsApp e Facebook. Sul computer viene scaricata.</p>
+            </>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento, eventiVolo, onEventiCambiati }) {
   const [voli, setVoli] = useState([]);
   const [media, setMedia] = useState([]);
@@ -6397,6 +7351,9 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       categoria_operativa: v.categoria_operativa || "aperta_a1",
       altezza_max: v.altezza_max != null ? String(v.altezza_max) : "",
       cliente: v.cliente || "", note: v.note || "", batterie_usate: [],
+      osservatore: v.osservatore === true ? "si" : v.osservatore === false ? "no" : "",
+      visore: v.visore || "", canale_video: v.canale_video || "",
+      _haFpv: v.osservatore != null || !!v.visore || !!v.canale_video,
     });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -6470,6 +7427,12 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       cliente: form.cliente.trim() || null,
       note: form.note.trim() || null,
     };
+    // campi FPV: li invio solo se usati (così l'app funziona anche prima dello script SQL che crea le colonne)
+    if (form.osservatore !== "" || form.visore.trim() || form.canale_video.trim() || form._haFpv) {
+      payload.osservatore = form.osservatore === "" ? null : form.osservatore === "si";
+      payload.visore = form.visore.trim() || null;
+      payload.canale_video = form.canale_video.trim() || null;
+    }
     const idsBatterie = editingId ? [] : (form.batterie_usate || []);
     if (idsBatterie.length > 0) payload.batterie_ids = idsBatterie;
     let voloId = editingId;
@@ -6689,6 +7652,8 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             <Camera size={14} /> Aggiungi foto / video
             <input type="file" accept="image/*,video/*" multiple onChange={scegliFileRapido} style={{ display: "none" }} />
           </label>
+          <StatisticheAnno voli={tutti} azienda={azienda} />
+          <ImportaSRT droni={droni} numeroVoli={voli.length} piano={piano} onVaiAbbonamento={onVaiAbbonamento} onImportati={(n) => { carica(); window.alert(`Creati ${n} ${n === 1 ? "volo" : "voli"} dai file .SRT.`); }} />
           <button onClick={scaricaPdf} disabled={generandoPdf || visibili.length === 0} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
             <FileDown size={14} /> {generandoPdf ? "Preparazione..." : "PDF"}
           </button>
@@ -6860,6 +7825,28 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             </div>
           </div>
 
+          {(form.tipo_attivita === "fpv" || form._haFpv) && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", background: "#1f1a16", border: "1px solid #4a2f16", borderRadius: 8, padding: 10 }}>
+              <div style={{ flex: 1, minWidth: 150 }}>
+                <label style={lbl}>🥽 Osservatore presente</label>
+                <select value={form.osservatore} onChange={(e) => setForm({ ...form, osservatore: e.target.value })} style={inputStyle}>
+                  <option value="">— Non indicato —</option>
+                  <option value="si">Sì</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+              <div style={{ flex: 1, minWidth: 150 }}>
+                <label style={lbl}>Visore</label>
+                <input type="text" placeholder="es. DJI Goggles 3" value={form.visore} onChange={(e) => setForm({ ...form, visore: e.target.value })} style={inputStyle} />
+              </div>
+              <div style={{ flex: 1, minWidth: 150 }}>
+                <label style={lbl}>Canale / frequenza video</label>
+                <input type="text" placeholder="es. R1 5658 MHz, canale 3" value={form.canale_video} onChange={(e) => setForm({ ...form, canale_video: e.target.value })} style={inputStyle} />
+              </div>
+              <p style={{ fontSize: 10.5, color: "#8b95a3", margin: 0, width: "100%" }}>Volando con il visore di solito serve un osservatore accanto a te che tenga il drone a vista: annotarlo ti aiuta in caso di controlli.</p>
+            </div>
+          )}
+
           <div>
             <label style={lbl}>Note (facoltativo)</label>
             <textarea rows={3} placeholder="es. vento debole, batterie usate: 3, autorizzazione ottenuta..." value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
@@ -6893,6 +7880,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
           <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
             <button onClick={() => setVista("voli")} style={chip(vista === "voli", "#ff8c42")}>📋 Voli</button>
             <button onClick={() => setVista("galleria")} style={chip(vista === "galleria", "#ff8c42")}>🖼️ Galleria ({media.length})</button>
+            <button onClick={() => setVista("mappa")} style={chip(vista === "mappa", "#ff8c42")}>🗺️ Mappa</button>
           </div>
 
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
@@ -6915,7 +7903,21 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             </label>
           </div>
 
-          {vista === "galleria" ? galleriaJsx : tutti.length === 0 ? (
+          {vista === "mappa" ? (
+            <Suspense fallback={<LoadingBlock />}>
+              {(() => {
+                const conGps = visibili.filter((v) => /\d/.test(v.coordinate_gps || ""));
+                return (
+                  <>
+                    <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 8px 0" }}>
+                      {conGps.length} {conGps.length === 1 ? "volo" : "voli"} con posizione GPS{visibili.length > conGps.length ? ` · ${visibili.length - conGps.length} senza coordinate (aggiungile aprendo il volo, o importa i file .SRT)` : ""}
+                    </p>
+                    <MappaVoli voli={conGps} tipi={TIPI_ATTIVITA_VOLO} onApri={(v) => { setVista("voli"); setEspansoId(v.id); window.scrollTo(0, 0); }} />
+                  </>
+                );
+              })()}
+            </Suspense>
+          ) : vista === "galleria" ? galleriaJsx : tutti.length === 0 ? (
             <EmptyState text="Nessun volo registrato. Premi «Nuovo volo» per aggiungere il primo." />
           ) : visibili.length === 0 ? (
             <EmptyState text="Nessun volo corrisponde ai filtri scelti." />
@@ -6982,6 +7984,9 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         {Array.isArray(v.batterie_ids) && v.batterie_ids.length > 0 ? riga("Batterie", v.batterie_ids.map((id) => ((batterie || []).find((b) => b.id === id) || {}).nome).filter(Boolean).join(", ") || "—") : null}
                         {v.altezza_max ? riga("Altezza max", `${v.altezza_max} m`) : null}
                         {v.cliente ? riga("Cliente", v.cliente) : null}
+                        {v.osservatore != null ? riga("Osservatore", v.osservatore ? "presente" : "non presente") : null}
+                        {v.visore ? riga("Visore", v.visore) : null}
+                        {v.canale_video ? riga("Canale video", v.canale_video) : null}
                         {v.coordinate_gps ? (
                           <div style={{ fontSize: 12.5 }}>
                             <span style={{ color: "#8b95a3" }}>GPS: </span>
@@ -7025,7 +8030,8 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                           Se un video molto pesante non si carica, salvalo su Drive o YouTube e incolla il link, oppure alza il "Global file size limit" nelle impostazioni Storage di Supabase.
                         </p>
 
-                        <CondivisioneVolo volo={v} nMedia={mediaVolo.length} />
+                        <CondivisioneVolo volo={v} nMedia={mediaVolo.length} media={mediaVolo} />
+                        <LiberatorieVolo volo={v} azienda={azienda} />
                         <EventiVolo volo={v} azienda={azienda} droni={droni} batterie={batterie} onCambiato={onEventiCambiati} />
 
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
