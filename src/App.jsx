@@ -44,8 +44,15 @@ function formatData(d) {
 
 // converte l'URL remoto di una foto salvata in una dataURL utilizzabile dal PDF
 async function urlToDataUrl(url) {
-  const res = await fetch(url);
-  const blob = await res.blob();
+  let blob;
+  if (eRiservato(url)) {
+    const { data, error } = await supabase.storage.from(BUCKET_RISERVATO).download(percorsoRiservato(url));
+    if (error) throw error;
+    blob = data;
+  } else {
+    const res = await fetch(url);
+    blob = await res.blob();
+  }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
@@ -3012,9 +3019,9 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
           {ispezione.dflight_screenshot_url && (
             <div style={{ marginTop: 10 }}>
               <span style={{ fontSize: 11, color: "#8b95a3", display: "block", marginBottom: 6 }}>Screenshot D-Flight</span>
-              <a href={ispezione.dflight_screenshot_url} target="_blank" rel="noreferrer">
-                <img src={ispezione.dflight_screenshot_url} alt="D-Flight" style={{ width: "100%", maxWidth: 300, borderRadius: 6, border: "1px solid #333a45" }} />
-              </a>
+              <LinkFile url={ispezione.dflight_screenshot_url}>
+                <ImmagineFile src={ispezione.dflight_screenshot_url} alt="D-Flight" style={{ width: "100%", maxWidth: 300, borderRadius: 6, border: "1px solid #333a45" }} />
+              </LinkFile>
             </div>
           )}
           {ispezione.zona_rossa && (
@@ -3685,20 +3692,12 @@ function Permessi({ permessi, impianti, azienda, piano, onReload }) {
       if (documento?.blob) {
         const estensione = documento.nome.split(".").pop();
         const nomeFile = `permesso-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${estensione}`;
-        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, documento.blob);
-        if (!eUp) {
-          const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
-          documentoUrl = pub?.publicUrl || null;
-        }
+        documentoUrl = await caricaDocumento(nomeFile, documento.blob);
       }
       let dflightUrl = null;
       if (dflightShot?.blob) {
         const nomeFileD = `dflight-permesso-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
-        const { error: eUpD } = await supabase.storage.from("foto-ispezioni").upload(nomeFileD, dflightShot.blob, { contentType: "image/png" });
-        if (!eUpD) {
-          const { data: pubD } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFileD);
-          dflightUrl = pubD?.publicUrl || null;
-        }
+        dflightUrl = await caricaDocumento(nomeFileD, dflightShot.blob, { contentType: "image/png" });
       }
       const { error } = await supabase.from("permessi").insert({
         impianto,
@@ -3725,10 +3724,8 @@ function Permessi({ permessi, impianti, azienda, piano, onReload }) {
   const eliminaPermesso = async (id) => {
     if (!window.confirm("Eliminare questo permesso?")) return;
     const p = permessi.find((x) => x.id === id);
-    if (p?.documento_url) {
-      const percorso = percorsoStorageDaUrl(p.documento_url);
-      if (percorso) await supabase.storage.from("foto-ispezioni").remove([percorso]);
-    }
+    if (p?.documento_url) await rimuoviDocumento(p.documento_url);
+    if (p?.dflight_screenshot_url) await rimuoviDocumento(p.dflight_screenshot_url);
     await supabase.from("permessi").delete().eq("id", id);
     onReload();
   };
@@ -3796,7 +3793,7 @@ function Permessi({ permessi, impianti, azienda, piano, onReload }) {
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight (facoltativo)</label>
             {dflightShot ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 70, height: 46, objectFit: "cover", borderRadius: 4, border: "1px solid #333a45" }} />
+                <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 70, height: 46, objectFit: "cover", borderRadius: 4, border: "1px solid #333a45" }} />
                 <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
               </div>
             ) : (
@@ -3898,16 +3895,16 @@ function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando
           {p.ora_richiesta && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Ora invio richiesta: </span>{p.ora_richiesta}</div>}
           {p.note && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Note: </span>{p.note}</div>}
           {p.documento_url && (
-            <a href={p.documento_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd", display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <LinkFile url={p.documento_url} style={{ fontSize: 12.5, color: "#3d8bfd", display: "inline-flex", alignItems: "center", gap: 5 }}>
               <FileDown size={12} /> Apri il foglio del permesso caricato
-            </a>
+            </LinkFile>
           )}
           {p.dflight_screenshot_url && (
             <div style={{ marginTop: 4 }}>
               <span style={{ fontSize: 11, color: "#8b95a3", display: "block", marginBottom: 6 }}>Screenshot D-Flight</span>
-              <a href={p.dflight_screenshot_url} target="_blank" rel="noreferrer">
-                <img src={p.dflight_screenshot_url} alt="D-Flight" style={{ width: "100%", maxWidth: 280, borderRadius: 6, border: "1px solid #333a45" }} />
-              </a>
+              <LinkFile url={p.dflight_screenshot_url}>
+                <ImmagineFile src={p.dflight_screenshot_url} alt="D-Flight" style={{ width: "100%", maxWidth: 280, borderRadius: 6, border: "1px solid #333a45" }} />
+              </LinkFile>
             </div>
           )}
           {p.stato === "negato" && p.motivo_negazione && <div style={{ fontSize: 12.5, color: "#ff9c9c" }}>Motivo: {p.motivo_negazione}</div>}
@@ -4057,11 +4054,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
       if (documento?.blob) {
         const estensione = documento.nome.split(".").pop();
         const nomeFile = `attestato-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${estensione}`;
-        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, documento.blob);
-        if (!eUp) {
-          const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
-          documentoUrl = pub?.publicUrl || null;
-        }
+        documentoUrl = await caricaDocumento(nomeFile, documento.blob);
       }
       const payload = {
         tipo: tipoFinale,
@@ -4091,10 +4084,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
   const eliminaAttestato = async (id) => {
     if (!window.confirm("Eliminare questo attestato?")) return;
     const a = attestati.find((x) => x.id === id);
-    if (a?.documento_url) {
-      const percorso = percorsoStorageDaUrl(a.documento_url);
-      if (percorso) await supabase.storage.from("foto-ispezioni").remove([percorso]);
-    }
+    if (a?.documento_url) await rimuoviDocumento(a.documento_url);
     await supabase.from("attestati").delete().eq("id", id);
     onReload();
   };
@@ -4244,9 +4234,9 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
                     </a>
                   )}
                   {a.documento_url && (
-                    <a href={a.documento_url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#3d8bfd", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
+                    <LinkFile url={a.documento_url} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#3d8bfd", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
                       <FileDown size={12} /> Documento
-                    </a>
+                    </LinkFile>
                   )}
                   <button onClick={() => scaricaPDFAttestato(a)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     <FileDown size={12} /> PDF
@@ -4341,11 +4331,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
       if (documento?.blob) {
         const estensione = documento.nome.split(".").pop();
         const nomeFile = `drone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${estensione}`;
-        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, documento.blob);
-        if (!eUp) {
-          const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
-          documentoUrl = pub?.publicUrl || null;
-        }
+        documentoUrl = await caricaDocumento(nomeFile, documento.blob);
       }
       const payload = {
         nome,
@@ -4381,10 +4367,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
   const eliminaDrone = async (id) => {
     if (!window.confirm("Eliminare questo drone dal registro?")) return;
     const d = droni.find((x) => x.id === id);
-    if (d?.documento_url) {
-      const percorso = percorsoStorageDaUrl(d.documento_url);
-      if (percorso) await supabase.storage.from("foto-ispezioni").remove([percorso]);
-    }
+    if (d?.documento_url) await rimuoviDocumento(d.documento_url);
     await supabase.from("droni").delete().eq("id", id);
     onReload();
   };
@@ -4545,9 +4528,9 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   {d.documento_url && (
-                    <a href={d.documento_url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#3d8bfd", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
+                    <LinkFile url={d.documento_url} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#3d8bfd", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
                       <FileDown size={12} /> Documento
-                    </a>
+                    </LinkFile>
                   )}
                   <button onClick={() => scaricaPDFDrone(d)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     <FileDown size={12} /> PDF
@@ -4954,11 +4937,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
       let dflightUrl = dflightShot?.remota ? dflightShot.dataUrl : null;
       if (dflightShot?.blob) {
         const nomeFile = `dflight-piano-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
-        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, dflightShot.blob);
-        if (!eUp) {
-          const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
-          dflightUrl = pub?.publicUrl || null;
-        }
+        dflightUrl = await caricaDocumento(nomeFile, dflightShot.blob, { contentType: "image/png" });
       }
       const payload = {
         impianto_id: impiantoSel ? impiantoSel.id : null,
@@ -5024,10 +5003,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
     if (!window.confirm("Eliminare questo piano di volo?")) return;
     if (editingId === id) annullaModifica();
     const p = pianiSalvati.find((x) => x.id === id);
-    if (p?.dflight_screenshot_url) {
-      const percorso = percorsoStorageDaUrl(p.dflight_screenshot_url);
-      if (percorso) await supabase.storage.from("foto-ispezioni").remove([percorso]);
-    }
+    if (p?.dflight_screenshot_url) await rimuoviDocumento(p.dflight_screenshot_url);
     await supabase.from("piani_volo").delete().eq("id", id);
     caricaTutto();
   };
@@ -5302,7 +5278,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
               <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight per questa missione (facoltativo)</label>
               {dflightShot ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
+                  <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
                   <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
                 </div>
               ) : (
@@ -5421,7 +5397,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
             {dflightShot && (
               <>
                 <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Screenshot D-Flight</h2>
-                <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid #ddd" }} />
+                <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid #ddd" }} />
               </>
             )}
           </div>
@@ -5530,7 +5506,7 @@ function DocumentiControllo({ azienda, impianti }) {
                   <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ color: scaduto ? "#ff9c9c" : "#4ade80" }}>{a.tipo}{scaduto ? " (scaduto!)" : " ✓"}</span>
                     {a.documento_url && (
-                      <a href={a.documento_url} target="_blank" rel="noreferrer" style={{ color: "#3d8bfd", fontSize: 11, textDecoration: "none" }}>📄 apri documento</a>
+                      <LinkFile url={a.documento_url} style={{ color: "#3d8bfd", fontSize: 11, textDecoration: "none" }}>📄 apri documento</LinkFile>
                     )}
                   </div>
                 );
@@ -5546,7 +5522,7 @@ function DocumentiControllo({ azienda, impianti }) {
                 return (
                   <>
                     <span style={{ color: scaduta ? "#ff9c9c" : "#4ade80" }}>{scaduta ? "SCADUTA il " : "valida fino al "}{assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}</span>
-                    {assicurazione.documento_url && <a href={assicurazione.documento_url} target="_blank" rel="noreferrer" style={{ color: "#3d8bfd", fontSize: 11, marginLeft: 8, textDecoration: "none" }}>📄 apri documento</a>}
+                    {assicurazione.documento_url && <LinkFile url={assicurazione.documento_url} style={{ color: "#3d8bfd", fontSize: 11, marginLeft: 8, textDecoration: "none" }}>📄 apri documento</LinkFile>}
                   </>
                 );
               })()
@@ -5556,7 +5532,7 @@ function DocumentiControllo({ azienda, impianti }) {
           <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 6 }}>
             <strong>Documento del drone:</strong>{" "}
             {droneSelezionato.documento_url ? (
-              <a href={droneSelezionato.documento_url} target="_blank" rel="noreferrer" style={{ color: "#3d8bfd", fontSize: 11.5, textDecoration: "none" }}>📄 apri documento</a>
+              <LinkFile url={droneSelezionato.documento_url} style={{ color: "#3d8bfd", fontSize: 11.5, textDecoration: "none" }}>📄 apri documento</LinkFile>
             ) : <span style={{ color: "#8b95a3" }}>nessuno caricato</span>}
           </div>
         )}
@@ -5568,7 +5544,7 @@ function DocumentiControllo({ azienda, impianti }) {
           <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight {impiantoSel ? "di questo impianto" : "di oggi"} (facoltativo)</label>
           {dflightShot ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
+              <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
               <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
             </div>
           ) : screenshotAutomatico ? (
@@ -5620,7 +5596,7 @@ function DocumentiControllo({ azienda, impianti }) {
                 <span>{a.tipo}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ color: scaduto ? "#d32f2f" : "#2e7d32", fontWeight: 600 }}>{a.data_scadenza ? `${scaduto ? "SCADUTO " : ""}${formatData(a.data_scadenza)}` : "senza scadenza"}</span>
-                  {a.documento_url && <a href={a.documento_url} target="_blank" rel="noreferrer" style={{ color: "#1565c0", fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Apri documento →</a>}
+                  {a.documento_url && <LinkFile url={a.documento_url} style={{ color: "#1565c0", fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Apri documento →</LinkFile>}
                 </div>
               </div>
             );
@@ -5632,7 +5608,7 @@ function DocumentiControllo({ azienda, impianti }) {
               <p style={{ fontSize: 15, fontWeight: 700, margin: 0, color: (assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date()) ? "#d32f2f" : "#2e7d32" }}>
                 {formatData(assicurazione.data_scadenza)}
               </p>
-              {assicurazione.documento_url && <a href={assicurazione.documento_url} target="_blank" rel="noreferrer" style={{ color: "#1565c0", fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Apri documento →</a>}
+              {assicurazione.documento_url && <LinkFile url={assicurazione.documento_url} style={{ color: "#1565c0", fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Apri documento →</LinkFile>}
             </div>
           ) : <p style={{ fontSize: 13, color: "#d32f2f" }}>Non registrata</p>}
 
@@ -5644,7 +5620,7 @@ function DocumentiControllo({ azienda, impianti }) {
               <div>Matricola: {droneSelezionato.matricola || "—"}</div>
               <div>Classe: {droneSelezionato.marcatura_classe || "—"}</div>
               <div>D-Flight: {droneSelezionato.registrazione_dflight || "—"}</div>
-              {droneSelezionato.documento_url && <a href={droneSelezionato.documento_url} target="_blank" rel="noreferrer" style={{ color: "#1565c0", fontSize: 14, fontWeight: 600, textDecoration: "underline", display: "inline-block", marginTop: 4 }}>Apri documento drone →</a>}
+              {droneSelezionato.documento_url && <LinkFile url={droneSelezionato.documento_url} style={{ color: "#1565c0", fontSize: 14, fontWeight: 600, textDecoration: "underline", display: "inline-block", marginTop: 4 }}>Apri documento drone →</LinkFile>}
             </div>
           ) : <p style={{ fontSize: 13, color: "#888" }}>Nessun drone selezionato.</p>}
 
@@ -5652,14 +5628,14 @@ function DocumentiControllo({ azienda, impianti }) {
           {permessiFiltrati.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : permessiFiltrati.map((p) => (
             <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, padding: "8px 0", borderBottom: "1px solid #f0f0f0" }}>
               <span>{p.impianto} — <strong>{{ in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[p.stato] || p.stato}</strong></span>
-              {p.documento_url && <a href={p.documento_url} target="_blank" rel="noreferrer" style={{ color: "#1565c0", fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Apri foglio →</a>}
+              {p.documento_url && <LinkFile url={p.documento_url} style={{ color: "#1565c0", fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Apri foglio →</LinkFile>}
             </div>
           ))}
 
           {(dflightShot || screenshotAutomatico) && (
             <>
               <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Screenshot D-Flight</h2>
-              <img src={dflightShot ? dflightShot.dataUrl : screenshotAutomatico} alt="D-Flight" style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid #ddd" }} />
+              <ImmagineFile src={dflightShot ? dflightShot.dataUrl : screenshotAutomatico} alt="D-Flight" style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid #ddd" }} />
             </>
           )}
         </div>
@@ -6162,10 +6138,9 @@ function LiberatorieVolo({ volo, azienda }) {
       const doc = costruisciPDFLiberatoria({ azienda, titolo, testo: testoFinale, nome: nome.trim(), firmaDataUrl: firma.toDataURL("image/png"), luogo: volo.luogo });
       const blob = doc.output("blob");
       const percorso = `liberatorie/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.pdf`;
-      const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(percorso, blob, { contentType: "application/pdf" });
-      if (eUp) throw eUp;
-      const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(percorso);
-      const { error } = await supabase.from("liberatorie").insert({ volo_id: String(volo.id), tipo, nome: nome.trim(), pdf_url: pub.publicUrl, pdf_percorso: percorso });
+      const pdfUrl = await caricaDocumento(percorso.replace("liberatorie/", "liberatoria-"), blob, { contentType: "application/pdf" });
+      if (!pdfUrl) throw new Error("caricamento del PDF non riuscito");
+      const { error } = await supabase.from("liberatorie").insert({ volo_id: String(volo.id), tipo, nome: nome.trim(), pdf_url: pdfUrl, pdf_percorso: null });
       if (error) throw error;
       setAperto(false); setNome(""); setFirma(null); setTestoModificato(false);
       carica();
@@ -6177,7 +6152,7 @@ function LiberatorieVolo({ volo, azienda }) {
 
   const elimina = async (l) => {
     if (!window.confirm(`Eliminare la liberatoria di ${l.nome}?`)) return;
-    if (l.pdf_percorso) await supabase.storage.from("foto-ispezioni").remove([l.pdf_percorso]);
+    await rimuoviDocumento(l.pdf_url);
     await supabase.from("liberatorie").delete().eq("id", l.id);
     carica();
   };
@@ -6229,7 +6204,7 @@ function LiberatorieVolo({ volo, azienda }) {
           {elenco.map((l) => (
             <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5 }}>
               <span style={{ flex: 1 }}>{l.tipo === "persona" ? "👤" : "🏠"} {l.nome} <span style={{ color: "#6b7480", fontSize: 11 }}>· {formatData(l.created_at)}</span></span>
-              <a href={l.pdf_url} target="_blank" rel="noreferrer" style={piccolo}>Apri PDF</a>
+              <LinkFile url={l.pdf_url} style={piccolo}>Apri PDF</LinkFile>
               <button onClick={() => elimina(l)} style={{ ...piccolo, background: "none", color: "#ff9c9c" }}>Elimina</button>
             </div>
           ))}
@@ -6522,6 +6497,125 @@ function percorsoStorageDaUrl(url) {
   const parti = String(url).split("/foto-ispezioni/");
   return parti.length > 1 ? decodeURIComponent(parti[1].split("?")[0]) : null;
 }
+
+// --- Spazio riservato per documenti e liberatorie --------------------------------------------
+// attestati, assicurazioni, permessi, documenti dei droni, screenshot D-Flight e liberatorie vanno nel bucket privato
+// "documenti-privati", in una cartella per ogni utente (script supabase/documenti-riservati.sql).
+// Nel database si salva "riservato://<percorso>" e il file si apre con un link temporaneo.
+// Foto e video dei voli e delle ispezioni restano nello spazio pubblico, perché servono a report e gallerie.
+const BUCKET_RISERVATO = "documenti-privati";
+const PREFISSO_RISERVATO = "riservato://";
+const eRiservato = (u) => typeof u === "string" && u.startsWith(PREFISSO_RISERVATO);
+const percorsoRiservato = (u) => u.slice(PREFISSO_RISERVATO.length);
+
+async function idUtenteCorrente() {
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.user?.id || null;
+}
+
+// carica un documento personale; se lo spazio riservato non c'è ancora usa quello di prima, così l'app non si blocca
+async function caricaDocumento(nomeFile, blob, opzioni) {
+  const uid = await idUtenteCorrente();
+  if (uid) {
+    const percorso = `${uid}/${nomeFile}`;
+    const { error } = await supabase.storage.from(BUCKET_RISERVATO).upload(percorso, blob, opzioni);
+    if (!error) return PREFISSO_RISERVATO + percorso;
+  }
+  const { error } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, blob, opzioni);
+  if (error) return null;
+  return supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile).data?.publicUrl || null;
+}
+
+async function rimuoviDocumento(url) {
+  if (!url) return;
+  if (eRiservato(url)) { await supabase.storage.from(BUCKET_RISERVATO).remove([percorsoRiservato(url)]); return; }
+  const percorso = percorsoStorageDaUrl(url);
+  if (percorso) await supabase.storage.from("foto-ispezioni").remove([percorso]);
+}
+
+// link temporanei (1 ora), tenuti in memoria per non richiederli a ogni schermata
+const linkTemporanei = new Map();
+async function indirizzoVisibile(url) {
+  if (!eRiservato(url)) return url;
+  const salvato = linkTemporanei.get(url);
+  if (salvato && salvato.scade > Date.now() + 60000) return salvato.href;
+  const { data, error } = await supabase.storage.from(BUCKET_RISERVATO).createSignedUrl(percorsoRiservato(url), 3600);
+  if (error || !data?.signedUrl) return null;
+  linkTemporanei.set(url, { href: data.signedUrl, scade: Date.now() + 3600000 });
+  return data.signedUrl;
+}
+
+function useIndirizzo(url) {
+  const [href, setHref] = useState(eRiservato(url) ? null : url);
+  useEffect(() => {
+    let vivo = true;
+    if (!eRiservato(url)) { setHref(url); return; }
+    setHref(null);
+    indirizzoVisibile(url).then((h) => { if (vivo) setHref(h); });
+    return () => { vivo = false; };
+  }, [url]);
+  return href;
+}
+
+// come <a href>, ma funziona anche con i documenti dello spazio riservato
+function LinkFile({ url, children, ...resto }) {
+  const href = useIndirizzo(url);
+  return (
+    <a href={href || "#"} target="_blank" rel="noreferrer" onClick={(e) => { if (!href) e.preventDefault(); }} {...resto}>
+      {children}
+    </a>
+  );
+}
+
+// come <img src>, ma funziona anche con i documenti dello spazio riservato
+function ImmagineFile({ src, alt, ...resto }) {
+  const href = useIndirizzo(src);
+  return href ? <img src={href} alt={alt} {...resto} /> : <span style={{ display: "inline-block", fontSize: 11, color: "#6b7480" }}>…</span>;
+}
+
+// sposta nello spazio riservato i documenti caricati prima (attestati, permessi, droni, piani di volo, ispezioni, liberatorie)
+const DOCUMENTI_DA_SPOSTARE = [
+  { tabella: "attestati", colonna: "documento_url" },
+  { tabella: "droni", colonna: "documento_url" },
+  { tabella: "permessi", colonna: "documento_url" },
+  { tabella: "permessi", colonna: "dflight_screenshot_url" },
+  { tabella: "piani_volo", colonna: "dflight_screenshot_url" },
+  { tabella: "ispezioni", colonna: "dflight_screenshot_url" },
+  { tabella: "liberatorie", colonna: "pdf_url" },
+];
+
+async function spostaDocumentiNelloSpazioRiservato(onAvanzamento) {
+  const uid = await idUtenteCorrente();
+  if (!uid) throw new Error("Accesso scaduto: esci e rientra.");
+  let spostati = 0, errori = 0;
+  for (const { tabella, colonna } of DOCUMENTI_DA_SPOSTARE) {
+    const { data: righe, error } = await supabase.from(tabella).select(`id, ${colonna}`);
+    if (error) continue; // tabella o colonna non presente: si passa oltre
+    for (const r of righe || []) {
+      const url = r[colonna];
+      const vecchioPercorso = url && !eRiservato(url) ? percorsoStorageDaUrl(url) : null;
+      if (!vecchioPercorso) continue;
+      onAvanzamento && onAvanzamento(`Sposto ${vecchioPercorso}...`);
+      try {
+        const { data: blob, error: eGiu } = await supabase.storage.from("foto-ispezioni").download(vecchioPercorso);
+        if (eGiu) throw eGiu;
+        const nuovoPercorso = `${uid}/${vecchioPercorso.split("/").pop()}`;
+        const { error: eSu } = await supabase.storage.from(BUCKET_RISERVATO).upload(nuovoPercorso, blob, { contentType: blob.type || undefined, upsert: true });
+        if (eSu) throw eSu;
+        const aggiornamento = { [colonna]: PREFISSO_RISERVATO + nuovoPercorso };
+        if (tabella === "liberatorie") aggiornamento.pdf_percorso = null;
+        const { error: eDb } = await supabase.from(tabella).update(aggiornamento).eq("id", r.id);
+        if (eDb) throw eDb;
+        await supabase.storage.from("foto-ispezioni").remove([vecchioPercorso]);
+        spostati++;
+      } catch (e) {
+        errori++;
+      }
+    }
+  }
+  return { spostati, errori };
+}
+
 
 // le ispezioni sono voli a tutti gli effetti: le trasformo in voci di registro (sola lettura)
 function costruisciVoliDaIspezioni(ispezioni, impianti) {
@@ -8060,6 +8154,24 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
 
 function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userEmail }) {
   const [confermaEliminazione, setConfermaEliminazione] = useState("");
+  const [spostamento, setSpostamento] = useState(null); // null | "in corso: ..." | risultato
+  const spostaDocumenti = async () => {
+    setSpostamento("Controllo i documenti...");
+    try {
+      // prova di scrittura: se lo spazio riservato non esiste ancora lo dico subito
+      const uid = await idUtenteCorrente();
+      const prova = `${uid}/.prova-${Date.now()}`;
+      const { error } = await supabase.storage.from(BUCKET_RISERVATO).upload(prova, new Blob(["ok"]));
+      if (error) { setSpostamento("Lo spazio riservato non è ancora attivo: esegui prima lo script SQL «documenti-riservati.sql» in Supabase."); return; }
+      await supabase.storage.from(BUCKET_RISERVATO).remove([prova]);
+      const { spostati, errori } = await spostaDocumentiNelloSpazioRiservato((t) => setSpostamento(t));
+      setSpostamento(spostati === 0 && errori === 0
+        ? "✓ Tutti i tuoi documenti sono già nello spazio riservato."
+        : `✓ Spostati ${spostati} ${spostati === 1 ? "documento" : "documenti"}${errori ? ` · ${errori} non spostati (riprova più tardi)` : ""}.`);
+    } catch (e) {
+      setSpostamento("Non sono riuscito a spostare i documenti: " + (e.message || e));
+    }
+  };
   const linkEliminazione = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Richiesta eliminazione account Eyedrones")}&body=${encodeURIComponent(`Ciao, chiedo di eliminare definitivamente il mio account Eyedrones (${userEmail || ""}) con tutti i dati collegati: voli, foto, video, documenti, batterie, droni e link condivisi. Se ho un abbonamento attivo, vi chiedo di interromperlo.`)}`;
   const proAttivo = piano === "pro";
 
@@ -8156,6 +8268,14 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
             Accesso con <strong style={{ color: "#c3cad4" }}>{userEmail}</strong>
             {(LINK_PRIVACY || LINK_TERMINI) && <> · <LinkLegali stile={{ color: "#3d8bfd" }} /></>}
           </p>
+          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 4px 0" }}>🔐 Spazio riservato per i documenti</p>
+            <p style={{ fontSize: 12, color: "#aab3bf", margin: "0 0 10px 0", lineHeight: 1.5 }}>
+              Attestati, assicurazione, permessi, documenti dei droni, screenshot D-Flight e liberatorie firmate si salvano in uno spazio privato: li vedi solo tu, con link che scadono dopo un'ora. Foto e video dei voli restano dove sono, perché servono alle gallerie dei clienti. Se hai caricato documenti prima di questa novità, spostali qui con un tocco.
+            </p>
+            <button onClick={spostaDocumenti} disabled={!!spostamento && !spostamento.startsWith("✓") && !spostamento.startsWith("Lo spazio") && !spostamento.startsWith("Non sono")} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "8px 14px", fontSize: 12.5, fontWeight: 600 }}>Sposta i documenti già caricati</button>
+            {spostamento && <p style={{ fontSize: 12, color: spostamento.startsWith("✓") ? "#4ade80" : "#c3cad4", margin: "8px 0 0 0", wordBreak: "break-all" }}>{spostamento}</p>}
+          </div>
           <div style={{ background: "#1f1719", border: "1px solid #5a2a2a", borderRadius: 8, padding: 14 }}>
             <p style={{ fontSize: 13, fontWeight: 600, color: "#ff9c9c", margin: "0 0 4px 0" }}>Elimina account</p>
             <p style={{ fontSize: 12, color: "#aab3bf", margin: "0 0 10px 0", lineHeight: 1.5 }}>
@@ -8232,11 +8352,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       let dflightUrl = null;
       if (dflightShot?.blob) {
         const nomeFileDflight = `dflight-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
-        const { error: eUpD } = await supabase.storage.from("foto-ispezioni").upload(nomeFileDflight, dflightShot.blob, { contentType: "image/png" });
-        if (!eUpD) {
-          const { data: pubD } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFileDflight);
-          dflightUrl = pubD?.publicUrl || null;
-        }
+        dflightUrl = await caricaDocumento(nomeFileDflight, dflightShot.blob, { contentType: "image/png" });
       }
 
       const { data: isp, error: e1 } = await supabase.from("ispezioni").insert({
@@ -8532,7 +8648,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                     <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Screenshot D-Flight (facoltativo)</label>
                     {dflightShot ? (
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <img src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 70, height: 46, objectFit: "cover", borderRadius: 4, border: "1px solid #333a45" }} />
+                        <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 70, height: 46, objectFit: "cover", borderRadius: 4, border: "1px solid #333a45" }} />
                         <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Rimuovi</button>
                       </div>
                     ) : (
