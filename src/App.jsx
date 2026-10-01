@@ -110,7 +110,49 @@ const CHECKLIST_DEFAULT = [
 // recupera il meteo in tempo reale per una zona (servizio pubblico gratuito, nessuna chiave richiesta)
 // ---- Piani e limiti -----------------------------------------------------------
 // Free: tutto funziona ma con quantità limitate. Pilota toglie i limiti di quantità. Pro aggiunge gli strumenti di lavoro.
-const LIMITI_FREE = { voli: 15, batterie: 2, reportMese: 4 };
+const LIMITI_FREE = { voli: 15, batterie: 2, reportMese: 4, linkConsegna: 1 };
+
+// --- Piano Pro e Pass Lavoro --------------------------------------------------------------------
+// Interruttore unico: finché è false le funzioni Pro hanno solo l'etichetta "PRO" e sono usabili da tutti.
+// Quando i pagamenti sono attivi, mettilo a true e i blocchi si accendono (galleria pro, liberatorie, link di consegna nel Free).
+const BLOCCHI_PRO_ATTIVI = false;
+// Pass Lavoro: acquisto singolo che sblocca le funzioni Pro su un volo (colonna voli.pass_lavoro, script supabase/pass-lavoro.sql)
+const PREZZO_PASS_LAVORO = 6.9;
+const LINK_PAGAMENTO_PASS = ""; // link di pagamento Stripe del Pass, quando ci sarà
+
+// vale per un volo: Pro attivo, oppure Pass Lavoro su quel volo, oppure blocchi spenti
+function sbloccatoPro(piano, volo) {
+  return !BLOCCHI_PRO_ATTIVI || piano === "pro" || !!(volo && volo.pass_lavoro);
+}
+
+function EtichettaPro() {
+  return <span title="Funzione del piano Pro" style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: "#161a1f", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", borderRadius: 4, padding: "1px 5px", marginLeft: 6, verticalAlign: "middle" }}>PRO</span>;
+}
+
+function linkRichiestaPass(volo) {
+  if (LINK_PAGAMENTO_PASS) return LINK_PAGAMENTO_PASS;
+  const quale = [volo?.luogo, volo?.data ? formatData(volo.data) : null].filter(Boolean).join(" · ");
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Richiesta Pass Lavoro")}&body=${encodeURIComponent(`Ciao, vorrei acquistare un Pass Lavoro (${euro(PREZZO_PASS_LAVORO)}) per il volo ${quale || ""} (codice ${volo?.id || "—"}).`)}`;
+}
+
+// riquadro mostrato al posto di una funzione Pro quando è bloccata
+function InvitoPro({ volo, cosa, passQuestoMese = 0, onVaiAbbonamento }) {
+  const speseConPass = (passQuestoMese + 1) * PREZZO_PASS_LAVORO;
+  return (
+    <div style={{ background: "#241d16", border: "1px solid #4a2f16", borderRadius: 6, padding: 10, marginTop: 8 }}>
+      <p style={{ fontSize: 12.5, color: "#ffb877", margin: "0 0 6px 0" }}>🔒 {cosa} fa parte del piano Pro.</p>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <a href={linkRichiestaPass(volo)} target={LINK_PAGAMENTO_PASS ? "_blank" : undefined} rel="noreferrer" style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>🎟️ Sblocca questo lavoro · {euro(PREZZO_PASS_LAVORO)}</a>
+        {onVaiAbbonamento && <button onClick={onVaiAbbonamento} style={{ background: "none", border: "1px solid #4a2f16", color: "#ffb877", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Passa a Pro · {euro(PREZZI_PIANO.pro.mese)}/mese</button>}
+      </div>
+      <p style={{ fontSize: 10.5, color: "#8b95a3", margin: "6px 0 0 0" }}>
+        {passQuestoMese > 0
+          ? `Questo mese hai già ${passQuestoMese} ${passQuestoMese === 1 ? "Pass" : "Pass"}: con un altro spenderesti ${euro(speseConPass)}, con Pro ${euro(PREZZI_PIANO.pro.mese)} e lavori illimitati.`
+          : "Il Pass vale per sempre su questo volo, senza abbonamento. Se lavori spesso, con Pro i lavori sono illimitati."}
+      </p>
+    </div>
+  );
+}
 // Link di pagamento Stripe (Payment Link): quando li crei su Stripe, incollali qui e i pulsanti "Passa a..." li useranno.
 const LINK_PAGAMENTO = { pilota: { mese: "", anno: "" }, pro: { mese: "", anno: "" } };
 // prezzi in euro: cambiali solo qui, la pagina Abbonamento calcola da sola "al mese" e "mesi gratis"
@@ -3159,37 +3201,41 @@ function Abbonamento({ piano }) {
 
   const piani = [
     {
-      chiave: "free", nome: "Free", grande: "Gratis", sotto: "Per provare l'app",
+      chiave: "free", nome: "Free", grande: "Gratis", sotto: "Per provare e volare per te",
       caratteristiche: [
-        { testo: `Fino a ${LIMITI_FREE.voli} voli nel registro`, incluso: true },
-        { testo: "Foto e video senza limite di numero", incluso: true },
+        { testo: `Fino a ${LIMITI_FREE.voli} voli nel registro (anche importati dai file .SRT)`, incluso: true },
         { testo: `Fino a ${LIMITI_FREE.batterie} batterie con conteggio dei cicli`, incluso: true },
-        { testo: "Pianificazione volo con meteo e indice Kp", incluso: true },
-        { testo: "Attestati, droni e documenti per i controlli", incluso: true },
+        { testo: "Pianificazione: meteo ora per ora, ora d'oro, sole e luna, Kp, filtri ND", incluso: true },
+        { testo: "Checklist (anche FPV), attestati, droni, documenti per i controlli", incluso: true },
+        { testo: "Segnalazione eventi (72 ore) e scadenze D-Flight", incluso: true },
+        { testo: "Mappa dei voli e «Il mio anno» da condividere", incluso: true },
+        { testo: `${LIMITI_FREE.linkConsegna} link di consegna al cliente attivo`, incluso: true },
         { testo: `${LIMITI_FREE.reportMese} report di ispezione al mese`, incluso: true },
         { testo: "Esportazione CSV del registro voli", incluso: false },
-        { testo: "Preventivi e logo personalizzato", incluso: false },
+        { testo: "Galleria pro, liberatorie, preventivi e logo", incluso: false },
       ],
     },
     {
-      chiave: "pilota", nome: "Pilota", ...prezzo("pilota"), sotto: "Per foto, video e FPV",
+      chiave: "pilota", nome: "Pilota", ...prezzo("pilota"), sotto: "Per chi vola spesso per passione",
       caratteristiche: [
+        { testo: "Tutto quello che c'è nel Free", incluso: true },
         { testo: "Voli, foto e video senza limiti di numero", incluso: true },
         { testo: "Batterie illimitate con avvisi su cicli e stoccaggio", incluso: true },
-        { testo: "Pianificazione volo con meteo e indice Kp", incluso: true },
-        { testo: "Attestati, droni e documenti per i controlli", incluso: true },
-        { testo: `${LIMITI_FREE.reportMese} report di ispezione al mese`, incluso: true },
+        { testo: "Link di consegna senza limiti", incluso: true },
         { testo: "Esportazione CSV del registro voli", incluso: true },
-        { testo: "Preventivi e logo personalizzato", incluso: false },
+        { testo: `${LIMITI_FREE.reportMese} report di ispezione al mese`, incluso: true },
+        { testo: "Galleria pro, liberatorie, preventivi e logo", incluso: false },
       ],
     },
     {
       chiave: "pro", nome: "Pro", ...prezzo("pro"), sotto: "Per chi lavora con i clienti", badge: "Tutto incluso",
       caratteristiche: [
         { testo: "Tutto quello che c'è nel piano Pilota", incluso: true },
+        { testo: "Galleria cliente pro: PIN, filigrana e download da sbloccare", incluso: true },
+        { testo: "Liberatorie firmate sul telefono", incluso: true },
+        { testo: "Preventivi con pacchetti pronti (immobiliare, matrimonio, evento...)", incluso: true },
+        { testo: "Logo e nome azienda in report, gallerie e liberatorie", incluso: true },
         { testo: "Report di ispezione illimitati, senza filigrana", incluso: true },
-        { testo: "Logo e nome azienda nei report", incluso: true },
-        { testo: "Calcolatore preventivi automatico", incluso: true },
       ],
     },
   ];
@@ -3240,6 +3286,19 @@ function Abbonamento({ piano }) {
           );
         })}
       </div>
+
+      {piano !== "pro" && (
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", background: "linear-gradient(135deg, rgba(255,140,66,0.12), rgba(126,58,242,0.10)), #1b2028", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginTop: 16, maxWidth: 820 }}>
+          <div style={{ fontSize: 34 }}>🎟️</div>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 2px 0" }}>Pass Lavoro <span className="mono" style={{ color: "#ff8c42", marginLeft: 6 }}>{euro(PREZZO_PASS_LAVORO)}</span></h3>
+            <p style={{ fontSize: 12.5, color: "#c3cad4", margin: 0, lineHeight: 1.5 }}>
+              Fai un lavoretto ogni tanto? Sblocchi le funzioni Pro (galleria con PIN e filigrana, liberatorie, il tuo logo) <strong>solo sul volo di quel lavoro</strong>, una volta e per sempre, senza abbonamento. Lo trovi dentro ogni volo del Registro.
+            </p>
+            <p style={{ fontSize: 11, color: "#8b95a3", margin: "6px 0 0 0" }}>Se lavori due volte al mese, Pro ({euro(PREZZI_PIANO.pro.mese)}/mese) ti conviene già: lavori illimitati.</p>
+          </div>
+        </div>
+      )}
 
       {piano === "free" && <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "16px 0 0 0", maxWidth: 820 }}>
         ⏸️ Non voli d'inverno? Puoi <strong style={{ color: "#c3cad4" }}>mettere in pausa</strong> l'abbonamento da 1 a 3 mesi invece di disdirlo: i tuoi voli e documenti restano salvati e alla fine riparte da solo.
@@ -5672,7 +5731,8 @@ async function copiaNegliAppunti(testo) {
   }
 }
 
-function CondivisioneVolo({ volo, nMedia, media }) {
+function CondivisioneVolo({ volo, nMedia, media, piano, passQuestoMese, onVaiAbbonamento }) {
+  const pro = sbloccatoPro(piano, volo);
   const [links, setLinks] = useState(null);
   const [preferiti, setPreferiti] = useState({}); // id condivisione → [id media]
   const [aperto, setAperto] = useState(false);
@@ -5712,9 +5772,19 @@ function CondivisioneVolo({ volo, nMedia, media }) {
     setErrore(null);
     const titolo = [volo.luogo, formatData(volo.data)].filter(Boolean).join(" · ");
     const scade_il = scadenza > 0 ? new Date(Date.now() + scadenza * 86400000).toISOString() : null;
+    // piano Free: un solo link di consegna attivo alla volta (solo con i blocchi accesi)
+    if (BLOCCHI_PRO_ATTIVI && (piano || "free") === "free" && !volo.pass_lavoro) {
+      const { data: attiviUtente } = await supabase.from("condivisioni").select("id, scade_il").eq("attiva", true);
+      const ancoraValidi = (attiviUtente || []).filter((c) => !c.scade_il || new Date(c.scade_il) > new Date());
+      if (ancoraValidi.length >= LIMITI_FREE.linkConsegna) {
+        setCreando(false);
+        setErrore(`Con il piano Free puoi avere ${LIMITI_FREE.linkConsegna} link di consegna attivo alla volta: disattivane uno, oppure passa a Pilota o Pro.`);
+        return;
+      }
+    }
     const riga = { volo_id: String(volo.id), titolo, messaggio: messaggio.trim() || null, scade_il };
-    if (conPin) riga.pin = String(Math.floor(1000 + Math.random() * 9000));
-    if (conFiligrana) { riga.filigrana = true; riga.download = false; }
+    if (conPin && pro) riga.pin = String(Math.floor(1000 + Math.random() * 9000));
+    if (conFiligrana && pro) { riga.filigrana = true; riga.download = false; }
     const { data, error } = await supabase.from("condivisioni").insert(riga).select().single();
     setCreando(false);
     if (error) { setErrore(erroreScript(error.message)); return; }
@@ -5776,8 +5846,14 @@ function CondivisioneVolo({ volo, nMedia, media }) {
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Messaggio per il cliente (facoltativo)</label>
             <textarea rows={2} placeholder="es. Ecco le riprese di sabato: segna con il cuore le foto che vuoi in alta risoluzione." value={messaggio} onChange={(e) => setMessaggio(e.target.value)} style={{ ...inputStyle, resize: "vertical" }} />
           </div>
-          {opzione(conPin, setConPin, "🔒 Proteggi con un PIN", "Per aprire la galleria servirà un codice di 4 cifre, che mandi tu al cliente.")}
-          {opzione(conFiligrana, setConFiligrana, "💧 Filigrana e download bloccati", "Il cliente vede le anteprime con il tuo nome sopra e non può scaricare finché non sblocchi (per esempio dopo il pagamento).")}
+          {pro ? (
+            <>
+              {opzione(conPin, setConPin, <>🔒 Proteggi con un PIN<EtichettaPro /></>, "Per aprire la galleria servirà un codice di 4 cifre, che mandi tu al cliente.")}
+              {opzione(conFiligrana, setConFiligrana, <>💧 Filigrana e download bloccati<EtichettaPro /></>, "Il cliente vede le anteprime con il tuo nome sopra e non può scaricare finché non sblocchi (per esempio dopo il pagamento).")}
+            </>
+          ) : (
+            <InvitoPro volo={volo} cosa="La galleria con PIN e filigrana" passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
+          )}
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={crea} disabled={creando} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{creando ? "Creazione..." : "Crea e copia il link"}</button>
             <button onClick={() => setAperto(false)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
@@ -5809,7 +5885,7 @@ function CondivisioneVolo({ volo, nMedia, media }) {
                   <a href={`https://wa.me/?text=${encodeURIComponent(testoWa)}`} target="_blank" rel="noreferrer" style={piccolo}>WhatsApp</a>
                   {c.download === false
                     ? <button onClick={() => aggiorna(c, { download: true, filigrana: false })} style={{ ...piccolo, color: "#4ade80" }}>🔓 Sblocca download</button>
-                    : c.filigrana !== undefined && <button onClick={() => aggiorna(c, { download: false, filigrana: true })} style={piccolo}>💧 Blocca con filigrana</button>}
+                    : c.filigrana !== undefined && pro && <button onClick={() => aggiorna(c, { download: false, filigrana: true })} style={piccolo}>💧 Blocca con filigrana</button>}
                   <button onClick={() => disattiva(c)} style={{ ...piccolo, background: "none", color: "#ff9c9c" }}>Disattiva</button>
                 </div>
                 {preferitiAperti === c.id && pref.length > 0 && (
@@ -6106,7 +6182,8 @@ function costruisciPDFLiberatoria({ azienda, titolo, testo, nome, firmaDataUrl, 
   return doc;
 }
 
-function LiberatorieVolo({ volo, azienda }) {
+function LiberatorieVolo({ volo, azienda, piano, passQuestoMese, onVaiAbbonamento }) {
+  const pro = sbloccatoPro(piano, volo);
   const [elenco, setElenco] = useState(null);
   const [mancaTabella, setMancaTabella] = useState(false);
   const [aperto, setAperto] = useState(false);
@@ -6164,10 +6241,11 @@ function LiberatorieVolo({ volo, azienda }) {
   return (
     <div style={{ marginTop: 8, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600 }}>✍️ Liberatorie</span>
-        {!aperto && !mancaTabella && <button onClick={() => setAperto(true)} style={{ ...piccolo, color: "#ffb877", borderColor: "#ff8c4266", fontWeight: 600 }}>+ Fai firmare</button>}
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>✍️ Liberatorie<EtichettaPro /></span>
+        {!aperto && !mancaTabella && pro && <button onClick={() => setAperto(true)} style={{ ...piccolo, color: "#ffb877", borderColor: "#ff8c4266", fontWeight: 600 }}>+ Fai firmare</button>}
       </div>
       {mancaTabella && <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Per le liberatorie esegui prima lo script SQL «novita-riprese-fpv.sql» in Supabase.</p>}
+      {!mancaTabella && !pro && <InvitoPro volo={volo} cosa="La liberatoria firmata" passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />}
       {!mancaTabella && elenco.length === 0 && !aperto && <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Persone riprese o proprietari di case e terreni firmano sul telefono: il PDF resta salvato in questo volo.</p>}
 
       {aperto && (
@@ -7407,6 +7485,8 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
     return db.localeCompare(da);
   });
   const anni = [...new Set(tutti.map((v) => (v.data || "").slice(0, 4)).filter(Boolean))].sort().reverse();
+  const meseCorrente = new Date().toISOString().slice(0, 7);
+  const passQuestoMese = voli.filter((v) => v.pass_lavoro && String(v.pass_lavoro).slice(0, 7) === meseCorrente).length;
   const q = cerca.trim().toLowerCase();
   const visibili = tutti.filter((v) =>
     (filtroTipo === "tutti" || v.tipo_attivita === filtroTipo) &&
@@ -8124,8 +8204,9 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                           Se un video molto pesante non si carica, salvalo su Drive o YouTube e incolla il link, oppure alza il "Global file size limit" nelle impostazioni Storage di Supabase.
                         </p>
 
-                        <CondivisioneVolo volo={v} nMedia={mediaVolo.length} media={mediaVolo} />
-                        <LiberatorieVolo volo={v} azienda={azienda} />
+                        {v.pass_lavoro && <div style={{ fontSize: 12, color: "#ffb877", fontWeight: 600 }}>🎟️ Pass Lavoro attivo su questo volo: funzioni Pro sbloccate</div>}
+                        <CondivisioneVolo volo={v} nMedia={mediaVolo.length} media={mediaVolo} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
+                        <LiberatorieVolo volo={v} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
                         <EventiVolo volo={v} azienda={azienda} droni={droni} batterie={batterie} onCambiato={onEventiCambiati} />
 
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
