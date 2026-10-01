@@ -1355,6 +1355,8 @@ function AppShell({ session }) {
   const [fileRapidi, setFileRapidi] = useState(null); // file scelti dalla prima pagina, da allegare a un nuovo volo
   const [prefillVolo, setPrefillVolo] = useState(null); // dati di un piano di volo, da precompilare aprendo "Nuovo volo"
   const [batterie, setBatterie] = useState([]);
+  const [eventiVolo, setEventiVolo] = useState([]);
+  const [dflightScadenza, setDflightScadenza] = useState(undefined); // undefined = colonna non ancora creata dallo script SQL
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
@@ -1371,6 +1373,7 @@ function AppShell({ session }) {
       setPiano(profilo.piano || "free");
       setModuli(profilo.moduli || null);
       setObiettivoFormativo(profilo.obiettivo_formativo || "");
+      setDflightScadenza("dflight_scadenza" in profilo ? profilo.dflight_scadenza || "" : undefined);
       setAzienda({
         nome: profilo.azienda_nome || "Eyedrones",
         logo: profilo.azienda_logo && !profilo.azienda_logo.startsWith(LOGO_PRECEDENTE_PREFISSO) ? profilo.azienda_logo : LOGO_EYEDRONES,
@@ -1412,6 +1415,17 @@ function AppShell({ session }) {
   };
 
   // come i voli, anche le batterie si leggono a parte: se la tabella non esiste ancora, il resto dell'app funziona lo stesso
+  const caricaEventiVolo = async () => {
+    const { data } = await supabase.from("eventi_volo").select("*").order("data_ora", { ascending: false });
+    setEventiVolo(data || []);
+  };
+
+  const salvaDflightScadenza = async (valore) => {
+    setDflightScadenza(valore);
+    const { error } = await supabase.from("profili").update({ dflight_scadenza: valore || null }).eq("user_id", session.user.id);
+    if (error) alert("Non sono riuscito a salvare la scadenza (" + error.message + "). Controlla di aver eseguito lo script SQL «eventi-dflight.sql».");
+  };
+
   const caricaBatterie = async () => {
     const { data } = await supabase.from("batterie").select("*").order("created_at", { ascending: true });
     setBatterie(data || []);
@@ -1448,7 +1462,7 @@ function AppShell({ session }) {
     setLoading(false);
   };
 
-  useEffect(() => { caricaProfilo(); loadData(); caricaVoli(); caricaBatterie(); }, []);
+  useEffect(() => { caricaProfilo(); loadData(); caricaVoli(); caricaBatterie(); caricaEventiVolo(); }, []);
 
   // quanti report ha gi\u00e0 generato l'utente nel mese corrente (log persistente: non si azzera cancellando impianti/ispezioni)
   const oggi = new Date();
@@ -1533,12 +1547,12 @@ function AppShell({ session }) {
             Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.
           </div>
         )}
-        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
-        {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} />}
+        {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
@@ -1546,7 +1560,7 @@ function AppShell({ session }) {
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} obiettivoFormativo={obiettivoFormativo} onSalvaObiettivo={salvaObiettivoFormativo} />}
-        {page === "droni" && <Droni droni={droni} azienda={azienda} onReload={loadData} />}
+        {page === "droni" && <Droni droni={droni} azienda={azienda} onReload={loadData} dflightScadenza={dflightScadenza} onSalvaDflightScadenza={salvaDflightScadenza} />}
       </div>
     </div>
   );
@@ -2119,7 +2133,7 @@ function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
   );
 }
 
-function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile }) {
+function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
 
@@ -2133,6 +2147,9 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
     ...attestati.filter((a) => a.data_scadenza).map((a) => ({ id: "a" + a.id, nome: a.tipo, stato: statoScadenza(a.data_scadenza), vai: "attestati" })),
     ...droni.filter((d) => d.prossima_manutenzione).map((d) => ({ id: "d" + d.id, nome: `Manutenzione — ${d.nome}`, stato: statoManutenzione(d.prossima_manutenzione), vai: "droni" })),
     ...(batterie || []).flatMap((b) => avvisiBatteria(b).map((a, i) => ({ id: `b${b.id}-${i}`, nome: `Batteria — ${b.nome}`, stato: a, vai: "batterie" }))),
+    ...(eventiVolo || []).filter((e) => !e.segnalato).map((e) => ({ id: "e" + e.id, nome: `Segnalazione evento — ${etichettaEvento(e.tipo)}`, stato: statoEvento(e), vai: "registro-voli" })),
+    ...(dflightScadenza ? [{ id: "dflight", nome: "Abbonamento D-Flight (QR code operatore)", stato: statoScadenza(dflightScadenza), vai: "droni" }] : []),
+    ...droni.filter((d) => d.qr_dflight_nuovo === false).map((d) => ({ id: "q" + d.id, nome: `QR code D-Flight — ${d.nome}`, stato: { livello: "in_scadenza", colore: "#f5b942", testo: "Stampa e applica il nuovo QR code" }, vai: "droni" })),
   ];
   const batterieAttive = (batterie || []).filter((b) => !b.ritirata).length;
   const urgenti = voci.filter((v) => v.stato && v.stato.livello !== "ok");
@@ -4161,7 +4178,15 @@ function statoManutenzione(dataScadenza) {
   return { livello: "ok", testo: `Prossima manutenzione: ${formatData(dataScadenza)}`, colore: "#4ade80" };
 }
 
-function Droni({ droni, azienda, onReload }) {
+function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScadenza }) {
+  const [scadenzaDflight, setScadenzaDflight] = useState(dflightScadenza || "");
+  useEffect(() => { setScadenzaDflight(dflightScadenza || ""); }, [dflightScadenza]);
+  const statoDflight = statoScadenza(dflightScadenza);
+  const segnaQrNuovo = async (d, valore) => {
+    const { error } = await supabase.from("droni").update({ qr_dflight_nuovo: valore }).eq("id", d.id);
+    if (error) { alert("Non sono riuscito a salvare (" + error.message + ")."); return; }
+    onReload && onReload();
+  };
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [nome, setNome] = useState("");
@@ -4290,6 +4315,28 @@ function Droni({ droni, azienda, onReload }) {
       </div>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Tieni traccia di modelli, matricole, registrazione D-Flight e scadenze di manutenzione della tua flotta.</p>
 
+      {dflightScadenza !== undefined && (
+        <div style={{ background: "#1b2028", border: `1px solid ${statoDflight && statoDflight.livello !== "ok" ? statoDflight.colore + "88" : "#2b313d"}`, borderRadius: 10, padding: 16, marginBottom: 20, maxWidth: 620 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>🪪 Iscrizione D-Flight</h3>
+            {statoDflight && <span style={{ fontSize: 12, fontWeight: 600, color: statoDflight.colore }}>{statoDflight.testo}</span>}
+          </div>
+          <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 10px 0", lineHeight: 1.5 }}>
+            Il QR code operatore vale solo con l'abbonamento D-Flight attivo. Inserisci la scadenza: ti avvisiamo 30 giorni prima.
+          </p>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input type="date" value={scadenzaDflight} onChange={(e) => setScadenzaDflight(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
+            <button onClick={() => onSalvaDflightScadenza && onSalvaDflightScadenza(scadenzaDflight)} disabled={scadenzaDflight === (dflightScadenza || "")} style={{ background: scadenzaDflight === (dflightScadenza || "") ? "#262b33" : "#ff8c42", color: scadenzaDflight === (dflightScadenza || "") ? "#6b7480" : "#161a1f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600 }}>Salva</button>
+            <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd" }}>Apri D-Flight ↗</a>
+          </div>
+          {droni.some((d) => d.qr_dflight_nuovo !== undefined) && (
+            <p style={{ fontSize: 11.5, color: "#aab3bf", margin: "12px 0 0 0", lineHeight: 1.5 }}>
+              📌 Da ottobre 2025 D-Flight ha generato un <strong>nuovo QR code</strong>, più sicuro: va scaricato, stampato e attaccato di nuovo su ogni drone. Spunta qui sotto i droni su cui l'hai già fatto.
+            </p>
+          )}
+        </div>
+      )}
+
       {showForm && !editingId && (() => {
         const assicurazioneConsigliata = RISORSE_CONSIGLIATE.find((r) => r.nome.toLowerCase().includes("assicura"));
         return (
@@ -4388,6 +4435,12 @@ function Droni({ droni, azienda, onReload }) {
                     {d.matricola && <>{d.matricola} &middot; </>}
                     {stato ? <span style={{ color: stato.colore, fontWeight: 600 }}>{stato.testo}</span> : "Nessuna manutenzione programmata"}
                   </div>
+                  {d.qr_dflight_nuovo !== undefined && (
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 6, color: d.qr_dflight_nuovo ? "#4ade80" : "#f5b942", cursor: "pointer" }}>
+                      <input type="checkbox" checked={!!d.qr_dflight_nuovo} onChange={(e) => segnaQrNuovo(d, e.target.checked)} />
+                      {d.qr_dflight_nuovo ? "Nuovo QR code D-Flight applicato" : "Nuovo QR code D-Flight da stampare e applicare"}
+                    </label>
+                  )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   {d.documento_url && (
@@ -5559,6 +5612,209 @@ function GalleriaCondivisa({ token }) {
   );
 }
 
+// --- Eventi di volo da segnalare (Reg. UE 2026/1821, ENAC SPL-21) ----------------------------
+// i dati stanno nella tabella "eventi_volo" (script supabase/eventi-dflight.sql). Non è una consulenza legale:
+// l'app aiuta a non dimenticare la scadenza e prepara il testo, l'obbligo va verificato sulla guida ENAC.
+
+const ORE_SEGNALAZIONE_EVENTO = 72;
+const LINK_GUIDA_SEGNALAZIONI_ENAC = "https://www.enac.gov.it/app/uploads/2026/06/SPL-21-Droni-segnalazioni-inconvenienti.pdf";
+const LINK_PORTALE_SEGNALAZIONI = "https://aviationreporting.eu";
+
+const TIPI_EVENTO_VOLO = [
+  { key: "crash", label: "Caduta o impatto (crash)" },
+  { key: "link_c2", label: "Perdita del collegamento radio (link C2)" },
+  { key: "flyaway", label: "Perdita di controllo / fly-away" },
+  { key: "gps", label: "Perdita o disturbo del GPS" },
+  { key: "avaria", label: "Avaria tecnica (motore, batteria, elica...)" },
+  { key: "quasi_collisione", label: "Quasi collisione con un aeromobile" },
+  { key: "zona", label: "Ingresso non voluto in una zona vietata" },
+  { key: "cyber", label: "Interferenza o attacco informatico" },
+  { key: "altro", label: "Altro" },
+];
+
+const etichettaEvento = (k) => (TIPI_EVENTO_VOLO.find((t) => t.key === k) || {}).label || k;
+
+// stato per gli avvisi: null se già segnalato
+function statoEvento(e) {
+  if (!e || e.segnalato) return null;
+  const scadenza = new Date(e.data_ora).getTime() + ORE_SEGNALAZIONE_EVENTO * 3600000;
+  const ore = Math.ceil((scadenza - Date.now()) / 3600000);
+  if (ore > 0) return { livello: "in_scadenza", colore: ore <= 24 ? "#ff4d4d" : "#f5b942", testo: `Da segnalare entro ${ore} ${ore === 1 ? "ora" : "ore"}` };
+  return { livello: "scaduto", colore: "#ff4d4d", testo: "72 ore superate: segnala appena puoi" };
+}
+
+function riepilogoEvento({ evento, volo, azienda, drone, nomiBatterie }) {
+  const quando = new Date(evento.data_ora).toLocaleString("it-IT", { dateStyle: "long", timeStyle: "short" });
+  const righe = [
+    "SEGNALAZIONE EVENTO — OPERAZIONE UAS",
+    "",
+    `Operatore: ${azienda?.nome || "—"}`,
+    `Data e ora dell'evento: ${quando}`,
+    `Tipo di evento: ${etichettaEvento(evento.tipo)}`,
+    `Persone ferite: ${evento.feriti ? "SÌ" : "no"}`,
+    `Danni a terzi (persone o cose): ${evento.danni_terzi ? "SÌ" : "no"}`,
+    "",
+    `Luogo: ${volo.luogo || "—"}`,
+    volo.coordinate_gps ? `Coordinate GPS: ${volo.coordinate_gps}` : null,
+    `Drone: ${[drone?.nome || volo.drone_nome, drone?.modello, drone?.matricola ? `matricola ${drone.matricola}` : null, drone?.marcatura_classe ? `classe ${drone.marcatura_classe}` : null].filter(Boolean).join(" · ") || "—"}`,
+    drone?.registrazione_dflight ? `Registrazione D-Flight: ${drone.registrazione_dflight}` : null,
+    `Categoria operativa: ${etichettaCategoriaVolo(volo.categoria_operativa) || "—"}`,
+    volo.altezza_max ? `Altezza massima del volo: ${volo.altezza_max} m` : null,
+    nomiBatterie ? `Batterie usate: ${nomiBatterie}` : null,
+    "",
+    "Descrizione:",
+    evento.descrizione || "—",
+  ];
+  return righe.filter((r) => r !== null).join("\n");
+}
+
+function EventiVolo({ volo, azienda, droni, batterie, onCambiato }) {
+  const [eventi, setEventi] = useState(null);
+  const [mancaTabella, setMancaTabella] = useState(false);
+  const [aperto, setAperto] = useState(false);
+  const oraVolo = volo.ora ? String(volo.ora).slice(0, 5) : new Date().toTimeString().slice(0, 5);
+  const vuoto = () => ({ data: volo.data || new Date().toISOString().slice(0, 10), ora: oraVolo, tipo: "crash", feriti: false, danni_terzi: false, descrizione: "" });
+  const [form, setForm] = useState(vuoto);
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState(null);
+  const [copiatoId, setCopiatoId] = useState(null);
+
+  const carica = async () => {
+    const { data, error } = await supabase.from("eventi_volo").select("*").eq("volo_id", String(volo.id)).order("data_ora", { ascending: false });
+    if (error) { setMancaTabella(/relation|does not exist|schema cache/i.test(error.message)); setEventi([]); return; }
+    setEventi(data || []);
+  };
+  useEffect(() => { carica(); }, [volo.id]);
+
+  const salva = async () => {
+    setSalvando(true);
+    setErrore(null);
+    const data_ora = new Date(`${form.data}T${form.ora || "12:00"}`).toISOString();
+    const { error } = await supabase.from("eventi_volo").insert({ volo_id: String(volo.id), data_ora, tipo: form.tipo, feriti: form.feriti, danni_terzi: form.danni_terzi, descrizione: form.descrizione.trim() || null });
+    setSalvando(false);
+    if (error) { setErrore(error.message); return; }
+    setAperto(false);
+    setForm(vuoto());
+    await carica();
+    onCambiato && onCambiato();
+  };
+
+  const segnaInviata = async (e) => {
+    const riferimento = window.prompt("Segnalazione inviata? Se hai un numero di protocollo o riferimento, scrivilo qui (facoltativo):", "");
+    if (riferimento === null) return;
+    const { error } = await supabase.from("eventi_volo").update({ segnalato: true, segnalato_il: new Date().toISOString(), riferimento: riferimento.trim() || null }).eq("id", e.id);
+    if (error) { setErrore(error.message); return; }
+    await carica();
+    onCambiato && onCambiato();
+  };
+
+  const elimina = async (e) => {
+    if (!window.confirm("Eliminare questo evento dal registro?")) return;
+    await supabase.from("eventi_volo").delete().eq("id", e.id);
+    await carica();
+    onCambiato && onCambiato();
+  };
+
+  const copia = async (e) => {
+    const drone = (droni || []).find((d) => d.id === volo.drone_id);
+    const nomiBatterie = Array.isArray(volo.batterie_ids) ? volo.batterie_ids.map((id) => ((batterie || []).find((b) => b.id === id) || {}).nome).filter(Boolean).join(", ") : "";
+    const testo = riepilogoEvento({ evento: e, volo, azienda, drone, nomiBatterie });
+    if (await copiaNegliAppunti(testo)) { setCopiatoId(e.id); setTimeout(() => setCopiatoId((id) => (id === e.id ? null : id)), 2500); }
+  };
+
+  if (eventi === null) return null;
+  const bottone = { background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" };
+
+  return (
+    <div style={{ marginTop: 8, background: "#161a1f", border: eventi.some((e) => !e.segnalato) ? "1px solid #ff4d4d66" : "1px solid #262b33", borderRadius: 6, padding: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>⚠️ Eventi e inconvenienti</span>
+        {!aperto && !mancaTabella && (
+          <button onClick={() => setAperto(true)} style={{ background: "none", border: "1px solid #ff9c9c66", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}>È successo qualcosa?</button>
+        )}
+      </div>
+      {mancaTabella ? (
+        <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Per registrare gli eventi esegui prima lo script SQL «eventi-dflight.sql» in Supabase.</p>
+      ) : eventi.length === 0 && !aperto ? (
+        <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Crash, perdita di segnale, fly-away... Registralo qui: l'app ti ricorda la scadenza delle {ORE_SEGNALAZIONE_EVENTO} ore e prepara il testo della segnalazione.</p>
+      ) : null}
+
+      {aperto && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 130 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Giorno</label>
+              <input type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1, minWidth: 100 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Ora</label>
+              <input type="time" value={form.ora} onChange={(e) => setForm({ ...form, ora: e.target.value })} style={inputStyle} />
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Cosa è successo</label>
+            <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} style={inputStyle}>
+              {TIPI_EVENTO_VOLO.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#c3cad4" }}>
+            <input type="checkbox" checked={form.feriti} onChange={(e) => setForm({ ...form, feriti: e.target.checked })} /> Ci sono persone ferite
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#c3cad4" }}>
+            <input type="checkbox" checked={form.danni_terzi} onChange={(e) => setForm({ ...form, danni_terzi: e.target.checked })} /> Danni a cose o persone di altri
+          </label>
+          {form.feriti && (
+            <p style={{ fontSize: 12, color: "#ff9c9c", background: "#2a1616", border: "1px solid #5a2a2a", borderRadius: 6, padding: "8px 10px", margin: 0 }}>
+              Prima di tutto i soccorsi: chiama il <strong>112</strong>. Gli incidenti con feriti vanno comunicati anche all'ANSV (Agenzia Nazionale per la Sicurezza del Volo) e all'assicurazione.
+            </p>
+          )}
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Descrizione (cosa facevi, cosa è successo, com'è finita)</label>
+            <textarea rows={3} value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} placeholder="es. In volo a 60 m il segnale video è caduto, il drone ha attivato il ritorno automatico ed è atterrato senza danni." style={{ ...inputStyle, resize: "vertical" }} />
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={salva} disabled={salvando} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{salvando ? "Salvataggio..." : "Registra evento"}</button>
+            <button onClick={() => { setAperto(false); setForm(vuoto()); }} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
+          </div>
+        </div>
+      )}
+
+      {errore && <p style={{ fontSize: 11.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore}</p>}
+
+      {eventi.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+          {eventi.map((e) => {
+            const stato = statoEvento(e);
+            return (
+              <div key={e.id} style={{ borderTop: "1px solid #262b33", paddingTop: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: 12.5 }}>
+                  <span style={{ fontWeight: 600 }}>{etichettaEvento(e.tipo)}{e.feriti ? " · feriti" : ""}{e.danni_terzi ? " · danni a terzi" : ""}</span>
+                  {stato ? (
+                    <span style={{ color: stato.colore, fontWeight: 700, fontSize: 12 }}>⏱ {stato.testo}</span>
+                  ) : (
+                    <span style={{ color: "#4ade80", fontWeight: 600, fontSize: 12 }}>✓ Segnalato{e.segnalato_il ? ` il ${formatData(e.segnalato_il)}` : ""}{e.riferimento ? ` · rif. ${e.riferimento}` : ""}</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11.5, color: "#8b95a3", margin: "2px 0 6px 0" }}>{new Date(e.data_ora).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}{e.descrizione ? ` — ${e.descrizione}` : ""}</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button onClick={() => copia(e)} style={{ ...bottone, color: copiatoId === e.id ? "#4ade80" : bottone.color }}>{copiatoId === e.id ? "✓ Testo copiato" : "📋 Copia il testo della segnalazione"}</button>
+                  <a href={LINK_PORTALE_SEGNALAZIONI} target="_blank" rel="noreferrer" style={bottone}>Portale di segnalazione ↗</a>
+                  <a href={LINK_GUIDA_SEGNALAZIONI_ENAC} target="_blank" rel="noreferrer" style={bottone}>Guida ENAC ↗</a>
+                  {!e.segnalato && <button onClick={() => segnaInviata(e)} style={{ ...bottone, color: "#4ade80" }}>✓ L'ho segnalato</button>}
+                  <button onClick={() => elimina(e)} style={{ ...bottone, color: "#ff9c9c" }}>Elimina</button>
+                </div>
+              </div>
+            );
+          })}
+          <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>
+            Le segnalazioni vanno inviate entro {ORE_SEGNALAZIONE_EVENTO} ore da quando vieni a conoscenza dell'evento. Se nel tuo caso sono obbligatorie dipende dal tipo di evento e dalla categoria in cui voli: controlla la guida ENAC. Segnalare in modo volontario è sempre possibile.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TIPI_ATTIVITA_VOLO = [
   { key: "video", label: "Video", emoji: "🎬", colore: "#a78bfa" },
   { key: "foto", label: "Foto", emoji: "📷", colore: "#3d8bfd" },
@@ -6045,7 +6301,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
   );
 }
 
-function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento }) {
+function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento, eventiVolo, onEventiCambiati }) {
   const [voli, setVoli] = useState([]);
   const [media, setMedia] = useState([]);
   const [caricando, setCaricando] = useState(true);
@@ -6684,6 +6940,12 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                           <span>{formatData(v.data)}{v.ora ? ` · ${String(v.ora).slice(0, 5)}` : ""}</span>
                           <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: tipo.colore + "22", color: tipo.colore }}>{tipo.emoji} {tipo.label}</span>
                           {v._derived && <span style={{ fontSize: 10.5, color: "#6b7480" }}>da ispezione</span>}
+                          {(() => {
+                            const daSegnalare = (eventiVolo || []).filter((e) => e.volo_id === String(v.id) && !e.segnalato);
+                            if (daSegnalare.length === 0) return null;
+                            const st = statoEvento(daSegnalare[0]);
+                            return <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: "#ff4d4d22", color: st ? st.colore : "#ff9c9c" }}>⚠️ {st ? st.testo : "Da segnalare"}</span>;
+                          })()}
                         </div>
                         <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 3 }}>{sottotitolo || "—"}</div>
                       </div>
@@ -6764,6 +7026,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         </p>
 
                         <CondivisioneVolo volo={v} nMedia={mediaVolo.length} />
+                        <EventiVolo volo={v} azienda={azienda} droni={droni} batterie={batterie} onCambiato={onEventiCambiati} />
 
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                           <button onClick={() => apriModifica(v)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Modifica</button>
