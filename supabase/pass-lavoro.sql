@@ -42,4 +42,9 @@ create trigger proteggi_pass before insert or update on public.voli
 -- Per sbloccare a mano un Pass (finché i pagamenti non sono automatici), dopo la richiesta del cliente:
 --   update public.voli set pass_lavoro = now() where id = 'CODICE-DEL-VOLO';
 -- Per cambiare il piano di un utente:
---   update public.profili set piano = 'pro' where email = 'nome@esempio.it';
+--   update public.profili set piano = 'pro' where user_id = (select id from auth.users where email = 'nome@esempio.it');
+
+-- Colonna email nei profili: l'app la scrive alla registrazione (senza, il profilo dei nuovi utenti non si crea)
+alter table public.profili add column if not exists email text;
+update public.profili p set email = u.email
+from auth.users u where u.id = p.user_id and p.email is null;
