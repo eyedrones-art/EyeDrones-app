@@ -1451,7 +1451,25 @@ function AppAutenticata() {
 }
 
 function AppShell({ session }) {
-  const [page, setPage] = useState("dashboard");
+  // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni"];
+  const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
+  const [page, setPageInterna] = useState(() => (PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard"));
+  const setPage = (p) => { setPageInterna(p); try { sessionStorage.setItem("eyedrones_pagina", p); } catch (e) { /* senza memoria di sessione pazienza */ } };
+  // avviso quando la pagina è stata riaperta mentre si sceglieva un file
+  const [paginaRiaperta, setPaginaRiaperta] = useState(() => {
+    const t = Number(leggiSessione("eyedrones_scelta_file") || 0);
+    try { sessionStorage.removeItem("eyedrones_scelta_file"); } catch (e) { /* niente */ }
+    return t > 0 && Date.now() - t < 15 * 60000;
+  });
+  useEffect(() => {
+    const segna = (e) => { if (e.target && e.target.matches && e.target.matches("input[type=file]")) { try { sessionStorage.setItem("eyedrones_scelta_file", String(Date.now())); } catch (err) { /* niente */ } } };
+    const togli = (e) => { if (e.target && e.target.matches && e.target.matches("input[type=file]")) { try { sessionStorage.removeItem("eyedrones_scelta_file"); } catch (err) { /* niente */ } } };
+    document.addEventListener("click", segna, true);
+    document.addEventListener("change", togli, true);
+    document.addEventListener("cancel", togli, true);
+    return () => { document.removeEventListener("click", segna, true); document.removeEventListener("change", togli, true); document.removeEventListener("cancel", togli, true); };
+  }, []);
   const [impiantoAttivo, setImpiantoAttivo] = useState(null);
   const [azienda, setAzienda] = useState({ nome: "Eyedrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "" });
   const [piano, setPiano] = useState("free");
@@ -1470,7 +1488,8 @@ function AppShell({ session }) {
   const [obiettivoFormativo, setObiettivoFormativo] = useState("");
   const [voliManuali, setVoliManuali] = useState([]);
   const [nuovoVolo, setNuovoVolo] = useState(false);
-  const [vistaVoli, setVistaVoli] = useState("voli"); // "voli" | "galleria"
+  const [vistaVoli, setVistaVoliInterna] = useState(() => (["voli", "galleria", "mappa"].includes(leggiSessione("eyedrones_vista_voli")) ? leggiSessione("eyedrones_vista_voli") : "voli")); // "voli" | "galleria" | "mappa"
+  const setVistaVoli = (v) => { setVistaVoliInterna(v); try { sessionStorage.setItem("eyedrones_vista_voli", v); } catch (e) { /* niente */ } };
   const [fileRapidi, setFileRapidi] = useState(null); // file scelti dalla prima pagina, da allegare a un nuovo volo
   const [prefillVolo, setPrefillVolo] = useState(null); // dati di un piano di volo, da precompilare aprendo "Nuovo volo"
   const [batterie, setBatterie] = useState([]);
@@ -1664,6 +1683,20 @@ function AppShell({ session }) {
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AvvisoInstallaApp />
+        {paginaRiaperta && (
+          <div role="alert" style={{ margin: "12px 16px 0 16px", background: "#2a2416", border: "1px solid #5a4a20", borderRadius: 10, padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <span style={{ fontSize: 18 }}>⚠️</span>
+            <div style={{ flex: 1, fontSize: 12.5, color: "#e7eaee", lineHeight: 1.5 }}>
+              <strong>Il telefono ha riaperto la pagina mentre sceglievi il file</strong>, quindi la foto o il video non sono stati caricati. Succede quando la memoria è poca. Riprova così:
+              <ul style={{ margin: "4px 0 0 0", paddingLeft: 18, color: "#c3cad4" }}>
+                <li>scegli il video dalla <strong>Galleria</strong> o da <strong>File</strong>, invece di registrarlo al momento con la fotocamera;</li>
+                <li>chiudi le altre app aperte, poi riprova;</li>
+                <li>se capita spesso, installa Eyedrones sul telefono (avviso in alto): l'app viene chiusa meno spesso.</li>
+              </ul>
+            </div>
+            <button onClick={() => setPaginaRiaperta(false)} aria-label="Chiudi avviso" style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={16} /></button>
+          </div>
+        )}
         {dbError && (
           <div style={{ margin: 16, padding: "10px 14px", background: "#2a1616", border: "1px solid #5a2a2a", borderRadius: 8, color: "#ff9c9c", fontSize: 12.5 }}>
             Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.
@@ -2181,11 +2214,13 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
                 </button>
               );
             })}
-            <div style={{ borderTop: "1px solid #262b33", marginTop: 10, paddingTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12, color: "#6b7480", flex: 1, minWidth: 0, wordBreak: "break-all" }}>{userEmail}</span>
-              <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontSize: 13, color: "#3d8bfd", textDecoration: "none" }}>Assistenza</a>
-              <button onClick={() => supabase.auth.signOut()} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 6, padding: "7px 12px", fontSize: 13 }}>
-                <LogOut size={14} /> Esci
+            <div style={{ borderTop: "1px solid #262b33", marginTop: 10, paddingTop: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 12, color: "#6b7480", flex: 1, minWidth: 0, wordBreak: "break-all" }}>Accesso con {userEmail}</span>
+                <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontSize: 13, color: "#3d8bfd", textDecoration: "none" }}>Assistenza</a>
+              </div>
+              <button onClick={() => supabase.auth.signOut()} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 8, padding: "12px", fontSize: 14.5, fontWeight: 600 }}>
+                <LogOut size={16} /> Esci dall'account
               </button>
             </div>
           </div>
@@ -8406,6 +8441,9 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
 
         <div style={{ borderTop: "1px solid #262b33", paddingTop: 18 }}>
           <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Account e privacy</h3>
+          <button onClick={() => supabase.auth.signOut()} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>
+            <LogOut size={14} /> Esci dall'account
+          </button>
           <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 10px 0" }}>
             Accesso con <strong style={{ color: "#c3cad4" }}>{userEmail}</strong>
             {(LINK_PRIVACY || LINK_TERMINI) && <> · <LinkLegali stile={{ color: "#3d8bfd" }} /></>}
