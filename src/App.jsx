@@ -1643,6 +1643,7 @@ function AppShell({ session }) {
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
         .menu-telefono { display: none; }
+        .avviso-caricamento { bottom: 24px; }
         @media (max-width: 680px) {
           .app-shell { flex-direction: column; }
           .sidebar { display: none !important; }
@@ -1651,6 +1652,7 @@ function AppShell({ session }) {
           .mt-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; display: flex; background: rgba(18, 21, 26, 0.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid #262b33; padding-bottom: env(safe-area-inset-bottom); }
           .mt-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px 7px 2px; background: none; border: none; color: #7c8694; font-size: 10.5px; font-weight: 500; min-height: 56px; justify-content: center; }
           .mt-tab.on { color: #ff8c42; font-weight: 700; }
+          .avviso-caricamento { bottom: calc(72px + env(safe-area-inset-bottom)) !important; }
           .mt-overlay { position: fixed; inset: 0; z-index: 950; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end; }
           .mt-sheet { width: 100%; max-height: 82vh; overflow-y: auto; background: #161a20; border-top: 1px solid #2b313d; border-radius: 16px 16px 0 0; padding: 10px 14px calc(16px + env(safe-area-inset-bottom)) 14px; }
           .app-shell > div:last-child { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
@@ -2351,7 +2353,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <label style={{ ...btnPrimario, cursor: "pointer" }}>
                 <Camera size={14} /> Aggiungi foto o video
-                <input type="file" accept="image/*,video/*" multiple onChange={(e) => { const files = Array.from(e.target.files || []); e.target.value = ""; if (files.length > 0) onAggiungiFile(files); }} style={{ display: "none" }} />
+                <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple onChange={(e) => { const files = Array.from(e.target.files || []); e.target.value = ""; if (files.length > 0) onAggiungiFile(files); }} style={{ display: "none" }} />
               </label>
               <button onClick={onNuovoVolo} style={{ ...btnPrimario, background: "#262b33", color: "#e7eaee", border: "1px solid #333a45" }}><Plus size={14} /> Nuovo volo</button>
             </div>
@@ -7450,6 +7452,12 @@ function StatisticheAnno({ voli, azienda }) {
   );
 }
 
+// limite di Supabase per un singolo file nel piano gratuito (si alza nelle impostazioni Storage del progetto)
+const LIMITE_FILE_MB = 50;
+const ESTENSIONI_VIDEO = ["mp4", "mov", "m4v", "3gp", "webm", "mkv"];
+const ESTENSIONI_FOTO = ["jpg", "jpeg", "png", "heic", "heif", "webp", "dng"];
+const formattaMB = (byte) => `${(byte / 1048576).toFixed(byte > 10485760 ? 0 : 1)} MB`;
+
 function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento, eventiVolo, onEventiCambiati }) {
   const [voli, setVoli] = useState([]);
   const [media, setMedia] = useState([]);
@@ -7465,6 +7473,14 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   const [includiIspezioni, setIncludiIspezioni] = useState(true);
   const [espansoId, setEspansoId] = useState(null);
   const [caricandoMediaId, setCaricandoMediaId] = useState(null);
+  const [statoCaricamento, setStatoCaricamento] = useState(null); // { stato: in_corso | ok | errore, testo }
+  // durante un caricamento avviso se si prova a chiudere o ricaricare la pagina
+  useEffect(() => {
+    if (!statoCaricamento || statoCaricamento.stato !== "in_corso") return;
+    const avvisa = (e) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", avvisa);
+    return () => window.removeEventListener("beforeunload", avvisa);
+  }, [statoCaricamento]);
   const [linkNuovo, setLinkNuovo] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [gpsInCorso, setGpsInCorso] = useState(false);
@@ -7704,24 +7720,39 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   // carica una lista di file per un volo; restituisce l'elenco dei file scartati, con il motivo (nessun limite di numero: solo un file che Supabase stesso rifiuta finisce qui)
   const caricaFileVolo = async (voloId, files) => {
     const scartati = [];
-    for (const file of files) {
+    let caricati = 0;
+    for (const [i, file] of files.entries()) {
       try {
-        const isVideo = file.type.startsWith("video/");
-        const isFoto = file.type.startsWith("image/");
+        // alcuni telefoni (es. galleria Samsung) passano il file senza tipo: lo riconosco dall'estensione
+        const estensione = (file.name.split(".").pop() || "").toLowerCase();
+        const tipo = file.type || (ESTENSIONI_VIDEO.includes(estensione) ? `video/${estensione === "mov" ? "quicktime" : "mp4"}` : ESTENSIONI_FOTO.includes(estensione) ? `image/${estensione === "jpg" ? "jpeg" : estensione}` : "");
+        const isVideo = tipo.startsWith("video/");
+        const isFoto = tipo.startsWith("image/");
         if (!isVideo && !isFoto) { scartati.push(`${file.name} (formato non supportato)`); continue; }
+        setStatoCaricamento({ stato: "in_corso", testo: `Caricamento ${i + 1} di ${files.length}: ${file.name} (${formattaMB(file.size)})… non chiudere l'app` });
         const daCaricare = isFoto ? await ridimensionaImmagine(file) : file;
+        if (daCaricare.size > LIMITE_FILE_MB * 1048576) {
+          scartati.push(`${file.name} pesa ${formattaMB(daCaricare.size)}: il limite è ${LIMITE_FILE_MB} MB. Caricalo su Google Drive o YouTube e incolla qui il link`);
+          continue;
+        }
         const convertita = isFoto && daCaricare !== file;
         const ext = convertita ? "jpg" : ((file.name.split(".").pop() || (isVideo ? "mp4" : "jpg")).toLowerCase());
         const nomeFile = `volo-${voloId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, daCaricare, { contentType: convertita ? "image/jpeg" : file.type });
+        const { error: eUp } = await supabase.storage.from("foto-ispezioni").upload(nomeFile, daCaricare, { contentType: convertita ? "image/jpeg" : tipo });
         if (eUp) throw eUp;
         const { data: pub } = supabase.storage.from("foto-ispezioni").getPublicUrl(nomeFile);
         const { error: eIns } = await supabase.from("voli_media").insert({ volo_id: voloId, tipo: isVideo ? "video" : "foto", url: pub.publicUrl, nome: file.name });
         if (eIns) throw eIns;
+        caricati++;
       } catch (err) {
-        scartati.push(`${file.name} (${(err && err.message) || "errore"})`);
+        const msg = (err && err.message) || "errore";
+        scartati.push(`${file.name} (${/exceeded|too large|maximum allowed size|413/i.test(msg) ? `troppo pesante: il limite è ${LIMITE_FILE_MB} MB, usa un link Drive o YouTube` : msg})`);
       }
     }
+    setStatoCaricamento(caricati > 0
+      ? { stato: scartati.length ? "errore" : "ok", testo: `✓ ${caricati} ${caricati === 1 ? "file caricato" : "file caricati"}${scartati.length ? ` · ${scartati.length} non caricati` : ""}` }
+      : { stato: "errore", testo: "Nessun file caricato" });
+    setTimeout(() => setStatoCaricamento((st) => (st && st.stato !== "in_corso" ? null : st)), 6000);
     return scartati;
   };
 
@@ -7842,12 +7873,19 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      {statoCaricamento && (
+        <div role="status" className="avviso-caricamento" style={{ position: "fixed", left: "50%", transform: "translateX(-50%)", zIndex: 940, width: "min(560px, calc(100% - 32px))", background: statoCaricamento.stato === "in_corso" ? "#1f2530" : statoCaricamento.stato === "ok" ? "#16221b" : "#2a1616", border: `1px solid ${statoCaricamento.stato === "in_corso" ? "#ff8c42" : statoCaricamento.stato === "ok" ? "#4ade80" : "#ff6b6b"}`, color: "#e7eaee", borderRadius: 10, padding: "12px 14px", fontSize: 13, boxShadow: "0 10px 30px rgba(0,0,0,0.45)", display: "flex", alignItems: "center", gap: 10 }}>
+          {statoCaricamento.stato === "in_corso" && <Loader2 size={16} className="spin" style={{ flexShrink: 0, color: "#ff8c42" }} />}
+          <span style={{ flex: 1, wordBreak: "break-word" }}>{statoCaricamento.testo}</span>
+          {statoCaricamento.stato !== "in_corso" && <button onClick={() => setStatoCaricamento(null)} style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={15} /></button>}
+        </div>
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Registro voli</h1>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 6, background: "#241d16", color: "#ffb877", border: "1px solid #ff8c42", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
             <Camera size={14} /> Aggiungi foto / video
-            <input type="file" accept="image/*,video/*" multiple onChange={scegliFileRapido} style={{ display: "none" }} />
+            <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple onChange={scegliFileRapido} style={{ display: "none" }} />
           </label>
           <StatisticheAnno voli={tutti} azienda={azienda} />
           <ImportaSRT droni={droni} numeroVoli={voli.length} piano={piano} onVaiAbbonamento={onVaiAbbonamento} onImportati={(n) => { carica(); window.alert(`Creati ${n} ${n === 1 ? "volo" : "voli"} dai file .SRT.`); }} />
@@ -7891,7 +7929,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             <div style={{ fontSize: 12.5, fontWeight: 600, color: "#c3cad4" }}>📎 Foto e video di questo volo <span style={{ color: "#6b7480", fontWeight: 400 }}>(facoltativo)</span></div>
             <label style={{ display: "inline-flex", alignSelf: "flex-start", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "9px 14px", color: "#c3cad4", fontSize: 12.5, cursor: "pointer" }}>
               <Upload size={14} /> Scegli foto e video
-              <input type="file" accept="image/*,video/*" multiple onChange={scegliFileForm} style={{ display: "none" }} />
+              <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple onChange={scegliFileForm} style={{ display: "none" }} />
             </label>
             {fileInAttesa.length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(76px, 1fr))", gap: 8 }}>
@@ -8152,7 +8190,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#8b95a3" }}>
                           <label onClick={(e) => e.stopPropagation()} title="Aggiungi foto o video a questo volo" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid #ff8c4288", borderRadius: 6, padding: "5px 10px", color: "#ffb877", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                             <Camera size={13} /> {caricandoMediaId === v.id ? "Carico..." : "Foto/video"}
-                            <input type="file" accept="image/*,video/*" multiple disabled={caricandoMediaId === v.id} onChange={(e) => aggiungiMedia(v.id, e)} style={{ display: "none" }} />
+                            <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple disabled={caricandoMediaId === v.id} onChange={(e) => aggiungiMedia(v.id, e)} style={{ display: "none" }} />
                           </label>
                           {mediaVolo.length > 0 && (
                             <button
@@ -8216,7 +8254,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
                           <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
                             <Upload size={13} /> {caricandoMediaId === v.id ? "Caricamento..." : "Aggiungi foto / video"}
-                            <input type="file" accept="image/*,video/*" multiple disabled={caricandoMediaId === v.id} onChange={(e) => aggiungiMedia(v.id, e)} style={{ display: "none" }} />
+                            <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple disabled={caricandoMediaId === v.id} onChange={(e) => aggiungiMedia(v.id, e)} style={{ display: "none" }} />
                           </label>
                           <div style={{ display: "flex", gap: 6, flex: 1, minWidth: 220 }}>
                             <input type="text" placeholder="Link video (Drive, YouTube, WeTransfer...)" value={linkNuovo} onChange={(e) => setLinkNuovo(e.target.value)} onKeyDown={(e) => e.key === "Enter" && aggiungiLink(v.id)} style={{ ...inputStyle, fontSize: 12.5, padding: "7px 10px" }} />
