@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
 import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
-import { leggiZoneSalvate, salvaZone, leggiFileZone, controllaPunto, descriviRestrizione, formattaLimiti } from "./zoneUAS";
+import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
@@ -5078,7 +5078,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, dataPrevista, 
     setLeggendoFile(true);
     setErrore(null);
     try {
-      const zone = leggiFileZone(JSON.parse(await file.text()));
+      const zone = leggiFileZone(JSON.parse(await testoDaFileZone(file)));
       if (zone.length === 0) throw new Error("Non ho trovato zone in questo file: è quello scaricato da D-Flight («Download UAS Zone Geo»)?");
       const dati = { zone, nomeFile: file.name, caricato: new Date().toISOString() };
       await salvaZone(dati);
@@ -5169,7 +5169,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, dataPrevista, 
         {archivio && (
           <label style={{ fontSize: 11, color: giorniFile > 28 ? "#f5b942" : "#8b95a3", cursor: "pointer" }}>
             File zone del {formatData(archivio.caricato.slice(0, 10))}{giorniFile > 28 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
-            <input type="file" accept=".json,application/json" onChange={caricaFile} style={{ display: "none" }} />
+            <input type="file" onChange={caricaFile} style={{ display: "none" }} />
           </label>
         )}
       </div>
@@ -5184,11 +5184,11 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, dataPrevista, 
           <ol style={{ margin: "6px 0", paddingLeft: 18, color: "#aab3bf", fontSize: 12 }}>
             <li>accedi a <a href="https://www.d-flight.it/" target="_blank" rel="noreferrer" style={linkD}>d-flight.it</a> con le tue credenziali</li>
             <li>apri il tuo profilo e tocca <strong>«Download UAS Zone Geo»</strong></li>
-            <li>carica qui il file .json scaricato (resta solo su questo dispositivo; aggiornalo una volta al mese)</li>
+            <li>carica qui il file scaricato, dalla cartella Download (resta solo su questo dispositivo; aggiornalo una volta al mese)</li>
           </ol>
           <label style={{ display: "inline-block", background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
             {leggendoFile ? "Sto leggendo il file…" : "📂 Carica il file zone di D-Flight"}
-            <input type="file" accept=".json,application/json" onChange={caricaFile} disabled={leggendoFile} style={{ display: "none" }} />
+            <input type="file" onChange={caricaFile} disabled={leggendoFile} style={{ display: "none" }} />
           </label>
         </div>
       ) : (

@@ -264,3 +264,46 @@ export function formattaLimiti(l) {
   if (l.da != null) return `sopra ${l.da} m${rif(l.rifDa)}`;
   return null;
 }
+
+// --- lettura del file scelto: JSON semplice oppure .zip con dentro il JSON ----------------------
+
+async function estraiDaZip(buf) {
+  const v = new DataView(buf);
+  // cerco la fine della directory centrale (firma 0x06054b50) partendo dal fondo
+  let fine = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65557); i--) {
+    if (v.getUint32(i, true) === 0x06054b50) { fine = i; break; }
+  }
+  if (fine < 0) throw new Error("Lo zip sembra danneggiato: scaricalo di nuovo da D-Flight.");
+  const quanti = v.getUint16(fine + 10, true);
+  let p = v.getUint32(fine + 16, true);
+  const voci = [];
+  for (let n = 0; n < quanti && v.getUint32(p, true) === 0x02014b50; n++) {
+    const metodo = v.getUint16(p + 10, true);
+    const compresso = v.getUint32(p + 20, true);
+    const lNome = v.getUint16(p + 28, true), lExtra = v.getUint16(p + 30, true), lComm = v.getUint16(p + 32, true);
+    const offset = v.getUint32(p + 42, true);
+    const nome = new TextDecoder().decode(new Uint8Array(buf, p + 46, lNome));
+    voci.push({ nome, metodo, compresso, offset });
+    p += 46 + lNome + lExtra + lComm;
+  }
+  const voce = voci.find((x) => /\.(geo)?json$/i.test(x.nome)) || voci.find((x) => !x.nome.endsWith("/"));
+  if (!voce) throw new Error("Nello zip non c'è nessun file delle zone.");
+  const inizio = voce.offset + 30 + v.getUint16(voce.offset + 26, true) + v.getUint16(voce.offset + 28, true);
+  const dati = new Uint8Array(buf, inizio, voce.compresso);
+  if (voce.metodo === 0) return new TextDecoder().decode(dati);
+  if (voce.metodo !== 8 || typeof DecompressionStream === "undefined") throw new Error("Non riesco ad aprire questo zip sul telefono: estrai il file .json dall'app File e carica quello.");
+  const flusso = new Blob([dati]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return await new Response(flusso).text();
+}
+
+// accetta qualsiasi file: lo riconosco dal contenuto e non dal nome (alcuni Android non riconoscono i .json)
+export async function testoDaFileZone(file) {
+  const buf = await file.arrayBuffer();
+  const b = new Uint8Array(buf, 0, Math.min(4, buf.byteLength));
+  if (b[0] === 0x50 && b[1] === 0x4b) return estraiDaZip(buf); // "PK": è uno zip
+  if (b[0] === 0x1f && b[1] === 0x8b && typeof DecompressionStream !== "undefined") {
+    return await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+  }
+  return new TextDecoder().decode(buf).replace(/^﻿/, "");
+}
