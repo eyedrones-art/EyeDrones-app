@@ -1465,10 +1465,23 @@ function AppShell({ session }) {
   useEffect(() => {
     const segna = (e) => { if (e.target && e.target.matches && e.target.matches("input[type=file]")) { try { sessionStorage.setItem("eyedrones_scelta_file", String(Date.now())); } catch (err) { /* niente */ } } };
     const togli = (e) => { if (e.target && e.target.matches && e.target.matches("input[type=file]")) { try { sessionStorage.removeItem("eyedrones_scelta_file"); } catch (err) { /* niente */ } } };
+    // se si torna nella pagina senza che sia stata ricaricata (scelta annullata o file scelto), il segno non serve più
+    let timer = null;
+    const ritorno = () => {
+      if (document.visibilityState !== "visible") return;
+      clearTimeout(timer);
+      timer = setTimeout(() => { try { sessionStorage.removeItem("eyedrones_scelta_file"); } catch (err) { /* niente */ } }, 2500);
+    };
     document.addEventListener("click", segna, true);
     document.addEventListener("change", togli, true);
     document.addEventListener("cancel", togli, true);
-    return () => { document.removeEventListener("click", segna, true); document.removeEventListener("change", togli, true); document.removeEventListener("cancel", togli, true); };
+    window.addEventListener("focus", ritorno);
+    document.addEventListener("visibilitychange", ritorno);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", segna, true); document.removeEventListener("change", togli, true); document.removeEventListener("cancel", togli, true);
+      window.removeEventListener("focus", ritorno); document.removeEventListener("visibilitychange", ritorno);
+    };
   }, []);
   const [impiantoAttivo, setImpiantoAttivo] = useState(null);
   const [azienda, setAzienda] = useState({ nome: "Eyedrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "" });
@@ -6080,7 +6093,7 @@ function GalleriaCondivisa({ token }) {
                     <img src={m.url} alt={m.nome || "foto"} loading="lazy" draggable={!conFiligrana} onClick={() => setLightbox(m)} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, cursor: "pointer", display: "block", background: "#000", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: conFiligrana ? "none" : "default" }} />
                   )}
                   {m.tipo === "video" && (
-                    <video src={m.url} controls preload="metadata" playsInline controlsList={puoScaricare ? undefined : "nodownload"} style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#000", display: "block" }} />
+                    <VideoAnteprima m={m} mostraLink={puoScaricare} controlsList={puoScaricare ? undefined : "nodownload"} />
                   )}
                   {conFiligrana && <Filigrana testo={testoFiligrana} />}
                   <button onClick={() => cambiaPreferito(m)} aria-label={amato ? "Togli dalle preferite" : "Aggiungi alle preferite"} style={{ position: "absolute", top: 6, right: 6, width: 34, height: 34, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.55)", color: amato ? "#ff4d6d" : "#fff", fontSize: 17, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{amato ? "♥" : "♡"}</button>
@@ -7487,6 +7500,29 @@ function StatisticheAnno({ voli, azienda }) {
   );
 }
 
+// video con anteprima del primo fotogramma (#t=0.1, utile su Android) e, sotto, nome e link: così resta sempre una traccia
+// anche se il telefono non riesce a riprodurlo (formati come HEVC o .mov non supportati da tutti i browser)
+function VideoAnteprima({ m, mostraLink = true, controlsList }) {
+  const [errore, setErrore] = useState(false);
+  const sorgente = m.url && !m.url.includes("#") ? `${m.url}#t=0.1` : m.url;
+  return (
+    <div>
+      {errore ? (
+        <div style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#161a1f", border: "1px solid #333a45", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, padding: 8, textAlign: "center", fontSize: 11.5, color: "#aab3bf" }}>
+          <span style={{ fontSize: 22 }}>🎬</span>
+          Anteprima non disponibile su questo dispositivo
+        </div>
+      ) : (
+        <video src={sorgente} controls preload="metadata" playsInline controlsList={controlsList} onError={() => setErrore(true)} style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#000", display: "block" }} />
+      )}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 10.5, color: "#8b95a3", marginTop: 3, minWidth: 0 }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>🎬 {m.nome || "video"}</span>
+        {mostraLink && <a href={m.url} target="_blank" rel="noreferrer" style={{ color: "#ffb877", flexShrink: 0 }}>Apri ↗</a>}
+      </div>
+    </div>
+  );
+}
+
 // limite di Supabase per un singolo file nel piano gratuito (si alza nelle impostazioni Storage del progetto)
 const LIMITE_FILE_MB = 50;
 const ESTENSIONI_VIDEO = ["mp4", "mov", "m4v", "3gp", "webm", "mkv"];
@@ -7888,7 +7924,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             <img src={m.url} alt={m.nome || "foto"} loading="lazy" onClick={() => setLightbox(m)} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, cursor: "pointer", display: "block", background: "#000" }} />
           )}
           {m.tipo === "video" && (
-            <video src={m.url} controls preload="metadata" playsInline style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#000", display: "block" }} />
+            <VideoAnteprima m={m} />
           )}
           {m.tipo === "link" && (
             <a href={m.url} target="_blank" rel="noreferrer" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, aspectRatio: "1 / 1", background: "#161a1f", border: "1px solid #333a45", borderRadius: 6, color: "#3d8bfd", fontSize: 11, textDecoration: "none", padding: 6, textAlign: "center", wordBreak: "break-all", overflow: "hidden" }}>
@@ -8273,7 +8309,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                                   <img src={m.url} alt={m.nome || "foto"} loading="lazy" onClick={() => setLightbox(m)} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, cursor: "pointer", display: "block", background: "#000" }} />
                                 )}
                                 {m.tipo === "video" && (
-                                  <video src={m.url} controls preload="metadata" playsInline style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#000", display: "block" }} />
+                                  <VideoAnteprima m={m} />
                                 )}
                                 {m.tipo === "link" && (
                                   <a href={m.url} target="_blank" rel="noreferrer" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, aspectRatio: "1 / 1", background: "#161a1f", border: "1px solid #333a45", borderRadius: 6, color: "#3d8bfd", fontSize: 11, textDecoration: "none", padding: 6, textAlign: "center", wordBreak: "break-all", overflow: "hidden" }}>
