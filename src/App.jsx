@@ -5182,8 +5182,8 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, dataPrevista, 
         <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 6 }}>
           Scrivi il luogo e l'app ti dice in che zona geografica UAS cade: vietata, con autorizzazione, con condizioni, l'altezza massima e chi contattare. Usa il file ufficiale delle zone, che scarichi gratis dal tuo profilo D-Flight:
           <ol style={{ margin: "6px 0", paddingLeft: 18, color: "#aab3bf", fontSize: 12 }}>
-            <li>accedi a <a href="https://www.d-flight.it/" target="_blank" rel="noreferrer" style={linkD}>d-flight.it</a> con le tue credenziali</li>
-            <li>apri il tuo profilo e tocca <strong>«Download UAS Zone Geo»</strong></li>
+            <li>apri <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={linkD}>D-Flight ↗</a> e accedi con le tue credenziali</li>
+            <li>tocca il logo <strong>«d»</strong> in alto a sinistra: sotto «Dettagli account» tocca il <strong>dischetto 💾</strong> (Download UAS Zone Geo)</li>
             <li>carica qui il file scaricato, dalla cartella Download (resta solo su questo dispositivo; aggiornalo una volta al mese)</li>
           </ol>
           <label style={{ display: "inline-block", background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
