@@ -4903,6 +4903,9 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
   const [checklistSpuntati, setChecklistSpuntati] = useState({});
   const [checklistFpvSpuntati, setChecklistFpvSpuntati] = useState({});
   const [oraSole, setOraSole] = useState("18:00");
+  const [oraPrevista, setOraPrevista] = useState("");
+  // scegliendo l'ora del volo, anche la direzione del sole si calcola per quell'ora
+  const scegliOraPrevista = (ora) => { setOraPrevista(ora); if (ora) setOraSole(ora); };
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
   const [attestatiUtente, setAttestatiUtente] = useState([]);
   const [droniUtente, setDroniUtente] = useState([]);
@@ -5054,15 +5057,22 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
         impianto_nome: destinazione.nome,
         tipo_ispezione: tipoIspezione,
         data_prevista: dataPrevista,
+        ora_prevista: oraPrevista || null,
         drone_id: droneSelId || null,
         dflight_screenshot_url: dflightUrl,
         checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati },
       };
       // le coordinate si salvano solo per un luogo scelto a mano
       if (!impiantoSel) payload.luogo_coordinate = coordinateValide ? `${coordinateValide.lat}, ${coordinateValide.lon}` : null;
-      const { error } = editingId
-        ? await supabase.from("piani_volo").update(payload).eq("id", editingId)
-        : await supabase.from("piani_volo").insert(payload);
+      const scrivi = (dati) => (editingId
+        ? supabase.from("piani_volo").update(dati).eq("id", editingId)
+        : supabase.from("piani_volo").insert(dati));
+      let { error } = await scrivi(payload);
+      // se la colonna dell'ora non è ancora stata aggiunta al database, salvo il piano senza l'ora
+      if (error && /ora_prevista/i.test(error.message || "")) {
+        const { ora_prevista, ...senzaOra } = payload;
+        ({ error } = await scrivi(senzaOra));
+      }
       if (error) throw error;
       await caricaTutto();
       const eraModifica = !!editingId;
@@ -5084,6 +5094,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
     }
     setTipoIspezione(p.tipo_ispezione || "fotovoltaico");
     setDataPrevista(p.data_prevista || new Date().toISOString().slice(0, 10));
+    setOraPrevista(p.ora_prevista ? String(p.ora_prevista).slice(0, 5) : "");
+    if (p.ora_prevista) setOraSole(String(p.ora_prevista).slice(0, 5));
     setDroneSelId(p.drone_id || "");
     setDflightShot(p.dflight_screenshot_url ? { dataUrl: p.dflight_screenshot_url, remota: true } : null);
     if (p.checklist_stato && p.checklist_stato.voci) {
@@ -5104,6 +5116,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
     setLuogoLibero("");
     setCoordinateLibere("");
     setDroneSelId("");
+    setOraPrevista("");
     setDflightShot(null);
     setMeteo(null);
     setMeteoSpaziale(null);
@@ -5170,6 +5183,10 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
         <div style={{ minWidth: 160 }}>
           <label style={lblPian}>Data prevista</label>
           <input type="date" value={dataPrevista} onChange={(e) => setDataPrevista(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ minWidth: 120 }}>
+          <label style={lblPian}>Ora prevista</label>
+          <input type="time" value={oraPrevista} onChange={(e) => scegliOraPrevista(e.target.value)} style={inputStyle} />
         </div>
       </div>
 
@@ -5244,12 +5261,12 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
             const riprese = ["video", "foto", "fpv"].includes(tipoIspezione);
             return (
               <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 }}>
-                <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Ora per ora · soglia vento {limiteVento} km/h · ✨ = ora d'oro</p>
+                <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Ora per ora · soglia vento {limiteVento} km/h · ✨ = ora d'oro · tocca un'ora per sceglierla</p>
                 {finestre.length > 0 ? (
                   <div style={{ fontSize: 12.5, marginBottom: 8 }}>
                     <span style={{ color: "#4ade80", fontWeight: 700 }}>Ore migliori: </span>
                     {finestre.slice(0, 3).map((f, i) => (
-                      <span key={i}>{i > 0 ? " · " : ""}<strong>{hh(f.inizio)}–{hh(f.fine)}</strong>{f.oro ? <span style={{ color: "#f5b942" }}>{riprese ? " ✨ con ora d'oro: ideale per riprese" : " ✨"}</span> : ""}</span>
+                      <span key={i}>{i > 0 ? " · " : ""}<button type="button" onClick={() => scegliOraPrevista(hh(f.inizio))} title="Usa come ora prevista" style={{ background: oraPrevista === hh(f.inizio) ? "#4ade8033" : "#4ade8014", border: "1px solid #4ade8066", color: "#e7eaee", borderRadius: 5, padding: "1px 6px", fontSize: 12.5, fontWeight: 700 }}>{hh(f.inizio)}–{hh(f.fine)}</button>{f.oro ? <span style={{ color: "#f5b942" }}>{riprese ? " ✨ con ora d'oro: ideale per riprese" : " ✨"}</span> : ""}</span>
                     ))}
                   </div>
                 ) : (
@@ -5257,7 +5274,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
                 )}
                 <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 4 }}>
                   {ore.map((o) => (
-                    <div key={o.ora} title={`${hh(o.ora)} · vento ${Math.round(o.vento)} km/h, raffiche ${Math.round(o.raffiche)} · pioggia ${o.probPioggia ?? "—"}% · nuvole ${o.nuvole ?? "—"}%`} style={{ flex: "0 0 auto", width: 48, textAlign: "center", background: COLORE_SEMAFORO[o.semaforo] + "1f", border: `1px solid ${COLORE_SEMAFORO[o.semaforo]}66`, borderRadius: 6, padding: "5px 2px", fontSize: 10.5, color: "#c3cad4" }}>
+                    <div key={o.ora} onClick={() => scegliOraPrevista(hh(o.ora))} title={`${hh(o.ora)} · vento ${Math.round(o.vento)} km/h, raffiche ${Math.round(o.raffiche)} · pioggia ${o.probPioggia ?? "—"}% · nuvole ${o.nuvole ?? "—"}%`} style={{ flex: "0 0 auto", width: 48, textAlign: "center", cursor: "pointer", background: COLORE_SEMAFORO[o.semaforo] + "1f", border: oraPrevista.slice(0, 2) === String(o.ora).padStart(2, "0") ? "2px solid #ff8c42" : `1px solid ${COLORE_SEMAFORO[o.semaforo]}66`, borderRadius: 6, padding: "5px 2px", fontSize: 10.5, color: "#c3cad4" }}>
                       <div style={{ fontWeight: 700, color: "#e7eaee" }}>{String(o.ora).padStart(2, "0")}{o.oro ? "✨" : ""}</div>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORE_SEMAFORO[o.semaforo], margin: "3px auto" }} />
                       <div>💨{Math.round(o.vento)}</div>
@@ -5435,7 +5452,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
               <div key={p.id} style={{ background: "#1b2028", border: editingId === p.id ? "1px solid #ff8c42" : "1px solid #262b33", borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.impianto_nome} {editingId === p.id && <span style={{ color: "#ff8c42", fontWeight: 400, fontSize: 11.5 }}>— in modifica</span>}</div>
-                  <div style={{ fontSize: 12, color: "#8b95a3" }}>{formatData(p.data_prevista)} · {ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione}</div>
+                  <div style={{ fontSize: 12, color: "#8b95a3" }}>{formatData(p.data_prevista)}{p.ora_prevista ? ` · ore ${String(p.ora_prevista).slice(0, 5)}` : ""} · {ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione}</div>
                   {p.checklist_stato?.voci?.length > 0 && (() => {
                     const tot = p.checklist_stato.voci.length;
                     const fatti = Object.values(p.checklist_stato.spuntati || {}).filter(Boolean).length;
@@ -5445,6 +5462,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button onClick={() => onVaiRegistroConDati({
                     data: p.data_prevista || new Date().toISOString().slice(0, 10),
+                    ...(p.ora_prevista ? { ora: String(p.ora_prevista).slice(0, 5) } : {}),
                     luogo: p.impianto_nome || "",
                     drone_id: p.drone_id || "",
                     tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
