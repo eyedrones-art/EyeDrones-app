@@ -1495,6 +1495,7 @@ function AppShell({ session }) {
       setDflightScadenza("dflight_scadenza" in profilo ? profilo.dflight_scadenza || "" : undefined);
       setAzienda({
         nome: profilo.azienda_nome || "Eyedrones",
+        nomeImpostato: !!profilo.azienda_nome,
         logo: profilo.azienda_logo && !profilo.azienda_logo.startsWith(LOGO_PRECEDENTE_PREFISSO) ? profilo.azienda_logo : LOGO_EYEDRONES,
         tariffaBase: profilo.tariffa_base ?? 150,
         tariffaKwp: profilo.tariffa_kwp ?? 0.12,
@@ -6153,12 +6154,12 @@ function AreaFirma({ onCambio }) {
   );
 }
 
-function costruisciPDFLiberatoria({ azienda, titolo, testo, nome, firmaDataUrl, luogo }) {
+function costruisciPDFLiberatoria({ azienda, titolo, testo, nome, firmaDataUrl, luogo, operatore }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   let y = 18;
   try { if (azienda?.logo) doc.addImage(azienda.logo, "PNG", 15, 10, 18, 18); } catch (e) { /* logo non leggibile: pazienza */ }
   doc.setFont("helvetica", "bold"); doc.setFontSize(12);
-  doc.text(azienda?.nome || "Eyedrones", 38, 17);
+  doc.text(operatore || azienda?.nome || "", 38, 17);
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(110);
   doc.text("Operatore UAS", 38, 22);
   doc.setTextColor(0);
@@ -6192,6 +6193,13 @@ function LiberatorieVolo({ volo, azienda, piano, passQuestoMese, onVaiAbbonament
   const [testo, setTesto] = useState("");
   const [testoModificato, setTestoModificato] = useState(false);
   const [firma, setFirma] = useState(null);
+  // chi riprende, dove e come contattarlo: precompilati dal volo e dal profilo, modificabili prima della firma
+  const [operatore, setOperatore] = useState(azienda?.nomeImpostato === false ? "" : (azienda?.nome || ""));
+  const [luogoRiprese, setLuogoRiprese] = useState(volo.luogo || "");
+  const [emailOperatore, setEmailOperatore] = useState("");
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setEmailOperatore((e) => e || data?.session?.user?.email || ""));
+  }, []);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState(null);
 
@@ -6203,16 +6211,16 @@ function LiberatorieVolo({ volo, azienda, piano, passQuestoMese, onVaiAbbonament
   useEffect(() => { carica(); }, [volo.id]);
 
   // il testo si riempie da solo finché non lo modifichi a mano
-  const testoAutomatico = testoLiberatoria(tipo, { nome, operatore: azienda?.nome, data: formatData(volo.data), luogo: volo.luogo, email: SUPPORT_EMAIL });
+  const testoAutomatico = testoLiberatoria(tipo, { nome, operatore: operatore.trim(), data: formatData(volo.data), luogo: luogoRiprese.trim(), email: emailOperatore.trim() });
   const testoFinale = testoModificato ? testo : testoAutomatico;
 
   const salva = async () => {
-    if (!nome.trim() || !firma) return;
+    if (!nome.trim() || !firma || !operatore.trim()) return;
     setSalvando(true);
     setErrore(null);
     try {
       const titolo = tipo === "persona" ? "Liberatoria per l'utilizzo dell'immagine" : "Autorizzazione al sorvolo e alle riprese";
-      const doc = costruisciPDFLiberatoria({ azienda, titolo, testo: testoFinale, nome: nome.trim(), firmaDataUrl: firma.toDataURL("image/png"), luogo: volo.luogo });
+      const doc = costruisciPDFLiberatoria({ azienda, titolo, testo: testoFinale, nome: nome.trim(), firmaDataUrl: firma.toDataURL("image/png"), luogo: luogoRiprese.trim(), operatore: operatore.trim() });
       const blob = doc.output("blob");
       const percorso = `liberatorie/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.pdf`;
       const pdfUrl = await caricaDocumento(percorso.replace("liberatorie/", "liberatoria-"), blob, { contentType: "application/pdf" });
@@ -6259,10 +6267,25 @@ function LiberatorieVolo({ volo, azienda, piano, passQuestoMese, onVaiAbbonament
               </select>
             </div>
             <div style={{ flex: 1, minWidth: 160 }}>
-              <label style={lbl}>Nome e cognome</label>
+              <label style={lbl}>Nome e cognome di chi firma</label>
               <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="es. Mario Rossi" style={inputStyle} />
             </div>
           </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <label style={lbl}>Chi fa le riprese (tu o la tua attività)</label>
+              <input value={operatore} onChange={(e) => setOperatore(e.target.value)} placeholder="es. Ivan Riprese Aeree" style={inputStyle} />
+            </div>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <label style={lbl}>Luogo delle riprese</label>
+              <input value={luogoRiprese} onChange={(e) => setLuogoRiprese(e.target.value)} placeholder="es. Villa Rossi, Ivrea" style={inputStyle} />
+            </div>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <label style={lbl}>Email per revocare il consenso</label>
+              <input type="email" value={emailOperatore} onChange={(e) => setEmailOperatore(e.target.value)} placeholder="la tua email" style={inputStyle} />
+            </div>
+          </div>
+          {!operatore.trim() && <p style={{ fontSize: 11, color: "#f5b942", margin: 0 }}>Scrivi chi fa le riprese. Per non doverlo riscrivere ogni volta, mettilo in Impostazioni → «Nome azienda / pilota».</p>}
           <div>
             <label style={lbl}>Testo (puoi modificarlo prima della firma)</label>
             <textarea rows={6} value={testoFinale} onChange={(e) => { setTesto(e.target.value); setTestoModificato(true); }} style={{ ...inputStyle, resize: "vertical", fontSize: 12.5, lineHeight: 1.5 }} />
@@ -6270,7 +6293,7 @@ function LiberatorieVolo({ volo, azienda, piano, passQuestoMese, onVaiAbbonament
           </div>
           <AreaFirma onCambio={setFirma} />
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={salva} disabled={salvando || !nome.trim() || !firma} style={{ background: nome.trim() && firma ? "#ff8c42" : "#333a45", color: nome.trim() && firma ? "#161a1f" : "#6b7480", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{salvando ? "Salvataggio..." : "Salva liberatoria firmata"}</button>
+            <button onClick={salva} disabled={salvando || !nome.trim() || !firma || !operatore.trim()} style={{ background: nome.trim() && firma && operatore.trim() ? "#ff8c42" : "#333a45", color: nome.trim() && firma && operatore.trim() ? "#161a1f" : "#6b7480", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{salvando ? "Salvataggio..." : "Salva liberatoria firmata"}</button>
             <button onClick={() => { setAperto(false); setFirma(null); }} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
           </div>
         </div>
