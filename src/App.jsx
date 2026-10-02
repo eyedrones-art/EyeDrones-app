@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
 import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
+import { leggiZoneSalvate, salvaZone, leggiFileZone, controllaPunto, descriviRestrizione, formattaLimiti } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
@@ -872,7 +873,7 @@ function costruisciPDFRiassuntoImpianto({ azienda, impianto, storico, piano }) {
 // costruisce il PDF di un attestato/patentino
 // costruisce il PDF della scheda di un drone (dati + manutenzione)
 // costruisce un PDF riepilogativo dei documenti da mostrare in caso di controllo delle forze dell'ordine
-function costruisciPDFControllo({ azienda, operatore, attestati, drone, permessi, impianto }) {
+function costruisciPDFControllo({ azienda, operatore, attestati, drone, permessi, impianto, zona, quando }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const grigio = [110, 120, 130];
   let y = 20;
@@ -888,7 +889,7 @@ function costruisciPDFControllo({ azienda, operatore, attestati, drone, permessi
   y += 6;
   doc.setFontSize(9.5);
   doc.setTextColor(...grigio);
-  doc.text(`${operatore || azienda.nome} — ${impianto?.nome || ""}`, 15, y);
+  doc.text(`${operatore || azienda.nome} — ${impianto?.nome || ""}${quando ? ` — ${quando}` : ""}`, 15, y);
   y += 10;
   doc.setDrawColor(230, 230, 230);
   doc.line(15, y, 195, y);
@@ -951,6 +952,20 @@ function costruisciPDFControllo({ azienda, operatore, attestati, drone, permessi
     const coloreStato = p.stato === "autorizzato" ? [60, 160, 90] : p.stato === "negato" ? [220, 60, 60] : [200, 140, 40];
     riga(p.impianto, `${{ in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[p.stato] || p.stato}${p.ente_contattato ? " — " + p.ente_contattato : ""}`, coloreStato);
   });
+
+  if (zona) {
+    y += 5;
+    if (y > 260) { doc.addPage(); y = 20; }
+    sottotitolo("Zona di volo");
+    riga("Punto", zona.punto || "—");
+    riga("Verifica", `${formatData(String(zona.verificata).slice(0, 10))} su file zone D-Flight del ${formatData(String(zona.fileDel).slice(0, 10))}`);
+    if (!zona.zone || zona.zone.length === 0) riga("Esito", "Nessuna zona geografica UAS sul punto", [60, 160, 90]);
+    (zona.zone || []).forEach((z) => {
+      const d = descriviRestrizione(z.restrizione);
+      const col = z.restrizione === "PROHIBITED" ? [220, 60, 60] : z.restrizione === "REQ_AUTHORISATION" ? [210, 110, 40] : [200, 140, 40];
+      riga(d.etichetta, `${z.nome}${z.limiti ? " — " + z.limiti : ""}`, col);
+    });
+  }
 
   doc.setFontSize(8);
   doc.setTextColor(...grigio);
@@ -1251,7 +1266,7 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
       doc.setFontSize(10);
       doc.setTextColor(...nero);
       doc.text(righeDesc, 18, y);
-      doc.text(`€ ${Number(v.importo || 0).toFixed(2)}`, 192, y, { align: "right" });
+      doc.text(Number(v.importo) || !voci.some((x) => Number(x.importo)) ? `€ ${Number(v.importo || 0).toFixed(2)}` : "incluso", 192, y, { align: "right" });
       y += altezzaRiga;
     });
     y += 8;
@@ -1719,7 +1734,7 @@ function AppShell({ session }) {
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
-        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
@@ -3449,6 +3464,134 @@ const STATI_PREVENTIVO = [
   { key: "rifiutato", label: "Rifiutato", color: "#ff4d4d" },
 ];
 
+// fasce indicative del mercato italiano (2026), da guide e listini pubblici: solo un punto di partenza, decide il pilota
+const FASCE_PREZZO = [
+  { key: "immobiliare", emoji: "🏠", nome: "Immobiliare", min: 250, tipico: 400, max: 700, riprese: true },
+  { key: "matrimonio", emoji: "💍", nome: "Matrimonio", min: 300, tipico: 500, max: 1500, riprese: true },
+  { key: "evento", emoji: "🎉", nome: "Evento", min: 250, tipico: 450, max: 900, riprese: true },
+  { key: "aziendale", emoji: "🏢", nome: "Video aziendale", min: 400, tipico: 750, max: 1200, riprese: true },
+  { key: "fpv", emoji: "🥽", nome: "FPV", min: 300, tipico: 550, max: 1200, riprese: true },
+  { key: "ispezione", emoji: "🏚️", nome: "Ispezione tetto/edificio", min: 300, tipico: 400, max: 500 },
+  { key: "termografia", emoji: "🌡️", nome: "Termografia / fotovoltaico", min: 500, tipico: 700, max: 900 },
+];
+const ESPERIENZA_PREZZO = [
+  { key: "inizio", nome: "Sto iniziando", punto: 0.2 },
+  { key: "portfolio", nome: "Ho già un portfolio", punto: 0.5 },
+  { key: "pro", nome: "Professionista", punto: 0.8 },
+];
+const COSTI_PREZZO_DEFAULT = { attrezzatura: "1500", voliAnno: "40", assicurazione: "150", ore: "4", orario: "25", euroKm: "0.30" };
+const CHIAVE_COSTI_PREZZO = "eyedrones_costi_prezzo";
+
+function ConsigliPrezzo({ onUsa }) {
+  const [aperto, setAperto] = useState(false);
+  const [tipo, setTipo] = useState("immobiliare");
+  const [esperienza, setEsperienza] = useState("portfolio");
+  const [giornata, setGiornata] = useState(false);
+  const [montaggio, setMontaggio] = useState(true);
+  const [relazione, setRelazione] = useState(true);
+  const [autorizzazione, setAutorizzazione] = useState(false);
+  const [km, setKm] = useState("");
+  const [mostraCosti, setMostraCosti] = useState(false);
+  const [costi, setCosti] = useState(() => {
+    try { return { ...COSTI_PREZZO_DEFAULT, ...JSON.parse(localStorage.getItem(CHIAVE_COSTI_PREZZO) || "{}") }; } catch (e) { return COSTI_PREZZO_DEFAULT; }
+  });
+  const cambiaCosto = (k, v) => {
+    const nuovi = { ...costi, [k]: v };
+    setCosti(nuovi);
+    try { localStorage.setItem(CHIAVE_COSTI_PREZZO, JSON.stringify(nuovi)); } catch (e) { /* solo comodità */ }
+  };
+
+  const f = FASCE_PREZZO.find((x) => x.key === tipo);
+  const kmAR = (Number(km) || 0) * 2;
+  // la fascia si sposta con le scelte: giornata intera, montaggio, relazione, autorizzazioni e trasferta
+  const molt = (giornata ? 1.6 : 1);
+  const extra = (f.riprese && !montaggio ? -100 : 0) + (!f.riprese && relazione ? 100 : 0) + (autorizzazione ? 80 : 0) + Math.round(kmAR * 0.4);
+  const arrot = (n) => Math.max(0, Math.round(n / 10) * 10);
+  const da = arrot(f.min * molt + extra), a = arrot(f.max * molt + extra);
+  const punto = ESPERIENZA_PREZZO.find((x) => x.key === esperienza).punto;
+  const consigliato = arrot(da + (a - da) * punto);
+
+  const n = (k) => Number(String(costi[k]).replace(",", ".")) || 0;
+  const voli = Math.max(1, n("voliAnno"));
+  // drone e batterie si consumano in circa 3 anni; assicurazione divisa sui voli dell'anno
+  const minimo = arrot(n("attrezzatura") / (3 * voli) + n("assicurazione") / voli + n("ore") * n("orario") + kmAR * n("euroKm"));
+
+  const chip = (attivo) => ({ background: attivo ? "#ff8c4222" : "#262b33", border: `1px solid ${attivo ? "#ff8c42" : "#333a45"}`, color: attivo ? "#ffb877" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 });
+  const spunta = (val, set, etichetta) => (
+    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#c3cad4" }}>
+      <input type="checkbox" checked={val} onChange={(e) => set(e.target.checked)} /> {etichetta}
+    </label>
+  );
+  const campo = (k, etichetta, suffisso) => (
+    <label style={{ fontSize: 11, color: "#6b7480", display: "flex", flexDirection: "column", gap: 3, flex: "1 1 130px" }}>
+      {etichetta}
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <input type="number" inputMode="decimal" value={costi[k]} onChange={(e) => cambiaCosto(k, e.target.value)} style={{ ...inputStyle, padding: "6px 8px" }} />
+        <span style={{ fontSize: 11, color: "#8b95a3" }}>{suffisso}</span>
+      </div>
+    </label>
+  );
+
+  if (!aperto) {
+    return (
+      <button type="button" onClick={() => setAperto(true)} style={{ background: "#161a1f", border: "1px dashed #ff8c4288", color: "#ffb877", borderRadius: 6, padding: "10px 12px", fontSize: 12.5, fontWeight: 600, textAlign: "left" }}>
+        💡 Quanto chiedere? Fascia di mercato e il tuo prezzo minimo
+      </button>
+    );
+  }
+  return (
+    <div style={{ background: "#161a1f", border: "1px solid #ff8c4255", borderRadius: 6, padding: "10px 12px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: "#ffb877" }}>💡 Quanto chiedere?</span>
+        <button type="button" onClick={() => setAperto(false)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12 }}>Chiudi</button>
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {FASCE_PREZZO.map((x) => <button key={x.key} type="button" onClick={() => setTipo(x.key)} style={chip(tipo === x.key)}>{x.emoji} {x.nome}</button>)}
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+        {ESPERIENZA_PREZZO.map((x) => <button key={x.key} type="button" onClick={() => setEsperienza(x.key)} style={chip(esperienza === x.key)}>{x.nome}</button>)}
+      </div>
+      <div style={{ display: "flex", gap: "6px 14px", flexWrap: "wrap", marginTop: 10 }}>
+        {spunta(giornata, setGiornata, "Giornata intera")}
+        {f.riprese ? spunta(montaggio, setMontaggio, "Montaggio incluso") : spunta(relazione, setRelazione, "Relazione tecnica")}
+        {spunta(autorizzazione, setAutorizzazione, "Serve un'autorizzazione di volo")}
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#c3cad4" }}>
+          Trasferta <input type="number" inputMode="numeric" placeholder="0" value={km} onChange={(e) => setKm(e.target.value)} style={{ ...inputStyle, width: 70, padding: "4px 6px" }} /> km (solo andata)
+        </label>
+      </div>
+
+      <div style={{ marginTop: 10, padding: "10px 12px", background: "#1b2028", borderRadius: 6, border: "1px solid #262b33" }}>
+        <div style={{ fontSize: 12, color: "#8b95a3" }}>Fascia indicativa in Italia</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#e7eaee" }} className="mono">{da} – {a} €</div>
+        <div style={{ fontSize: 12.5, marginTop: 4 }}>Consigliato per te: <strong className="mono" style={{ color: "#4ade80", fontSize: 14 }}>{consigliato} €</strong></div>
+        {consigliato < minimo && <div style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 4 }}>⚠ È sotto il tuo prezzo minimo ({minimo} €): con i tuoi costi ci rimetteresti.</div>}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          <button type="button" onClick={() => onUsa(Math.max(consigliato, 0), f.nome)} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>Usa {consigliato} €</button>
+          {consigliato < minimo && <button type="button" onClick={() => onUsa(minimo, f.nome)} style={{ background: "none", border: "1px solid #ff8c42", color: "#ffb877", borderRadius: 6, padding: "7px 12px", fontSize: 12.5 }}>Usa il minimo {minimo} €</button>}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 10 }}>
+        <button type="button" onClick={() => setMostraCosti(!mostraCosti)} style={{ background: "none", border: "none", color: "#3d8bfd", fontSize: 12, padding: 0 }}>
+          {mostraCosti ? "▾" : "▸"} Il tuo prezzo minimo: <strong>{minimo} €</strong> (sotto ci rimetti) · {mostraCosti ? "nascondi i costi" : "imposta i tuoi costi"}
+        </button>
+        {mostraCosti && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            {campo("attrezzatura", "Drone, batterie, accessori", "€")}
+            {campo("voliAnno", "Lavori all'anno", "")}
+            {campo("assicurazione", "Assicurazione all'anno", "€")}
+            {campo("ore", "Ore per questo lavoro (volo + montaggio)", "h")}
+            {campo("orario", "Quanto vuoi guadagnare all'ora", "€/h")}
+            {campo("euroKm", "Costo auto al km", "€/km")}
+            <p style={{ flexBasis: "100%", fontSize: 10.5, color: "#6b7480", margin: 0 }}>L'attrezzatura si considera consumata in circa 3 anni. I costi restano salvati su questo dispositivo.</p>
+          </div>
+        )}
+      </div>
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Cifre indicative da listini e guide pubbliche: cambiano molto per zona, cliente e qualità del lavoro. Il prezzo lo decidi tu.</p>
+    </div>
+  );
+}
+
 function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -3494,6 +3637,14 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
     const vociPulite = voci.filter((v) => v.descrizione || v.importo);
     setVoci([...vociPulite, ...pk.voci.map((descrizione) => ({ descrizione, importo: "" }))]);
     if (!oggetto.trim()) setOggetto(pk.oggetto);
+  };
+  // prezzo scelto dai consigli: una riga "compenso" (se c'è già, aggiorno l'importo)
+  const usaPrezzoConsigliato = (importo, nomeTipo) => {
+    const descr = `Compenso per il servizio (${nomeTipo.toLowerCase()})`;
+    const vociPulite = voci.filter((v) => v.descrizione || v.importo);
+    const i = vociPulite.findIndex((v) => /^Compenso per il servizio/.test(v.descrizione));
+    if (i >= 0) { const nuove = [...vociPulite]; nuove[i] = { descrizione: descr, importo: String(importo) }; setVoci(nuove); }
+    else setVoci([...vociPulite, { descrizione: descr, importo: String(importo) }]);
   };
   const aggiornaVoce = (idx, campo, valore) => {
     const nuove = [...voci];
@@ -3634,6 +3785,8 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
             </div>
             <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Aggiunge le righe tipiche di quel lavoro (e l'oggetto, se è vuoto), senza importo: lo scrivi tu, perché varia molto da caso a caso. Puoi modificare o togliere ogni riga.</p>
           </div>
+
+          <ConsigliPrezzo onUsa={usaPrezzoConsigliato} />
 
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 6 }}>Voci del preventivo</label>
@@ -4891,7 +5044,200 @@ const CHECKLIST_FPV = [
   "Batterie del drone e del radiocomando cariche, cinghia fissata",
 ];
 
-function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }) {
+// --- Controllo zona di volo (file zone UAS di D-Flight) -------------------------------------------
+
+const MOTIVI_ZONA = {
+  AIR_TRAFFIC: "traffico aereo (aeroporto o spazio aereo controllato)", SENSITIVE: "sito sensibile", PRIVACY: "privacy",
+  POPULATION: "area popolata", NATURE: "area naturale protetta", NOISE: "rumore", FOREIGN_TERRITORY: "territorio straniero",
+  EMERGENCY: "emergenza", OTHER: "altro motivo",
+};
+// "P5D" → "5 giorni", "PT48H" → "48 ore" (durate ISO usate da D-Flight per il preavviso)
+const durataLeggibile = (d) => {
+  const m = String(d || "").match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?$/i);
+  if (!m || !(m[1] || m[2] || m[3])) return d;
+  return [m[1] && `${m[1]} ${m[1] === "1" ? "giorno" : "giorni"}`, m[2] && `${m[2]} ${m[2] === "1" ? "ora" : "ore"}`, m[3] && `${m[3]} min`].filter(Boolean).join(" e ");
+};
+const SERVIZI_ENTE = { AUTHORIZATION: "autorizzazioni", INFORMATION: "informazioni" };
+const traduciMotivi = (m) => String(m || "").split(/\s*,\s*/).filter(Boolean).map((x) => MOTIVI_ZONA[x.toUpperCase()] || x.toLowerCase()).join(", ");
+
+function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, dataPrevista, oraPrevista, piano, onEsito }) {
+  const [archivio, setArchivio] = useState(undefined); // undefined = sto leggendo, null = nessun file
+  const [leggendoFile, setLeggendoFile] = useState(false);
+  const [errore, setErrore] = useState(null);
+  const [puntoCercato, setPuntoCercato] = useState(null);
+  const [cercando, setCercando] = useState(false);
+
+  useEffect(() => { leggiZoneSalvate().then((d) => setArchivio(d && Array.isArray(d.zone) ? d : null)); }, []);
+  // se cambia il luogo scritto, il punto cercato prima non vale più
+  useEffect(() => { setPuntoCercato(null); }, [testoLuogo]);
+
+  const caricaFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setLeggendoFile(true);
+    setErrore(null);
+    try {
+      const zone = leggiFileZone(JSON.parse(await file.text()));
+      if (zone.length === 0) throw new Error("Non ho trovato zone in questo file: è quello scaricato da D-Flight («Download UAS Zone Geo»)?");
+      const dati = { zone, nomeFile: file.name, caricato: new Date().toISOString() };
+      await salvaZone(dati);
+      setArchivio(dati);
+    } catch (err) {
+      setErrore(err instanceof SyntaxError ? "Il file non è un JSON valido: scaricalo di nuovo da D-Flight." : (err.message || "Non sono riuscito a leggere il file."));
+    }
+    setLeggendoFile(false);
+  };
+
+  const cercaIndirizzo = async () => {
+    if (!testoLuogo) return;
+    setCercando(true);
+    setErrore(null);
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(testoLuogo)}`);
+      const [primo] = await r.json();
+      if (!primo) throw new Error();
+      setPuntoCercato({ lat: Number(primo.lat), lon: Number(primo.lon), etichetta: primo.display_name });
+    } catch (err) {
+      setErrore("Indirizzo non trovato: prova a scrivere via, numero e comune, oppure le coordinate.");
+    }
+    setCercando(false);
+  };
+
+  const punto = coordinate
+    ? { lat: coordinate.lat, lon: coordinate.lon, fonte: "coordinate" }
+    : puntoCercato
+      ? { ...puntoCercato, fonte: "indirizzo" }
+      : puntoIndicativo && puntoIndicativo.lat != null
+        ? { lat: puntoIndicativo.lat, lon: puntoIndicativo.lon, fonte: "indicativo" }
+        : null;
+  const zone = archivio && archivio.zone;
+  const quando = dataPrevista ? new Date(`${dataPrevista}T${oraPrevista || "12:00"}`) : null;
+  const latP = punto && punto.lat, lonP = punto && punto.lon;
+  const esito = React.useMemo(
+    () => (zone && latP != null ? controllaPunto(zone, { lat: latP, lon: lonP }, { raggio: 500, quando }) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [zone, latP, lonP, dataPrevista, oraPrevista]
+  );
+
+  // riassunto salvato nel piano di volo e stampato nel PDF di controllo
+  useEffect(() => {
+    if (!onEsito || !esito) return;
+    onEsito({
+      verificata: new Date().toISOString(),
+      fileDel: archivio.caricato,
+      punto: `${latP.toFixed(5)}, ${lonP.toFixed(5)}`,
+      zone: esito.dentro.map((z) => ({ nome: z.nome, restrizione: z.restrizione, limiti: formattaLimiti(z.limiti) })),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esito]);
+
+  const giorniFile = archivio ? Math.floor((Date.now() - new Date(archivio.caricato).getTime()) / 86400000) : 0;
+  const box = { marginTop: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 };
+  const linkD = { color: "#3d8bfd", fontSize: 12 };
+
+  const schedaZona = (z, vicina) => {
+    const d = descriviRestrizione(z.restrizione);
+    const limiti = formattaLimiti(z.limiti);
+    return (
+      <div key={(z.id || z.nome) + (vicina ? "-v" : "")} style={{ borderLeft: `3px solid ${d.colore}`, background: d.colore + "12", borderRadius: 4, padding: "8px 10px", marginTop: 6 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: d.colore }}>{d.etichetta}{vicina ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m</span> : null}{z.temporanea ? <span style={{ color: "#f5b942", fontWeight: 400 }}> · temporanea</span> : null}</div>
+        <div style={{ fontSize: 12.5, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
+        {limiti && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {limiti}</div>}
+        {(z.motivo || z.altroMotivo) && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Motivo: {[traduciMotivi(z.motivo), z.altroMotivo].filter(Boolean).join(" · ")}</div>}
+        {!vicina && z.messaggio && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{z.messaggio}</div>}
+        {!vicina && z.condizioni && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
+        {!vicina && z.validita && <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 2 }}>Attiva: {z.validita.map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}</div>}
+        {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {d.consiglio}</div>}
+        {!vicina && z.autorita.length > 0 && z.autorita.map((a, i) => (
+          <div key={i} style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 3 }}>
+            🏛️ {a.nome || "Ente"}{a.servizio ? ` (${SERVIZI_ENTE[a.servizio.toUpperCase()] || a.servizio})` : ""}
+            {a.preavviso ? ` · chiedi con almeno ${durataLeggibile(a.preavviso)} di anticipo` : ""}
+            {a.email && <> · <a href={`mailto:${a.email}`} style={linkD}>{a.email}</a></>}
+            {a.telefono && <> · <a href={`tel:${a.telefono}`} style={linkD}>{a.telefono}</a></>}
+            {a.sito && <> · <a href={/^https?:/i.test(a.sito) ? a.sito : `https://${a.sito}`} target="_blank" rel="noreferrer" style={linkD}>sito ↗</a></>}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ ...box, border: "1px solid #3d8bfd55" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13, fontWeight: 700 }}>🛡️ Zona di volo<EtichettaPro /></span>
+        {archivio && (
+          <label style={{ fontSize: 11, color: giorniFile > 28 ? "#f5b942" : "#8b95a3", cursor: "pointer" }}>
+            File zone del {formatData(archivio.caricato.slice(0, 10))}{giorniFile > 28 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
+            <input type="file" accept=".json,application/json" onChange={caricaFile} style={{ display: "none" }} />
+          </label>
+        )}
+      </div>
+
+      {!sbloccatoPro(piano) ? (
+        <InvitoPro cosa="Il controllo automatico della zona" />
+      ) : archivio === undefined ? (
+        <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 0 0" }}>Carico le zone…</p>
+      ) : !archivio ? (
+        <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 6 }}>
+          Scrivi il luogo e l'app ti dice in che zona geografica UAS cade: vietata, con autorizzazione, con condizioni, l'altezza massima e chi contattare. Usa il file ufficiale delle zone, che scarichi gratis dal tuo profilo D-Flight:
+          <ol style={{ margin: "6px 0", paddingLeft: 18, color: "#aab3bf", fontSize: 12 }}>
+            <li>accedi a <a href="https://www.d-flight.it/" target="_blank" rel="noreferrer" style={linkD}>d-flight.it</a> con le tue credenziali</li>
+            <li>apri il tuo profilo e tocca <strong>«Download UAS Zone Geo»</strong></li>
+            <li>carica qui il file .json scaricato (resta solo su questo dispositivo; aggiornalo una volta al mese)</li>
+          </ol>
+          <label style={{ display: "inline-block", background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+            {leggendoFile ? "Sto leggendo il file…" : "📂 Carica il file zone di D-Flight"}
+            <input type="file" accept=".json,application/json" onChange={caricaFile} disabled={leggendoFile} style={{ display: "none" }} />
+          </label>
+        </div>
+      ) : (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 11.5, color: "#8b95a3" }}>
+            {punto ? (
+              <span>
+                📍 {punto.fonte === "coordinate" ? "Coordinate" : punto.fonte === "indirizzo" ? "Indirizzo trovato" : "Centro della località (indicativo)"}: {punto.lat.toFixed(5)}, {punto.lon.toFixed(5)}
+                {" · "}<a href={`https://www.google.com/maps?q=${punto.lat},${punto.lon}`} target="_blank" rel="noreferrer" style={{ color: "#3d8bfd" }}>controlla sulla mappa ↗</a>
+              </span>
+            ) : (
+              <span>Scrivi via e comune (o le coordinate) e tocca «Trova l'indirizzo», oppure «Controlla meteo».</span>
+            )}
+            {!coordinate && testoLuogo && (
+              <button type="button" onClick={cercaIndirizzo} disabled={cercando} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5 }}>
+                {cercando ? "Cerco…" : "🔎 Trova l'indirizzo"}
+              </button>
+            )}
+          </div>
+          {punto && punto.fonte === "indicativo" && <p style={{ fontSize: 11, color: "#f5b942", margin: "4px 0 0 0" }}>Il punto è il centro del comune: per un controllo preciso scrivi la via e tocca «Trova l'indirizzo», oppure metti le coordinate.</p>}
+          {punto && punto.etichetta && <p style={{ fontSize: 10.5, color: "#6b7480", margin: "2px 0 0 0" }}>{punto.etichetta}</p>}
+
+          {esito && esito.dentro.length === 0 && (
+            <div style={{ borderLeft: "3px solid #4ade80", background: "#4ade8012", borderRadius: 4, padding: "8px 10px", marginTop: 8, fontSize: 12.5 }}>
+              <div style={{ fontWeight: 700, color: "#4ade80" }}>✓ Nessuna zona geografica UAS su questo punto</div>
+              <div style={{ color: "#c3cad4", marginTop: 2, fontSize: 12 }}>Valgono le regole generali della categoria Open: massimo 120 m dal suolo, drone sempre in vista, niente voli sopra assembramenti di persone.</div>
+            </div>
+          )}
+          {esito && esito.dentro.map((z) => schedaZona(z, false))}
+          {esito && esito.vicine.length > 0 && (
+            <>
+              <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "10px 0 0 0" }}>Zone vicine (entro 500 m): attento a non sconfinare.</p>
+              {esito.vicine.slice(0, 5).map((z) => schedaZona(z, true))}
+            </>
+          )}
+          {esito && (
+            <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 10, paddingTop: 8, borderTop: "1px solid #262b33" }}>
+              📣 <strong>NOTAM</strong>: avvisi temporanei (eventi, esercitazioni, elisoccorso) che non sempre sono nel file. Controllali su <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={linkD}>D-Flight ↗</a> il giorno prima e il giorno del volo.
+            </div>
+          )}
+        </div>
+      )}
+      {errore && <p style={{ fontSize: 11.5, color: "#ff9c9c", margin: "6px 0 0 0" }}>{errore}</p>}
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Aiuto alla pianificazione basato sul tuo file D-Flight: la verifica ufficiale resta su D-Flight prima di ogni volo.</p>
+    </div>
+  );
+}
+
+function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, piano }) {
   const [impiantoSel, setImpiantoSel] = useState(null);
   const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
   const [dataPrevista, setDataPrevista] = useState(() => new Date().toISOString().slice(0, 10));
@@ -4903,6 +5249,10 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
   const [checklistSpuntati, setChecklistSpuntati] = useState({});
   const [checklistFpvSpuntati, setChecklistFpvSpuntati] = useState({});
   const [oraSole, setOraSole] = useState("18:00");
+  const [oraPrevista, setOraPrevista] = useState("");
+  const [zonaEsito, setZonaEsito] = useState(null); // ultimo controllo della zona, salvato con il piano
+  // scegliendo l'ora del volo, anche la direzione del sole si calcola per quell'ora
+  const scegliOraPrevista = (ora) => { setOraPrevista(ora); if (ora) setOraSole(ora); };
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
   const [attestatiUtente, setAttestatiUtente] = useState([]);
   const [droniUtente, setDroniUtente] = useState([]);
@@ -5030,7 +5380,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
   const scaricaPdfControllo = () => {
     setGenerandoPdfControllo(true);
     try {
-      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiZona, impianto: destinazione });
+      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiZona, impianto: destinazione, zona: zonaEsito, quando: [dataPrevista ? formatData(dataPrevista) : "", oraPrevista ? `ore ${oraPrevista}` : ""].filter(Boolean).join(" · ") });
       const url = doc.output("bloburl");
       setPdfUrlControllo(url);
       window.open(url, "_blank");
@@ -5054,15 +5404,22 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
         impianto_nome: destinazione.nome,
         tipo_ispezione: tipoIspezione,
         data_prevista: dataPrevista,
+        ora_prevista: oraPrevista || null,
         drone_id: droneSelId || null,
         dflight_screenshot_url: dflightUrl,
-        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati },
+        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}) },
       };
       // le coordinate si salvano solo per un luogo scelto a mano
       if (!impiantoSel) payload.luogo_coordinate = coordinateValide ? `${coordinateValide.lat}, ${coordinateValide.lon}` : null;
-      const { error } = editingId
-        ? await supabase.from("piani_volo").update(payload).eq("id", editingId)
-        : await supabase.from("piani_volo").insert(payload);
+      const scrivi = (dati) => (editingId
+        ? supabase.from("piani_volo").update(dati).eq("id", editingId)
+        : supabase.from("piani_volo").insert(dati));
+      let { error } = await scrivi(payload);
+      // se la colonna dell'ora non è ancora stata aggiunta al database, salvo il piano senza l'ora
+      if (error && /ora_prevista/i.test(error.message || "")) {
+        const { ora_prevista, ...senzaOra } = payload;
+        ({ error } = await scrivi(senzaOra));
+      }
       if (error) throw error;
       await caricaTutto();
       const eraModifica = !!editingId;
@@ -5084,6 +5441,9 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
     }
     setTipoIspezione(p.tipo_ispezione || "fotovoltaico");
     setDataPrevista(p.data_prevista || new Date().toISOString().slice(0, 10));
+    setOraPrevista(p.ora_prevista ? String(p.ora_prevista).slice(0, 5) : "");
+    setZonaEsito(p.checklist_stato?.zona || null);
+    if (p.ora_prevista) setOraSole(String(p.ora_prevista).slice(0, 5));
     setDroneSelId(p.drone_id || "");
     setDflightShot(p.dflight_screenshot_url ? { dataUrl: p.dflight_screenshot_url, remota: true } : null);
     if (p.checklist_stato && p.checklist_stato.voci) {
@@ -5104,6 +5464,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
     setLuogoLibero("");
     setCoordinateLibere("");
     setDroneSelId("");
+    setOraPrevista("");
+    setZonaEsito(null);
     setDflightShot(null);
     setMeteo(null);
     setMeteoSpaziale(null);
@@ -5171,6 +5533,10 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
           <label style={lblPian}>Data prevista</label>
           <input type="date" value={dataPrevista} onChange={(e) => setDataPrevista(e.target.value)} style={inputStyle} />
         </div>
+        <div style={{ minWidth: 120 }}>
+          <label style={lblPian}>Ora prevista</label>
+          <input type="time" value={oraPrevista} onChange={(e) => scegliOraPrevista(e.target.value)} style={inputStyle} />
+        </div>
       </div>
 
       {modoLibero && (
@@ -5206,6 +5572,16 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
           </div>
 
           {erroreMeteo && <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8 }}>{erroreMeteo}</p>}
+
+          <ControlloZona
+            testoLuogo={modoLibero ? luogoLibero.trim() : [impiantoSel?.nome, impiantoSel?.zona].filter(Boolean).join(", ")}
+            coordinate={coordinateValide}
+            puntoIndicativo={meteo && meteo.lat != null ? { lat: meteo.lat, lon: meteo.lon } : null}
+            dataPrevista={dataPrevista}
+            oraPrevista={oraPrevista}
+            piano={piano}
+            onEsito={setZonaEsito}
+          />
 
           {giornoPrevisto && (
             <div style={{ marginTop: 12, background: "#161a1f", border: `1px solid ${giornoPrevisto.adatto ? "#4ade8055" : "#ff9c9c55"}`, borderRadius: 6, padding: 12 }}>
@@ -5244,12 +5620,12 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
             const riprese = ["video", "foto", "fpv"].includes(tipoIspezione);
             return (
               <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 }}>
-                <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Ora per ora · soglia vento {limiteVento} km/h · ✨ = ora d'oro</p>
+                <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Ora per ora · soglia vento {limiteVento} km/h · ✨ = ora d'oro · tocca un'ora per sceglierla</p>
                 {finestre.length > 0 ? (
                   <div style={{ fontSize: 12.5, marginBottom: 8 }}>
                     <span style={{ color: "#4ade80", fontWeight: 700 }}>Ore migliori: </span>
                     {finestre.slice(0, 3).map((f, i) => (
-                      <span key={i}>{i > 0 ? " · " : ""}<strong>{hh(f.inizio)}–{hh(f.fine)}</strong>{f.oro ? <span style={{ color: "#f5b942" }}>{riprese ? " ✨ con ora d'oro: ideale per riprese" : " ✨"}</span> : ""}</span>
+                      <span key={i}>{i > 0 ? " · " : ""}<button type="button" onClick={() => scegliOraPrevista(hh(f.inizio))} title="Usa come ora prevista" style={{ background: oraPrevista === hh(f.inizio) ? "#4ade8033" : "#4ade8014", border: "1px solid #4ade8066", color: "#e7eaee", borderRadius: 5, padding: "1px 6px", fontSize: 12.5, fontWeight: 700 }}>{hh(f.inizio)}–{hh(f.fine)}</button>{f.oro ? <span style={{ color: "#f5b942" }}>{riprese ? " ✨ con ora d'oro: ideale per riprese" : " ✨"}</span> : ""}</span>
                     ))}
                   </div>
                 ) : (
@@ -5257,7 +5633,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
                 )}
                 <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 4 }}>
                   {ore.map((o) => (
-                    <div key={o.ora} title={`${hh(o.ora)} · vento ${Math.round(o.vento)} km/h, raffiche ${Math.round(o.raffiche)} · pioggia ${o.probPioggia ?? "—"}% · nuvole ${o.nuvole ?? "—"}%`} style={{ flex: "0 0 auto", width: 48, textAlign: "center", background: COLORE_SEMAFORO[o.semaforo] + "1f", border: `1px solid ${COLORE_SEMAFORO[o.semaforo]}66`, borderRadius: 6, padding: "5px 2px", fontSize: 10.5, color: "#c3cad4" }}>
+                    <div key={o.ora} onClick={() => scegliOraPrevista(hh(o.ora))} title={`${hh(o.ora)} · vento ${Math.round(o.vento)} km/h, raffiche ${Math.round(o.raffiche)} · pioggia ${o.probPioggia ?? "—"}% · nuvole ${o.nuvole ?? "—"}%`} style={{ flex: "0 0 auto", width: 48, textAlign: "center", cursor: "pointer", background: COLORE_SEMAFORO[o.semaforo] + "1f", border: oraPrevista.slice(0, 2) === String(o.ora).padStart(2, "0") ? "2px solid #ff8c42" : `1px solid ${COLORE_SEMAFORO[o.semaforo]}66`, borderRadius: 6, padding: "5px 2px", fontSize: 10.5, color: "#c3cad4" }}>
                       <div style={{ fontWeight: 700, color: "#e7eaee" }}>{String(o.ora).padStart(2, "0")}{o.oro ? "✨" : ""}</div>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORE_SEMAFORO[o.semaforo], margin: "3px auto" }} />
                       <div>💨{Math.round(o.vento)}</div>
@@ -5435,7 +5811,13 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
               <div key={p.id} style={{ background: "#1b2028", border: editingId === p.id ? "1px solid #ff8c42" : "1px solid #262b33", borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.impianto_nome} {editingId === p.id && <span style={{ color: "#ff8c42", fontWeight: 400, fontSize: 11.5 }}>— in modifica</span>}</div>
-                  <div style={{ fontSize: 12, color: "#8b95a3" }}>{formatData(p.data_prevista)} · {ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione}</div>
+                  <div style={{ fontSize: 12, color: "#8b95a3" }}>{formatData(p.data_prevista)}{p.ora_prevista ? ` · ore ${String(p.ora_prevista).slice(0, 5)}` : ""} · {ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione}</div>
+                  {p.checklist_stato?.zona && (() => {
+                    const zz = p.checklist_stato.zona.zone || [];
+                    const peggiore = zz.find((z) => z.restrizione === "PROHIBITED") || zz.find((z) => z.restrizione === "REQ_AUTHORISATION") || zz[0];
+                    const d = peggiore ? descriviRestrizione(peggiore.restrizione) : { colore: "#4ade80", etichetta: "Nessuna zona UAS" };
+                    return <div style={{ fontSize: 11, color: d.colore, marginTop: 2 }}>🛡️ {d.etichetta}{peggiore && peggiore.limiti ? ` · ${peggiore.limiti}` : ""}</div>;
+                  })()}
                   {p.checklist_stato?.voci?.length > 0 && (() => {
                     const tot = p.checklist_stato.voci.length;
                     const fatti = Object.values(p.checklist_stato.spuntati || {}).filter(Boolean).length;
@@ -5445,6 +5827,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session }
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button onClick={() => onVaiRegistroConDati({
                     data: p.data_prevista || new Date().toISOString().slice(0, 10),
+                    ...(p.ora_prevista ? { ora: String(p.ora_prevista).slice(0, 5) } : {}),
                     luogo: p.impianto_nome || "",
                     drone_id: p.drone_id || "",
                     tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
