@@ -1737,7 +1737,7 @@ function AppShell({ session }) {
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
-        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} />}
+        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} />}
@@ -5281,7 +5281,8 @@ function RegoleVolo({ drone, altezzaZona, attestati, notte, fpv }) {
   const chiave = classe != null ? `C${classe}` : null;
   const info = chiave && REGOLE_CLASSE[chiave];
   const valido = (re) => (attestati || []).some((a) => re.test(a.tipo || "") && (!a.data_scadenza || new Date(a.data_scadenza) >= new Date()));
-  const haA1A3 = valido(/A1\s*\/?\s*A3/i), haA2 = valido(/\bA2\b/i);
+  const haA2 = valido(/\bA2\b/i);
+  const haA1A3 = valido(/A1\s*\/?\s*A3/i) || haA2 || valido(/\bSTS\b/i); // per ottenere A2 o STS serve già l'A1/A3
   const haAssicurazione = valido(/assicura/i);
   const altezza = Math.min(120, altezzaZona ?? 120);
 
@@ -6003,8 +6004,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
 
 // --- Documenti controllo (accesso rapido dal menu, senza dover pianificare prima un volo) -----------------------------------------------------------
 
-function DocumentiControllo({ azienda, impianti }) {
-  const [impiantoSel, setImpiantoSel] = useState(null);
+function DocumentiControllo({ azienda, impianti, usaIspezioni = true }) {
+  const [scelta, setScelta] = useState(""); // "" | "p:<id piano di volo>" | "i:<id impianto>"
   const [attestatiUtente, setAttestatiUtente] = useState([]);
   const [droniUtente, setDroniUtente] = useState([]);
   const [permessiUtente, setPermessiUtente] = useState([]);
@@ -6027,19 +6028,40 @@ function DocumentiControllo({ azienda, impianti }) {
       setDroniUtente(drn || []);
       setPermessiUtente(perm || []);
       setPianiUtente(piani || []);
+      // se c'è un piano di volo per oggi lo propongo già scelto, con il suo drone
+      const oggi = new Date().toISOString().slice(0, 10);
+      const diOggi = (piani || []).find((x) => x.data_prevista === oggi);
+      if (diOggi) { setScelta(`p:${diOggi.id}`); if (diOggi.drone_id) setDroneSelId(diOggi.drone_id); }
     })();
   }, []);
+
+  const pianoSel = scelta.startsWith("p:") ? pianiUtente.find((x) => x.id === scelta.slice(2)) || null : null;
+  // il luogo del volo: un impianto, oppure il posto scritto nel piano di volo (per chi fa foto e video)
+  const impiantoSel = scelta.startsWith("i:")
+    ? impianti.find((i) => i.id === scelta.slice(2)) || null
+    : pianoSel
+      ? (pianoSel.impianto_id && impianti.find((i) => i.id === pianoSel.impianto_id)) || { id: null, nome: pianoSel.impianto_nome || "Luogo del volo" }
+      : null;
+  const zonaPiano = pianoSel?.checklist_stato?.zona || null;
+  const quandoPiano = pianoSel ? [pianoSel.data_prevista ? formatData(pianoSel.data_prevista) : "", pianoSel.ora_prevista ? `ore ${String(pianoSel.ora_prevista).slice(0, 5)}` : ""].filter(Boolean).join(" · ") : "";
+  const pianiOrdinati = [...pianiUtente].sort((a, b) => String(b.data_prevista || "").localeCompare(String(a.data_prevista || ""))).slice(0, 30);
+  const scegli = (v) => {
+    setScelta(v);
+    setDflightShot(null);
+    const pi = v.startsWith("p:") ? pianiUtente.find((x) => x.id === v.slice(2)) : null;
+    if (pi && pi.drone_id) setDroneSelId(pi.drone_id);
+  };
 
   const droneSelezionato = droniUtente.find((d) => d.id === droneSelId) || null;
   const assicurazione = attestatiUtente.find((a) => a.tipo.toLowerCase().includes("assicura"));
 
   // permessi collegati all'impianto scelto (se ne hai scelto uno), altrimenti tutti
   const permessiFiltrati = impiantoSel
-    ? permessiUtente.filter((p) => p.impianto_id === impiantoSel.id || (p.impianto && p.impianto.toLowerCase().includes(impiantoSel.nome.toLowerCase())))
+    ? permessiUtente.filter((p) => (impiantoSel.id && p.impianto_id === impiantoSel.id) || (p.impianto && impiantoSel.nome && p.impianto.toLowerCase().includes(impiantoSel.nome.toLowerCase())))
     : permessiUtente;
 
   // recupero automaticamente l'ultimo screenshot D-Flight collegato a questo impianto (da un permesso o da un piano di volo), se ce n'è uno e non ne hai caricato uno nuovo a mano
-  const screenshotAutomatico = impiantoSel && !dflightShot
+  const screenshotAutomatico = dflightShot ? null : pianoSel?.dflight_screenshot_url ? pianoSel.dflight_screenshot_url : impiantoSel && impiantoSel.id
     ? [...permessiUtente.filter((p) => p.impianto_id === impiantoSel.id && p.dflight_screenshot_url), ...pianiUtente.filter((p) => p.impianto_id === impiantoSel.id && p.dflight_screenshot_url)]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]?.dflight_screenshot_url
     : null;
@@ -6056,7 +6078,7 @@ function DocumentiControllo({ azienda, impianti }) {
   const scaricaPdfControllo = () => {
     setGenerandoPdfControllo(true);
     try {
-      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiFiltrati, impianto: impiantoSel });
+      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiFiltrati, impianto: impiantoSel, zona: zonaPiano, quando: quandoPiano });
       const url = doc.output("bloburl");
       setPdfUrlControllo(url);
       window.open(url, "_blank");
@@ -6074,11 +6096,21 @@ function DocumentiControllo({ azienda, impianti }) {
       </p>
 
       <div style={{ marginBottom: 16, maxWidth: 320 }}>
-        <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Impianto su cui stai lavorando (opzionale)</label>
-        <select value={impiantoSel?.id || ""} onChange={(e) => { setImpiantoSel(impianti.find((i) => i.id === e.target.value) || null); setDflightShot(null); }} style={inputStyle}>
+        <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Dove stai volando (opzionale)</label>
+        <select value={scelta} onChange={(e) => scegli(e.target.value)} style={inputStyle}>
           <option value="">— Nessuno / vedi tutto —</option>
-          {impianti.map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}
+          {pianiOrdinati.length > 0 && (
+            <optgroup label="I tuoi piani di volo">
+              {pianiOrdinati.map((x) => <option key={x.id} value={`p:${x.id}`}>{formatData(x.data_prevista)}{x.ora_prevista ? ` ${String(x.ora_prevista).slice(0, 5)}` : ""} · {x.impianto_nome}</option>)}
+            </optgroup>
+          )}
+          {usaIspezioni && impianti.length > 0 && (
+            <optgroup label="I tuoi impianti">
+              {impianti.map((i) => <option key={i.id} value={`i:${i.id}`}>{i.nome}</option>)}
+            </optgroup>
+          )}
         </select>
+        {pianiOrdinati.length === 0 && <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Crea un piano in «Pianifica»: qui ritrovi luogo, drone, screenshot D-Flight e zona di volo, pronti da mostrare.</p>}
       </div>
 
       <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 560 }}>
@@ -6131,11 +6163,19 @@ function DocumentiControllo({ azienda, impianti }) {
           </div>
         )}
         <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
-          <strong>Permessi{impiantoSel ? " per questo impianto" : ""}:</strong> {permessiFiltrati.length === 0 ? "nessuno" : `${permessiFiltrati.length}`}
+          <strong>Permessi{impiantoSel ? " per questo luogo" : ""}:</strong> {permessiFiltrati.length === 0 ? "nessuno" : `${permessiFiltrati.length}`}
         </div>
+        {zonaPiano && (() => {
+          const libera = zonaPiano.altezzaLibera;
+          const nessuna = !zonaPiano.zone || zonaPiano.zone.length === 0;
+          const [col, txt] = nessuna ? ["#4ade80", "nessuna zona geografica UAS sul punto"]
+            : libera >= 120 ? ["#4ade80", "volo consentito con le condizioni della zona"]
+            : libera > 0 ? ["#f5b942", `senza autorizzazione fino a ${libera} m dal suolo`] : ["#ff8c42", "serve autorizzazione già da terra"];
+          return <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}><strong>Zona di volo:</strong> <span style={{ color: col }}>{txt}</span> <span style={{ color: "#6b7480" }}>(controllata il {formatData(String(zonaPiano.verificata).slice(0, 10))})</span></div>;
+        })()}
 
         <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight {impiantoSel ? "di questo impianto" : "di oggi"} (facoltativo)</label>
+          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight {pianoSel ? "del piano di volo" : impiantoSel ? "di questo impianto" : "di oggi"} (facoltativo)</label>
           {dflightShot ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
@@ -6180,7 +6220,7 @@ function DocumentiControllo({ azienda, impianti }) {
             Chiudi ✕
           </button>
           <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px 0" }}>Documenti pilota</h1>
-          <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{azienda.nome}{impiantoSel ? ` — ${impiantoSel.nome}` : ""}</p>
+          <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{azienda.nome}{impiantoSel ? ` — ${impiantoSel.nome}` : ""}{quandoPiano ? ` — ${quandoPiano}` : ""}</p>
 
           <h2 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0", borderTop: "2px solid #eee", paddingTop: 16 }}>Attestati</h2>
           {attestatiUtente.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : attestatiUtente.map((a) => {
