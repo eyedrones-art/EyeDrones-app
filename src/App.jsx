@@ -1777,7 +1777,7 @@ const FUNZIONI_PRESENTAZIONE = [
   { emoji: "✈️", titolo: "Il prossimo volo in primo piano", testo: "Il giorno del volo lo trovi in apertura: meteo dell'ora prevista, zona, cosa manca prima di partire e il volo da registrare con un tocco." },
   { emoji: "📒", titolo: "Registro voli", testo: "Data, luogo, drone, batterie, durata, foto e video. Importa i voli dai file .SRT dei DJI, ritrovali su mappa o cercando la data." },
   { emoji: "🚔", titolo: "Pronto per i controlli", testo: "Attestati, assicurazione, drone, permessi, zona e screenshot D-Flight a schermo pieno o in PDF, con avvisi prima delle scadenze." },
-  { emoji: "📁", titolo: "Fascicolo del volo", testo: "Ti chiamano dopo settimane? Un PDF con tutto di quel volo: documenti validi quel giorno, piano, zona, checklist, manutenzione, liberatorie." },
+  { emoji: "📁", titolo: "Fascicolo del volo", testo: "Se dopo un volo ti chiedono spiegazioni (forze dell'ordine, ENAC, assicurazione o un cliente), in un solo PDF hai tutto: documenti validi quel giorno, piano, zona, checklist, manutenzione, liberatorie." },
   { emoji: "📐", titolo: "Volumi STS-01", testo: "Contingenza e buffer per il rischio a terra calcolati e disegnati sulla mappa, pronti per il manuale operativo e per il fascicolo." },
   { emoji: "📤", titolo: "Consegna al cliente", testo: "Una galleria con il tuo logo, PIN, filigrana e preferiti: il cliente sceglie le foto e scarica solo quando sblocchi tu." },
   { emoji: "✍️", titolo: "Liberatorie firmate", testo: "Il cliente o la persona ripresa firma col dito sul telefono: PDF con la firma salvato insieme al volo." },
@@ -6729,7 +6729,7 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
 
       <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 18, maxWidth: 560, marginTop: 16 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700 }}>📁 Fascicolo del volo<EtichettaPro /></div>
-        <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "4px 0 10px 0" }}>Ti contattano per un volo passato? Scegli il giorno: trovi i voli del Registro e scarichi il PDF con tutto quello che riguarda quel volo.</p>
+        <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "4px 0 10px 0" }}>Ti chiedono informazioni su un volo passato (forze dell'ordine, ENAC, assicurazione, un cliente)? Scegli il giorno: trovi i voli del Registro e scarichi il PDF con tutto quello che riguarda quel volo.</p>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <input type="date" value={giornoVoli} onChange={(e) => setDataCercata(e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 12.5 }} />
           {dataCercata && <button type="button" onClick={() => setDataCercata("")} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12 }}>{pianoSel ? "torna al giorno del piano" : "cancella"}</button>}
