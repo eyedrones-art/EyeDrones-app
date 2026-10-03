@@ -307,3 +307,23 @@ export async function testoDaFileZone(file) {
   }
   return new TextDecoder().decode(buf).replace(/^﻿/, "");
 }
+
+// la zona parte da una certa altezza (es. "da 25 m a 120 m")? sotto quel limite non vale: restituisce i metri, altrimenti 0
+export function partenzaZona(z) {
+  const l = z && z.limiti;
+  if (!l || !(l.da > 0)) return 0;
+  return String(l.rifDa || "").toUpperCase() === "AMSL" ? 0 : l.da; // quota sul mare: non so convertirla senza il terreno
+}
+
+// altezza massima senza autorizzazione nel punto: 120 m (regola Open), ridotta dalle zone vietate o con autorizzazione
+export function altezzaLibera(dentro) {
+  let max = 120;
+  for (const z of dentro || []) {
+    if (z.restrizione !== "PROHIBITED" && z.restrizione !== "REQ_AUTHORISATION") continue;
+    max = Math.min(max, partenzaZona(z));
+  }
+  return max;
+}
+
+// D-Flight riempie i campi vuoti con "N.A." o "-": li tratto come vuoti
+export const valoreReale = (v) => (v && !/^\s*(n\.?\s*a\.?|n\/a|na|-+|null|none|nd|n\.?d\.?)\s*$/i.test(String(v)) ? v : "");

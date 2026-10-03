@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
 import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
-import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti } from "./zoneUAS";
+import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
@@ -960,6 +960,7 @@ function costruisciPDFControllo({ azienda, operatore, attestati, drone, permessi
     riga("Punto", zona.punto || "—");
     riga("Verifica", `${formatData(String(zona.verificata).slice(0, 10))} su file zone D-Flight del ${formatData(String(zona.fileDel).slice(0, 10))}`);
     if (!zona.zone || zona.zone.length === 0) riga("Esito", "Nessuna zona geografica UAS sul punto", [60, 160, 90]);
+    else if (zona.altezzaLibera != null) riga("Senza autorizzazione", zona.altezzaLibera > 0 ? `fino a ${zona.altezzaLibera} m dal suolo` : "non consentito (serve autorizzazione da terra)", zona.altezzaLibera > 0 ? [200, 140, 40] : [220, 60, 60]);
     (zona.zone || []).forEach((z) => {
       const d = descriviRestrizione(z.restrizione);
       const col = z.restrizione === "PROHIBITED" ? [220, 60, 60] : z.restrizione === "REQ_AUTHORISATION" ? [210, 110, 40] : [200, 140, 40];
@@ -1736,7 +1737,7 @@ function AppShell({ session }) {
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
-        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} />}
+        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} />}
@@ -5058,6 +5059,9 @@ const durataLeggibile = (d) => {
   return [m[1] && `${m[1]} ${m[1] === "1" ? "giorno" : "giorni"}`, m[2] && `${m[2]} ${m[2] === "1" ? "ora" : "ore"}`, m[3] && `${m[3]} min`].filter(Boolean).join(" e ");
 };
 const SERVIZI_ENTE = { AUTHORIZATION: "autorizzazioni", INFORMATION: "informazioni" };
+// sigle che D-Flight usa nel campo "altro motivo"
+const SIGLE_ZONA = { ATM09: "zona aeroportuale con limiti di altezza (ENAC ATM-09)", NFZ: "no-fly zone" };
+const traduciSigla = (x) => SIGLE_ZONA[String(x || "").trim().toUpperCase()] || x;
 const traduciMotivi = (m) => String(m || "").split(/\s*,\s*/).filter(Boolean).map((x) => MOTIVI_ZONA[x.toUpperCase()] || x.toLowerCase()).join(", ");
 
 // cerca un indirizzo in Italia (via, numero, comune) con OpenStreetMap; se col numero civico non lo trova, riprova
@@ -5135,7 +5139,8 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
       verificata: new Date().toISOString(),
       fileDel: archivio.caricato,
       punto: `${latP.toFixed(5)}, ${lonP.toFixed(5)}`,
-      zone: esito.dentro.map((z) => ({ nome: z.nome, restrizione: z.restrizione, limiti: formattaLimiti(z.limiti) })),
+      zone: esito.dentro.map((z) => ({ nome: z.nome, restrizione: z.restrizione, limiti: formattaLimiti(z.limiti), da: partenzaZona(z) })),
+      altezzaLibera: altezzaLibera(esito.dentro),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esito]);
@@ -5145,19 +5150,27 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
   const linkD = { color: "#3d8bfd", fontSize: 12 };
 
   const schedaZona = (z, vicina) => {
-    const d = descriviRestrizione(z.restrizione);
+    const base = descriviRestrizione(z.restrizione);
+    const parte = (z.restrizione === "PROHIBITED" || z.restrizione === "REQ_AUTHORISATION") ? partenzaZona(z) : 0;
+    // la zona comincia sopra il suolo: fino a quell'altezza si vola con le regole normali
+    const d = parte > 0
+      ? { ...base, colore: "#f5b942", etichetta: `Libero fino a ${parte} m · sopra ${z.restrizione === "PROHIBITED" ? "vietato" : "serve autorizzazione"}`, consiglio: `Fino a ${parte} m dal suolo puoi volare senza autorizzazione, con le regole della tua categoria. Per salire oltre i ${parte} m ${z.restrizione === "PROHIBITED" ? "non si può" : "chiedi l'autorizzazione all'ente indicato (spesso tramite D-Flight)"}.` }
+      : base;
     const limiti = formattaLimiti(z.limiti);
+    const autorita = (z.autorita || []).map((a) => ({ ...a, nome: valoreReale(a.nome), servizio: valoreReale(a.servizio), email: valoreReale(a.email), telefono: valoreReale(a.telefono), sito: valoreReale(a.sito), preavviso: valoreReale(a.preavviso) }))
+      .filter((a) => a.nome || a.email || a.telefono || a.sito);
+    const motivo = [z.altroMotivo ? traduciMotivi(z.motivo).replace(/,?\s*altro motivo/, "") : traduciMotivi(z.motivo), traduciSigla(valoreReale(z.altroMotivo))].filter(Boolean).join(" · ");
     return (
       <div key={(z.id || z.nome) + (vicina ? "-v" : "")} style={{ borderLeft: `3px solid ${d.colore}`, background: d.colore + "12", borderRadius: 4, padding: "8px 10px", marginTop: 6 }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: d.colore }}>{d.etichetta}{vicina ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m</span> : null}{z.temporanea ? <span style={{ color: "#f5b942", fontWeight: 400 }}> · temporanea</span> : null}</div>
         <div style={{ fontSize: 12.5, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
         {limiti && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {limiti}</div>}
-        {(z.motivo || z.altroMotivo) && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Motivo: {[traduciMotivi(z.motivo), z.altroMotivo].filter(Boolean).join(" · ")}</div>}
-        {!vicina && z.messaggio && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{z.messaggio}</div>}
-        {!vicina && z.condizioni && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
+        {motivo && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Motivo: {motivo}</div>}
+        {!vicina && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{z.messaggio}</div>}
+        {!vicina && valoreReale(z.condizioni) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
         {!vicina && z.validita && <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 2 }}>Attiva: {z.validita.map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}</div>}
         {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {d.consiglio}</div>}
-        {!vicina && z.autorita.length > 0 && z.autorita.map((a, i) => (
+        {!vicina && autorita.map((a, i) => (
           <div key={i} style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 3 }}>
             🏛️ {a.nome || "Ente"}{a.servizio ? ` (${SERVIZI_ENTE[a.servizio.toUpperCase()] || a.servizio})` : ""}
             {a.preavviso ? ` · chiedi con almeno ${durataLeggibile(a.preavviso)} di anticipo` : ""}
@@ -5225,6 +5238,14 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
               <div style={{ color: "#c3cad4", marginTop: 2, fontSize: 12 }}>Valgono le regole generali della categoria Open: massimo 120 m dal suolo, drone sempre in vista, niente voli sopra assembramenti di persone.</div>
             </div>
           )}
+          {esito && esito.dentro.length > 0 && (() => {
+            const max = altezzaLibera(esito.dentro);
+            const vietata = esito.dentro.some((z) => z.restrizione === "PROHIBITED" && partenzaZona(z) === 0);
+            const [col, txt] = max >= 120 ? ["#4ade80", "Senza autorizzazione puoi volare fino a 120 m (con le condizioni della zona)"]
+              : max > 0 ? ["#f5b942", `Senza autorizzazione qui puoi volare fino a ${max} m dal suolo`]
+              : vietata ? ["#ff4d4d", "Qui il volo è vietato già da terra"] : ["#ff8c42", "Qui serve l'autorizzazione già da terra"];
+            return <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: col + "1f", border: `1px solid ${col}66`, color: col, fontSize: 13, fontWeight: 700 }}>↕️ {txt}</div>;
+          })()}
           {esito && esito.dentro.map((z) => schedaZona(z, false))}
           {esito && esito.vicine.length > 0 && (
             <>
@@ -5241,6 +5262,50 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
       )}
       {errore && <p style={{ fontSize: 11.5, color: "#ff9c9c", margin: "6px 0 0 0" }}>{errore}</p>}
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Aiuto alla pianificazione basato sul tuo file D-Flight: la verifica ufficiale resta su D-Flight prima di ogni volo.</p>
+    </div>
+  );
+}
+
+// --- Regole base del volo in categoria Open (Reg. UE 2019/947), in base alla classe del drone ------------------
+// Promemoria semplificato: non sostituisce il manuale del drone né le regole ENAC.
+const REGOLE_CLASSE = {
+  C0: { sottocategoria: "A1", attestato: null, peso: "meno di 250 g", regole: ["Puoi sorvolare persone non coinvolte, ma evitalo quando puoi", "Mai sopra assembramenti di persone"] },
+  C1: { sottocategoria: "A1", attestato: "A1/A3", peso: "meno di 900 g", regole: ["Non sorvolare di proposito persone non coinvolte (se capita, riduci il tempo sopra di loro)", "Mai sopra assembramenti di persone", "Remote ID attivo"] },
+  C2: { sottocategoria: "A2", attestato: "A2", peso: "meno di 4 kg", regole: ["Almeno 30 m in orizzontale dalle persone non coinvolte (5 m con la modalità bassa velocità attiva)", "Mai sopra assembramenti di persone", "Remote ID attivo", "Senza attestato A2 voli solo in A3: lontano 150 m da centri abitati e aree industriali o ricreative"] },
+  C3: { sottocategoria: "A3", attestato: "A1/A3", peso: "meno di 25 kg", regole: ["Nessuna persona non coinvolta nell'area di volo", "Almeno 150 m da aree residenziali, commerciali, industriali o ricreative", "Remote ID attivo"] },
+  C4: { sottocategoria: "A3", attestato: "A1/A3", peso: "meno di 25 kg", regole: ["Nessuna persona non coinvolta nell'area di volo", "Almeno 150 m da aree residenziali, commerciali, industriali o ricreative"] },
+};
+
+function RegoleVolo({ drone, altezzaZona, attestati, notte, fpv }) {
+  const classe = (String(drone?.marcatura_classe || "").toUpperCase().match(/C\s*([0-6])/) || [])[1];
+  const chiave = classe != null ? `C${classe}` : null;
+  const info = chiave && REGOLE_CLASSE[chiave];
+  const valido = (re) => (attestati || []).some((a) => re.test(a.tipo || "") && (!a.data_scadenza || new Date(a.data_scadenza) >= new Date()));
+  const haA2 = valido(/\bA2\b/i);
+  const haA1A3 = valido(/A1\s*\/?\s*A3/i) || haA2 || valido(/\bSTS\b/i); // per ottenere A2 o STS serve già l'A1/A3
+  const haAssicurazione = valido(/assicura/i);
+  const altezza = Math.min(120, altezzaZona ?? 120);
+
+  const voce = (ok, testo) => <li style={{ marginTop: 3, color: ok === false ? "#ffb877" : "#c3cad4" }}>{ok === true ? "✓ " : ok === false ? "⚠ " : ""}{testo}</li>;
+  return (
+    <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #4ade8044", borderRadius: 6, padding: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 700 }}>📋 Regole per questo volo</div>
+      <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "4px 0 0 0" }}>
+        {!drone ? "Scegli il drone qui sopra per vedere le regole della sua classe."
+          : info ? `${drone.nome}: classe ${chiave} (${info.peso}) → categoria Open ${info.sottocategoria}${chiave === "C2" ? " (o A3)" : ""}`
+          : `${drone.nome}: classe non indicata. Se pesa meno di 250 g vale come C0 (A1); se pesa di più e non ha classe vola solo in A3 (lontano da persone e centri abitati). Aggiungi la classe in «I miei droni».`}
+      </p>
+      <ul style={{ margin: "6px 0 0 0", paddingLeft: 18, fontSize: 12 }}>
+        {voce(null, <>Altezza massima <strong>{altezza} m dal suolo</strong>{altezzaZona != null && altezzaZona < 120 ? " (limite della zona senza autorizzazione)" : ""}</>)}
+        {voce(null, fpv ? "In FPV serve un osservatore accanto a te che tenga sempre il drone in vista" : "Drone sempre in vista, senza binocoli")}
+        {info && info.regole.map((t, i) => <React.Fragment key={i}>{voce(null, t)}</React.Fragment>)}
+        {info && info.attestato === "A2" && voce(haA2 ? true : false, haA2 ? "Attestato A2 presente tra i tuoi documenti" : "Per volare in A2 serve l'attestato A2: non lo trovo tra i tuoi attestati")}
+        {info && info.attestato && voce(haA1A3 ? true : false, haA1A3 ? "Attestato A1/A3 presente tra i tuoi documenti" : "Serve l'attestato A1/A3: non lo trovo tra i tuoi attestati (o è scaduto)")}
+        {voce(haAssicurazione ? true : false, haAssicurazione ? "Assicurazione RC presente e valida" : "In Italia serve l'assicurazione RC: non la trovo tra i tuoi attestati (o è scaduta)")}
+        {voce(null, "Codice operatore D-Flight (QR) applicato sul drone")}
+        {notte && voce(false, "Volo dopo il tramonto: accendi la luce verde lampeggiante del drone")}
+      </ul>
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Promemoria semplificato della categoria Open (Reg. UE 2019/947): controlla sempre il manuale del drone e le regole ENAC.</p>
     </div>
   );
 }
@@ -5606,6 +5671,18 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             onEsito={setZonaEsito}
           />
 
+          <RegoleVolo
+            drone={droneSelezionato}
+            altezzaZona={zonaEsito && zonaEsito.altezzaLibera != null ? zonaEsito.altezzaLibera : null}
+            attestati={attestatiUtente}
+            notte={!!(luce && oraPrevista && (() => {
+              const [h, m] = oraPrevista.split(":").map(Number);
+              const min = h * 60 + m, alba = minutiDelGiorno(luce.alba, meteo?.fusoOrario), tramonto = minutiDelGiorno(luce.tramonto, meteo?.fusoOrario);
+              return alba != null && tramonto != null && (min < alba || min > tramonto);
+            })())}
+            fpv={tipoIspezione === "fpv"}
+          />
+
           {giornoPrevisto && (
             <div style={{ marginTop: 12, background: "#161a1f", border: `1px solid ${giornoPrevisto.adatto ? "#4ade8055" : "#ff9c9c55"}`, borderRadius: 6, padding: 12 }}>
               <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Previsione per il {formatData(dataPrevista)} · soglia vento {limiteVento} km/h{droneSelezionato && droneSelezionato.vento_max_kmh ? ` (da ${droneSelezionato.nome})` : " (standard)"}</p>
@@ -5839,6 +5916,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
                     const zz = p.checklist_stato.zona.zone || [];
                     const peggiore = zz.find((z) => z.restrizione === "PROHIBITED") || zz.find((z) => z.restrizione === "REQ_AUTHORISATION") || zz[0];
                     const d = peggiore ? descriviRestrizione(peggiore.restrizione) : { colore: "#4ade80", etichetta: "Nessuna zona UAS" };
+                    const libera = p.checklist_stato.zona.altezzaLibera;
+                    if (libera != null && libera > 0 && libera < 120) return <div style={{ fontSize: 11, color: "#f5b942", marginTop: 2 }}>🛡️ Libero fino a {libera} m · sopra serve autorizzazione</div>;
                     return <div style={{ fontSize: 11, color: d.colore, marginTop: 2 }}>🛡️ {d.etichetta}{peggiore && peggiore.limiti ? ` · ${peggiore.limiti}` : ""}</div>;
                   })()}
                   {p.checklist_stato?.voci?.length > 0 && (() => {
@@ -5925,8 +6004,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
 
 // --- Documenti controllo (accesso rapido dal menu, senza dover pianificare prima un volo) -----------------------------------------------------------
 
-function DocumentiControllo({ azienda, impianti }) {
-  const [impiantoSel, setImpiantoSel] = useState(null);
+function DocumentiControllo({ azienda, impianti, usaIspezioni = true }) {
+  const [scelta, setScelta] = useState(""); // "" | "p:<id piano di volo>" | "i:<id impianto>"
   const [attestatiUtente, setAttestatiUtente] = useState([]);
   const [droniUtente, setDroniUtente] = useState([]);
   const [permessiUtente, setPermessiUtente] = useState([]);
@@ -5949,19 +6028,40 @@ function DocumentiControllo({ azienda, impianti }) {
       setDroniUtente(drn || []);
       setPermessiUtente(perm || []);
       setPianiUtente(piani || []);
+      // se c'è un piano di volo per oggi lo propongo già scelto, con il suo drone
+      const oggi = new Date().toISOString().slice(0, 10);
+      const diOggi = (piani || []).find((x) => x.data_prevista === oggi);
+      if (diOggi) { setScelta(`p:${diOggi.id}`); if (diOggi.drone_id) setDroneSelId(diOggi.drone_id); }
     })();
   }, []);
+
+  const pianoSel = scelta.startsWith("p:") ? pianiUtente.find((x) => x.id === scelta.slice(2)) || null : null;
+  // il luogo del volo: un impianto, oppure il posto scritto nel piano di volo (per chi fa foto e video)
+  const impiantoSel = scelta.startsWith("i:")
+    ? impianti.find((i) => i.id === scelta.slice(2)) || null
+    : pianoSel
+      ? (pianoSel.impianto_id && impianti.find((i) => i.id === pianoSel.impianto_id)) || { id: null, nome: pianoSel.impianto_nome || "Luogo del volo" }
+      : null;
+  const zonaPiano = pianoSel?.checklist_stato?.zona || null;
+  const quandoPiano = pianoSel ? [pianoSel.data_prevista ? formatData(pianoSel.data_prevista) : "", pianoSel.ora_prevista ? `ore ${String(pianoSel.ora_prevista).slice(0, 5)}` : ""].filter(Boolean).join(" · ") : "";
+  const pianiOrdinati = [...pianiUtente].sort((a, b) => String(b.data_prevista || "").localeCompare(String(a.data_prevista || ""))).slice(0, 30);
+  const scegli = (v) => {
+    setScelta(v);
+    setDflightShot(null);
+    const pi = v.startsWith("p:") ? pianiUtente.find((x) => x.id === v.slice(2)) : null;
+    if (pi && pi.drone_id) setDroneSelId(pi.drone_id);
+  };
 
   const droneSelezionato = droniUtente.find((d) => d.id === droneSelId) || null;
   const assicurazione = attestatiUtente.find((a) => a.tipo.toLowerCase().includes("assicura"));
 
   // permessi collegati all'impianto scelto (se ne hai scelto uno), altrimenti tutti
   const permessiFiltrati = impiantoSel
-    ? permessiUtente.filter((p) => p.impianto_id === impiantoSel.id || (p.impianto && p.impianto.toLowerCase().includes(impiantoSel.nome.toLowerCase())))
+    ? permessiUtente.filter((p) => (impiantoSel.id && p.impianto_id === impiantoSel.id) || (p.impianto && impiantoSel.nome && p.impianto.toLowerCase().includes(impiantoSel.nome.toLowerCase())))
     : permessiUtente;
 
   // recupero automaticamente l'ultimo screenshot D-Flight collegato a questo impianto (da un permesso o da un piano di volo), se ce n'è uno e non ne hai caricato uno nuovo a mano
-  const screenshotAutomatico = impiantoSel && !dflightShot
+  const screenshotAutomatico = dflightShot ? null : pianoSel?.dflight_screenshot_url ? pianoSel.dflight_screenshot_url : impiantoSel && impiantoSel.id
     ? [...permessiUtente.filter((p) => p.impianto_id === impiantoSel.id && p.dflight_screenshot_url), ...pianiUtente.filter((p) => p.impianto_id === impiantoSel.id && p.dflight_screenshot_url)]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]?.dflight_screenshot_url
     : null;
@@ -5978,7 +6078,7 @@ function DocumentiControllo({ azienda, impianti }) {
   const scaricaPdfControllo = () => {
     setGenerandoPdfControllo(true);
     try {
-      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiFiltrati, impianto: impiantoSel });
+      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiFiltrati, impianto: impiantoSel, zona: zonaPiano, quando: quandoPiano });
       const url = doc.output("bloburl");
       setPdfUrlControllo(url);
       window.open(url, "_blank");
@@ -5996,11 +6096,21 @@ function DocumentiControllo({ azienda, impianti }) {
       </p>
 
       <div style={{ marginBottom: 16, maxWidth: 320 }}>
-        <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Impianto su cui stai lavorando (opzionale)</label>
-        <select value={impiantoSel?.id || ""} onChange={(e) => { setImpiantoSel(impianti.find((i) => i.id === e.target.value) || null); setDflightShot(null); }} style={inputStyle}>
+        <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Dove stai volando (opzionale)</label>
+        <select value={scelta} onChange={(e) => scegli(e.target.value)} style={inputStyle}>
           <option value="">— Nessuno / vedi tutto —</option>
-          {impianti.map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}
+          {pianiOrdinati.length > 0 && (
+            <optgroup label="I tuoi piani di volo">
+              {pianiOrdinati.map((x) => <option key={x.id} value={`p:${x.id}`}>{formatData(x.data_prevista)}{x.ora_prevista ? ` ${String(x.ora_prevista).slice(0, 5)}` : ""} · {x.impianto_nome}</option>)}
+            </optgroup>
+          )}
+          {usaIspezioni && impianti.length > 0 && (
+            <optgroup label="I tuoi impianti">
+              {impianti.map((i) => <option key={i.id} value={`i:${i.id}`}>{i.nome}</option>)}
+            </optgroup>
+          )}
         </select>
+        {pianiOrdinati.length === 0 && <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Crea un piano in «Pianifica»: qui ritrovi luogo, drone, screenshot D-Flight e zona di volo, pronti da mostrare.</p>}
       </div>
 
       <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 560 }}>
@@ -6053,11 +6163,19 @@ function DocumentiControllo({ azienda, impianti }) {
           </div>
         )}
         <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
-          <strong>Permessi{impiantoSel ? " per questo impianto" : ""}:</strong> {permessiFiltrati.length === 0 ? "nessuno" : `${permessiFiltrati.length}`}
+          <strong>Permessi{impiantoSel ? " per questo luogo" : ""}:</strong> {permessiFiltrati.length === 0 ? "nessuno" : `${permessiFiltrati.length}`}
         </div>
+        {zonaPiano && (() => {
+          const libera = zonaPiano.altezzaLibera;
+          const nessuna = !zonaPiano.zone || zonaPiano.zone.length === 0;
+          const [col, txt] = nessuna ? ["#4ade80", "nessuna zona geografica UAS sul punto"]
+            : libera >= 120 ? ["#4ade80", "volo consentito con le condizioni della zona"]
+            : libera > 0 ? ["#f5b942", `senza autorizzazione fino a ${libera} m dal suolo`] : ["#ff8c42", "serve autorizzazione già da terra"];
+          return <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}><strong>Zona di volo:</strong> <span style={{ color: col }}>{txt}</span> <span style={{ color: "#6b7480" }}>(controllata il {formatData(String(zonaPiano.verificata).slice(0, 10))})</span></div>;
+        })()}
 
         <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight {impiantoSel ? "di questo impianto" : "di oggi"} (facoltativo)</label>
+          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight {pianoSel ? "del piano di volo" : impiantoSel ? "di questo impianto" : "di oggi"} (facoltativo)</label>
           {dflightShot ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
@@ -6102,7 +6220,7 @@ function DocumentiControllo({ azienda, impianti }) {
             Chiudi ✕
           </button>
           <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px 0" }}>Documenti pilota</h1>
-          <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{azienda.nome}{impiantoSel ? ` — ${impiantoSel.nome}` : ""}</p>
+          <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{azienda.nome}{impiantoSel ? ` — ${impiantoSel.nome}` : ""}{quandoPiano ? ` — ${quandoPiano}` : ""}</p>
 
           <h2 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0", borderTop: "2px solid #eee", paddingTop: 16 }}>Attestati</h2>
           {attestatiUtente.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : attestatiUtente.map((a) => {
@@ -7935,6 +8053,193 @@ const ESTENSIONI_VIDEO = ["mp4", "mov", "m4v", "3gp", "webm", "mkv"];
 const ESTENSIONI_FOTO = ["jpg", "jpeg", "png", "heic", "heif", "webp", "dng"];
 const formattaMB = (byte) => `${(byte / 1048576).toFixed(byte > 10485760 ? 0 : 1)} MB`;
 
+// --- Fascicolo del volo: un PDF con tutto quello che riguarda quel volo, utile per un controllo a posteriori ---------
+
+// immagine (anche dallo spazio riservato) → data URL per jsPDF; null se non si riesce
+async function immaginePerPdf(url) {
+  try {
+    const href = await indirizzoVisibile(url);
+    if (!href) return null;
+    const blob = await (await fetch(href)).blob();
+    if (!blob.type.startsWith("image/")) return null;
+    return await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => ok(null); r.readAsDataURL(blob); });
+  } catch (e) {
+    return null;
+  }
+}
+
+const stessoLuogo = (a, b) => {
+  const x = String(a || "").toLowerCase().trim(), y = String(b || "").toLowerCase().trim();
+  return !!x && !!y && (x.includes(y) || y.includes(x));
+};
+
+async function costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, azienda }) {
+  const [{ data: att }, { data: perm }, { data: piani }, { data: lib }, { data: cond }] = await Promise.all([
+    supabase.from("attestati").select("*"),
+    supabase.from("permessi").select("*"),
+    supabase.from("piani_volo").select("*").eq("data_prevista", volo.data),
+    supabase.from("liberatorie").select("*").eq("volo_id", String(volo.id)),
+    supabase.from("condivisioni").select("*").eq("volo_id", String(volo.id)),
+  ]);
+  const pianiGiorno = piani || [];
+  const piano = pianiGiorno.find((p) => stessoLuogo(p.impianto_nome, volo.luogo)) || (pianiGiorno.length === 1 ? pianiGiorno[0] : null);
+  const permessi = (perm || []).filter((p) => stessoLuogo(p.impianto, volo.luogo) || (piano && piano.impianto_id && p.impianto_id === piano.impianto_id));
+  const dataVolo = volo.data ? new Date(`${volo.data}T23:59:59`) : new Date();
+
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const grigio = [110, 120, 130], verde = [46, 140, 80], rosso = [210, 50, 50], arancio = [200, 120, 30];
+  let y = 18;
+  const spazio = (h) => { if (y + h > 280) { doc.addPage(); y = 18; } };
+  const titolo = (t) => { spazio(14); y += 3; doc.setFontSize(12.5); doc.setTextColor(20, 20, 20); doc.text(t, 15, y); y += 2; doc.setDrawColor(225, 225, 225); doc.line(15, y, 195, y); y += 6; };
+  const riga = (label, val, colore) => {
+    const righe = doc.splitTextToSize(String(val ?? "—"), 120);
+    spazio(righe.length * 4.6 + 2);
+    doc.setFontSize(9.5); doc.setTextColor(...grigio); doc.text(String(label), 15, y);
+    doc.setTextColor(...(colore || [20, 20, 20])); doc.text(righe, 72, y);
+    y += Math.max(6, righe.length * 4.6 + 1.4);
+  };
+  const nota = (t) => { const r = doc.splitTextToSize(t, 180); spazio(r.length * 4.4 + 2); doc.setFontSize(9); doc.setTextColor(...grigio); doc.text(r, 15, y); y += r.length * 4.4 + 2; };
+
+  if (azienda.logo) { try { doc.addImage(azienda.logo, "PNG", 15, 10, 24, 15, undefined, "FAST"); y = 32; } catch (e) { /* logo non valido */ } }
+  doc.setFontSize(17); doc.setTextColor(20, 20, 20); doc.text("Fascicolo del volo", 15, y); y += 6;
+  doc.setFontSize(10); doc.setTextColor(...grigio);
+  doc.text(`${formatData(volo.data)}${volo.ora ? ` · ore ${String(volo.ora).slice(0, 5)}` : ""} · ${volo.luogo || "luogo non indicato"}`, 15, y); y += 5;
+  doc.text(`Operatore: ${azienda.nome || "—"} · generato il ${formatData(new Date().toISOString())}`, 15, y); y += 4;
+
+  titolo("1. Il volo");
+  riga("Data e ora", `${formatData(volo.data)}${volo.ora ? ` alle ${String(volo.ora).slice(0, 5)}` : ""}`);
+  riga("Luogo", volo.luogo || "—");
+  if (volo.coordinate_gps) riga("Coordinate GPS", volo.coordinate_gps);
+  riga("Tipo di attività", (TIPI_ATTIVITA_VOLO.find((t) => t.key === volo.tipo_attivita) || {}).label || volo.tipo_attivita || "—");
+  riga("Categoria operativa", (CATEGORIE_OPERATIVE_VOLO.find((c) => c.key === volo.categoria_operativa) || {}).label || volo.categoria_operativa || "—");
+  if (volo.durata_minuti) riga("Durata", `${volo.durata_minuti} min`);
+  if (volo.altezza_max) riga("Altezza massima", `${volo.altezza_max} m`);
+  if (volo.cliente) riga("Cliente", volo.cliente);
+  if (volo.osservatore != null) riga("Osservatore", volo.osservatore ? "presente" : "non presente");
+  if (volo.visore) riga("Visore FPV", volo.visore);
+  if (volo.note) riga("Note", volo.note);
+
+  titolo("2. Drone e batterie");
+  if (drone) {
+    riga("Drone", [...new Set([drone.nome, drone.modello].filter(Boolean))].join(" · "));
+    riga("Classe", drone.marcatura_classe || "—");
+    riga("Matricola", drone.matricola || "—");
+    riga("Registrazione D-Flight", drone.registrazione_dflight || "—");
+  } else riga("Drone", volo.drone_nome || "non indicato");
+  const batt = (Array.isArray(volo.batterie_ids) ? volo.batterie_ids : []).map((id) => (batterie || []).find((b) => b.id === id)).filter(Boolean);
+  if (batt.length) riga("Batterie", batt.map((b) => `${b.nome}${b.cicli != null ? ` (${b.cicli} cicli)` : ""}`).join(", "));
+
+  titolo("3. Documenti del pilota alla data del volo");
+  const attestati = att || [];
+  if (attestati.length === 0) nota("Nessun attestato registrato nell'app.");
+  attestati.forEach((a) => {
+    const nonAncora = a.data_conseguimento && new Date(a.data_conseguimento) > dataVolo;
+    const scaduto = a.data_scadenza && new Date(`${a.data_scadenza}T23:59:59`) < new Date(`${volo.data}T00:00:00`);
+    const testo = nonAncora ? `non ancora ottenuto il ${formatData(volo.data)} (dal ${formatData(a.data_conseguimento)})`
+      : scaduto ? `SCADUTO il ${formatData(a.data_scadenza)}`
+      : `valido il ${formatData(volo.data)}${a.data_scadenza ? ` (scadenza ${formatData(a.data_scadenza)})` : ""}${a.numero_riferimento ? ` · n. ${a.numero_riferimento}` : ""}`;
+    riga(a.tipo, testo, nonAncora || scaduto ? rosso : verde);
+  });
+
+  titolo("4. Piano di volo e zona");
+  if (!piano) nota("Nessun piano di volo salvato per questo giorno e luogo.");
+  else {
+    riga("Piano", `${piano.impianto_nome || "—"} · ${formatData(piano.data_prevista)}${piano.ora_prevista ? ` ore ${String(piano.ora_prevista).slice(0, 5)}` : ""}`);
+    const z = piano.checklist_stato?.zona;
+    if (z) {
+      riga("Zona controllata", `${formatData(String(z.verificata).slice(0, 10))} (file zone D-Flight del ${formatData(String(z.fileDel).slice(0, 10))}) · punto ${z.punto || "—"}`);
+      if (!z.zone || z.zone.length === 0) riga("Esito", "nessuna zona geografica UAS sul punto", verde);
+      else {
+        (z.zone || []).forEach((x) => riga(descriviRestrizione(x.restrizione).etichetta, `${x.nome}${x.limiti ? ` — ${x.limiti}` : ""}`, arancio));
+        if (z.altezzaLibera != null) riga("Senza autorizzazione", z.altezzaLibera > 0 ? `fino a ${z.altezzaLibera} m dal suolo` : "non consentito", z.altezzaLibera > 0 ? arancio : rosso);
+      }
+    } else nota("Zona di volo non controllata nell'app per questo piano.");
+    const voci = piano.checklist_stato?.voci || [];
+    if (voci.length) {
+      const sp = piano.checklist_stato.spuntati || {};
+      riga("Checklist", `${voci.filter((_, i) => sp[i]).length} di ${voci.length} voci spuntate`);
+    }
+    if (piano.dflight_screenshot_url) {
+      const img = await immaginePerPdf(piano.dflight_screenshot_url);
+      if (img) {
+        try {
+          const p = doc.getImageProperties(img);
+          const w = 90, h = Math.min(120, (p.height / p.width) * w);
+          spazio(h + 8); doc.setFontSize(9); doc.setTextColor(...grigio); doc.text("Screenshot D-Flight allegato al piano:", 15, y); y += 3;
+          doc.addImage(img, p.fileType || "PNG", 15, y, (p.width / p.height) * h, h, undefined, "FAST"); y += h + 5;
+        } catch (e) { nota("Screenshot D-Flight presente nell'app (non inseribile nel PDF)."); }
+      } else nota("Screenshot D-Flight presente nell'app.");
+    }
+  }
+
+  titolo("5. Permessi e autorizzazioni per questo luogo");
+  if (permessi.length === 0) nota("Nessun permesso registrato per questo luogo.");
+  permessi.forEach((p) => {
+    const stato = { in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[p.stato] || p.stato || "—";
+    riga(p.impianto || "Permesso", `${stato}${p.ente_contattato ? ` — ${p.ente_contattato}` : ""}${p.data_richiesta ? ` · richiesto il ${formatData(p.data_richiesta)}` : ""}${p.permessi_richiesti ? ` · ${p.permessi_richiesti}` : ""}`, p.stato === "autorizzato" ? verde : p.stato === "negato" ? rosso : arancio);
+  });
+
+  titolo("6. Liberatorie firmate");
+  if (!lib || lib.length === 0) nota("Nessuna liberatoria firmata in questo volo.");
+  (lib || []).forEach((l) => riga(l.nome || "—", `${l.tipo === "persona" ? "liberatoria immagine (persona ripresa)" : "autorizzazione al sorvolo e alle riprese"} · firmata il ${formatData(l.created_at)} · PDF con firma nell'app`));
+
+  titolo("7. Eventi segnalati");
+  if (!eventi || eventi.length === 0) nota("Nessun evento registrato (incidenti, perdita di segnale, ecc.).");
+  (eventi || []).forEach((e) => riga(etichettaEvento(e.tipo), `${new Date(e.data_ora).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}${e.feriti ? " · FERITI" : ""}${e.danni_terzi ? " · danni a terzi" : ""}${e.descrizione ? ` — ${e.descrizione}` : ""}`, e.feriti || e.danni_terzi ? rosso : arancio));
+
+  titolo("8. Foto e video");
+  const nFoto = (media || []).filter((m) => m.tipo === "foto").length, nVideo = (media || []).filter((m) => m.tipo === "video").length, nLink = (media || []).filter((m) => m.tipo === "link").length;
+  riga("Materiale", `${nFoto} foto · ${nVideo} video${nLink ? ` · ${nLink} link` : ""}`);
+  (cond || []).forEach((c) => riga("Galleria condivisa", `${linkCondivisione(c.token)}${c.attiva === false ? " (disattivata)" : ""}`));
+
+  const pagine = doc.getNumberOfPages();
+  for (let i = 1; i <= pagine; i++) {
+    doc.setPage(i); doc.setFontSize(8); doc.setTextColor(...grigio);
+    doc.text(`Fascicolo del volo ${formatData(volo.data)} — ${azienda.nome || ""} — pagina ${i} di ${pagine}`, 15, 290);
+  }
+  return doc;
+}
+
+function FascicoloVolo({ volo, drone, batterie, media, eventi, azienda, piano, passQuestoMese, onVaiAbbonamento }) {
+  const [generando, setGenerando] = useState(false);
+  const pro = sbloccatoPro(piano, volo);
+  const genera = async () => {
+    setGenerando(true);
+    // apro subito la finestra (i telefoni bloccano le finestre aperte dopo un'attesa) e poi ci metto il PDF
+    const finestra = window.open("", "_blank");
+    try {
+      const doc = await costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, azienda });
+      const url = doc.output("bloburl");
+      if (finestra) finestra.location.href = url; else window.open(url, "_blank");
+    } catch (err) {
+      if (finestra) finestra.close();
+      alert("Non sono riuscito a creare il fascicolo: " + (err?.message || err));
+    }
+    setGenerando(false);
+  };
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #262b33" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" onClick={genera} disabled={generando || !pro} style={{ background: "#1f2530", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 }}>
+          {generando ? "Preparo il fascicolo…" : "📁 Fascicolo del volo (PDF)"}
+        </button>
+        <EtichettaPro />
+      </div>
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>Tutto su questo volo in un solo PDF: drone, documenti validi quel giorno, piano e zona, permessi, liberatorie, eventi. Utile se ti contattano dopo settimane.</p>
+      {!pro && <InvitoPro volo={volo} cosa="Il fascicolo del volo" passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />}
+    </div>
+  );
+}
+
+// la data di un volo scritta in tutti i modi in cui la si può cercare: "2026-09-12", "12/09/2026", "12 settembre 2026", "12 set 2026"
+const MESI_ESTESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
+function dateCercabili(d) {
+  const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return [];
+  const [, a, me, g] = m, gg = String(Number(g));
+  return [`${a}-${me}-${g}`, `${g}/${me}/${a}`, `${gg}/${Number(me)}/${a}`, `${gg} ${MESI_ESTESI[Number(me) - 1]} ${a}`, formatData(d)];
+}
+
 function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento, eventiVolo, onEventiCambiati }) {
   const [voli, setVoli] = useState([]);
   const [media, setMedia] = useState([]);
@@ -8007,7 +8312,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   const visibili = tutti.filter((v) =>
     (filtroTipo === "tutti" || v.tipo_attivita === filtroTipo) &&
     (filtroAnno === "tutti" || (v.data || "").startsWith(filtroAnno)) &&
-    (!q || [v.luogo, v.cliente, v.note, v.drone_nome].some((t) => t && String(t).toLowerCase().includes(q)))
+    (!q || [v.luogo, v.cliente, v.note, v.drone_nome, ...dateCercabili(v.data)].some((t) => t && String(t).toLowerCase().includes(q)))
   );
   const minutiTotali = visibili.reduce((s, v) => s + (Number(v.durata_minuti) || 0), 0);
   const annoCorrente = String(new Date().getFullYear());
@@ -8602,7 +8907,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             ))}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16, maxWidth: 620 }}>
-            <input type="text" placeholder="Cerca per luogo, cliente, drone, note..." value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 200, fontSize: 12.5, padding: "7px 10px" }} />
+            <input type="text" placeholder="Cerca per data (12 settembre), luogo, cliente, drone..." value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 200, fontSize: 12.5, padding: "7px 10px" }} />
             {anni.length > 1 && (
               <select value={filtroAnno} onChange={(e) => setFiltroAnno(e.target.value)} style={{ ...inputStyle, width: "auto", fontSize: 12.5, padding: "7px 10px" }}>
                 <option value="tutti">Tutti gli anni</option>
@@ -8746,6 +9051,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         <CondivisioneVolo volo={v} nMedia={mediaVolo.length} media={mediaVolo} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
                         <LiberatorieVolo volo={v} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
                         <EventiVolo volo={v} azienda={azienda} droni={droni} batterie={batterie} onCambiato={onEventiCambiati} />
+                        <FascicoloVolo volo={v} drone={(droni || []).find((d) => d.id === v.drone_id) || null} batterie={batterie} media={mediaVolo} eventi={(eventiVolo || []).filter((e) => e.volo_id === String(v.id))} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
 
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                           <button onClick={() => apriModifica(v)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Modifica</button>
