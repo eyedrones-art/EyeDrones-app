@@ -1521,6 +1521,7 @@ function AppShell({ session }) {
   const setVistaVoli = (v) => { setVistaVoliInterna(v); try { sessionStorage.setItem("eyedrones_vista_voli", v); } catch (e) { /* niente */ } };
   const [fileRapidi, setFileRapidi] = useState(null); // file scelti dalla prima pagina, da allegare a un nuovo volo
   const [prefillVolo, setPrefillVolo] = useState(null); // dati di un piano di volo, da precompilare aprendo "Nuovo volo"
+  const [pianoDaAprire, setPianoDaAprire] = useState(null); // id di un piano di volo da aprire (dalla Home)
   const [batterie, setBatterie] = useState([]);
   const [eventiVolo, setEventiVolo] = useState([]);
   const [dflightScadenza, setDflightScadenza] = useState(undefined); // undefined = colonna non ancora creata dallo script SQL
@@ -1731,13 +1732,13 @@ function AppShell({ session }) {
             Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.
           </div>
         )}
-        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} />}
+        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
-        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
-        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} />}
+        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} />}
@@ -2319,7 +2320,157 @@ function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
   );
 }
 
-function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza }) {
+// data di oggi nel fuso del telefono (toISOString darebbe quella UTC: dopo mezzanotte sarebbe ancora "ieri")
+const dataLocale = (giorniDopo = 0) => {
+  const d = new Date(Date.now() + giorniDopo * 86400000);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
+
+// --- Home: il prossimo volo pianificato, con meteo, zona e cosa manca --------------------------------------------
+function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra }) {
+  const [piani, setPiani] = useState(null);
+  const [meteo, setMeteo] = useState(null); // null = in caricamento, { errore } se non disponibile
+  const oggi = dataLocale(), domani = dataLocale(1), fra14 = dataLocale(14);
+
+  useEffect(() => {
+    supabase.from("piani_volo").select("*").gte("data_prevista", oggi).lte("data_prevista", fra14).order("data_prevista", { ascending: true }).limit(6)
+      .then(({ data }) => setPiani((data || []).sort((a, b) => `${a.data_prevista} ${a.ora_prevista || "99"}`.localeCompare(`${b.data_prevista} ${b.ora_prevista || "99"}`))));
+  }, []);
+
+  const p = piani && piani[0] && (piani[0].data_prevista === oggi || piani[0].data_prevista === domani) ? piani[0] : null;
+  const zona = p?.checklist_stato?.zona || null;
+  const punto = p ? leggiCoordinate(zona?.punto) || leggiCoordinate(p.luogo_coordinate) : null;
+
+  useEffect(() => {
+    if (!p) return;
+    let annullato = false;
+    (async () => {
+      try {
+        let dove = punto ? { lat: punto.lat, lon: punto.lon, nome: p.impianto_nome } : null;
+        if (!dove) {
+          const trovato = await cercaIndirizzoItalia(p.impianto_nome);
+          dove = trovato ? { lat: trovato.lat, lon: trovato.lon, nome: p.impianto_nome } : p.impianto_nome;
+        }
+        const m = await recuperaMeteo(dove);
+        if (!annullato) setMeteo(m);
+      } catch (e) {
+        if (!annullato) setMeteo({ errore: true });
+      }
+    })();
+    return () => { annullato = true; };
+  }, [p && p.id]);
+
+  if (!piani || piani.length === 0) return null;
+  const altri = piani.filter((x) => x !== p).slice(0, 3);
+  const giorno = (d) => (d === oggi ? "Oggi" : d === domani ? "Domani" : new Date(`${d}T12:00:00`).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" }));
+  const ora = (x) => (x.ora_prevista ? String(x.ora_prevista).slice(0, 5) : null);
+
+  const elencoAltri = altri.length > 0 && (
+    <div style={{ marginTop: p ? 10 : 0, display: "flex", flexDirection: "column", gap: 4 }}>
+      {!p && <TitoloSezione emoji="🗓️" titolo="Prossimi voli" />}
+      {altri.map((x) => (
+        <button key={x.id} onClick={() => onApriPiano(x.id)} style={{ textAlign: "left", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 8, padding: "8px 12px", color: "#c3cad4", fontSize: 12.5 }}>
+          🗓️ <strong style={{ color: "#e7eaee" }}>{giorno(x.data_prevista)}{ora(x) ? ` alle ${ora(x)}` : ""}</strong> · {x.impianto_nome}{x.tipo_ispezione ? ` · ${ETICHETTE_TIPO_PIANO[x.tipo_ispezione] || x.tipo_ispezione}` : ""}
+        </button>
+      ))}
+    </div>
+  );
+  if (!p) return <section style={{ marginBottom: 28, maxWidth: 720 }}>{elencoAltri}</section>;
+
+  const drone = (droni || []).find((d) => d.id === p.drone_id) || null;
+  const limite = Number(drone?.vento_max_kmh) > 0 ? Number(drone.vento_max_kmh) : 30;
+  const oraP = ora(p);
+  const hOra = oraP ? Number(oraP.slice(0, 2)) : null;
+  const ore = meteo && !meteo.errore ? (meteo.orari || []).filter((o) => o.data === p.data_prevista && (hOra == null ? o.ora >= 7 && o.ora <= 20 : Math.abs(o.ora - hOra) <= 2)) : [];
+  const allOra = ore.find((o) => o.ora === hOra);
+  const luce = meteo && !meteo.errore && meteo.lat != null ? calcolaLuce(p.data_prevista, meteo.lat, meteo.lon) : null;
+  const oraLuogo = (d) => formattaOraLuogo(d, meteo?.fusoOrario);
+  const riprese = ["video", "foto", "fpv"].includes(p.tipo_ispezione);
+
+  const voci = p.checklist_stato?.voci || [];
+  const spuntate = voci.filter((_, i) => (p.checklist_stato?.spuntati || {})[i]).length;
+  const mancanze = [
+    voci.length > 0 && spuntate < voci.length ? `Checklist ${spuntate} di ${voci.length}` : null,
+    !p.dflight_screenshot_url ? "Screenshot D-Flight non caricato" : null,
+    !zona ? "Zona di volo non controllata" : null,
+    !p.drone_id ? "Drone non scelto" : null,
+    ...(batterie || []).filter((b) => drone && b.drone_id === drone.id).flatMap((b) => avvisiBatteria(b).map((a) => `${b.nome}: ${a.testo}`)),
+  ].filter(Boolean);
+
+  const libera = zona && zona.altezzaLibera;
+  const testoZona = !zona ? null : !zona.zone || zona.zone.length === 0 ? ["#4ade80", "Nessuna zona UAS: fino a 120 m"]
+    : libera >= 120 ? ["#4ade80", "Fino a 120 m con le condizioni della zona"]
+    : libera > 0 ? ["#f5b942", `Libero fino a ${libera} m · sopra serve autorizzazione`] : ["#ff8c42", "Serve autorizzazione già da terra"];
+  const btn = (primario) => ({ background: primario ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#1f2530", color: primario ? "#161a1f" : "#e7eaee", border: primario ? "none" : "1px solid #333a45", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 });
+
+  return (
+    <section style={{ marginBottom: 28, maxWidth: 720 }}>
+      <div style={{ background: "linear-gradient(135deg, #1d2633, #1b2028)", border: "1px solid #3d8bfd66", borderRadius: 12, padding: 16 }}>
+        <div style={{ fontSize: 11.5, color: "#7fb0ff", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>✈️ Il tuo prossimo volo</div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>{giorno(p.data_prevista)}{oraP ? ` alle ${oraP}` : ""} · {p.impianto_nome}</div>
+        <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2 }}>{[ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione, drone ? `${drone.nome}${drone.marcatura_classe ? ` (${drone.marcatura_classe})` : ""}` : null].filter(Boolean).join(" · ")}</div>
+
+        <div style={{ marginTop: 12 }}>
+          {meteo === null ? <p style={{ fontSize: 12, color: "#8b95a3", margin: 0 }}>Carico il meteo…</p>
+            : meteo.errore || ore.length === 0 ? <p style={{ fontSize: 12, color: "#8b95a3", margin: 0 }}>Meteo non disponibile per questo luogo: aprilo da «Apri il piano».</p>
+            : (
+              <>
+                {allOra && (
+                  <div style={{ fontSize: 13, fontWeight: 700, color: COLORE_SEMAFORO[valutaOra(allOra, limite)], marginBottom: 6 }}>
+                    {{ verde: "✓ Condizioni buone", giallo: "⚠ Condizioni al limite", rosso: "✗ Condizioni sfavorevoli", grigio: "Meteo incompleto" }[valutaOra(allOra, limite)]} alle {oraP}: vento {Math.round(allOra.vento)} km/h, raffiche {Math.round(allOra.raffiche)}, pioggia {allOra.probPioggia ?? "—"}%
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
+                  {ore.map((o) => {
+                    const s = valutaOra(o, limite);
+                    return (
+                      <div key={o.ora} style={{ flex: "0 0 auto", width: 50, textAlign: "center", background: COLORE_SEMAFORO[s] + "1f", border: o.ora === hOra ? "2px solid #ff8c42" : `1px solid ${COLORE_SEMAFORO[s]}66`, borderRadius: 6, padding: "4px 2px", fontSize: 10.5, color: "#c3cad4" }}>
+                        <div style={{ fontWeight: 700, color: "#e7eaee" }}>{String(o.ora).padStart(2, "0")}</div>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORE_SEMAFORO[s], margin: "3px auto" }} />
+                        <div>💨{Math.round(o.vento)}</div>
+                        <div style={{ color: "#8b95a3" }}>☔{o.probPioggia ?? "—"}%</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {luce && (
+                  <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 6 }}>
+                    🌅 {oraLuogo(luce.alba)} · 🌇 {oraLuogo(luce.tramonto)}{riprese && luce.oraOroSera[0] ? <span style={{ color: "#f5b942" }}> · ✨ ora d'oro {oraLuogo(luce.oraOroSera[0])}–{oraLuogo(luce.oraOroSera[1])}</span> : null}
+                  </div>
+                )}
+              </>
+            )}
+        </div>
+
+        {testoZona && <div style={{ fontSize: 12.5, marginTop: 8, color: testoZona[0], fontWeight: 600 }}>🛡️ {testoZona[1]}</div>}
+        <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 4 }}>📣 Controlla i NOTAM su <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ color: "#3d8bfd" }}>D-Flight ↗</a> prima di partire</div>
+
+        {mancanze.length > 0 && (
+          <div style={{ marginTop: 10, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 6, padding: "8px 10px" }}>
+            <div style={{ fontSize: 11.5, color: "#ffb877", fontWeight: 700, marginBottom: 2 }}>Prima di partire</div>
+            {mancanze.map((m, i) => <div key={i} style={{ fontSize: 12, color: "#e7d3bf" }}>• {m}</div>)}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+          <button onClick={() => onApriPiano(p.id)} style={btn(true)}>Apri il piano</button>
+          <button onClick={() => onDocumenti(p.id)} style={btn(false)}>🚔 Documenti controllo</button>
+          <button onClick={() => onRegistra({
+            data: p.data_prevista,
+            ...(oraP ? { ora: oraP } : {}),
+            luogo: p.impianto_nome || "",
+            drone_id: p.drone_id || "",
+            tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
+            ...(punto ? { coordinate_gps: `${punto.lat.toFixed(5)}, ${punto.lon.toFixed(5)}` } : {}),
+          })} style={btn(false)}>📒 Registra il volo</button>
+        </div>
+      </div>
+      {elencoAltri}
+    </section>
+  );
+}
+
+function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
 
@@ -2382,6 +2533,8 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Conferma" />
         </div>
       )}
+
+      {onApriPiano && <ProssimoVolo droni={droni} batterie={batterie} onApriPiano={onApriPiano} onDocumenti={onDocumentiPiano} onRegistra={onRegistraDaPiano} />}
 
       {urgenti.length > 0 && bloccoScadenze}
 
@@ -4533,6 +4686,104 @@ function statoManutenzione(dataScadenza) {
   return { livello: "ok", testo: `Prossima manutenzione: ${formatData(dataScadenza)}`, colore: "#4ade80" };
 }
 
+// --- Registro interventi di manutenzione di un drone (tabella manutenzioni_droni, script supabase/manutenzioni-droni.sql) ---
+const TIPI_MANUTENZIONE = [
+  { key: "controllo", label: "Controllo generale", emoji: "🔍" },
+  { key: "eliche", label: "Eliche sostituite", emoji: "🌀" },
+  { key: "firmware", label: "Firmware aggiornato", emoji: "💾" },
+  { key: "calibrazione", label: "Calibrazione IMU / bussola / gimbal", emoji: "🧭" },
+  { key: "riparazione", label: "Riparazione", emoji: "🛠️" },
+  { key: "parti", label: "Sostituzione di parti (motore, braccio…)", emoji: "⚙️" },
+  { key: "altro", label: "Altro", emoji: "📝" },
+];
+const etichettaManutenzione = (k) => (TIPI_MANUTENZIONE.find((t) => t.key === k) || {}).label || k;
+const tabellaMancante = (msg) => /manutenzioni_droni|does not exist|schema cache/i.test(String(msg || ""));
+
+function ManutenzioniDrone({ drone }) {
+  const [aperto, setAperto] = useState(false);
+  const [elenco, setElenco] = useState(null);
+  const [mancaTabella, setMancaTabella] = useState(false);
+  const [form, setForm] = useState({ data: dataLocale(), tipo: "controllo", descrizione: "" });
+  const [file, setFile] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  const carica = async () => {
+    const { data, error } = await supabase.from("manutenzioni_droni").select("*").eq("drone_id", String(drone.id)).order("data", { ascending: false });
+    if (error) { setMancaTabella(tabellaMancante(error.message)); setElenco([]); return; }
+    setElenco(data || []);
+  };
+  useEffect(() => { carica(); }, [drone.id]);
+
+  const salva = async () => {
+    setSalvando(true);
+    try {
+      let documento_url = null;
+      if (file) {
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        documento_url = await caricaDocumento(`manutenzione-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`, file, { contentType: file.type || undefined });
+      }
+      const { error } = await supabase.from("manutenzioni_droni").insert({ drone_id: String(drone.id), data: form.data, tipo: form.tipo, descrizione: form.descrizione.trim() || null, documento_url });
+      if (error) throw error;
+      setForm({ data: dataLocale(), tipo: "controllo", descrizione: "" });
+      setFile(null);
+      carica();
+    } catch (err) {
+      if (tabellaMancante(err.message)) setMancaTabella(true);
+      else alert("Non sono riuscito a salvare l'intervento: " + (err.message || err));
+    }
+    setSalvando(false);
+  };
+  const elimina = async (m) => {
+    if (!window.confirm("Eliminare questo intervento?")) return;
+    if (m.documento_url) await rimuoviDocumento(m.documento_url);
+    await supabase.from("manutenzioni_droni").delete().eq("id", m.id);
+    carica();
+  };
+
+  const ultimo = elenco && elenco[0];
+  return (
+    <div style={{ flexBasis: "100%", borderTop: "1px solid #262b33", paddingTop: 8 }}>
+      <button type="button" onClick={() => setAperto(!aperto)} style={{ background: "none", border: "none", color: "#c3cad4", fontSize: 12.5, padding: 0, textAlign: "left" }}>
+        {aperto ? "▾" : "▸"} 🔧 Registro interventi{elenco && elenco.length ? ` (${elenco.length})` : ""}
+        {ultimo && !aperto && <span style={{ color: "#8b95a3" }}> · ultimo: {etichettaManutenzione(ultimo.tipo).toLowerCase()} il {formatData(ultimo.data)}</span>}
+      </button>
+      {aperto && (
+        <div style={{ marginTop: 8 }}>
+          {mancaTabella ? (
+            <p style={{ fontSize: 12, color: "#f5b942", margin: 0 }}>Per usare il registro interventi va eseguito una volta lo script <strong>supabase/manutenzioni-droni.sql</strong> su Supabase.</p>
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "flex-end" }}>
+                <input type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 12.5 }} />
+                <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 12.5 }}>
+                  {TIPI_MANUTENZIONE.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
+                </select>
+                <input placeholder="Note (es. firmware v01.02, eliche anteriori)" value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} style={{ ...inputStyle, flex: "1 1 200px", padding: "6px 8px", fontSize: 12.5 }} />
+                <label style={{ fontSize: 12, color: "#3d8bfd", cursor: "pointer", padding: "6px 0" }}>
+                  📎 {file ? file.name.slice(0, 18) : "Foto o ricevuta"}
+                  <input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
+                </label>
+                <button type="button" onClick={salva} disabled={salvando} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 }}>{salvando ? "Salvo…" : "Aggiungi"}</button>
+              </div>
+              {elenco && elenco.length === 0 && <p style={{ fontSize: 11.5, color: "#6b7480", margin: "8px 0 0 0" }}>Nessun intervento registrato. Segna qui eliche, firmware, calibrazioni e riparazioni: finiscono nel fascicolo di ogni volo.</p>}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
+                {(elenco || []).map((m) => (
+                  <div key={m.id} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5, color: "#c3cad4" }}>
+                    <span style={{ color: "#8b95a3", minWidth: 82 }}>{formatData(m.data)}</span>
+                    <span style={{ flex: 1 }}>{(TIPI_MANUTENZIONE.find((t) => t.key === m.tipo) || {}).emoji || "📝"} {etichettaManutenzione(m.tipo)}{m.descrizione ? <span style={{ color: "#8b95a3" }}> · {m.descrizione}</span> : null}</span>
+                    {m.documento_url && <LinkFile url={m.documento_url} style={{ color: "#3d8bfd", fontSize: 11.5 }}>📎</LinkFile>}
+                    <button type="button" onClick={() => elimina(m)} style={{ background: "none", border: "none", color: "#ff9c9c", fontSize: 13 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScadenza }) {
   const [scadenzaDflight, setScadenzaDflight] = useState(dflightScadenza || "");
   useEffect(() => { setScadenzaDflight(dflightScadenza || ""); }, [dflightScadenza]);
@@ -4806,6 +5057,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
                     Elimina
                   </button>
                 </div>
+                <ManutenzioniDrone drone={d} />
               </div>
             );
           })}
@@ -5310,7 +5562,189 @@ function RegoleVolo({ drone, altezzaZona, attestati, notte, fpv }) {
   );
 }
 
-function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, piano }) {
+// --- Calcolatore STS-01: area di volo, contingenza e buffer per il rischio a terra -------------------------------
+// Buffer: tabella STS-01 del Reg. (UE) 2019/947, Appendice 1 (drone non vincolato). Contingenza: stima con il metodo
+// SORA (GPS + tempo di reazione 1 s + frenata a 45°), mai sotto i 10 m richiesti dallo scenario.
+const BUFFER_STS01 = [
+  { altezza: 30, leggero: 10, pesante: 20 },
+  { altezza: 60, leggero: 15, pesante: 30 },
+  { altezza: 90, leggero: 20, pesante: 45 },
+  { altezza: 120, leggero: 25, pesante: 60 },
+];
+
+function calcolaSTS({ altezza, raggio, pesante, velocita }) {
+  const H = Math.max(0, Number(altezza) || 0), R = Math.max(0, Number(raggio) || 0), V = Math.max(0, Number(velocita) || 0);
+  const frenata = (V * V) / (2 * 9.81);
+  const contingenza = Math.max(10, Math.ceil(3 + V * 1 + frenata));
+  const altezzaContingenza = Math.ceil(H + 1 + 0.7 * V + frenata);
+  const riga = BUFFER_STS01.find((x) => H <= x.altezza);
+  const buffer = riga ? (pesante ? riga.pesante : riga.leggero) : null;
+  return {
+    altezza: H, raggio: R, velocita: V, pesante: !!pesante, contingenza, altezzaContingenza, buffer,
+    raggioContingenza: R + contingenza,
+    raggioTotale: buffer != null ? R + contingenza + buffer : null,
+    fuoriScenario: !riga,
+  };
+}
+
+// disegna le tre aree su una mappa OpenStreetMap (se le tessere non si caricano, su sfondo neutro)
+async function disegnaMappaSTS({ lat, lon, sts, titolo }) {
+  const L = 800, LEG = 150;
+  const canvas = document.createElement("canvas");
+  canvas.width = L; canvas.height = L + LEG;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#e9ecef"; ctx.fillRect(0, 0, L, L);
+  const rMax = Math.max(sts.raggioTotale || sts.raggioContingenza || 50, 20);
+  const cosLat = Math.cos((lat * Math.PI) / 180);
+  const z = Math.max(3, Math.min(19, Math.floor(Math.log2((156543.03392 * cosLat * 330) / rMax))));
+  const mpp = (156543.03392 * cosLat) / 2 ** z;
+  const scala = 256 * 2 ** z;
+  const cx = ((lon + 180) / 360) * scala;
+  const latR = (lat * Math.PI) / 180;
+  const cy = ((1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2) * scala;
+  const x0 = cx - L / 2, y0 = cy - L / 2;
+  let tessere = 0;
+  const carica = [];
+  for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + L) / 256); tx++) {
+    for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + L) / 256); ty++) {
+      carica.push(new Promise((ok) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        const t = setTimeout(() => ok(), 6000);
+        img.onload = () => { clearTimeout(t); ctx.drawImage(img, tx * 256 - x0, ty * 256 - y0); tessere++; ok(); };
+        img.onerror = () => { clearTimeout(t); ok(); };
+        img.src = `https://tile.openstreetmap.org/${z}/${((tx % 2 ** z) + 2 ** z) % 2 ** z}/${ty}.png`;
+      }));
+    }
+  }
+  await Promise.all(carica);
+  const cerchio = (r, riempi, bordo) => {
+    ctx.beginPath(); ctx.arc(L / 2, L / 2, r / mpp, 0, Math.PI * 2);
+    ctx.fillStyle = riempi; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = bordo; ctx.stroke();
+  };
+  if (sts.raggioTotale) cerchio(sts.raggioTotale, "rgba(220,50,50,0.22)", "#d32f2f");
+  cerchio(sts.raggioContingenza, "rgba(245,160,40,0.30)", "#e68a00");
+  cerchio(sts.raggio, "rgba(46,160,90,0.35)", "#2e7d32");
+  ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(L / 2, L / 2, 5, 0, Math.PI * 2); ctx.fill();
+  // barra della scala
+  const passi = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
+  const m = passi.find((x) => x / mpp >= 80) || 1000;
+  ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fillRect(12, L - 40, m / mpp + 24, 28);
+  ctx.fillStyle = "#111"; ctx.fillRect(24, L - 22, m / mpp, 4);
+  ctx.font = "bold 13px sans-serif"; ctx.fillText(`${m} m`, 24, L - 26);
+  ctx.font = "11px sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fillRect(L - 190, L - 18, 190, 18);
+  ctx.fillStyle = "#333"; ctx.fillText("© OpenStreetMap contributors", L - 182, L - 5);
+  // legenda
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, L, L, LEG);
+  ctx.fillStyle = "#111"; ctx.font = "bold 18px sans-serif"; ctx.fillText(titolo || "STS-01 · volume operativo", 16, L + 28);
+  const voce = (y, colore, testo) => { ctx.fillStyle = colore; ctx.fillRect(16, y - 12, 16, 16); ctx.fillStyle = "#222"; ctx.font = "15px sans-serif"; ctx.fillText(testo, 40, y + 1); };
+  voce(L + 56, "#2e7d32", `Area di volo: raggio ${sts.raggio} m · altezza max ${sts.altezza} m`);
+  voce(L + 82, "#e68a00", `Contingenza: +${sts.contingenza} m (raggio ${sts.raggioContingenza} m) · altezza ${sts.altezzaContingenza} m`);
+  if (sts.raggioTotale) voce(L + 108, "#d32f2f", `Buffer rischio a terra: +${sts.buffer} m (area controllata a terra: raggio ${sts.raggioTotale} m)`);
+  ctx.fillStyle = "#666"; ctx.font = "12px sans-serif";
+  ctx.fillText(`Centro ${lat.toFixed(5)}, ${lon.toFixed(5)}${tessere === 0 ? " · mappa non disponibile, solo le aree" : ""}`, 16, L + 136);
+  const dataUrl = canvas.toDataURL("image/png");
+  const blob = await new Promise((ok) => canvas.toBlob(ok, "image/png"));
+  return { dataUrl, blob, conMappa: tessere > 0 };
+}
+
+function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
+  const [aperto, setAperto] = useState(!!valore);
+  const [campi, setCampi] = useState(() => ({ altezza: String(valore?.altezza ?? 60), raggio: String(valore?.raggio ?? 50), velocita: String(valore?.velocita ?? 5), pesante: !!valore?.pesante }));
+  const [immagine, setImmagine] = useState(null); // { dataUrl, blob } appena disegnata
+  const [disegnando, setDisegnando] = useState(false);
+  // cambia piano (aperto, nuovo o annullato): riparto dai valori salvati in quel piano
+  useEffect(() => {
+    setAperto(!!valore);
+    if (valore) setCampi({ altezza: String(valore.altezza ?? 60), raggio: String(valore.raggio ?? 50), velocita: String(valore.velocita ?? 5), pesante: !!valore.pesante });
+    setImmagine(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chiave]);
+  const r = calcolaSTS(campi);
+  const aggiorna = (k, v) => {
+    const nuovi = { ...campi, [k]: v };
+    setCampi(nuovi);
+    setImmagine(null);
+    onCambia({ ...calcolaSTS(nuovi), scenario: "STS-01", immagine_url: null });
+  };
+  const disegna = async () => {
+    if (!punto) return;
+    setDisegnando(true);
+    try {
+      const img = await disegnaMappaSTS({ lat: punto.lat, lon: punto.lon, sts: r, titolo: `STS-01 · ${nomeLuogo || "volume operativo"}` });
+      setImmagine(img);
+      onCambia({ ...r, scenario: "STS-01", immagine_url: null, immagineNuova: img });
+    } catch (e) {
+      alert("Non sono riuscito a disegnare la mappa: " + (e?.message || e));
+    }
+    setDisegnando(false);
+  };
+  const campo = (k, etichetta, unita) => (
+    <label style={{ fontSize: 11, color: "#6b7480", display: "flex", flexDirection: "column", gap: 3, flex: "1 1 120px" }}>
+      {etichetta}
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <input type="number" inputMode="decimal" value={campi[k]} onChange={(e) => aggiorna(k, e.target.value)} style={{ ...inputStyle, padding: "6px 8px" }} />
+        <span style={{ fontSize: 11, color: "#8b95a3" }}>{unita}</span>
+      </div>
+    </label>
+  );
+  if (!aperto) {
+    return (
+      <button type="button" onClick={() => { setAperto(true); onCambia({ ...r, scenario: "STS-01", immagine_url: null }); }} style={{ marginTop: 10, background: "#161a1f", border: "1px dashed #a78bfa88", color: "#c4b5fd", borderRadius: 6, padding: "10px 12px", fontSize: 12.5, fontWeight: 600, textAlign: "left", width: "100%" }}>
+        📐 Voli in STS-01? Calcola contingenza e buffer e disegnali sulla mappa
+      </button>
+    );
+  }
+  const riga = (colore, nome, testo) => (
+    <div style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 12.5, marginTop: 4 }}>
+      <span style={{ width: 10, height: 10, borderRadius: 2, background: colore, flexShrink: 0, display: "inline-block" }} />
+      <span style={{ color: "#8b95a3", minWidth: 130 }}>{nome}</span><span style={{ color: "#e7eaee" }}>{testo}</span>
+    </div>
+  );
+  return (
+    <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #a78bfa55", borderRadius: 6, padding: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 13, fontWeight: 700 }}>📐 Volumi STS-01<EtichettaPro /></span>
+        <button type="button" onClick={() => { setAperto(false); setImmagine(null); onCambia(null); }} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12 }}>Togli</button>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+        {campo("altezza", "Altezza massima di volo", "m")}
+        {campo("raggio", "Raggio dell'area di volo", "m")}
+        {campo("velocita", "Velocità massima", "m/s")}
+      </div>
+      <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+        {[[false, "Fino a 10 kg"], [true, "Oltre 10 kg"]].map(([v, t]) => (
+          <button key={t} type="button" onClick={() => aggiorna("pesante", v)} style={{ background: campi.pesante === v ? "#a78bfa22" : "#262b33", border: `1px solid ${campi.pesante === v ? "#a78bfa" : "#333a45"}`, color: campi.pesante === v ? "#c4b5fd" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>{t} al decollo</button>
+        ))}
+      </div>
+      <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid #262b33" }}>
+        {riga("#2e7d32", "Area di volo", `raggio ${r.raggio} m · fino a ${r.altezza} m`)}
+        {riga("#e68a00", "Contingenza", `+${r.contingenza} m (raggio ${r.raggioContingenza} m) · fino a ${r.altezzaContingenza} m`)}
+        {r.fuoriScenario
+          ? <p style={{ fontSize: 12, color: "#ff9c9c", margin: "6px 0 0 0" }}>Oltre 120 m di altezza si esce dallo scenario STS-01.</p>
+          : riga("#d32f2f", "Buffer rischio a terra", `+${r.buffer} m → area controllata a terra: raggio ${r.raggioTotale} m`)}
+        <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Buffer dalla tabella STS-01 (Reg. UE 2019/947, Appendice 1). Contingenza stimata con GPS 3 m + reazione 1 s + frenata, minimo 10 m: usa sempre i valori del tuo manuale operativo STS.</p>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, alignItems: "center" }}>
+        <button type="button" onClick={disegna} disabled={!punto || disegnando || r.fuoriScenario} style={{ background: punto ? "#a78bfa" : "#333a45", color: punto ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>
+          {disegnando ? "Disegno…" : "🗺️ Disegna sulla mappa"}
+        </button>
+        {!punto && <span style={{ fontSize: 11.5, color: "#f5b942" }}>Serve il punto: coordinate, indirizzo trovato o «Controlla meteo».</span>}
+        {immagine && <a href={immagine.dataUrl} download={`sts01-${(nomeLuogo || "volo").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`} style={{ color: "#c4b5fd", fontSize: 12.5 }}>⬇️ Scarica immagine</a>}
+      </div>
+      {immagine ? (
+        <>
+          <img src={immagine.dataUrl} alt="Aree STS-01" style={{ width: "100%", maxWidth: 420, borderRadius: 6, marginTop: 8, display: "block" }} />
+          <p style={{ fontSize: 11, color: "#8b95a3", margin: "4px 0 0 0" }}>{immagine.conMappa ? "" : "Mappa non raggiungibile ora: disegnate solo le aree. "}L'immagine si salva con il piano («Salva piano») e va nel fascicolo del volo.</p>
+        </>
+      ) : valore?.immagine_url ? (
+        <ImmagineFile src={valore.immagine_url} alt="Aree STS-01" style={{ width: "100%", maxWidth: 420, borderRadius: 6, marginTop: 8, display: "block" }} />
+      ) : null}
+    </div>
+  );
+}
+
+function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, piano, pianoIniziale, onPianoAperto }) {
   const [impiantoSel, setImpiantoSel] = useState(null);
   const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
   const [dataPrevista, setDataPrevista] = useState(() => new Date().toISOString().slice(0, 10));
@@ -5325,6 +5759,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [oraPrevista, setOraPrevista] = useState("");
   const [zonaEsito, setZonaEsito] = useState(null); // ultimo controllo della zona, salvato con il piano
   const [puntoIndirizzo, setPuntoIndirizzo] = useState(null); // via e numero trovati su OpenStreetMap
+  const [stsDati, setStsDati] = useState(null); // calcolatore STS-01 (salvato nel piano)
   // scegliendo l'ora del volo, anche la direzione del sole si calcola per quell'ora
   const scegliOraPrevista = (ora) => { setOraPrevista(ora); if (ora) setOraSole(ora); };
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
@@ -5360,6 +5795,12 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   };
 
   useEffect(() => { caricaTutto(); }, []);
+  // aperto dalla Home ("Apri il piano"): appena ho i piani, apro quello richiesto
+  useEffect(() => {
+    if (!pianoIniziale) return;
+    const pi = pianiSalvati.find((x) => x.id === pianoIniziale);
+    if (pi) { apriPiano(pi); onPianoAperto && onPianoAperto(); }
+  }, [pianoIniziale, pianiSalvati]);
   // se cambia il luogo, l'indirizzo trovato prima non vale più
   useEffect(() => { setPuntoIndirizzo(null); }, [luogoLibero, impiantoSel]);
 
@@ -5485,6 +5926,12 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
         const nomeFile = `dflight-piano-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
         dflightUrl = await caricaDocumento(nomeFile, dflightShot.blob, { contentType: "image/png" });
       }
+      let sts = null;
+      if (stsDati) {
+        const { immagineNuova, ...resto } = stsDati;
+        sts = { ...resto, salvatoIl: new Date().toISOString() };
+        if (immagineNuova?.blob) sts.immagine_url = await caricaDocumento(`sts01-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`, immagineNuova.blob, { contentType: "image/png" });
+      }
       const payload = {
         impianto_id: impiantoSel ? impiantoSel.id : null,
         impianto_nome: destinazione.nome,
@@ -5493,7 +5940,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
         ora_prevista: oraPrevista || null,
         drone_id: droneSelId || null,
         dflight_screenshot_url: dflightUrl,
-        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}) },
+        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}) },
       };
       // le coordinate si salvano solo per un luogo scelto a mano
       if (!impiantoSel) payload.luogo_coordinate = coordinateValide ? `${coordinateValide.lat}, ${coordinateValide.lon}` : null;
@@ -5529,6 +5976,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setDataPrevista(p.data_prevista || new Date().toISOString().slice(0, 10));
     setOraPrevista(p.ora_prevista ? String(p.ora_prevista).slice(0, 5) : "");
     setZonaEsito(p.checklist_stato?.zona || null);
+    setStsDati(p.checklist_stato?.sts || null);
     if (p.ora_prevista) setOraSole(String(p.ora_prevista).slice(0, 5));
     setDroneSelId(p.drone_id || "");
     setDflightShot(p.dflight_screenshot_url ? { dataUrl: p.dflight_screenshot_url, remota: true } : null);
@@ -5552,6 +6000,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setDroneSelId("");
     setOraPrevista("");
     setZonaEsito(null);
+    setStsDati(null);
     setDflightShot(null);
     setMeteo(null);
     setMeteoSpaziale(null);
@@ -5681,6 +6130,14 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               return alba != null && tramonto != null && (min < alba || min > tramonto);
             })())}
             fpv={tipoIspezione === "fpv"}
+          />
+
+          <CalcolatoreSTS
+            valore={stsDati}
+            chiave={editingId || "nuovo"}
+            onCambia={setStsDati}
+            nomeLuogo={destinazione.nome}
+            punto={coordinateValide || puntoIndirizzo || leggiCoordinate(zonaEsito?.punto) || (meteo && meteo.lat != null ? { lat: meteo.lat, lon: meteo.lon } : null)}
           />
 
           {giornoPrevisto && (
@@ -6004,7 +6461,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
 
 // --- Documenti controllo (accesso rapido dal menu, senza dover pianificare prima un volo) -----------------------------------------------------------
 
-function DocumentiControllo({ azienda, impianti, usaIspezioni = true }) {
+function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoIniziale, onPianoAperto }) {
   const [scelta, setScelta] = useState(""); // "" | "p:<id piano di volo>" | "i:<id impianto>"
   const [attestatiUtente, setAttestatiUtente] = useState([]);
   const [droniUtente, setDroniUtente] = useState([]);
@@ -6029,8 +6486,9 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true }) {
       setPermessiUtente(perm || []);
       setPianiUtente(piani || []);
       // se c'è un piano di volo per oggi lo propongo già scelto, con il suo drone
-      const oggi = new Date().toISOString().slice(0, 10);
-      const diOggi = (piani || []).find((x) => x.data_prevista === oggi);
+      const oggi = dataLocale();
+      const diOggi = (pianoIniziale && (piani || []).find((x) => x.id === pianoIniziale)) || (piani || []).find((x) => x.data_prevista === oggi);
+      if (pianoIniziale && onPianoAperto) onPianoAperto();
       if (diOggi) { setScelta(`p:${diOggi.id}`); if (diOggi.drone_id) setDroneSelId(diOggi.drone_id); }
     })();
   }, []);
@@ -8081,6 +8539,8 @@ async function costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, a
     supabase.from("liberatorie").select("*").eq("volo_id", String(volo.id)),
     supabase.from("condivisioni").select("*").eq("volo_id", String(volo.id)),
   ]);
+  // interventi sul drone (se lo script del registro manutenzione non è stato eseguito, la sezione resta vuota)
+  const { data: manut } = drone ? await supabase.from("manutenzioni_droni").select("*").eq("drone_id", String(drone.id)).order("data", { ascending: false }) : { data: [] };
   const pianiGiorno = piani || [];
   const piano = pianiGiorno.find((p) => stessoLuogo(p.impianto_nome, volo.luogo)) || (pianiGiorno.length === 1 ? pianiGiorno[0] : null);
   const permessi = (perm || []).filter((p) => stessoLuogo(p.impianto, volo.luogo) || (piano && piano.impianto_id && p.impianto_id === piano.impianto_id));
@@ -8128,6 +8588,15 @@ async function costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, a
   } else riga("Drone", volo.drone_nome || "non indicato");
   const batt = (Array.isArray(volo.batterie_ids) ? volo.batterie_ids : []).map((id) => (batterie || []).find((b) => b.id === id)).filter(Boolean);
   if (batt.length) riga("Batterie", batt.map((b) => `${b.nome}${b.cicli != null ? ` (${b.cicli} cicli)` : ""}`).join(", "));
+  if (drone) {
+    if (drone.prossima_manutenzione) {
+      const scaduta = drone.prossima_manutenzione < volo.data;
+      riga("Manutenzione programmata", scaduta ? `SCADUTA il ${formatData(drone.prossima_manutenzione)}, prima del volo` : `in regola il giorno del volo (prossima: ${formatData(drone.prossima_manutenzione)})`, scaduta ? rosso : verde);
+    }
+    const prima = (manut || []).filter((m) => m.data && m.data <= volo.data).slice(0, 6);
+    if (prima.length) prima.forEach((m, i) => riga(i === 0 ? "Ultimi interventi" : "", `${formatData(m.data)} · ${etichettaManutenzione(m.tipo)}${m.descrizione ? ` — ${m.descrizione}` : ""}`));
+    else if (manut) riga("Ultimi interventi", "nessun intervento registrato prima del volo", grigio);
+  }
 
   titolo("3. Documenti del pilota alla data del volo");
   const attestati = att || [];
@@ -8157,7 +8626,25 @@ async function costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, a
     const voci = piano.checklist_stato?.voci || [];
     if (voci.length) {
       const sp = piano.checklist_stato.spuntati || {};
-      riga("Checklist", `${voci.filter((_, i) => sp[i]).length} di ${voci.length} voci spuntate`);
+      riga("Checklist pre-volo", `${voci.filter((_, i) => sp[i]).length} di ${voci.length} voci spuntate`);
+      voci.forEach((v, i) => riga("", `${sp[i] ? "[fatto]" : "[non spuntato]"}  ${v}`, sp[i] ? verde : arancio));
+    }
+    const sts = piano.checklist_stato?.sts;
+    if (sts) {
+      riga("Scenario", sts.scenario || "STS-01", [20, 20, 20]);
+      riga("Area di volo", `raggio ${sts.raggio} m · altezza max ${sts.altezza} m · velocità max ${sts.velocita} m/s · ${sts.pesante ? "oltre" : "fino a"} 10 kg`);
+      riga("Contingenza", `+${sts.contingenza} m (raggio ${sts.raggioContingenza} m) · altezza ${sts.altezzaContingenza} m`);
+      if (sts.buffer != null) riga("Buffer rischio a terra", `+${sts.buffer} m · area controllata a terra raggio ${sts.raggioTotale} m`);
+      if (sts.immagine_url) {
+        const img = await immaginePerPdf(sts.immagine_url);
+        if (img) {
+          try {
+            const pr = doc.getImageProperties(img);
+            const w = 110, h = (pr.height / pr.width) * w;
+            spazio(h + 4); doc.addImage(img, "PNG", 15, y, w, h, undefined, "FAST"); y += h + 5;
+          } catch (e) { /* immagine non inseribile */ }
+        }
+      }
     }
     if (piano.dflight_screenshot_url) {
       const img = await immaginePerPdf(piano.dflight_screenshot_url);
