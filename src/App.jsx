@@ -1456,8 +1456,70 @@ export default function App() {
   return <AppAutenticata />;
 }
 
+// messaggi di Supabase Auth tradotti in parole semplici
+function erroreAccessoItaliano(msg) {
+  const m = String(msg || "");
+  if (/invalid login credentials/i.test(m)) return "Email o password non corretti.";
+  if (/email not confirmed/i.test(m)) return "Devi prima confermare l'email: apri il link che ti abbiamo mandato (guarda anche nello spam).";
+  if (/already registered|already been registered|already exists/i.test(m)) return "Esiste già un account con questa email: accedi, oppure usa «Password dimenticata?».";
+  if (/password should be at least|at least \d+ characters/i.test(m)) return "La password deve avere almeno 6 caratteri.";
+  if (/should be different|same password/i.test(m)) return "La nuova password deve essere diversa da quella vecchia.";
+  if (/rate limit|security purposes|too many/i.test(m)) return "Troppe richieste in poco tempo: riprova tra qualche minuto.";
+  if (/invalid.*email|unable to validate email|email address .* is invalid/i.test(m)) return "Indirizzo email non valido.";
+  if (/expired|invalid.*(token|link)|otp/i.test(m)) return "Il link è scaduto o è già stato usato: chiedine uno nuovo.";
+  if (/failed to fetch|network/i.test(m)) return "Connessione assente: controlla internet e riprova.";
+  return m || "Si è verificato un errore, riprova.";
+}
+
+// scelta della nuova password dopo il link "Password dimenticata?" (e anche da Impostazioni)
+function NuovaPassword({ onFatto, dentroApp = false }) {
+  const [password, setPassword] = useState("");
+  const [ripeti, setRipeti] = useState("");
+  const [errore, setErrore] = useState(null);
+  const [fatto, setFatto] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const salva = async (e) => {
+    e.preventDefault();
+    setErrore(null);
+    if (password.length < 6) { setErrore("La password deve avere almeno 6 caratteri."); return; }
+    if (password !== ripeti) { setErrore("Le due password non coincidono."); return; }
+    setSalvando(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setSalvando(false);
+    if (error) { setErrore(erroreAccessoItaliano(error.message)); return; }
+    setFatto(true);
+    setPassword(""); setRipeti("");
+  };
+  const modulo = (
+    <form onSubmit={salva} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <input type="password" autoComplete="new-password" placeholder="Nuova password (almeno 6 caratteri)" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} />
+      <input type="password" autoComplete="new-password" placeholder="Ripeti la nuova password" value={ripeti} onChange={(e) => setRipeti(e.target.value)} style={inputStyle} />
+      {errore && <p style={{ fontSize: 12, color: "#ff9c9c", margin: 0 }}>{errore}</p>}
+      {fatto && <p style={{ fontSize: 12, color: "#4ade80", margin: 0 }}>✓ Password cambiata.</p>}
+      <button type="submit" disabled={salvando} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 6, padding: "10px 0", fontWeight: 700, fontSize: 13.5 }}>{salvando ? "Salvo…" : "Salva la nuova password"}</button>
+      {fatto && onFatto && <button type="button" onClick={onFatto} style={{ background: "none", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "9px 0", fontSize: 13 }}>Entra nell'app</button>}
+    </form>
+  );
+  if (dentroApp) return modulo;
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'IBM Plex Sans', sans-serif", padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 340 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 20 }}>
+          <img src={LOGO_EYEDRONES} alt="" style={{ width: 40, height: 40 }} />
+          <span style={{ fontWeight: 700, fontSize: 18, color: "#e7eaee" }}>Eyedrones</span>
+        </div>
+        <h1 style={{ fontSize: 18, color: "#e7eaee", margin: "0 0 4px 0", textAlign: "center" }}>Scegli una nuova password</h1>
+        <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "0 0 16px 0", textAlign: "center" }}>Hai aperto il link per reimpostarla: scrivi quella nuova.</p>
+        {modulo}
+      </div>
+    </div>
+  );
+}
+
 function AppAutenticata() {
   const [session, setSession] = useState(undefined); // undefined = ancora in caricamento, null = non loggato
+  // aperto il link "Password dimenticata?": prima di entrare si sceglie la nuova password
+  const [recupero, setRecupero] = useState(() => /type=recovery/.test(window.location.hash));
 
   useEffect(() => {
     // memorizzo eventuale provenienza (?ref=nomeaffiliato) per collegarla all'account al momento della registrazione
@@ -1465,7 +1527,10 @@ function AppAutenticata() {
     if (refParam) localStorage.setItem("eyedrones_ref", refParam);
 
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    const { data: listener } = supabase.auth.onAuthStateChange((evento, s) => {
+      if (evento === "PASSWORD_RECOVERY") setRecupero(true);
+      setSession(s);
+    });
     return () => listener.subscription.unsubscribe();
   }, []);
 
@@ -1480,6 +1545,8 @@ function AppAutenticata() {
   if (!session) {
     return <Accesso />;
   }
+
+  if (recupero) return <NuovaPassword onFatto={() => { setRecupero(false); window.history.replaceState(null, "", window.location.pathname); }} />;
 
   return <AppShell session={session} />;
 }
@@ -1941,16 +2008,18 @@ function Login({ modoIniziale = "login", onTorna }) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else if (modo === "registrati") {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } });
         if (error) throw error;
-        setMessaggio("Account creato — controlla la tua email per confermare, poi accedi.");
+        // Supabase non dà errore se l'email è già registrata: lo riconosco dall'utente senza identità
+        if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) throw new Error("already registered");
+        if (!data?.session) setMessaggio("Account creato! Ti abbiamo mandato un'email: apri il link per confermare l'indirizzo (guarda anche nello spam), poi accedi.");
       } else if (modo === "recupera") {
-        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
         if (error) throw error;
-        setMessaggio("Ti abbiamo inviato una email con il link per reimpostare la password.");
+        setMessaggio("Se l'email è registrata, ti abbiamo mandato un link per scegliere una nuova password (guarda anche nello spam).");
       }
     } catch (err) {
-      setErrore(err.message || "Errore durante l'accesso");
+      setErrore(erroreAccessoItaliano(err.message));
     }
     setCaricamento(false);
   };
@@ -9787,6 +9856,10 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
             Accesso con <strong style={{ color: "#c3cad4" }}>{userEmail}</strong>
             {(LINK_PRIVACY || LINK_TERMINI) && <> · <LinkLegali stile={{ color: "#3d8bfd" }} /></>}
           </p>
+          <details style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+            <summary style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>🔑 Cambia password</summary>
+            <div style={{ marginTop: 10, maxWidth: 340 }}><NuovaPassword dentroApp /></div>
+          </details>
           <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12 }}>
             <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 4px 0" }}>🔐 Spazio riservato per i documenti</p>
             <p style={{ fontSize: 12, color: "#aab3bf", margin: "0 0 10px 0", lineHeight: 1.5 }}>
