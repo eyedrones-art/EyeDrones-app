@@ -8053,6 +8053,193 @@ const ESTENSIONI_VIDEO = ["mp4", "mov", "m4v", "3gp", "webm", "mkv"];
 const ESTENSIONI_FOTO = ["jpg", "jpeg", "png", "heic", "heif", "webp", "dng"];
 const formattaMB = (byte) => `${(byte / 1048576).toFixed(byte > 10485760 ? 0 : 1)} MB`;
 
+// --- Fascicolo del volo: un PDF con tutto quello che riguarda quel volo, utile per un controllo a posteriori ---------
+
+// immagine (anche dallo spazio riservato) → data URL per jsPDF; null se non si riesce
+async function immaginePerPdf(url) {
+  try {
+    const href = await indirizzoVisibile(url);
+    if (!href) return null;
+    const blob = await (await fetch(href)).blob();
+    if (!blob.type.startsWith("image/")) return null;
+    return await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => ok(null); r.readAsDataURL(blob); });
+  } catch (e) {
+    return null;
+  }
+}
+
+const stessoLuogo = (a, b) => {
+  const x = String(a || "").toLowerCase().trim(), y = String(b || "").toLowerCase().trim();
+  return !!x && !!y && (x.includes(y) || y.includes(x));
+};
+
+async function costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, azienda }) {
+  const [{ data: att }, { data: perm }, { data: piani }, { data: lib }, { data: cond }] = await Promise.all([
+    supabase.from("attestati").select("*"),
+    supabase.from("permessi").select("*"),
+    supabase.from("piani_volo").select("*").eq("data_prevista", volo.data),
+    supabase.from("liberatorie").select("*").eq("volo_id", String(volo.id)),
+    supabase.from("condivisioni").select("*").eq("volo_id", String(volo.id)),
+  ]);
+  const pianiGiorno = piani || [];
+  const piano = pianiGiorno.find((p) => stessoLuogo(p.impianto_nome, volo.luogo)) || (pianiGiorno.length === 1 ? pianiGiorno[0] : null);
+  const permessi = (perm || []).filter((p) => stessoLuogo(p.impianto, volo.luogo) || (piano && piano.impianto_id && p.impianto_id === piano.impianto_id));
+  const dataVolo = volo.data ? new Date(`${volo.data}T23:59:59`) : new Date();
+
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const grigio = [110, 120, 130], verde = [46, 140, 80], rosso = [210, 50, 50], arancio = [200, 120, 30];
+  let y = 18;
+  const spazio = (h) => { if (y + h > 280) { doc.addPage(); y = 18; } };
+  const titolo = (t) => { spazio(14); y += 3; doc.setFontSize(12.5); doc.setTextColor(20, 20, 20); doc.text(t, 15, y); y += 2; doc.setDrawColor(225, 225, 225); doc.line(15, y, 195, y); y += 6; };
+  const riga = (label, val, colore) => {
+    const righe = doc.splitTextToSize(String(val ?? "—"), 120);
+    spazio(righe.length * 4.6 + 2);
+    doc.setFontSize(9.5); doc.setTextColor(...grigio); doc.text(String(label), 15, y);
+    doc.setTextColor(...(colore || [20, 20, 20])); doc.text(righe, 72, y);
+    y += Math.max(6, righe.length * 4.6 + 1.4);
+  };
+  const nota = (t) => { const r = doc.splitTextToSize(t, 180); spazio(r.length * 4.4 + 2); doc.setFontSize(9); doc.setTextColor(...grigio); doc.text(r, 15, y); y += r.length * 4.4 + 2; };
+
+  if (azienda.logo) { try { doc.addImage(azienda.logo, "PNG", 15, 10, 24, 15, undefined, "FAST"); y = 32; } catch (e) { /* logo non valido */ } }
+  doc.setFontSize(17); doc.setTextColor(20, 20, 20); doc.text("Fascicolo del volo", 15, y); y += 6;
+  doc.setFontSize(10); doc.setTextColor(...grigio);
+  doc.text(`${formatData(volo.data)}${volo.ora ? ` · ore ${String(volo.ora).slice(0, 5)}` : ""} · ${volo.luogo || "luogo non indicato"}`, 15, y); y += 5;
+  doc.text(`Operatore: ${azienda.nome || "—"} · generato il ${formatData(new Date().toISOString())}`, 15, y); y += 4;
+
+  titolo("1. Il volo");
+  riga("Data e ora", `${formatData(volo.data)}${volo.ora ? ` alle ${String(volo.ora).slice(0, 5)}` : ""}`);
+  riga("Luogo", volo.luogo || "—");
+  if (volo.coordinate_gps) riga("Coordinate GPS", volo.coordinate_gps);
+  riga("Tipo di attività", (TIPI_ATTIVITA_VOLO.find((t) => t.key === volo.tipo_attivita) || {}).label || volo.tipo_attivita || "—");
+  riga("Categoria operativa", (CATEGORIE_OPERATIVE_VOLO.find((c) => c.key === volo.categoria_operativa) || {}).label || volo.categoria_operativa || "—");
+  if (volo.durata_minuti) riga("Durata", `${volo.durata_minuti} min`);
+  if (volo.altezza_max) riga("Altezza massima", `${volo.altezza_max} m`);
+  if (volo.cliente) riga("Cliente", volo.cliente);
+  if (volo.osservatore != null) riga("Osservatore", volo.osservatore ? "presente" : "non presente");
+  if (volo.visore) riga("Visore FPV", volo.visore);
+  if (volo.note) riga("Note", volo.note);
+
+  titolo("2. Drone e batterie");
+  if (drone) {
+    riga("Drone", [...new Set([drone.nome, drone.modello].filter(Boolean))].join(" · "));
+    riga("Classe", drone.marcatura_classe || "—");
+    riga("Matricola", drone.matricola || "—");
+    riga("Registrazione D-Flight", drone.registrazione_dflight || "—");
+  } else riga("Drone", volo.drone_nome || "non indicato");
+  const batt = (Array.isArray(volo.batterie_ids) ? volo.batterie_ids : []).map((id) => (batterie || []).find((b) => b.id === id)).filter(Boolean);
+  if (batt.length) riga("Batterie", batt.map((b) => `${b.nome}${b.cicli != null ? ` (${b.cicli} cicli)` : ""}`).join(", "));
+
+  titolo("3. Documenti del pilota alla data del volo");
+  const attestati = att || [];
+  if (attestati.length === 0) nota("Nessun attestato registrato nell'app.");
+  attestati.forEach((a) => {
+    const nonAncora = a.data_conseguimento && new Date(a.data_conseguimento) > dataVolo;
+    const scaduto = a.data_scadenza && new Date(`${a.data_scadenza}T23:59:59`) < new Date(`${volo.data}T00:00:00`);
+    const testo = nonAncora ? `non ancora ottenuto il ${formatData(volo.data)} (dal ${formatData(a.data_conseguimento)})`
+      : scaduto ? `SCADUTO il ${formatData(a.data_scadenza)}`
+      : `valido il ${formatData(volo.data)}${a.data_scadenza ? ` (scadenza ${formatData(a.data_scadenza)})` : ""}${a.numero_riferimento ? ` · n. ${a.numero_riferimento}` : ""}`;
+    riga(a.tipo, testo, nonAncora || scaduto ? rosso : verde);
+  });
+
+  titolo("4. Piano di volo e zona");
+  if (!piano) nota("Nessun piano di volo salvato per questo giorno e luogo.");
+  else {
+    riga("Piano", `${piano.impianto_nome || "—"} · ${formatData(piano.data_prevista)}${piano.ora_prevista ? ` ore ${String(piano.ora_prevista).slice(0, 5)}` : ""}`);
+    const z = piano.checklist_stato?.zona;
+    if (z) {
+      riga("Zona controllata", `${formatData(String(z.verificata).slice(0, 10))} (file zone D-Flight del ${formatData(String(z.fileDel).slice(0, 10))}) · punto ${z.punto || "—"}`);
+      if (!z.zone || z.zone.length === 0) riga("Esito", "nessuna zona geografica UAS sul punto", verde);
+      else {
+        (z.zone || []).forEach((x) => riga(descriviRestrizione(x.restrizione).etichetta, `${x.nome}${x.limiti ? ` — ${x.limiti}` : ""}`, arancio));
+        if (z.altezzaLibera != null) riga("Senza autorizzazione", z.altezzaLibera > 0 ? `fino a ${z.altezzaLibera} m dal suolo` : "non consentito", z.altezzaLibera > 0 ? arancio : rosso);
+      }
+    } else nota("Zona di volo non controllata nell'app per questo piano.");
+    const voci = piano.checklist_stato?.voci || [];
+    if (voci.length) {
+      const sp = piano.checklist_stato.spuntati || {};
+      riga("Checklist", `${voci.filter((_, i) => sp[i]).length} di ${voci.length} voci spuntate`);
+    }
+    if (piano.dflight_screenshot_url) {
+      const img = await immaginePerPdf(piano.dflight_screenshot_url);
+      if (img) {
+        try {
+          const p = doc.getImageProperties(img);
+          const w = 90, h = Math.min(120, (p.height / p.width) * w);
+          spazio(h + 8); doc.setFontSize(9); doc.setTextColor(...grigio); doc.text("Screenshot D-Flight allegato al piano:", 15, y); y += 3;
+          doc.addImage(img, p.fileType || "PNG", 15, y, (p.width / p.height) * h, h, undefined, "FAST"); y += h + 5;
+        } catch (e) { nota("Screenshot D-Flight presente nell'app (non inseribile nel PDF)."); }
+      } else nota("Screenshot D-Flight presente nell'app.");
+    }
+  }
+
+  titolo("5. Permessi e autorizzazioni per questo luogo");
+  if (permessi.length === 0) nota("Nessun permesso registrato per questo luogo.");
+  permessi.forEach((p) => {
+    const stato = { in_attesa: "In attesa", autorizzato: "Autorizzato", negato: "Negato" }[p.stato] || p.stato || "—";
+    riga(p.impianto || "Permesso", `${stato}${p.ente_contattato ? ` — ${p.ente_contattato}` : ""}${p.data_richiesta ? ` · richiesto il ${formatData(p.data_richiesta)}` : ""}${p.permessi_richiesti ? ` · ${p.permessi_richiesti}` : ""}`, p.stato === "autorizzato" ? verde : p.stato === "negato" ? rosso : arancio);
+  });
+
+  titolo("6. Liberatorie firmate");
+  if (!lib || lib.length === 0) nota("Nessuna liberatoria firmata in questo volo.");
+  (lib || []).forEach((l) => riga(l.nome || "—", `${l.tipo === "persona" ? "liberatoria immagine (persona ripresa)" : "autorizzazione al sorvolo e alle riprese"} · firmata il ${formatData(l.created_at)} · PDF con firma nell'app`));
+
+  titolo("7. Eventi segnalati");
+  if (!eventi || eventi.length === 0) nota("Nessun evento registrato (incidenti, perdita di segnale, ecc.).");
+  (eventi || []).forEach((e) => riga(etichettaEvento(e.tipo), `${new Date(e.data_ora).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" })}${e.feriti ? " · FERITI" : ""}${e.danni_terzi ? " · danni a terzi" : ""}${e.descrizione ? ` — ${e.descrizione}` : ""}`, e.feriti || e.danni_terzi ? rosso : arancio));
+
+  titolo("8. Foto e video");
+  const nFoto = (media || []).filter((m) => m.tipo === "foto").length, nVideo = (media || []).filter((m) => m.tipo === "video").length, nLink = (media || []).filter((m) => m.tipo === "link").length;
+  riga("Materiale", `${nFoto} foto · ${nVideo} video${nLink ? ` · ${nLink} link` : ""}`);
+  (cond || []).forEach((c) => riga("Galleria condivisa", `${linkCondivisione(c.token)}${c.attiva === false ? " (disattivata)" : ""}`));
+
+  const pagine = doc.getNumberOfPages();
+  for (let i = 1; i <= pagine; i++) {
+    doc.setPage(i); doc.setFontSize(8); doc.setTextColor(...grigio);
+    doc.text(`Fascicolo del volo ${formatData(volo.data)} — ${azienda.nome || ""} — pagina ${i} di ${pagine}`, 15, 290);
+  }
+  return doc;
+}
+
+function FascicoloVolo({ volo, drone, batterie, media, eventi, azienda, piano, passQuestoMese, onVaiAbbonamento }) {
+  const [generando, setGenerando] = useState(false);
+  const pro = sbloccatoPro(piano, volo);
+  const genera = async () => {
+    setGenerando(true);
+    // apro subito la finestra (i telefoni bloccano le finestre aperte dopo un'attesa) e poi ci metto il PDF
+    const finestra = window.open("", "_blank");
+    try {
+      const doc = await costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, azienda });
+      const url = doc.output("bloburl");
+      if (finestra) finestra.location.href = url; else window.open(url, "_blank");
+    } catch (err) {
+      if (finestra) finestra.close();
+      alert("Non sono riuscito a creare il fascicolo: " + (err?.message || err));
+    }
+    setGenerando(false);
+  };
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #262b33" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" onClick={genera} disabled={generando || !pro} style={{ background: "#1f2530", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 }}>
+          {generando ? "Preparo il fascicolo…" : "📁 Fascicolo del volo (PDF)"}
+        </button>
+        <EtichettaPro />
+      </div>
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>Tutto su questo volo in un solo PDF: drone, documenti validi quel giorno, piano e zona, permessi, liberatorie, eventi. Utile se ti contattano dopo settimane.</p>
+      {!pro && <InvitoPro volo={volo} cosa="Il fascicolo del volo" passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />}
+    </div>
+  );
+}
+
+// la data di un volo scritta in tutti i modi in cui la si può cercare: "2026-09-12", "12/09/2026", "12 settembre 2026", "12 set 2026"
+const MESI_ESTESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
+function dateCercabili(d) {
+  const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return [];
+  const [, a, me, g] = m, gg = String(Number(g));
+  return [`${a}-${me}-${g}`, `${g}/${me}/${a}`, `${gg}/${Number(me)}/${a}`, `${gg} ${MESI_ESTESI[Number(me) - 1]} ${a}`, formatData(d)];
+}
+
 function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento, eventiVolo, onEventiCambiati }) {
   const [voli, setVoli] = useState([]);
   const [media, setMedia] = useState([]);
@@ -8125,7 +8312,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   const visibili = tutti.filter((v) =>
     (filtroTipo === "tutti" || v.tipo_attivita === filtroTipo) &&
     (filtroAnno === "tutti" || (v.data || "").startsWith(filtroAnno)) &&
-    (!q || [v.luogo, v.cliente, v.note, v.drone_nome].some((t) => t && String(t).toLowerCase().includes(q)))
+    (!q || [v.luogo, v.cliente, v.note, v.drone_nome, ...dateCercabili(v.data)].some((t) => t && String(t).toLowerCase().includes(q)))
   );
   const minutiTotali = visibili.reduce((s, v) => s + (Number(v.durata_minuti) || 0), 0);
   const annoCorrente = String(new Date().getFullYear());
@@ -8720,7 +8907,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             ))}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16, maxWidth: 620 }}>
-            <input type="text" placeholder="Cerca per luogo, cliente, drone, note..." value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 200, fontSize: 12.5, padding: "7px 10px" }} />
+            <input type="text" placeholder="Cerca per data (12 settembre), luogo, cliente, drone..." value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 200, fontSize: 12.5, padding: "7px 10px" }} />
             {anni.length > 1 && (
               <select value={filtroAnno} onChange={(e) => setFiltroAnno(e.target.value)} style={{ ...inputStyle, width: "auto", fontSize: 12.5, padding: "7px 10px" }}>
                 <option value="tutti">Tutti gli anni</option>
@@ -8864,6 +9051,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         <CondivisioneVolo volo={v} nMedia={mediaVolo.length} media={mediaVolo} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
                         <LiberatorieVolo volo={v} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
                         <EventiVolo volo={v} azienda={azienda} droni={droni} batterie={batterie} onCambiato={onEventiCambiati} />
+                        <FascicoloVolo volo={v} drone={(droni || []).find((d) => d.id === v.drone_id) || null} batterie={batterie} media={mediaVolo} eventi={(eventiVolo || []).filter((e) => e.volo_id === String(v.id))} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
 
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                           <button onClick={() => apriModifica(v)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Modifica</button>
