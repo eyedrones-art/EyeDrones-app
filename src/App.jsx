@@ -873,7 +873,7 @@ function costruisciPDFRiassuntoImpianto({ azienda, impianto, storico, piano }) {
 // costruisce il PDF di un attestato/patentino
 // costruisce il PDF della scheda di un drone (dati + manutenzione)
 // costruisce un PDF riepilogativo dei documenti da mostrare in caso di controllo delle forze dell'ordine
-function costruisciPDFControllo({ azienda, operatore, attestati, drone, permessi, impianto, zona, quando }) {
+function costruisciPDFControllo({ azienda, operatore, attestati, drone, permessi, impianto, zona, quando, sts, stsImg }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const grigio = [110, 120, 130];
   let y = 20;
@@ -966,6 +966,24 @@ function costruisciPDFControllo({ azienda, operatore, attestati, drone, permessi
       const col = z.restrizione === "PROHIBITED" ? [220, 60, 60] : z.restrizione === "REQ_AUTHORISATION" ? [210, 110, 40] : [200, 140, 40];
       riga(d.etichetta, `${z.nome}${z.limiti ? " — " + z.limiti : ""}`, col);
     });
+  }
+
+  if (sts) {
+    y += 5;
+    if (y > 240) { doc.addPage(); y = 20; }
+    sottotitolo(`Volumi ${sts.scenario || "STS-01"}`);
+    riga("Area di volo", `raggio ${sts.raggio} m — altezza max ${sts.altezza} m`);
+    riga("Contingenza", `+${sts.contingenza} m (raggio ${sts.raggioContingenza} m) — altezza ${sts.altezzaContingenza} m`);
+    if (sts.buffer != null) riga("Buffer rischio a terra", `+${sts.buffer} m — area controllata a terra raggio ${sts.raggioTotale} m`);
+    if (stsImg) {
+      try {
+        const pr = doc.getImageProperties(stsImg);
+        const w = 100, h = (pr.height / pr.width) * w;
+        if (y + h > 280) { doc.addPage(); y = 20; }
+        doc.addImage(stsImg, "PNG", 15, y, w, h, undefined, "FAST");
+        y += h + 4;
+      } catch (e) { /* immagine non inseribile */ }
+    }
   }
 
   doc.setFontSize(8);
@@ -1738,7 +1756,7 @@ function AppShell({ session }) {
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
-        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} />}
+        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={piano} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} />}
@@ -1754,11 +1772,17 @@ function AppShell({ session }) {
 // --- Pagina di presentazione (prima del login) -----------------------------------------------
 
 const FUNZIONI_PRESENTAZIONE = [
-  { emoji: "📒", titolo: "Registro voli", testo: "Ogni volo con data, luogo, drone, batterie e durata. Foto e video allegati, esportazione PDF e CSV." },
-  { emoji: "🌅", titolo: "Pianificazione e ora d'oro", testo: "Meteo, vento rispetto al tuo drone, indice Kp, alba, tramonto, ora d'oro e ora blu del luogo in cui voli." },
-  { emoji: "📤", titolo: "Consegna al cliente", testo: "Un link con la galleria di foto e video del volo, col tuo logo. Il cliente scarica i file senza account." },
-  { emoji: "🔋", titolo: "Batterie sotto controllo", testo: "Cicli, stato di carica e avvisi quando una batteria resta troppo a lungo carica o va sostituita." },
-  { emoji: "🪪", titolo: "Pilota in regola", testo: "Attestati, assicurazione, droni e permessi in un posto solo, con avvisi di scadenza e documenti pronti per i controlli." },
+  { emoji: "🌅", titolo: "Pianificazione e ora d'oro", testo: "Meteo ora per ora con le ore migliori, vento rispetto al tuo drone, indice Kp, alba, tramonto, ora d'oro, direzione del sole e filtri ND." },
+  { emoji: "🛡️", titolo: "Zona di volo e regole", testo: "Scrivi la via: con il file ufficiale D-Flight vedi se la zona è libera, fino a che altezza e chi contattare, più le regole della classe del tuo drone." },
+  { emoji: "✈️", titolo: "Il prossimo volo in primo piano", testo: "Il giorno del volo lo trovi in apertura: meteo dell'ora prevista, zona, cosa manca prima di partire e il volo da registrare con un tocco." },
+  { emoji: "📒", titolo: "Registro voli", testo: "Data, luogo, drone, batterie, durata, foto e video. Importa i voli dai file .SRT dei DJI, ritrovali su mappa o cercando la data." },
+  { emoji: "🚔", titolo: "Pronto per i controlli", testo: "Attestati, assicurazione, drone, permessi, zona e screenshot D-Flight a schermo pieno o in PDF, con avvisi prima delle scadenze." },
+  { emoji: "📁", titolo: "Fascicolo del volo", testo: "Ti chiamano dopo settimane? Un PDF con tutto di quel volo: documenti validi quel giorno, piano, zona, checklist, manutenzione, liberatorie." },
+  { emoji: "📐", titolo: "Volumi STS-01", testo: "Contingenza e buffer per il rischio a terra calcolati e disegnati sulla mappa, pronti per il manuale operativo e per il fascicolo." },
+  { emoji: "📤", titolo: "Consegna al cliente", testo: "Una galleria con il tuo logo, PIN, filigrana e preferiti: il cliente sceglie le foto e scarica solo quando sblocchi tu." },
+  { emoji: "✍️", titolo: "Liberatorie firmate", testo: "Il cliente o la persona ripresa firma col dito sul telefono: PDF con la firma salvato insieme al volo." },
+  { emoji: "💶", titolo: "Preventivi con il prezzo giusto", testo: "Pacchetti pronti, fascia di prezzo del mercato e il tuo prezzo minimo calcolato dai costi, poi il PDF da mandare." },
+  { emoji: "🔋", titolo: "Batterie e manutenzione", testo: "Cicli e stato di carica delle batterie, registro di eliche, firmware e riparazioni di ogni drone." },
   { emoji: "🔍", titolo: "Ispezioni e report", testo: "Fotovoltaico, edifici, danni: anomalie sulle foto termiche e report PDF professionali per il cliente." },
 ];
 
@@ -1802,7 +1826,7 @@ function Presentazione({ onAccedi, onRegistrati }) {
             <div style={{ display: "inline-block", fontSize: 12.5, fontWeight: 600, color: "#ffb877", background: "#ff8c4218", border: "1px solid #ff8c4240", borderRadius: 999, padding: "4px 12px", marginBottom: 16 }}>Per riprese, FPV e ispezioni</div>
             <h1>L'app per piloti di droni.<br /><span style={{ background: "linear-gradient(90deg, #a06bff, #ff8c42)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>Tutto il tuo volo, in un posto solo.</span></h1>
             <p style={{ fontSize: 17, lineHeight: 1.55, color: "#aab3bf", margin: "0 0 26px 0", maxWidth: 520 }}>
-              Pianifica con meteo e ora d'oro, registra voli e batterie, tieni in ordine attestati e documenti e consegna foto e video ai tuoi clienti con un link.
+              Pianifica con meteo, ora d'oro e zona di volo, registra voli e batterie, tieni pronti i documenti per i controlli e consegna foto e video ai tuoi clienti con un link.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button onClick={onRegistrati} style={bottonePrimario}>Inizia gratis</button>
@@ -1822,6 +1846,9 @@ function Presentazione({ onAccedi, onRegistrati }) {
             <div style={{ background: "#161a1f", border: "1px solid #f5b94255", borderRadius: 8, padding: 12, fontSize: 13.5, marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
               <div>🌅 Alba 07:21</div><div>🌇 Tramonto 19:04</div>
               <div style={{ color: "#f5b942" }}>✨ 06:58 – 08:02</div><div style={{ color: "#f5b942" }}>✨ 18:22 – 19:27</div>
+            </div>
+            <div style={{ background: "#161a1f", border: "1px solid #3d8bfd55", borderRadius: 8, padding: "10px 12px", fontSize: 13.5, marginTop: 10, color: "#f5b942", fontWeight: 600 }}>
+              🛡️ Libero fino a 45 m · sopra serve autorizzazione
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
               {[["🎬", "Video", "#a78bfa", "DJI Mini 4 Pro · 22 min"], ["🥽", "FPV", "#ff8c42", "Avata 2 · 9 min"]].map(([e, t, c, d]) => (
@@ -5907,7 +5934,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const scaricaPdfControllo = () => {
     setGenerandoPdfControllo(true);
     try {
-      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiZona, impianto: destinazione, zona: zonaEsito, quando: [dataPrevista ? formatData(dataPrevista) : "", oraPrevista ? `ore ${oraPrevista}` : ""].filter(Boolean).join(" · ") });
+      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiZona, impianto: destinazione, zona: zonaEsito, quando: [dataPrevista ? formatData(dataPrevista) : "", oraPrevista ? `ore ${oraPrevista}` : ""].filter(Boolean).join(" · "), sts: stsDati, stsImg: stsDati?.immagineNuova?.dataUrl || null });
       const url = doc.output("bloburl");
       setPdfUrlControllo(url);
       window.open(url, "_blank");
@@ -6461,7 +6488,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
 
 // --- Documenti controllo (accesso rapido dal menu, senza dover pianificare prima un volo) -----------------------------------------------------------
 
-function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoIniziale, onPianoAperto }) {
+function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoIniziale, onPianoAperto, piano }) {
   const [scelta, setScelta] = useState(""); // "" | "p:<id piano di volo>" | "i:<id impianto>"
   const [attestatiUtente, setAttestatiUtente] = useState([]);
   const [droniUtente, setDroniUtente] = useState([]);
@@ -6501,6 +6528,20 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
       ? (pianoSel.impianto_id && impianti.find((i) => i.id === pianoSel.impianto_id)) || { id: null, nome: pianoSel.impianto_nome || "Luogo del volo" }
       : null;
   const zonaPiano = pianoSel?.checklist_stato?.zona || null;
+  const stsPiano = pianoSel?.checklist_stato?.sts || null;
+  // voli del Registro per il fascicolo: quelli del giorno del piano, oppure del giorno cercato a mano
+  const [dataCercata, setDataCercata] = useState("");
+  const [voliGiorno, setVoliGiorno] = useState([]);
+  const [aprendoFascicolo, setAprendoFascicolo] = useState(null);
+  const giornoVoli = dataCercata || pianoSel?.data_prevista || "";
+  useEffect(() => {
+    if (!giornoVoli) { setVoliGiorno([]); return; }
+    supabase.from("voli").select("*").eq("data", giornoVoli).then(({ data }) => setVoliGiorno(data || []));
+  }, [giornoVoli]);
+  const voliMostrati = !dataCercata && pianoSel && voliGiorno.some((v) => stessoLuogo(v.luogo, pianoSel.impianto_nome))
+    ? voliGiorno.filter((v) => stessoLuogo(v.luogo, pianoSel.impianto_nome))
+    : voliGiorno;
+  const pro = sbloccatoPro(piano);
   const quandoPiano = pianoSel ? [pianoSel.data_prevista ? formatData(pianoSel.data_prevista) : "", pianoSel.ora_prevista ? `ore ${String(pianoSel.ora_prevista).slice(0, 5)}` : ""].filter(Boolean).join(" · ") : "";
   const pianiOrdinati = [...pianiUtente].sort((a, b) => String(b.data_prevista || "").localeCompare(String(a.data_prevista || ""))).slice(0, 30);
   const scegli = (v) => {
@@ -6533,14 +6574,17 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
     e.target.value = "";
   };
 
-  const scaricaPdfControllo = () => {
+  const scaricaPdfControllo = async () => {
     setGenerandoPdfControllo(true);
+    const finestra = stsPiano?.immagine_url ? window.open("", "_blank") : null; // con l'immagine STS serve un'attesa: apro subito la finestra
     try {
-      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiFiltrati, impianto: impiantoSel, zona: zonaPiano, quando: quandoPiano });
+      const stsImg = stsPiano?.immagine_url ? await immaginePerPdf(stsPiano.immagine_url) : null;
+      const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiFiltrati, impianto: impiantoSel, zona: zonaPiano, quando: quandoPiano, sts: stsPiano, stsImg });
       const url = doc.output("bloburl");
       setPdfUrlControllo(url);
-      window.open(url, "_blank");
+      if (finestra) finestra.location.href = url; else window.open(url, "_blank");
     } catch (err) {
+      if (finestra) finestra.close();
       alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
     }
     setGenerandoPdfControllo(false);
@@ -6641,9 +6685,9 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
             </div>
           ) : screenshotAutomatico ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <a href={screenshotAutomatico} target="_blank" rel="noreferrer">
-                <img src={screenshotAutomatico} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
-              </a>
+              <LinkFile url={screenshotAutomatico}>
+                <ImmagineFile src={screenshotAutomatico} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
+              </LinkFile>
               <span style={{ fontSize: 10.5, color: "#6b7480" }}>recuperato automaticamente da un permesso/piano di volo</span>
             </div>
           ) : (
@@ -6653,6 +6697,17 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
             </label>
           )}
         </div>
+
+        {stsPiano && (
+          <div style={{ marginTop: 10, fontSize: 12, color: "#c3cad4" }}>
+            <strong>Volumi {stsPiano.scenario || "STS-01"}:</strong> area di volo {stsPiano.raggio} m · contingenza +{stsPiano.contingenza} m{stsPiano.buffer != null ? ` · buffer +${stsPiano.buffer} m (raggio totale ${stsPiano.raggioTotale} m)` : ""} · altezza max {stsPiano.altezza} m
+            {stsPiano.immagine_url && (
+              <LinkFile url={stsPiano.immagine_url} style={{ display: "block", marginTop: 6 }}>
+                <ImmagineFile src={stsPiano.immagine_url} alt="Aree STS" style={{ width: 160, borderRadius: 6, border: "1px solid #333a45", display: "block" }} />
+              </LinkFile>
+            )}
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
           <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
@@ -6670,6 +6725,24 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
             Se non si è aperto automaticamente, apri il PDF qui
           </a>
         )}
+      </div>
+
+      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 18, maxWidth: 560, marginTop: 16 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700 }}>📁 Fascicolo del volo<EtichettaPro /></div>
+        <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "4px 0 10px 0" }}>Ti contattano per un volo passato? Scegli il giorno: trovi i voli del Registro e scarichi il PDF con tutto quello che riguarda quel volo.</p>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input type="date" value={giornoVoli} onChange={(e) => setDataCercata(e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 12.5 }} />
+          {dataCercata && <button type="button" onClick={() => setDataCercata("")} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12 }}>{pianoSel ? "torna al giorno del piano" : "cancella"}</button>}
+        </div>
+        {giornoVoli && voliMostrati.length === 0 && <p style={{ fontSize: 12, color: "#6b7480", margin: "8px 0 0 0" }}>Nessun volo nel Registro il {formatData(giornoVoli)}{pianoSel && !dataCercata ? ": dopo il volo registralo (anche da «Registra il volo» nella Home), così il fascicolo si collega al piano." : "."}</p>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+          {voliMostrati.map((v) => (
+            <button key={v.id} type="button" disabled={!pro || aprendoFascicolo === v.id} onClick={async () => { setAprendoFascicolo(v.id); await apriFascicoloVolo(v, { azienda }); setAprendoFascicolo(null); }} style={{ textAlign: "left", background: "#1f2530", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 }}>
+              {aprendoFascicolo === v.id ? "Preparo il fascicolo…" : `📁 ${formatData(v.data)}${v.ora ? ` · ${String(v.ora).slice(0, 5)}` : ""} · ${v.luogo || "volo"}${v.drone_nome ? ` · ${v.drone_nome}` : ""}`}
+            </button>
+          ))}
+        </div>
+        {!pro && voliMostrati.length > 0 && <InvitoPro cosa="Il fascicolo del volo" />}
       </div>
 
       {mostraSchermoControllo && (
@@ -6723,6 +6796,26 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
               {p.documento_url && <LinkFile url={p.documento_url} style={{ color: "#1565c0", fontSize: 13, fontWeight: 600, textDecoration: "underline" }}>Apri foglio →</LinkFile>}
             </div>
           ))}
+
+          {zonaPiano && (
+            <>
+              <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Zona di volo</h2>
+              <p style={{ fontSize: 14, margin: 0 }}>
+                {!zonaPiano.zone || zonaPiano.zone.length === 0 ? "Nessuna zona geografica UAS sul punto"
+                  : zonaPiano.altezzaLibera > 0 && zonaPiano.altezzaLibera < 120 ? `Senza autorizzazione fino a ${zonaPiano.altezzaLibera} m dal suolo`
+                  : zonaPiano.altezzaLibera >= 120 ? "Volo consentito con le condizioni della zona" : "Serve autorizzazione già da terra"}
+                <span style={{ color: "#888", fontSize: 12 }}> · punto {zonaPiano.punto} · controllata il {formatData(String(zonaPiano.verificata).slice(0, 10))}</span>
+              </p>
+            </>
+          )}
+
+          {stsPiano && (
+            <>
+              <h2 style={{ fontSize: 14, fontWeight: 700, margin: "18px 0 8px 0" }}>Volumi {stsPiano.scenario || "STS-01"}</h2>
+              <p style={{ fontSize: 14, margin: "0 0 8px 0" }}>Area di volo {stsPiano.raggio} m · contingenza +{stsPiano.contingenza} m{stsPiano.buffer != null ? ` · buffer +${stsPiano.buffer} m (raggio totale ${stsPiano.raggioTotale} m)` : ""} · altezza max {stsPiano.altezza} m</p>
+              {stsPiano.immagine_url && <ImmagineFile src={stsPiano.immagine_url} alt="Aree STS" style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid #ddd" }} />}
+            </>
+          )}
 
           {(dflightShot || screenshotAutomatico) && (
             <>
@@ -8687,21 +8780,32 @@ async function costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, a
   return doc;
 }
 
+// apre il fascicolo di un volo; i dati non passati (drone, batterie, foto, eventi) li leggo dal database
+async function apriFascicoloVolo(volo, { drone, batterie, media, eventi, azienda }) {
+  // apro subito la finestra (i telefoni bloccano le finestre aperte dopo un'attesa) e poi ci metto il PDF
+  const finestra = window.open("", "_blank");
+  try {
+    const [d, b, m, e] = await Promise.all([
+      drone !== undefined ? drone : volo.drone_id ? supabase.from("droni").select("*").eq("id", volo.drone_id).then((x) => (x.data || [])[0] || null) : null,
+      batterie !== undefined ? batterie : supabase.from("batterie").select("*").then((x) => x.data || []),
+      media !== undefined ? media : supabase.from("voli_media").select("*").eq("volo_id", volo.id).then((x) => x.data || []),
+      eventi !== undefined ? eventi : supabase.from("eventi_volo").select("*").eq("volo_id", String(volo.id)).then((x) => x.data || []),
+    ]);
+    const doc = await costruisciFascicoloVolo({ volo, drone: d, batterie: b, media: m, eventi: e, azienda });
+    const url = doc.output("bloburl");
+    if (finestra) finestra.location.href = url; else window.open(url, "_blank");
+  } catch (err) {
+    if (finestra) finestra.close();
+    alert("Non sono riuscito a creare il fascicolo: " + (err?.message || err));
+  }
+}
+
 function FascicoloVolo({ volo, drone, batterie, media, eventi, azienda, piano, passQuestoMese, onVaiAbbonamento }) {
   const [generando, setGenerando] = useState(false);
   const pro = sbloccatoPro(piano, volo);
   const genera = async () => {
     setGenerando(true);
-    // apro subito la finestra (i telefoni bloccano le finestre aperte dopo un'attesa) e poi ci metto il PDF
-    const finestra = window.open("", "_blank");
-    try {
-      const doc = await costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, azienda });
-      const url = doc.output("bloburl");
-      if (finestra) finestra.location.href = url; else window.open(url, "_blank");
-    } catch (err) {
-      if (finestra) finestra.close();
-      alert("Non sono riuscito a creare il fascicolo: " + (err?.message || err));
-    }
+    await apriFascicoloVolo(volo, { drone, batterie, media, eventi, azienda });
     setGenerando(false);
   };
   return (
