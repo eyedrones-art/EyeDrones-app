@@ -157,7 +157,13 @@ function InvitoPro({ volo, cosa, passQuestoMese = 0, onVaiAbbonamento }) {
 // Link di pagamento Stripe (Payment Link): quando li crei su Stripe, incollali qui e i pulsanti "Passa a..." li useranno.
 const LINK_PAGAMENTO = { pilota: { mese: "", anno: "" }, pro: { mese: "", anno: "" } };
 // prezzi in euro: cambiali solo qui, la pagina Abbonamento calcola da sola "al mese" e "mesi gratis"
-const PREZZI_PIANO = { pilota: { mese: 5.9, anno: 59 }, pro: { mese: 9.9, anno: 89 } };
+const PREZZI_PIANO = { pilota: { mese: 6.9, anno: 69 }, pro: { mese: 12.9, anno: 119 } };
+// Lancio: fino a questa data tutti hanno le funzioni Pro gratis. Chi si iscrive entro la data è "fondatore":
+// quando partono gli abbonamenti paga il primo anno scontato (poi prezzo pieno). Per chiudere il lancio: attivo: false.
+const LANCIO = { attivo: true, fino: "2027-01-31", scontoFondatori: 0.5 };
+const lancioInCorso = () => LANCIO.attivo && dataLocale() <= LANCIO.fino;
+const fineLancio = () => new Date(`${LANCIO.fino}T12:00:00`).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+const prezzoFondatori = (n) => Math.round(n * (1 - LANCIO.scontoFondatori) * 100) / 100;
 const euro = (n) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 const mesiGratisAnnuale = (chiave) => Math.round(12 - PREZZI_PIANO[chiave].anno / PREZZI_PIANO[chiave].mese);
 const NOME_PIANO = { free: "Free", pilota: "Pilota", pro: "Pro" };
@@ -1586,7 +1592,9 @@ function AppShell({ session }) {
   }, []);
   const [impiantoAttivo, setImpiantoAttivo] = useState(null);
   const [azienda, setAzienda] = useState({ nome: "Eyedrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "" });
-  const [piano, setPiano] = useState("free");
+  const [pianoReale, setPiano] = useState("free");
+  // durante il lancio tutti usano le funzioni Pro; la pagina Abbonamento mostra il piano vero
+  const piano = lancioInCorso() ? "pro" : pianoReale;
   const [profiloCaricato, setProfiloCaricato] = useState(false);
 
   const [impianti, setImpianti] = useState([]);
@@ -1825,7 +1833,7 @@ function AppShell({ session }) {
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
-        {page === "abbonamento" && <Abbonamento piano={piano} />}
+        {page === "abbonamento" && <Abbonamento piano={pianoReale} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
@@ -1899,7 +1907,11 @@ function Presentazione({ onAccedi, onRegistrati }) {
               <button onClick={onRegistrati} style={bottonePrimario}>Inizia gratis</button>
               <button onClick={onAccedi} style={bottoneSecondario}>Ho già un account</button>
             </div>
-            <p style={{ fontSize: 13, color: "#6b7480", marginTop: 14 }}>Gratis per iniziare, senza carta di credito. Funziona su telefono e computer.</p>
+            {lancioInCorso() ? (
+              <p style={{ fontSize: 13.5, color: "#ffb877", marginTop: 14, lineHeight: 1.5 }}>🚀 In lancio: <strong>tutte le funzioni gratis fino al {fineLancio()}</strong>, senza carta di credito. Chi si iscrive ora avrà il primo anno a metà prezzo.</p>
+            ) : (
+              <p style={{ fontSize: 13, color: "#6b7480", marginTop: 14 }}>Gratis per iniziare, senza carta di credito. Funziona su telefono e computer.</p>
+            )}
           </div>
 
           {/* anteprima illustrativa dell'app */}
@@ -1946,6 +1958,12 @@ function Presentazione({ onAccedi, onRegistrati }) {
           <div style={{ ...riquadro, padding: "32px 24px", textAlign: "center", background: "linear-gradient(135deg, rgba(126, 58, 242, 0.16), rgba(255, 140, 66, 0.12)), #1b2028" }}>
             <h2 style={{ fontSize: 26, margin: "0 0 8px 0" }}>Pronto a decollare?</h2>
             <p style={{ color: "#aab3bf", margin: "0 0 20px 0", fontSize: 15 }}>Crea l'account in un minuto e registra il tuo primo volo.</p>
+            {lancioInCorso() && (
+              <div style={{ textAlign: "left", background: "#161a1f", border: "1px solid #4a2f16", borderRadius: 10, padding: "14px 18px", margin: "0 auto 20px", maxWidth: 520 }}>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>🚀 Prezzo fondatori, per chi si iscrive entro il {fineLancio()}</div>
+                <div style={{ color: "#aab3bf", fontSize: 14, marginTop: 6, lineHeight: 1.55 }}>Fino al {fineLancio()} tutto gratis. Poi il primo anno a metà prezzo: Pro a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pro.anno))}</strong> il primo anno (poi {euro(PREZZI_PIANO.pro.anno)}), Pilota a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pilota.anno))}</strong> (poi {euro(PREZZI_PIANO.pilota.anno)}).</div>
+              </div>
+            )}
             <button onClick={onRegistrati} style={bottonePrimario}>Registrati gratis</button>
           </div>
         </section>
@@ -2416,6 +2434,24 @@ function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
   );
 }
 
+// avviso in Home durante il lancio (si può chiudere: resta chiuso su questo dispositivo)
+function AvvisoLancio({ onScopri }) {
+  const [chiuso, setChiuso] = useState(() => { try { return localStorage.getItem("eyedrones_lancio_chiuso") === LANCIO.fino; } catch (e) { return false; } });
+  if (chiuso) return null;
+  const chiudi = () => { setChiuso(true); try { localStorage.setItem("eyedrones_lancio_chiuso", LANCIO.fino); } catch (e) { /* solo comodità */ } };
+  return (
+    <div style={{ display: "flex", gap: 12, alignItems: "flex-start", background: "linear-gradient(135deg, rgba(255,140,66,0.14), rgba(126,58,242,0.12)), #1b2028", border: "1px solid #4a2f16", borderRadius: 10, padding: "12px 14px", marginBottom: 22, maxWidth: 720 }}>
+      <span style={{ fontSize: 22 }}>🚀</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700 }}>EyeDrones è in lancio: tutte le funzioni Pro sono gratis fino al {fineLancio()}</div>
+        <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 3 }}>Sei tra i fondatori: quando partiranno gli abbonamenti avrai il <strong>primo anno a metà prezzo</strong> (Pro a {euro(prezzoFondatori(PREZZI_PIANO.pro.anno))} il primo anno, poi {euro(PREZZI_PIANO.pro.anno)}).</div>
+        <button type="button" onClick={onScopri} style={{ marginTop: 8, background: "none", border: "1px solid #ff8c4288", color: "#ffb877", borderRadius: 6, padding: "5px 10px", fontSize: 12 }}>Vedi i prezzi fondatori</button>
+      </div>
+      <button type="button" onClick={chiudi} aria-label="Chiudi avviso" style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 16, lineHeight: 1 }}>×</button>
+    </div>
+  );
+}
+
 // data di oggi nel fuso del telefono (toISOString darebbe quella UTC: dopo mezzanotte sarebbe ancora "ieri")
 const dataLocale = (giorniDopo = 0) => {
   const d = new Date(Date.now() + giorniDopo * 86400000);
@@ -2629,6 +2665,8 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Conferma" />
         </div>
       )}
+
+      {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
 
       {onApriPiano && <ProssimoVolo droni={droni} batterie={batterie} onApriPiano={onApriPiano} onDocumenti={onDocumentiPiano} onRegistra={onRegistraDaPiano} />}
 
@@ -3498,7 +3536,8 @@ function BloccoPiano({ titolo, testo, pianoRichiesto = "Pro", onVai }) {
 }
 
 function Abbonamento({ piano }) {
-  const [periodo, setPeriodo] = useState("mese"); // mese | anno
+  const lancio = lancioInCorso();
+  const [periodo, setPeriodo] = useState("anno"); // mese | anno
   const [mesiPausa, setMesiPausa] = useState(1);
   const [vuoleDisdire, setVuoleDisdire] = useState(false);
   const nomePeriodo = periodo === "anno" ? "annuale" : "mensile";
@@ -3511,8 +3550,13 @@ function Abbonamento({ piano }) {
   const linkDisdetta = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Disdetta abbonamento ${NOME_PIANO[piano] || ""}`)}&body=${encodeURIComponent("Ciao, vorrei disdire il mio abbonamento Eyedrones. Ho capito che resta attivo fino alla fine del periodo già pagato e che poi l'account torna al piano Free, senza perdere i dati.")}`;
   const prezzo = (chiave) => {
     const pr = PREZZI_PIANO[chiave];
-    if (periodo === "anno") return { grande: `${euro(pr.anno / 12)}/mese`, dettaglio: `${euro(pr.anno)} una volta all'anno · ${mesiGratisAnnuale(chiave)} mesi gratis` };
-    return { grande: `${euro(pr.mese)}/mese`, dettaglio: `oppure ${euro(pr.anno)} all'anno (${mesiGratisAnnuale(chiave)} mesi gratis)` };
+    const fondatori = lancio
+      ? (periodo === "anno"
+        ? `Fondatori: ${euro(prezzoFondatori(pr.anno))} il primo anno, poi ${euro(pr.anno)}`
+        : `Fondatori: ${euro(prezzoFondatori(pr.mese))}/mese il primo anno, poi ${euro(pr.mese)}`)
+      : null;
+    if (periodo === "anno") return { grande: `${euro(pr.anno / 12)}/mese`, dettaglio: `${euro(pr.anno)} una volta all'anno · ${mesiGratisAnnuale(chiave)} mesi gratis`, fondatori };
+    return { grande: `${euro(pr.mese)}/mese`, dettaglio: `oppure ${euro(pr.anno)} all'anno (${mesiGratisAnnuale(chiave)} mesi gratis)`, fondatori };
   };
 
   const piani = [
@@ -3559,7 +3603,17 @@ function Abbonamento({ piano }) {
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Abbonamento</h1>
-      <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 24px 0" }}>Sei attualmente sul piano <strong style={{ color: COLORE_PIANO[piano] || "#f5b942" }}>{NOME_PIANO[piano] || "Free"}</strong>.</p>
+      {lancio ? (
+        <div style={{ background: "linear-gradient(135deg, rgba(255,140,66,0.14), rgba(126,58,242,0.12)), #1b2028", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, margin: "0 0 22px 0", maxWidth: 820 }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>🚀 Sei un fondatore di EyeDrones</div>
+          <p style={{ fontSize: 13, color: "#c3cad4", margin: "6px 0 0 0", lineHeight: 1.55 }}>
+            Fino al <strong>{fineLancio()}</strong> hai <strong>tutte le funzioni Pro gratis</strong>, senza limiti e senza carta di credito.
+            Quando partiranno gli abbonamenti, chi si è iscritto durante il lancio avrà il <strong>primo anno a metà prezzo</strong>: per esempio Pro a {euro(prezzoFondatori(PREZZI_PIANO.pro.anno))} il primo anno, poi {euro(PREZZI_PIANO.pro.anno)} all'anno. Ti avviseremo prima, e potrai scegliere se continuare.
+          </p>
+        </div>
+      ) : (
+        <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 24px 0" }}>Sei attualmente sul piano <strong style={{ color: COLORE_PIANO[piano] || "#f5b942" }}>{NOME_PIANO[piano] || "Free"}</strong>.</p>
+      )}
 
       <div role="group" aria-label="Periodo di pagamento" style={{ display: "inline-flex", background: "#161a1f", border: "1px solid #333a45", borderRadius: 999, padding: 3, marginBottom: 22 }}>
         {[["mese", "Mensile"], ["anno", "Annuale"]].map(([k, label]) => (
@@ -3571,7 +3625,7 @@ function Abbonamento({ piano }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, maxWidth: 820 }}>
         {piani.map((p) => {
-          const attivo = piano === p.chiave;
+          const attivo = lancio ? p.chiave === "pro" : piano === p.chiave;
           const superiore = ORDINE_PIANO[p.chiave] > (ORDINE_PIANO[piano] ?? 0);
           return (
             <div key={p.chiave} style={{ background: "#1b2028", border: attivo ? "2px solid #ff8c42" : "1px solid #262b33", borderRadius: 10, padding: 20, position: "relative", display: "flex", flexDirection: "column" }}>
@@ -3584,7 +3638,8 @@ function Abbonamento({ piano }) {
               <h2 style={{ fontSize: 16, fontWeight: 700, margin: "4px 0 2px 0" }}>{p.nome}</h2>
               <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "0 0 10px 0" }}>{p.sotto}</p>
               <p className="mono" style={{ fontSize: 20, fontWeight: 600, color: "#ff8c42", margin: 0 }}>{p.grande}</p>
-              <p style={{ fontSize: 11, color: periodo === "anno" && p.dettaglio ? "#4ade80" : "#6b7480", margin: "2px 0 16px 0", minHeight: 14 }}>{p.dettaglio || ""}</p>
+              <p style={{ fontSize: 11, color: periodo === "anno" && p.dettaglio ? "#4ade80" : "#6b7480", margin: p.fondatori ? "2px 0 6px 0" : "2px 0 16px 0", minHeight: 14 }}>{p.dettaglio || ""}</p>
+              {p.fondatori && <p style={{ fontSize: 11.5, fontWeight: 600, color: "#ffb877", background: "#ff8c4214", border: "1px solid #ff8c4240", borderRadius: 6, padding: "4px 8px", margin: "0 0 14px 0" }}>🚀 {p.fondatori}</p>}
               <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
                 {p.caratteristiche.map((c) => (
                   <div key={c.testo} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12.5, color: c.incluso ? "#e7eaee" : "#6b7480" }}>
@@ -3593,7 +3648,10 @@ function Abbonamento({ piano }) {
                   </div>
                 ))}
               </div>
-              {superiore && (
+              {lancio && p.chiave !== "free" && (
+                <div style={{ textAlign: "center", marginTop: 18, border: "1px dashed #4ade8066", color: "#4ade80", borderRadius: 6, padding: "9px 0", fontSize: 12.5, fontWeight: 600 }}>{p.chiave === "pro" ? "✓ Attivo gratis durante il lancio" : "Incluso gratis durante il lancio"}</div>
+              )}
+              {!lancio && superiore && (
                 <a href={linkUpgrade(p.chiave)} target={linkDiretto(p.chiave) ? "_blank" : undefined} rel="noreferrer" style={{ display: "block", textAlign: "center", marginTop: 18, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", padding: "9px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, textDecoration: "none" }}>
                   Passa a {p.nome}{periodo === "anno" ? " (annuale)" : ""}
                 </a>
@@ -3603,7 +3661,7 @@ function Abbonamento({ piano }) {
         })}
       </div>
 
-      {piano !== "pro" && (
+      {!lancio && piano !== "pro" && (
         <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", background: "linear-gradient(135deg, rgba(255,140,66,0.12), rgba(126,58,242,0.10)), #1b2028", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginTop: 16, maxWidth: 820 }}>
           <div style={{ fontSize: 34 }}>🎟️</div>
           <div style={{ flex: 1, minWidth: 220 }}>
@@ -3616,7 +3674,7 @@ function Abbonamento({ piano }) {
         </div>
       )}
 
-      {piano === "free" && <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "16px 0 0 0", maxWidth: 820 }}>
+      {!lancio && piano === "free" && <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "16px 0 0 0", maxWidth: 820 }}>
         ⏸️ Non voli d'inverno? Puoi <strong style={{ color: "#c3cad4" }}>mettere in pausa</strong> l'abbonamento da 1 a 3 mesi invece di disdirlo: i tuoi voli e documenti restano salvati e alla fine riparte da solo.
       </p>}
 
