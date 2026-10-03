@@ -5060,16 +5060,29 @@ const durataLeggibile = (d) => {
 const SERVIZI_ENTE = { AUTHORIZATION: "autorizzazioni", INFORMATION: "informazioni" };
 const traduciMotivi = (m) => String(m || "").split(/\s*,\s*/).filter(Boolean).map((x) => MOTIVI_ZONA[x.toUpperCase()] || x.toLowerCase()).join(", ");
 
-function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, dataPrevista, oraPrevista, piano, onEsito }) {
+// cerca un indirizzo in Italia (via, numero, comune) con OpenStreetMap; se col numero civico non lo trova, riprova
+// senza numero (punto a metà della via). Restituisce { lat, lon, etichetta } oppure null
+async function cercaIndirizzoItalia(testo) {
+  const pulito = String(testo || "").trim();
+  if (!pulito) return null;
+  const senzaNumero = pulito.replace(/\b(n\.?|nr\.?|civico)\s*/gi, "").replace(/\b\d+\s*[a-z]?(\/\s*\d+)?\b/gi, "").replace(/\s+,/g, ",").replace(/\s{2,}/g, " ").trim();
+  for (const q of [...new Set([pulito, senzaNumero])]) {
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(q)}`);
+      const [primo] = await r.json();
+      if (primo) return { lat: Number(primo.lat), lon: Number(primo.lon), etichetta: primo.display_name };
+    } catch (e) { /* provo la variante successiva */ }
+  }
+  return null;
+}
+
+function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, onPuntoCercato, dataPrevista, oraPrevista, piano, onEsito }) {
   const [archivio, setArchivio] = useState(undefined); // undefined = sto leggendo, null = nessun file
   const [leggendoFile, setLeggendoFile] = useState(false);
   const [errore, setErrore] = useState(null);
-  const [puntoCercato, setPuntoCercato] = useState(null);
   const [cercando, setCercando] = useState(false);
 
   useEffect(() => { leggiZoneSalvate().then((d) => setArchivio(d && Array.isArray(d.zone) ? d : null)); }, []);
-  // se cambia il luogo scritto, il punto cercato prima non vale più
-  useEffect(() => { setPuntoCercato(null); }, [testoLuogo]);
 
   const caricaFile = async (e) => {
     const file = e.target.files?.[0];
@@ -5093,14 +5106,9 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, dataPrevista, 
     if (!testoLuogo) return;
     setCercando(true);
     setErrore(null);
-    try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(testoLuogo)}`);
-      const [primo] = await r.json();
-      if (!primo) throw new Error();
-      setPuntoCercato({ lat: Number(primo.lat), lon: Number(primo.lon), etichetta: primo.display_name });
-    } catch (err) {
-      setErrore("Indirizzo non trovato: prova a scrivere via, numero e comune, oppure le coordinate.");
-    }
+    const trovato = await cercaIndirizzoItalia(testoLuogo);
+    if (trovato) onPuntoCercato(trovato);
+    else setErrore("Indirizzo non trovato: prova a scrivere via e comune (es. Via Roma 4, Torino), oppure le coordinate.");
     setCercando(false);
   };
 
@@ -5251,6 +5259,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [oraSole, setOraSole] = useState("18:00");
   const [oraPrevista, setOraPrevista] = useState("");
   const [zonaEsito, setZonaEsito] = useState(null); // ultimo controllo della zona, salvato con il piano
+  const [puntoIndirizzo, setPuntoIndirizzo] = useState(null); // via e numero trovati su OpenStreetMap
   // scegliendo l'ora del volo, anche la direzione del sole si calcola per quell'ora
   const scegliOraPrevista = (ora) => { setOraPrevista(ora); if (ora) setOraSole(ora); };
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
@@ -5286,6 +5295,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   };
 
   useEffect(() => { caricaTutto(); }, []);
+  // se cambia il luogo, l'indirizzo trovato prima non vale più
+  useEffect(() => { setPuntoIndirizzo(null); }, [luogoLibero, impiantoSel]);
 
   const droneSelezionato = droniUtente.find((d) => d.id === droneSelId) || null;
   const coordinateValide = modoLibero ? leggiCoordinate(coordinateLibere) : null;
@@ -5311,20 +5322,30 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   };
 
   const controllaMeteo = async () => {
-    const target = coordinateValide
-      ? { lat: coordinateValide.lat, lon: coordinateValide.lon, nome: destinazione ? destinazione.nome : "" }
-      : (destinazione && destinazione.zona) || null;
-    if (!target) {
+    const testo = (destinazione && destinazione.zona) || "";
+    if (!coordinateValide && !testo) {
       setErroreMeteo(impiantoSel ? "Questo impianto non ha una località: aggiungila in «Impianti»." : "Scrivi il nome del luogo oppure le coordinate.");
       return;
     }
     setCaricandoMeteo(true);
     setErroreMeteo(null);
     try {
-      const [datiMeteo, datiSpaziali] = await Promise.all([
-        recuperaMeteo(target),
-        recuperaMeteoSpaziale().catch(() => null),
-      ]);
+      const spaziale = recuperaMeteoSpaziale().catch(() => null);
+      let datiMeteo;
+      if (coordinateValide) {
+        datiMeteo = await recuperaMeteo({ lat: coordinateValide.lat, lon: coordinateValide.lon, nome: destinazione ? destinazione.nome : "" });
+      } else {
+        // prima cerco l'indirizzo preciso (via e numero); se non lo trovo, provo il nome del luogo e poi solo il comune
+        const trovato = puntoIndirizzo || await cercaIndirizzoItalia(testo);
+        if (trovato) {
+          setPuntoIndirizzo(trovato);
+          datiMeteo = await recuperaMeteo({ lat: trovato.lat, lon: trovato.lon, nome: destinazione.nome });
+        } else {
+          const comune = testo.includes(",") ? testo.split(",").pop().trim() : "";
+          datiMeteo = await recuperaMeteo(testo).catch((err) => (comune ? recuperaMeteo(comune) : Promise.reject(err)));
+        }
+      }
+      const datiSpaziali = await spaziale;
       setMeteo(datiMeteo);
       setMeteoSpaziale(datiSpaziali);
     } catch (err) {
@@ -5577,6 +5598,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             testoLuogo={modoLibero ? luogoLibero.trim() : [impiantoSel?.nome, impiantoSel?.zona].filter(Boolean).join(", ")}
             coordinate={coordinateValide}
             puntoIndicativo={meteo && meteo.lat != null ? { lat: meteo.lat, lon: meteo.lon } : null}
+            puntoCercato={puntoIndirizzo}
+            onPuntoCercato={setPuntoIndirizzo}
             dataPrevista={dataPrevista}
             oraPrevista={oraPrevista}
             piano={piano}
