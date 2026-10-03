@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
 import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
-import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti } from "./zoneUAS";
+import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
@@ -960,6 +960,7 @@ function costruisciPDFControllo({ azienda, operatore, attestati, drone, permessi
     riga("Punto", zona.punto || "—");
     riga("Verifica", `${formatData(String(zona.verificata).slice(0, 10))} su file zone D-Flight del ${formatData(String(zona.fileDel).slice(0, 10))}`);
     if (!zona.zone || zona.zone.length === 0) riga("Esito", "Nessuna zona geografica UAS sul punto", [60, 160, 90]);
+    else if (zona.altezzaLibera != null) riga("Senza autorizzazione", zona.altezzaLibera > 0 ? `fino a ${zona.altezzaLibera} m dal suolo` : "non consentito (serve autorizzazione da terra)", zona.altezzaLibera > 0 ? [200, 140, 40] : [220, 60, 60]);
     (zona.zone || []).forEach((z) => {
       const d = descriviRestrizione(z.restrizione);
       const col = z.restrizione === "PROHIBITED" ? [220, 60, 60] : z.restrizione === "REQ_AUTHORISATION" ? [210, 110, 40] : [200, 140, 40];
@@ -5058,6 +5059,9 @@ const durataLeggibile = (d) => {
   return [m[1] && `${m[1]} ${m[1] === "1" ? "giorno" : "giorni"}`, m[2] && `${m[2]} ${m[2] === "1" ? "ora" : "ore"}`, m[3] && `${m[3]} min`].filter(Boolean).join(" e ");
 };
 const SERVIZI_ENTE = { AUTHORIZATION: "autorizzazioni", INFORMATION: "informazioni" };
+// sigle che D-Flight usa nel campo "altro motivo"
+const SIGLE_ZONA = { ATM09: "zona aeroportuale con limiti di altezza (ENAC ATM-09)", NFZ: "no-fly zone" };
+const traduciSigla = (x) => SIGLE_ZONA[String(x || "").trim().toUpperCase()] || x;
 const traduciMotivi = (m) => String(m || "").split(/\s*,\s*/).filter(Boolean).map((x) => MOTIVI_ZONA[x.toUpperCase()] || x.toLowerCase()).join(", ");
 
 // cerca un indirizzo in Italia (via, numero, comune) con OpenStreetMap; se col numero civico non lo trova, riprova
@@ -5135,7 +5139,8 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
       verificata: new Date().toISOString(),
       fileDel: archivio.caricato,
       punto: `${latP.toFixed(5)}, ${lonP.toFixed(5)}`,
-      zone: esito.dentro.map((z) => ({ nome: z.nome, restrizione: z.restrizione, limiti: formattaLimiti(z.limiti) })),
+      zone: esito.dentro.map((z) => ({ nome: z.nome, restrizione: z.restrizione, limiti: formattaLimiti(z.limiti), da: partenzaZona(z) })),
+      altezzaLibera: altezzaLibera(esito.dentro),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esito]);
@@ -5145,19 +5150,27 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
   const linkD = { color: "#3d8bfd", fontSize: 12 };
 
   const schedaZona = (z, vicina) => {
-    const d = descriviRestrizione(z.restrizione);
+    const base = descriviRestrizione(z.restrizione);
+    const parte = (z.restrizione === "PROHIBITED" || z.restrizione === "REQ_AUTHORISATION") ? partenzaZona(z) : 0;
+    // la zona comincia sopra il suolo: fino a quell'altezza si vola con le regole normali
+    const d = parte > 0
+      ? { ...base, colore: "#f5b942", etichetta: `Libero fino a ${parte} m · sopra ${z.restrizione === "PROHIBITED" ? "vietato" : "serve autorizzazione"}`, consiglio: `Fino a ${parte} m dal suolo puoi volare senza autorizzazione, con le regole della tua categoria. Per salire oltre i ${parte} m ${z.restrizione === "PROHIBITED" ? "non si può" : "chiedi l'autorizzazione all'ente indicato (spesso tramite D-Flight)"}.` }
+      : base;
     const limiti = formattaLimiti(z.limiti);
+    const autorita = (z.autorita || []).map((a) => ({ ...a, nome: valoreReale(a.nome), servizio: valoreReale(a.servizio), email: valoreReale(a.email), telefono: valoreReale(a.telefono), sito: valoreReale(a.sito), preavviso: valoreReale(a.preavviso) }))
+      .filter((a) => a.nome || a.email || a.telefono || a.sito);
+    const motivo = [z.altroMotivo ? traduciMotivi(z.motivo).replace(/,?\s*altro motivo/, "") : traduciMotivi(z.motivo), traduciSigla(valoreReale(z.altroMotivo))].filter(Boolean).join(" · ");
     return (
       <div key={(z.id || z.nome) + (vicina ? "-v" : "")} style={{ borderLeft: `3px solid ${d.colore}`, background: d.colore + "12", borderRadius: 4, padding: "8px 10px", marginTop: 6 }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: d.colore }}>{d.etichetta}{vicina ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m</span> : null}{z.temporanea ? <span style={{ color: "#f5b942", fontWeight: 400 }}> · temporanea</span> : null}</div>
         <div style={{ fontSize: 12.5, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
         {limiti && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {limiti}</div>}
-        {(z.motivo || z.altroMotivo) && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Motivo: {[traduciMotivi(z.motivo), z.altroMotivo].filter(Boolean).join(" · ")}</div>}
-        {!vicina && z.messaggio && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{z.messaggio}</div>}
-        {!vicina && z.condizioni && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
+        {motivo && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Motivo: {motivo}</div>}
+        {!vicina && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{z.messaggio}</div>}
+        {!vicina && valoreReale(z.condizioni) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
         {!vicina && z.validita && <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 2 }}>Attiva: {z.validita.map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}</div>}
         {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {d.consiglio}</div>}
-        {!vicina && z.autorita.length > 0 && z.autorita.map((a, i) => (
+        {!vicina && autorita.map((a, i) => (
           <div key={i} style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 3 }}>
             🏛️ {a.nome || "Ente"}{a.servizio ? ` (${SERVIZI_ENTE[a.servizio.toUpperCase()] || a.servizio})` : ""}
             {a.preavviso ? ` · chiedi con almeno ${durataLeggibile(a.preavviso)} di anticipo` : ""}
@@ -5225,6 +5238,14 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
               <div style={{ color: "#c3cad4", marginTop: 2, fontSize: 12 }}>Valgono le regole generali della categoria Open: massimo 120 m dal suolo, drone sempre in vista, niente voli sopra assembramenti di persone.</div>
             </div>
           )}
+          {esito && esito.dentro.length > 0 && (() => {
+            const max = altezzaLibera(esito.dentro);
+            const vietata = esito.dentro.some((z) => z.restrizione === "PROHIBITED" && partenzaZona(z) === 0);
+            const [col, txt] = max >= 120 ? ["#4ade80", "Senza autorizzazione puoi volare fino a 120 m (con le condizioni della zona)"]
+              : max > 0 ? ["#f5b942", `Senza autorizzazione qui puoi volare fino a ${max} m dal suolo`]
+              : vietata ? ["#ff4d4d", "Qui il volo è vietato già da terra"] : ["#ff8c42", "Qui serve l'autorizzazione già da terra"];
+            return <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: col + "1f", border: `1px solid ${col}66`, color: col, fontSize: 13, fontWeight: 700 }}>↕️ {txt}</div>;
+          })()}
           {esito && esito.dentro.map((z) => schedaZona(z, false))}
           {esito && esito.vicine.length > 0 && (
             <>
@@ -5241,6 +5262,49 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
       )}
       {errore && <p style={{ fontSize: 11.5, color: "#ff9c9c", margin: "6px 0 0 0" }}>{errore}</p>}
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Aiuto alla pianificazione basato sul tuo file D-Flight: la verifica ufficiale resta su D-Flight prima di ogni volo.</p>
+    </div>
+  );
+}
+
+// --- Regole base del volo in categoria Open (Reg. UE 2019/947), in base alla classe del drone ------------------
+// Promemoria semplificato: non sostituisce il manuale del drone né le regole ENAC.
+const REGOLE_CLASSE = {
+  C0: { sottocategoria: "A1", attestato: null, peso: "meno di 250 g", regole: ["Puoi sorvolare persone non coinvolte, ma evitalo quando puoi", "Mai sopra assembramenti di persone"] },
+  C1: { sottocategoria: "A1", attestato: "A1/A3", peso: "meno di 900 g", regole: ["Non sorvolare di proposito persone non coinvolte (se capita, riduci il tempo sopra di loro)", "Mai sopra assembramenti di persone", "Remote ID attivo"] },
+  C2: { sottocategoria: "A2", attestato: "A2", peso: "meno di 4 kg", regole: ["Almeno 30 m in orizzontale dalle persone non coinvolte (5 m con la modalità bassa velocità attiva)", "Mai sopra assembramenti di persone", "Remote ID attivo", "Senza attestato A2 voli solo in A3: lontano 150 m da centri abitati e aree industriali o ricreative"] },
+  C3: { sottocategoria: "A3", attestato: "A1/A3", peso: "meno di 25 kg", regole: ["Nessuna persona non coinvolta nell'area di volo", "Almeno 150 m da aree residenziali, commerciali, industriali o ricreative", "Remote ID attivo"] },
+  C4: { sottocategoria: "A3", attestato: "A1/A3", peso: "meno di 25 kg", regole: ["Nessuna persona non coinvolta nell'area di volo", "Almeno 150 m da aree residenziali, commerciali, industriali o ricreative"] },
+};
+
+function RegoleVolo({ drone, altezzaZona, attestati, notte, fpv }) {
+  const classe = (String(drone?.marcatura_classe || "").toUpperCase().match(/C\s*([0-6])/) || [])[1];
+  const chiave = classe != null ? `C${classe}` : null;
+  const info = chiave && REGOLE_CLASSE[chiave];
+  const valido = (re) => (attestati || []).some((a) => re.test(a.tipo || "") && (!a.data_scadenza || new Date(a.data_scadenza) >= new Date()));
+  const haA1A3 = valido(/A1\s*\/?\s*A3/i), haA2 = valido(/\bA2\b/i);
+  const haAssicurazione = valido(/assicura/i);
+  const altezza = Math.min(120, altezzaZona ?? 120);
+
+  const voce = (ok, testo) => <li style={{ marginTop: 3, color: ok === false ? "#ffb877" : "#c3cad4" }}>{ok === true ? "✓ " : ok === false ? "⚠ " : ""}{testo}</li>;
+  return (
+    <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #4ade8044", borderRadius: 6, padding: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 700 }}>📋 Regole per questo volo</div>
+      <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "4px 0 0 0" }}>
+        {!drone ? "Scegli il drone qui sopra per vedere le regole della sua classe."
+          : info ? `${drone.nome}: classe ${chiave} (${info.peso}) → categoria Open ${info.sottocategoria}${chiave === "C2" ? " (o A3)" : ""}`
+          : `${drone.nome}: classe non indicata. Se pesa meno di 250 g vale come C0 (A1); se pesa di più e non ha classe vola solo in A3 (lontano da persone e centri abitati). Aggiungi la classe in «I miei droni».`}
+      </p>
+      <ul style={{ margin: "6px 0 0 0", paddingLeft: 18, fontSize: 12 }}>
+        {voce(null, <>Altezza massima <strong>{altezza} m dal suolo</strong>{altezzaZona != null && altezzaZona < 120 ? " (limite della zona senza autorizzazione)" : ""}</>)}
+        {voce(null, fpv ? "In FPV serve un osservatore accanto a te che tenga sempre il drone in vista" : "Drone sempre in vista, senza binocoli")}
+        {info && info.regole.map((t, i) => <React.Fragment key={i}>{voce(null, t)}</React.Fragment>)}
+        {info && info.attestato === "A2" && voce(haA2 ? true : false, haA2 ? "Attestato A2 presente tra i tuoi documenti" : "Per volare in A2 serve l'attestato A2: non lo trovo tra i tuoi attestati")}
+        {info && info.attestato && voce(haA1A3 ? true : false, haA1A3 ? "Attestato A1/A3 presente tra i tuoi documenti" : "Serve l'attestato A1/A3: non lo trovo tra i tuoi attestati (o è scaduto)")}
+        {voce(haAssicurazione ? true : false, haAssicurazione ? "Assicurazione RC presente e valida" : "In Italia serve l'assicurazione RC: non la trovo tra i tuoi attestati (o è scaduta)")}
+        {voce(null, "Codice operatore D-Flight (QR) applicato sul drone")}
+        {notte && voce(false, "Volo dopo il tramonto: accendi la luce verde lampeggiante del drone")}
+      </ul>
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Promemoria semplificato della categoria Open (Reg. UE 2019/947): controlla sempre il manuale del drone e le regole ENAC.</p>
     </div>
   );
 }
@@ -5606,6 +5670,18 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             onEsito={setZonaEsito}
           />
 
+          <RegoleVolo
+            drone={droneSelezionato}
+            altezzaZona={zonaEsito && zonaEsito.altezzaLibera != null ? zonaEsito.altezzaLibera : null}
+            attestati={attestatiUtente}
+            notte={!!(luce && oraPrevista && (() => {
+              const [h, m] = oraPrevista.split(":").map(Number);
+              const min = h * 60 + m, alba = minutiDelGiorno(luce.alba, meteo?.fusoOrario), tramonto = minutiDelGiorno(luce.tramonto, meteo?.fusoOrario);
+              return alba != null && tramonto != null && (min < alba || min > tramonto);
+            })())}
+            fpv={tipoIspezione === "fpv"}
+          />
+
           {giornoPrevisto && (
             <div style={{ marginTop: 12, background: "#161a1f", border: `1px solid ${giornoPrevisto.adatto ? "#4ade8055" : "#ff9c9c55"}`, borderRadius: 6, padding: 12 }}>
               <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Previsione per il {formatData(dataPrevista)} · soglia vento {limiteVento} km/h{droneSelezionato && droneSelezionato.vento_max_kmh ? ` (da ${droneSelezionato.nome})` : " (standard)"}</p>
@@ -5839,6 +5915,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
                     const zz = p.checklist_stato.zona.zone || [];
                     const peggiore = zz.find((z) => z.restrizione === "PROHIBITED") || zz.find((z) => z.restrizione === "REQ_AUTHORISATION") || zz[0];
                     const d = peggiore ? descriviRestrizione(peggiore.restrizione) : { colore: "#4ade80", etichetta: "Nessuna zona UAS" };
+                    const libera = p.checklist_stato.zona.altezzaLibera;
+                    if (libera != null && libera > 0 && libera < 120) return <div style={{ fontSize: 11, color: "#f5b942", marginTop: 2 }}>🛡️ Libero fino a {libera} m · sopra serve autorizzazione</div>;
                     return <div style={{ fontSize: 11, color: d.colore, marginTop: 2 }}>🛡️ {d.etichetta}{peggiore && peggiore.limiti ? ` · ${peggiore.limiti}` : ""}</div>;
                   })()}
                   {p.checklist_stato?.voci?.length > 0 && (() => {
