@@ -1961,7 +1961,7 @@ function Presentazione({ onAccedi, onRegistrati }) {
             {lancioInCorso() && (
               <div style={{ textAlign: "left", background: "#161a1f", border: "1px solid #4a2f16", borderRadius: 10, padding: "14px 18px", margin: "0 auto 20px", maxWidth: 520 }}>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>🚀 Prezzo fondatori, per chi si iscrive entro il {fineLancio()}</div>
-                <div style={{ color: "#aab3bf", fontSize: 14, marginTop: 6, lineHeight: 1.55 }}>Fino al {fineLancio()} tutto gratis. Poi il primo anno a metà prezzo: Pro a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pro.anno))}</strong> il primo anno (poi {euro(PREZZI_PIANO.pro.anno)}), Pilota a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pilota.anno))}</strong> (poi {euro(PREZZI_PIANO.pilota.anno)}).</div>
+                <div style={{ color: "#aab3bf", fontSize: 14, marginTop: 6, lineHeight: 1.55 }}>Fino al {fineLancio()} tutto gratis. Poi il primo anno a metà prezzo: Pro a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12)} al mese</strong> (poi {euro(PREZZI_PIANO.pro.anno / 12)}), Pilota a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pilota.anno) / 12)} al mese</strong> (poi {euro(PREZZI_PIANO.pilota.anno / 12)}), con l'abbonamento annuale.</div>
               </div>
             )}
             <button onClick={onRegistrati} style={bottonePrimario}>Registrati gratis</button>
@@ -2444,7 +2444,7 @@ function AvvisoLancio({ onScopri }) {
       <span style={{ fontSize: 22 }}>🚀</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700 }}>EyeDrones è in lancio: tutte le funzioni Pro sono gratis fino al {fineLancio()}</div>
-        <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 3 }}>Sei tra i fondatori: quando partiranno gli abbonamenti avrai il <strong>primo anno a metà prezzo</strong> (Pro a {euro(prezzoFondatori(PREZZI_PIANO.pro.anno))} il primo anno, poi {euro(PREZZI_PIANO.pro.anno)}).</div>
+        <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 3 }}>Sei tra i fondatori: quando partiranno gli abbonamenti avrai il <strong>primo anno a metà prezzo</strong>, con Pro a meno di {euro(Math.ceil(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12))} al mese.</div>
         <button type="button" onClick={onScopri} style={{ marginTop: 8, background: "none", border: "1px solid #ff8c4288", color: "#ffb877", borderRadius: 6, padding: "5px 10px", fontSize: 12 }}>Vedi i prezzi fondatori</button>
       </div>
       <button type="button" onClick={chiudi} aria-label="Chiudi avviso" style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 16, lineHeight: 1 }}>×</button>
@@ -3552,8 +3552,8 @@ function Abbonamento({ piano }) {
     const pr = PREZZI_PIANO[chiave];
     const fondatori = lancio
       ? (periodo === "anno"
-        ? `Fondatori: ${euro(prezzoFondatori(pr.anno))} il primo anno, poi ${euro(pr.anno)}`
-        : `Fondatori: ${euro(prezzoFondatori(pr.mese))}/mese il primo anno, poi ${euro(pr.mese)}`)
+        ? `Fondatori: ${euro(prezzoFondatori(pr.anno) / 12)}/mese il primo anno (${euro(prezzoFondatori(pr.anno))} in un'unica volta), poi ${euro(pr.anno / 12)}/mese`
+        : `Fondatori: ${euro(prezzoFondatori(pr.mese))}/mese il primo anno, poi ${euro(pr.mese)}/mese`)
       : null;
     if (periodo === "anno") return { grande: `${euro(pr.anno / 12)}/mese`, dettaglio: `${euro(pr.anno)} una volta all'anno · ${mesiGratisAnnuale(chiave)} mesi gratis`, fondatori };
     return { grande: `${euro(pr.mese)}/mese`, dettaglio: `oppure ${euro(pr.anno)} all'anno (${mesiGratisAnnuale(chiave)} mesi gratis)`, fondatori };
@@ -3608,7 +3608,7 @@ function Abbonamento({ piano }) {
           <div style={{ fontSize: 15, fontWeight: 700 }}>🚀 Sei un fondatore di EyeDrones</div>
           <p style={{ fontSize: 13, color: "#c3cad4", margin: "6px 0 0 0", lineHeight: 1.55 }}>
             Fino al <strong>{fineLancio()}</strong> hai <strong>tutte le funzioni Pro gratis</strong>, senza limiti e senza carta di credito.
-            Quando partiranno gli abbonamenti, chi si è iscritto durante il lancio avrà il <strong>primo anno a metà prezzo</strong>: per esempio Pro a {euro(prezzoFondatori(PREZZI_PIANO.pro.anno))} il primo anno, poi {euro(PREZZI_PIANO.pro.anno)} all'anno. Ti avviseremo prima, e potrai scegliere se continuare.
+            Quando partiranno gli abbonamenti, chi si è iscritto durante il lancio avrà il <strong>primo anno a metà prezzo</strong>: per esempio Pro a {euro(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12)} al mese con l'annuale (poi {euro(PREZZI_PIANO.pro.anno / 12)} al mese). Ti avviseremo prima, e potrai scegliere se continuare.
           </p>
         </div>
       ) : (
@@ -3743,6 +3743,15 @@ const PACCHETTI_PREVENTIVO = [
   ] },
   { key: "aziendale", emoji: "🏢", nome: "Video aziendale", oggetto: "Riprese aeree per video aziendale", voci: [
     "Incontro iniziale e storyboard delle riprese aeree", "Sopralluogo e pianificazione del volo", "Giornata di riprese aeree", "Montaggio, color correction e musica su licenza", "Versioni per sito web e social (16:9 e 9:16)", "Licenza d'uso commerciale", "Consegna file in 4K",
+  ] },
+  { key: "rilievo", emoji: "📐", nome: "Rilievo / fotogrammetria", oggetto: "Rilievo aerofotogrammetrico con drone", voci: [
+    "Sopralluogo e pianificazione della missione", "Posizionamento e misura dei punti di controllo a terra (GCP) o rilievo RTK", "Volo fotogrammetrico (area e risoluzione da concordare)", "Elaborazione: ortofoto, modello 3D e nuvola di punti", "Consegna dei file (GeoTIFF, OBJ/LAS, DWG...) tramite link", "Relazione con la precisione ottenuta",
+  ] },
+  { key: "agricoltura", emoji: "🌾", nome: "Agricoltura", oggetto: "Servizio agricolo con drone", voci: [
+    "Sopralluogo e mappatura dei campi", "Volo di mappatura multispettrale (NDVI) o di trattamento (ettari da concordare)", "Elaborazione delle mappe di vigore o di prescrizione", "Verifica di autorizzazioni e normativa per l'area", "Report e consegna dei file",
+  ] },
+  { key: "pulizia", emoji: "🧽", nome: "Pulizia con drone", oggetto: "Pulizia con drone di facciate, pannelli o coperture", voci: [
+    "Sopralluogo e misura delle superfici (m²)", "Pratiche di autorizzazione e delimitazione dell'area", "Pulizia con drone (superficie da concordare)", "Detergente e acqua", "Foto prima e dopo il lavoro", "Pulizia finale dell'area",
   ] },
   { key: "fpv", emoji: "🥽", nome: "Volo FPV", oggetto: "Riprese FPV", voci: [
     "Pianificazione del percorso e sopralluogo", "Riprese FPV (fly-through interno o esterno)", "Osservatore durante il volo", "Stabilizzazione e montaggio", "Consegna file in 4K",
@@ -5357,9 +5366,10 @@ function AnalisiTermica({ piano }) {
 const ETICHETTE_TIPO_PIANO = {
   fotovoltaico: "Fotovoltaico termico", danni: "Danni / assicurativa", edifici: "Termografia edifici", elettrico: "Impianti elettrici",
   video: "Video", foto: "Foto", fpv: "FPV", altro: "Altro",
+  rilievo: "Rilievo / fotogrammetria", agricoltura: "Agricoltura", pulizia: "Pulizia con drone",
 };
 // il vocabolario dei tipi nella Pianificazione (ispezioni + riprese) non è lo stesso del Registro voli: le 4 ispezioni diventano genericamente "ispezione" là
-const MAPPA_TIPO_PIANO_A_REGISTRO = { fotovoltaico: "ispezione", danni: "ispezione", edifici: "ispezione", elettrico: "ispezione", video: "video", foto: "foto", fpv: "fpv", altro: "altro" };
+const MAPPA_TIPO_PIANO_A_REGISTRO = { fotovoltaico: "ispezione", danni: "ispezione", edifici: "ispezione", elettrico: "ispezione", video: "video", foto: "foto", fpv: "fpv", altro: "altro", rilievo: "rilievo", agricoltura: "agricoltura", pulizia: "pulizia" };
 
 // --- Calcolatore filtri ND (regola dei 180°: tempo di scatto = 1 / (2 × fps)) ------------------------
 // luminosità tipica della scena in EV a ISO 100 (regola del "sole 16" e dintorni)
@@ -5440,6 +5450,35 @@ function CalcolatoreND() {
 }
 
 // controlli in più che compaiono quando il tipo di volo è FPV
+// controlli in più per tipo di lavoro (oltre alla checklist base del pilota)
+const CHECKLIST_SPECIFICHE = {
+  fpv: { titolo: "🥽 Controlli FPV", voci: null }, // usa CHECKLIST_FPV qui sotto
+  rilievo: { titolo: "📐 Controlli rilievo / fotogrammetria", voci: [
+    "Missione caricata: area, altezza (GSD) e sovrapposizioni (frontale 75–80%, laterale 65–70%)",
+    "Punti di controllo a terra (GCP) posizionati e misurati, oppure RTK/NTRIP collegato",
+    "Fotocamera: messa a fuoco, otturatore veloce contro il mosso, scheda vuota",
+    "Luce uniforme: niente ombre lunghe o controluce (meglio cielo coperto o sole alto)",
+    "Terreno con dislivelli: volo che segue il terreno, se serve",
+    "Batterie sufficienti per tutta la missione, con riserva, e punto di ripresa salvato",
+  ] },
+  agricoltura: { titolo: "🌾 Controlli agricoltura", voci: [
+    "Trattamenti (irrorazione): normativa e autorizzazioni verificate — in Italia l'irrorazione aerea è vietata salvo deroghe",
+    "Operazione in categoria Specifica: autorizzazione ENAC adatta al drone (spesso oltre 25 kg)",
+    "Area delimitata, nessuna persona estranea; distanze da case, strade e corsi d'acqua",
+    "Vento basso per evitare la deriva del prodotto",
+    "Prodotto, dosaggio e serbatoio controllati; dispositivi di protezione indossati",
+    "Mappatura multispettrale (NDVI): sensore calibrato con il pannello di riferimento",
+  ] },
+  pulizia: { titolo: "🧽 Controlli pulizia con drone", voci: [
+    "Autorizzazione per l'operazione (categoria Specifica, ENAC) e permesso del proprietario o del condominio",
+    "Area sotto la superficie delimitata e transennata, passaggi pedonali deviati",
+    "Cavo di alimentazione e tubo dell'acqua controllati e fissati",
+    "Detergente compatibile con la superficie, acqua sufficiente",
+    "Vento e raffiche entro il limite (anche il getto spinge il drone)",
+    "Finestre chiuse e residenti avvisati",
+  ] },
+};
+
 const CHECKLIST_FPV = [
   "Visore carico e acceso, immagine nitida",
   "Antenne di drone e visore avvitate e integre",
@@ -5682,7 +5721,7 @@ const REGOLE_CLASSE = {
   C4: { sottocategoria: "A3", attestato: "A1/A3", peso: "meno di 25 kg", regole: ["Nessuna persona non coinvolta nell'area di volo", "Almeno 150 m da aree residenziali, commerciali, industriali o ricreative"] },
 };
 
-function RegoleVolo({ drone, altezzaZona, attestati, notte, fpv }) {
+function RegoleVolo({ drone, altezzaZona, attestati, notte, fpv, tipo }) {
   const classe = (String(drone?.marcatura_classe || "").toUpperCase().match(/C\s*([0-6])/) || [])[1];
   const chiave = classe != null ? `C${classe}` : null;
   const info = chiave && REGOLE_CLASSE[chiave];
@@ -5701,6 +5740,14 @@ function RegoleVolo({ drone, altezzaZona, attestati, notte, fpv }) {
           : info ? `${drone.nome}: classe ${chiave} (${info.peso}) → categoria Open ${info.sottocategoria}${chiave === "C2" ? " (o A3)" : ""}`
           : `${drone.nome}: classe non indicata. Se pesa meno di 250 g vale come C0 (A1); se pesa di più e non ha classe vola solo in A3 (lontano da persone e centri abitati). Aggiungi la classe in «I miei droni».`}
       </p>
+      {(tipo === "agricoltura" || tipo === "pulizia") && (
+        <p style={{ fontSize: 12, color: "#ffb877", background: "#241d16", border: "1px solid #4a2f16", borderRadius: 6, padding: "6px 8px", margin: "8px 0 0 0" }}>
+          ⚠ {tipo === "agricoltura" ? "Trattamenti agricoli" : "Pulizia con drone"}: di solito è un'operazione in <strong>categoria Specifica</strong> (drone spesso oltre 25 kg, prodotto o getto d'acqua vicino a persone e cose). Serve un'autorizzazione ENAC o uno scenario adatto: le regole Open qui sotto da sole non bastano.
+        </p>
+      )}
+      {tipo === "rilievo" && (
+        <p style={{ fontSize: 12, color: "#c3cad4", margin: "8px 0 0 0" }}>📐 Nelle missioni automatiche il drone deve restare sempre in vista e devi poter riprendere il controllo in ogni momento.</p>
+      )}
       <ul style={{ margin: "6px 0 0 0", paddingLeft: 18, fontSize: 12 }}>
         {voce(null, <>Altezza massima <strong>{altezza} m dal suolo</strong>{altezzaZona != null && altezzaZona < 120 ? " (limite della zona senza autorizzazione)" : ""}</>)}
         {voce(null, fpv ? "In FPV serve un osservatore accanto a te che tenga sempre il drone in vista" : "Drone sempre in vista, senza binocoli")}
@@ -5908,7 +5955,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [erroreMeteo, setErroreMeteo] = useState(null);
   const [checklistItems, setChecklistItems] = useState(null);
   const [checklistSpuntati, setChecklistSpuntati] = useState({});
-  const [checklistFpvSpuntati, setChecklistFpvSpuntati] = useState({});
+  const [checklistFpvSpuntati, setChecklistFpvSpuntati] = useState({}); // controlli in più del tipo di lavoro (FPV, rilievo, ...)
   const [oraSole, setOraSole] = useState("18:00");
   const [oraPrevista, setOraPrevista] = useState("");
   const [zonaEsito, setZonaEsito] = useState(null); // ultimo controllo della zona, salvato con il piano
@@ -6203,7 +6250,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
         </div>
         <div style={{ minWidth: 190 }}>
           <label style={lblPian}>Tipo di volo</label>
-          <select value={tipoIspezione} onChange={(e) => setTipoIspezione(e.target.value)} style={inputStyle}>
+          <select value={tipoIspezione} onChange={(e) => { setTipoIspezione(e.target.value); setChecklistFpvSpuntati({}); }} style={inputStyle}>
             <optgroup label="Ispezioni">
               <option value="fotovoltaico">Fotovoltaico termico</option>
               <option value="danni">Danni / ispezione assicurativa</option>
@@ -6214,6 +6261,11 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               <option value="video">Video</option>
               <option value="foto">Foto</option>
               <option value="fpv">FPV</option>
+            </optgroup>
+            <optgroup label="Lavori speciali">
+              <option value="rilievo">Rilievo / fotogrammetria</option>
+              <option value="agricoltura">Agricoltura (mappatura o trattamenti)</option>
+              <option value="pulizia">Pulizia facciate, pannelli, tetti</option>
               <option value="altro">Altro</option>
             </optgroup>
           </select>
@@ -6284,6 +6336,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               return alba != null && tramonto != null && (min < alba || min > tramonto);
             })())}
             fpv={tipoIspezione === "fpv"}
+            tipo={tipoIspezione}
           />
 
           <CalcolatoreSTS
@@ -6428,10 +6481,10 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             </div>
           </div>
 
-          {tipoIspezione === "fpv" && (
+          {CHECKLIST_SPECIFICHE[tipoIspezione] && (
             <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
-              <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 8px 0" }}>🥽 Controlli FPV</p>
-              {CHECKLIST_FPV.map((voce, idx) => (
+              <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 8px 0" }}>{CHECKLIST_SPECIFICHE[tipoIspezione].titolo}</p>
+              {(CHECKLIST_SPECIFICHE[tipoIspezione].voci || CHECKLIST_FPV).map((voce, idx) => (
                 <label key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: checklistFpvSpuntati[idx] ? "#4ade80" : "#c3cad4", marginBottom: 6, cursor: "pointer" }}>
                   <input type="checkbox" checked={!!checklistFpvSpuntati[idx]} onChange={() => setChecklistFpvSpuntati({ ...checklistFpvSpuntati, [idx]: !checklistFpvSpuntati[idx] })} />
                   {voce}
@@ -6721,7 +6774,7 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>🚔 Documenti controllo</h1>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0", maxWidth: 560 }}>
-        Accesso rapido a tutto quello che potrebbero chiederti le forze dell'ordine — sempre a portata di mano, senza dover pianificare prima un volo.
+        Se ti fermano per un controllo, qui trovi tutto da mostrare: attestati, assicurazione, drone e permessi. Funziona anche se non hai preparato un piano di volo.
       </p>
 
       <div style={{ marginBottom: 16, maxWidth: 320 }}>
@@ -7279,7 +7332,7 @@ function GalleriaCondivisa({ token }) {
         </div>
         {!puoScaricare && (
           <p style={{ fontSize: 12.5, color: "#f5b942", background: "#2a2416", border: "1px solid #5a4a20", borderRadius: 8, padding: "8px 12px", margin: "0 0 16px 0" }}>
-            Queste sono anteprime. Segna con il ❤️ le foto e i video che vuoi: il download in alta qualità sarà disponibile quando {testoFiligrana} lo sbloccherà.
+            Queste sono anteprime con la scritta «{testoFiligrana}». Come funziona: 1) tocca il ♡ sulle foto e sui video che ti piacciono; 2) {testoFiligrana} vede subito la tua scelta; 3) quando sblocca la galleria, su questa stessa pagina potrai scaricare i file in alta qualità, senza scritta.
           </p>
         )}
 
@@ -7775,6 +7828,9 @@ const TIPI_ATTIVITA_VOLO = [
   { key: "foto", label: "Foto", emoji: "📷", colore: "#3d8bfd" },
   { key: "fpv", label: "FPV", emoji: "🥽", colore: "#ff8c42" },
   { key: "ispezione", label: "Ispezione", emoji: "🔍", colore: "#4ade80" },
+  { key: "rilievo", label: "Rilievo", emoji: "📐", colore: "#22d3ee" },
+  { key: "agricoltura", label: "Agricoltura", emoji: "🌾", colore: "#a3e635" },
+  { key: "pulizia", label: "Pulizia", emoji: "🧽", colore: "#60a5fa" },
   { key: "altro", label: "Altro", emoji: "✈️", colore: "#8b95a3" },
 ];
 
@@ -9449,7 +9505,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
               </div>
             )}
             <div style={{ display: "flex", gap: 6 }}>
-              <input type="text" placeholder="Oppure incolla il link di un video (Drive, YouTube, WeTransfer...)" value={linkFormNuovo} onChange={(e) => setLinkFormNuovo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aggiungiLinkInAttesa(); } }} style={{ ...inputStyle, fontSize: 12.5, padding: "7px 10px" }} />
+              <input type="text" placeholder="Oppure incolla un link (Drive, YouTube…)" value={linkFormNuovo} onChange={(e) => setLinkFormNuovo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aggiungiLinkInAttesa(); } }} style={{ ...inputStyle, fontSize: 12.5, padding: "7px 10px" }} />
               <button type="button" onClick={aggiungiLinkInAttesa} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>+ Link</button>
             </div>
             {linkInAttesa.length > 0 && (
@@ -9470,7 +9526,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                 <p style={{ fontSize: 10.5, color: "#8b95a3", margin: "5px 0 0 0" }}>Data e ora sono già quelle di adesso: luogo, drone e il resto puoi completarli anche dopo.</p>
               </div>
             )}
-            <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>I file vengono caricati quando salvi. Se un video molto pesante non si carica, o carichi il link, oppure alza il "Global file size limit" nelle impostazioni Storage di Supabase.</p>
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>I file si caricano quando salvi il volo. Ogni file può pesare al massimo {LIMITE_FILE_MB} MB: per i video più pesanti carica il file su Google Drive, YouTube o WeTransfer e incolla qui il link.</p>
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -9715,6 +9771,11 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
 
                     {aperto && !v._derived && (
                       <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #262b33", display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                          {[["condividi", "📤 Manda al cliente"], ["liberatorie", "✍️ Liberatoria"], ["fascicolo", "📁 Fascicolo PDF"]].map(([k, t]) => (
+                            <button key={k} type="button" onClick={() => document.getElementById(`volo-${v.id}-${k}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ background: "#1f2530", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 999, padding: "6px 12px", fontSize: 12.5 }}>{t}</button>
+                          ))}
+                        </div>
                         {riga("Categoria", etichettaCategoriaVolo(v.categoria_operativa))}
                         {Array.isArray(v.batterie_ids) && v.batterie_ids.length > 0 ? riga("Batterie", v.batterie_ids.map((id) => ((batterie || []).find((b) => b.id === id) || {}).nome).filter(Boolean).join(", ") || "—") : null}
                         {v.altezza_max ? riga("Altezza max", `${v.altezza_max} m`) : null}
@@ -9762,14 +9823,14 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                           </div>
                         </div>
                         <p style={{ fontSize: 10.5, color: "#6b7480", margin: "2px 0 0 0" }}>
-                          Se un video molto pesante non si carica, salvalo su Drive o YouTube e incolla il link, oppure alza il "Global file size limit" nelle impostazioni Storage di Supabase.
+                          Ogni file può pesare al massimo {LIMITE_FILE_MB} MB: per i video più pesanti caricali su Google Drive, YouTube o WeTransfer e incolla qui il link.
                         </p>
 
                         {v.pass_lavoro && <div style={{ fontSize: 12, color: "#ffb877", fontWeight: 600 }}>🎟️ Pass Lavoro attivo su questo volo: funzioni Pro sbloccate</div>}
-                        <CondivisioneVolo volo={v} nMedia={mediaVolo.length} media={mediaVolo} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
-                        <LiberatorieVolo volo={v} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
+                        <div id={`volo-${v.id}-condividi`} style={{ scrollMarginTop: 80 }}><CondivisioneVolo volo={v} nMedia={mediaVolo.length} media={mediaVolo} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
+                        <div id={`volo-${v.id}-liberatorie`} style={{ scrollMarginTop: 80 }}><LiberatorieVolo volo={v} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
                         <EventiVolo volo={v} azienda={azienda} droni={droni} batterie={batterie} onCambiato={onEventiCambiati} />
-                        <FascicoloVolo volo={v} drone={(droni || []).find((d) => d.id === v.drone_id) || null} batterie={batterie} media={mediaVolo} eventi={(eventiVolo || []).filter((e) => e.volo_id === String(v.id))} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
+                        <div id={`volo-${v.id}-fascicolo`} style={{ scrollMarginTop: 80 }}><FascicoloVolo volo={v} drone={(droni || []).find((d) => d.id === v.drone_id) || null} batterie={batterie} media={mediaVolo} eventi={(eventiVolo || []).filter((e) => e.volo_id === String(v.id))} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
 
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                           <button onClick={() => apriModifica(v)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Modifica</button>
