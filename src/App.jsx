@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
@@ -458,6 +458,80 @@ async function generaRitagliAnomalie(fotoConDataUrl, anomalieList) {
 }
 
 // costruisce il documento PDF del report, condiviso tra nuova ispezione e visualizzazione di un report salvato
+// --- Suggerimenti e problemi (tabella suggerimenti, script supabase/suggerimenti.sql) ---------------------------------
+const TIPI_SUGGERIMENTO = [
+  { key: "suggerimento", label: "💡 Suggerimento" },
+  { key: "problema", label: "🐞 Qualcosa non funziona" },
+  { key: "altro", label: "💬 Altro" },
+];
+
+function Suggerimenti({ session, paginaPrecedente }) {
+  const [tipo, setTipo] = useState("suggerimento");
+  const [testo, setTesto] = useState("");
+  const [file, setFile] = useState(null);
+  const [invio, setInvio] = useState(null); // null | "invio" | "ok" | messaggio d'errore
+  const invia = async (e) => {
+    e.preventDefault();
+    if (!testo.trim()) return;
+    setInvio("invio");
+    try {
+      let screenshot_url = null;
+      if (file) {
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        screenshot_url = await caricaDocumento(`suggerimento-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`, file, { contentType: file.type || undefined });
+      }
+      const schermo = typeof window !== "undefined" ? `${window.innerWidth}×${window.innerHeight}` : "";
+      const { error } = await supabase.from("suggerimenti").insert({
+        tipo, testo: testo.trim(), email: session?.user?.email || null,
+        pagina: paginaPrecedente || null,
+        dispositivo: `${navigator.userAgent.slice(0, 180)} · schermo ${schermo}`,
+        screenshot_url,
+      });
+      if (error) throw error;
+      setInvio("ok"); setTesto(""); setFile(null);
+    } catch (err) {
+      setInvio(/suggerimenti|does not exist|schema cache/i.test(err?.message || "") ? `Il modulo non è ancora attivo: scrivici a ${SUPPORT_EMAIL}.` : `Invio non riuscito: riprova, oppure scrivici a ${SUPPORT_EMAIL}.`);
+    }
+  };
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>💬 Suggerimenti</h1>
+      <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 18px 0", maxWidth: 560 }}>EyeDrones è appena nata e cresce con i consigli dei piloti. Scrivi cosa ti manca, cosa miglioreresti o cosa non funziona: leggiamo tutto.</p>
+      <form onSubmit={invia} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 18, maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {TIPI_SUGGERIMENTO.map((t) => (
+            <button key={t.key} type="button" onClick={() => setTipo(t.key)} aria-pressed={tipo === t.key} style={{ background: tipo === t.key ? "#ff8c4222" : "#262b33", border: `1px solid ${tipo === t.key ? "#ff8c42" : "#333a45"}`, color: tipo === t.key ? "#ffb877" : "#c3cad4", borderRadius: 6, padding: "7px 11px", fontSize: 12.5 }}>{t.label}</button>
+          ))}
+        </div>
+        <textarea rows={6} value={testo} onChange={(e) => { setTesto(e.target.value); if (invio && invio !== "invio") setInvio(null); }} placeholder={tipo === "problema" ? "Cosa stavi facendo e cosa è successo? (es. ho toccato «Salva volo» e non è comparso niente)" : "Scrivi qui la tua idea o cosa ti piacerebbe trovare nell'app"} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+        <label style={{ fontSize: 12.5, color: "#3d8bfd", cursor: "pointer" }}>
+          📎 {file ? file.name : "Allega uno screenshot (facoltativo)"}
+          <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
+        </label>
+        <button type="submit" disabled={!testo.trim() || invio === "invio"} style={{ background: testo.trim() ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#333a45", color: testo.trim() ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "10px 0", fontWeight: 700, fontSize: 13.5 }}>{invio === "invio" ? "Invio…" : "Invia"}</button>
+        {invio === "ok" && <p style={{ fontSize: 12.5, color: "#4ade80", margin: 0 }}>✓ Grazie! Messaggio ricevuto. Se serve ti rispondiamo all'indirizzo email del tuo account.</p>}
+        {invio && invio !== "ok" && invio !== "invio" && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: 0 }}>{invio}</p>}
+      </form>
+      <p style={{ fontSize: 11.5, color: "#6b7480", marginTop: 12, maxWidth: 560 }}>Insieme al messaggio inviamo la pagina da cui arrivi e il tipo di telefono, così capiamo subito dove c'è il problema.</p>
+    </div>
+  );
+}
+
+// firma piccola in fondo ai PDF per i clienti (report e preventivi): link all'app, su ogni pagina
+const FIRMA_EYEDRONES = "Creato con EyeDrones · app.eyedrones.it";
+function aggiungiFirmaEyedrones(doc, rif = "pdf") {
+  const pagine = doc.getNumberOfPages();
+  const larghezza = doc.internal.pageSize.getWidth();
+  const altezza = doc.internal.pageSize.getHeight();
+  for (let i = 1; i <= pagine; i++) {
+    doc.setPage(i);
+    doc.setFontSize(6.5);
+    doc.setTextColor(160, 165, 172);
+    const w = doc.getTextWidth(FIRMA_EYEDRONES);
+    doc.textWithLink(FIRMA_EYEDRONES, (larghezza - w) / 2, altezza - 2.5, { url: `https://app.eyedrones.it/?ref=${rif}` });
+  }
+}
+
 function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, piano, ritagli, tipoIspezione }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const oranje = [255, 140, 66];
@@ -672,6 +746,7 @@ function costruisciPDF({ azienda, impianto, dati, fotoConDataUrl, anomalieList, 
     doc.setTextColor(...grigio);
     doc.text(`Generato da ${azienda.nome}`, 15, 290);
   }
+  aggiungiFirmaEyedrones(doc, "report");
 
   return doc;
 }
@@ -871,6 +946,7 @@ function costruisciPDFRiassuntoImpianto({ azienda, impianto, storico, piano }) {
     doc.setTextColor(...grigio);
     doc.text(`Generato da ${azienda.nome}`, 15, 290);
   }
+  aggiungiFirmaEyedrones(doc, "report");
 
   return doc;
 }
@@ -1387,6 +1463,7 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
   doc.setFontSize(8);
   doc.setTextColor(200, 205, 212);
   doc.text(`${azienda.nome}  ·  Generato automaticamente`, 105, 291, { align: "center" });
+  aggiungiFirmaEyedrones(doc, "preventivo");
 
   return doc;
 }
@@ -1559,10 +1636,15 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   const [page, setPageInterna] = useState(() => (PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard"));
-  const setPage = (p) => { setPageInterna(p); try { sessionStorage.setItem("eyedrones_pagina", p); } catch (e) { /* senza memoria di sessione pazienza */ } };
+  const [paginaPrecedente, setPaginaPrecedente] = useState(null); // da dove si apre «Suggerimenti», per capire dove c'è un problema
+  const setPage = (p) => {
+    if (p === "suggerimenti") setPaginaPrecedente((prec) => (page !== "suggerimenti" ? page : prec));
+    setPageInterna(p);
+    try { sessionStorage.setItem("eyedrones_pagina", p); } catch (e) { /* senza memoria di sessione pazienza */ }
+  };
   // avviso quando la pagina è stata riaperta mentre si sceglieva un file
   const [paginaRiaperta, setPaginaRiaperta] = useState(() => {
     const t = Number(leggiSessione("eyedrones_scelta_file") || 0);
@@ -1834,6 +1916,7 @@ function AppShell({ session }) {
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={pianoReale} />}
+        {page === "suggerimenti" && <Suggerimenti session={session} paginaPrecedente={paginaPrecedente} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
@@ -2127,6 +2210,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { intestazione: "Account" },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
+    { key: "suggerimenti", label: "Suggerimenti", icon: MessageSquare },
   ];
   const avvisi = { attestati: attestatiInScadenza, droni: droniInScadenza, batterie: batterieAvvisi };
   return (
@@ -7619,7 +7703,7 @@ function GalleriaCondivisa({ token }) {
           </div>
         )}
 
-        <p style={{ fontSize: 11, color: "#5b6572", marginTop: 32, textAlign: "center" }}>Galleria condivisa con Eyedrones{(LINK_PRIVACY || LINK_TERMINI) && " · "}<LinkLegali stile={{ color: "#6b7480" }} /></p>
+        <p style={{ fontSize: 11, color: "#5b6572", marginTop: 32, textAlign: "center" }}><a href="https://app.eyedrones.it/?ref=galleria" target="_blank" rel="noreferrer" style={{ color: "#6b7480", textDecoration: "none" }}>Creato con <strong style={{ color: "#8b95a3" }}>EyeDrones</strong> · l'app per piloti di droni</a>{(LINK_PRIVACY || LINK_TERMINI) && " · "}<LinkLegali stile={{ color: "#6b7480" }} /></p>
       </div>
 
       {lightbox && (
