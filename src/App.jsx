@@ -4431,7 +4431,7 @@ function Permessi({ permessi, impianti, azienda, piano, onReload }) {
     if (imp) setImpianto(`${imp.nome} — ${imp.zona || ""}`.replace(/ — $/, ""));
   };
 
-  const caricaDocumento = (e) => {
+  const scegliDocumento = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setDocumento({ nome: file.name, blob: file });
@@ -4548,7 +4548,7 @@ function Permessi({ permessi, impianti, azienda, piano, onReload }) {
             ) : (
               <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
                 <Upload size={13} /> Carica documento
-                <input type="file" accept="image/*,.pdf" onChange={caricaDocumento} style={{ display: "none" }} />
+                <input type="file" accept="image/*,.pdf" onChange={scegliDocumento} style={{ display: "none" }} />
               </label>
             )}
           </div>
@@ -4802,7 +4802,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
     setShowForm(true);
   };
 
-  const caricaDocumento = (e) => {
+  const scegliDocumento = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setDocumento({ nome: file.name, blob: file });
@@ -4958,7 +4958,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
             ) : (
               <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
                 <Upload size={13} /> Carica documento
-                <input type="file" accept="image/*,.pdf" onChange={caricaDocumento} style={{ display: "none" }} />
+                <input type="file" accept="image/*,.pdf" onChange={scegliDocumento} style={{ display: "none" }} />
               </label>
             )}
           </div>
@@ -5178,7 +5178,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
     setShowForm(true);
   };
 
-  const caricaDocumento = (e) => {
+  const scegliDocumento = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setDocumento({ nome: file.name, blob: file });
@@ -5352,7 +5352,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
             ) : (
               <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
                 <Upload size={13} /> Carica documento
-                <input type="file" accept="image/*,.pdf" onChange={caricaDocumento} style={{ display: "none" }} />
+                <input type="file" accept="image/*,.pdf" onChange={scegliDocumento} style={{ display: "none" }} />
               </label>
             )}
           </div>
