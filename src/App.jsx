@@ -1611,10 +1611,110 @@ const refSalvato = () => {
   try { return pulisciRef(localStorage.getItem("eyedrones_ref")); } catch { return null; }
 };
 
+// --- Copia dei documenti di controllo sul telefono (per i controlli dove non c'è campo) ---------------
+// solo dati di testo (attestati, droni, permessi, piani vicini): i file allegati richiedono la rete
+const CHIAVE_COPIA_CONTROLLO = "eyedrones_copia_controllo";
+function leggiCopiaControllo() {
+  try { const c = JSON.parse(localStorage.getItem(CHIAVE_COPIA_CONTROLLO) || "null"); return c && typeof c === "object" ? c : null; } catch { return null; }
+}
+function salvaCopiaControllo(parziale) {
+  try {
+    const attuale = leggiCopiaControllo() || {};
+    localStorage.setItem(CHIAVE_COPIA_CONTROLLO, JSON.stringify({ ...attuale, ...parziale, salvato: new Date().toISOString() }));
+  } catch { /* memoria piena o non disponibile: pazienza */ }
+}
+function cancellaCopiaControllo() {
+  try { localStorage.removeItem(CHIAVE_COPIA_CONTROLLO); } catch { /* niente */ }
+}
+const esciDallAccount = () => { cancellaCopiaControllo(); supabase.auth.signOut(); };
+// tiene solo i piani da ieri in avanti, per non riempire la memoria
+const pianiPerCopia = (piani) => (piani || []).filter((x) => !x.data_prevista || x.data_prevista >= dataLocale(-1)).slice(0, 30);
+
+// --- Batterie e temperatura ------------------------------------------------------------------------------
+function avvisoBatterieTemperatura(t) {
+  if (t == null || Number.isNaN(Number(t))) return null;
+  const v = Math.round(Number(t));
+  if (v < 0) return { colore: "#7fb0ff", testo: `🥶 ${v} °C, sotto zero: batterie al caldo (in tasca o in auto) fino al decollo, 1 minuto in volo stazionario prima di partire, voli brevi e atterra con il 30–40%. Attento al ghiaccio sulle eliche e controlla nel manuale la temperatura minima del drone.` };
+  if (v < 10) return { colore: "#7fb0ff", testo: `❄️ ${v} °C: fa freddo per le batterie. Tienile al caldo fino al decollo, aspetta qualche secondo in volo stazionario, conta su meno autonomia e atterra con più margine.` };
+  if (v > 35) return { colore: "#ff8c42", testo: `🔥 ${v} °C: molto caldo. Non lasciare drone e batterie al sole o in auto, falle raffreddare prima di ricaricarle e fai voli più corti.` };
+  return null;
+}
+
+// --- Aggiungi al calendario -----------------------------------------------------------------------------
+function datiCalendarioPiano({ data, ora, titolo, luogo, dettagli }) {
+  if (!data) return null;
+  const d = data.replace(/-/g, "");
+  let inizio, fine, tuttoIlGiorno = false;
+  if (ora) {
+    const [h, m] = ora.split(":").map(Number);
+    const fineMin = h * 60 + m + 60;
+    inizio = `${d}T${String(h).padStart(2, "0")}${String(m).padStart(2, "0")}00`;
+    const giornoFine = fineMin >= 1440 ? dataLocaleDa(data, 1).replace(/-/g, "") : d;
+    const fm = fineMin % 1440;
+    fine = `${giornoFine}T${String(Math.floor(fm / 60)).padStart(2, "0")}${String(fm % 60).padStart(2, "0")}00`;
+  } else {
+    tuttoIlGiorno = true;
+    inizio = d;
+    fine = dataLocaleDa(data, 1).replace(/-/g, "");
+  }
+  return { inizio, fine, tuttoIlGiorno, titolo, luogo: luogo || "", dettagli: dettagli || "" };
+}
+function dataLocaleDa(data, giorni) {
+  const [y, m, g] = data.split("-").map(Number);
+  const x = new Date(y, m - 1, g + giorni);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+}
+function linkGoogleCalendar(c) {
+  const q = new URLSearchParams({ action: "TEMPLATE", text: c.titolo, dates: `${c.inizio}/${c.fine}`, details: c.dettagli, location: c.luogo });
+  return `https://calendar.google.com/calendar/render?${q.toString()}`;
+}
+function scaricaIcs(c) {
+  const esc = (t) => String(t || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+  const dt = (k, v) => (c.tuttoIlGiorno ? `${k};VALUE=DATE:${v}` : `${k}:${v}`);
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//EyeDrones//Piano di volo//IT", "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${Date.now()}-${Math.random().toString(36).slice(2)}@app.eyedrones.it`,
+    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z")}`,
+    dt("DTSTART", c.inizio), dt("DTEND", c.fine),
+    `SUMMARY:${esc(c.titolo)}`, `LOCATION:${esc(c.luogo)}`, `DESCRIPTION:${esc(c.dettagli)}`,
+    "BEGIN:VALARM", "TRIGGER:-P1D", "ACTION:DISPLAY", `DESCRIPTION:${esc("Domani: " + c.titolo)}`, "END:VALARM",
+    ...(c.tuttoIlGiorno ? [] : ["BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", `DESCRIPTION:${esc("Tra un'ora: " + c.titolo)}`, "END:VALARM"]),
+    "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+  const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = "volo-eyedrones.ics";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+function calendarioDaPiano(p, drone) {
+  const ora = p.ora_prevista ? String(p.ora_prevista).slice(0, 5) : "";
+  const tipo = ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione || "Volo";
+  return datiCalendarioPiano({
+    data: p.data_prevista, ora,
+    titolo: `🚁 ${tipo} · ${p.impianto_nome || "Volo con drone"}`,
+    luogo: [p.impianto_nome, p.checklist_stato?.zona?.punto].filter(Boolean).join(" · "),
+    dettagli: [drone ? `Drone: ${drone.nome}` : "", "Prima di partire apri EyeDrones: meteo, zona, checklist e documenti per il controllo.", "https://app.eyedrones.it"].filter(Boolean).join("\n"),
+  });
+}
+function PulsantiCalendario({ dati, compatto = false }) {
+  if (!dati) return null;
+  const st = { display: "inline-flex", alignItems: "center", gap: 5, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: compatto ? "6px 10px" : "8px 12px", fontSize: 12.5, textDecoration: "none" };
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+      <a href={linkGoogleCalendar(dati)} target="_blank" rel="noreferrer" style={st}>📅 Google Calendar</a>
+      <button type="button" onClick={() => scaricaIcs(dati)} style={st}>📅 iPhone / altro calendario</button>
+    </div>
+  );
+}
+
 function AppAutenticata() {
   const [session, setSession] = useState(undefined); // undefined = ancora in caricamento, null = non loggato
   // aperto il link "Password dimenticata?": prima di entrare si sceglie la nuova password
   const [recupero, setRecupero] = useState(() => /type=recovery/.test(window.location.hash));
+  // senza rete e senza accesso valido si possono comunque mostrare i documenti salvati sul telefono
+  const [copiaAperta, setCopiaAperta] = useState(false);
 
   useEffect(() => {
     // memorizzo eventuale provenienza (?ref=nomeaffiliato) per collegarla all'account al momento della registrazione
@@ -1638,7 +1738,21 @@ function AppAutenticata() {
   }
 
   if (!session) {
-    return <Accesso />;
+    const copia = leggiCopiaControllo();
+    if (copiaAperta && copia) {
+      return <DocumentiControllo azienda={copia.azienda || { nome: "" }} impianti={[]} soloCopia schermoPienoSubito onSchermoPienoAperto={() => {}} onEsciCopia={() => setCopiaAperta(false)} />;
+    }
+    return (
+      <>
+        {copia && (
+          <div style={{ position: "sticky", top: 0, zIndex: 900, background: "#13233d", borderBottom: "1px solid #2f5aa8", padding: "10px 16px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontFamily: "'IBM Plex Sans', sans-serif" }}>
+            <span style={{ fontSize: 13, color: "#e7eaee" }}>👮 Sei senza rete o devi rientrare? I tuoi documenti di controllo sono salvati sul telefono.</span>
+            <button type="button" onClick={() => setCopiaAperta(true)} style={{ background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 13, fontWeight: 700 }}>Mostra i documenti</button>
+          </div>
+        )}
+        <Accesso />
+      </>
+    );
   }
 
   if (recupero) return <NuovaPassword onFatto={() => { setRecupero(false); window.history.replaceState(null, "", window.location.pathname); }} />;
@@ -1746,6 +1860,7 @@ function AppShell({ session }) {
         tariffaKwp: profilo.tariffa_kwp ?? 0.12,
         noteLegaliPreventivo: profilo.preventivo_note_legali || "",
       });
+      salvaCopiaControllo({ azienda: { nome: profilo.azienda_nome || "Eyedrones" } });
     }
     setProfiloCaricato(true);
   };
@@ -1827,6 +1942,7 @@ function AppShell({ session }) {
       setPermessi(perm || []);
       setAttestati(att || []);
       setDroni(drn || []);
+      salvaCopiaControllo({ attestati: att || [], droni: drn || [], permessi: perm || [] });
     } catch (err) {
       setDbError(err.message || "Errore di connessione al database");
     }
@@ -1834,6 +1950,11 @@ function AppShell({ session }) {
   };
 
   useEffect(() => { caricaProfilo(); loadData(); caricaVoli(); caricaBatterie(); caricaEventiVolo(); caricaRichiesteNuove(); }, []);
+  // piani vicini nella copia per i controlli senza rete
+  useEffect(() => {
+    supabase.from("piani_volo").select("*").gte("data_prevista", dataLocale(-1)).order("data_prevista", { ascending: true }).limit(30)
+      .then(({ data, error }) => { if (!error && data) salvaCopiaControllo({ piani: pianiPerCopia(data) }); });
+  }, []);
 
   // quanti report ha gi\u00e0 generato l'utente nel mese corrente (log persistente: non si azzera cancellando impianti/ispezioni)
   const oggi = new Date();
@@ -1931,7 +2052,9 @@ function AppShell({ session }) {
         )}
         {dbError && (
           <div style={{ margin: 16, padding: "10px 14px", background: "#2a1616", border: "1px solid #5a2a2a", borderRadius: 8, color: "#ff9c9c", fontSize: 12.5 }}>
-            Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.
+            {typeof navigator !== "undefined" && navigator.onLine === false
+              ? <>Sei senza rete: i dati si aggiornano quando torna il campo. I documenti di controllo restano disponibili dalla copia salvata sul telefono (👮 Controllo).</>
+              : <>Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.</>}
           </div>
         )}
         {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
@@ -2322,7 +2445,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
         <a href={`mailto:${SUPPORT_EMAIL}`} style={{ display: "block", fontSize: 11, color: "#3d8bfd", padding: "0 10px 8px 10px", textDecoration: "none" }}>
           Assistenza
         </a>
-        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "9px 10px", fontSize: 13, fontWeight: 600 }}>
+        <button onClick={esciDallAccount} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "9px 10px", fontSize: 13, fontWeight: 600 }}>
           <LogOut size={14} /> Esci
         </button>
       </div>
@@ -2484,7 +2607,7 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
                 <span style={{ fontSize: 12, color: "#6b7480", flex: 1, minWidth: 0, wordBreak: "break-all" }}>Accesso con {userEmail}</span>
                 <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontSize: 13, color: "#3d8bfd", textDecoration: "none" }}>Assistenza</a>
               </div>
-              <button onClick={() => supabase.auth.signOut()} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 8, padding: "12px", fontSize: 14.5, fontWeight: 600 }}>
+              <button onClick={esciDallAccount} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 8, padding: "12px", fontSize: 14.5, fontWeight: 600 }}>
                 <LogOut size={16} /> Esci dall'account
               </button>
             </div>
@@ -2696,6 +2819,11 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
         </div>
 
         {testoZona && <div style={{ fontSize: 12.5, marginTop: 8, color: testoZona[0], fontWeight: 600 }}>🛡️ {testoZona[1]}</div>}
+        {(() => {
+          const t = allOra?.temperatura ?? (ore.length ? Math.min(...ore.map((o) => o.temperatura).filter((x) => x != null)) : null);
+          const a = avvisoBatterieTemperatura(Number.isFinite(t) ? t : null);
+          return a && <div style={{ fontSize: 12.5, marginTop: 6, color: a.colore }}>{a.testo}</div>;
+        })()}
         <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 4 }}>📣 Controlla i NOTAM su <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ color: "#3d8bfd" }}>D-Flight ↗</a> prima di partire</div>
 
         {mancanze.length > 0 && (
@@ -2735,6 +2863,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
             ...(punto ? { coordinate_gps: `${punto.lat.toFixed(5)}, ${punto.lon.toFixed(5)}` } : {}),
           })} style={btn(false)}>📒 Registra il volo</button>
         </div>
+        <div style={{ marginTop: 8 }}><PulsantiCalendario dati={calendarioDaPiano(p, drone)} compatto /></div>
       </div>
       {elencoAltri}
     </section>
@@ -7178,6 +7307,16 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               </div>
             </div>
           )}
+          {giornoPrevisto && (() => {
+            const hP = oraPrevista ? Number(oraPrevista.slice(0, 2)) : null;
+            const tOra = hP != null ? (meteo?.orari || []).find((o) => o.data === dataPrevista && o.ora === hP)?.temperatura : null;
+            const a = tOra != null ? avvisoBatterieTemperatura(tOra) : (avvisoBatterieTemperatura(giornoPrevisto.tMin) || avvisoBatterieTemperatura(giornoPrevisto.tMax));
+            return a && (
+              <div style={{ marginTop: 8, background: "#161a1f", border: `1px solid ${a.colore}66`, borderRadius: 6, padding: "8px 12px", fontSize: 12.5, color: a.colore }}>
+                🔋 {a.testo}{tOra == null ? " (temperature del giorno: per un avviso preciso inserisci l'ora prevista)" : ""}
+              </div>
+            );
+          })()}
           {meteo && !giornoPrevisto && (
             <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8 }}>La data scelta è oltre i 16 giorni di previsione disponibile — riprova più vicino alla data.</p>
           )}
@@ -7383,6 +7522,17 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               </button>
             )}
           </div>
+          {dataPrevista && (
+            <div style={{ marginTop: 10 }}>
+              <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "0 0 6px 0" }}>Mettilo nel calendario del telefono, con un promemoria il giorno prima:</p>
+              <PulsantiCalendario dati={datiCalendarioPiano({
+                data: dataPrevista, ora: oraPrevista ? oraPrevista.slice(0, 5) : "",
+                titolo: `🚁 ${ETICHETTE_TIPO_PIANO[tipoIspezione] || "Volo"} · ${destinazione.nome || "Volo con drone"}`,
+                luogo: [destinazione.nome, coordinateValide ? `${coordinateValide.lat.toFixed(5)}, ${coordinateValide.lon.toFixed(5)}` : ""].filter(Boolean).join(" · "),
+                dettagli: [droneSelezionato ? `Drone: ${droneSelezionato.nome}` : "", "Prima di partire apri EyeDrones: meteo, zona, checklist e documenti per il controllo.", "https://app.eyedrones.it"].filter(Boolean).join("\n"),
+              })} />
+            </div>
+          )}
         </div>
       )}
 
@@ -7487,12 +7637,15 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
 
 // --- Documenti controllo (accesso rapido dal menu, senza dover pianificare prima un volo) -----------------------------------------------------------
 
-function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoIniziale, onPianoAperto, piano, schermoPienoSubito, onSchermoPienoAperto }) {
+function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoIniziale, onPianoAperto, piano, schermoPienoSubito, onSchermoPienoAperto, soloCopia = false, onEsciCopia }) {
+  const copiaIniziale = useState(() => leggiCopiaControllo())[0];
   const [scelta, setScelta] = useState(""); // "" | "p:<id piano di volo>" | "i:<id impianto>"
-  const [attestatiUtente, setAttestatiUtente] = useState([]);
-  const [droniUtente, setDroniUtente] = useState([]);
-  const [permessiUtente, setPermessiUtente] = useState([]);
-  const [pianiUtente, setPianiUtente] = useState([]);
+  const [attestatiUtente, setAttestatiUtente] = useState(() => copiaIniziale?.attestati || []);
+  const [droniUtente, setDroniUtente] = useState(() => copiaIniziale?.droni || []);
+  const [permessiUtente, setPermessiUtente] = useState(() => copiaIniziale?.permessi || []);
+  const [pianiUtente, setPianiUtente] = useState(() => copiaIniziale?.piani || []);
+  // quando i dati arrivano dalla copia sul telefono (niente rete): data dell'ultimo salvataggio
+  const [daCopia, setDaCopia] = useState(soloCopia ? copiaIniziale?.salvato || "" : null);
   const [droneSelId, setDroneSelId] = useState("");
   const [dflightShot, setDflightShot] = useState(null);
   const [generandoPdfControllo, setGenerandoPdfControllo] = useState(false);
@@ -7502,16 +7655,36 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
 
   useEffect(() => {
     (async () => {
-      const [{ data: att }, { data: drn }, { data: perm }, { data: piani }] = await Promise.all([
-        supabase.from("attestati").select("*"),
-        supabase.from("droni").select("*"),
-        supabase.from("permessi").select("*"),
-        supabase.from("piani_volo").select("*"),
-      ]);
-      setAttestatiUtente(att || []);
-      setDroniUtente(drn || []);
-      setPermessiUtente(perm || []);
-      setPianiUtente(piani || []);
+      let att, drn, perm, piani;
+      if (!soloCopia) {
+        try {
+          // senza campo le richieste possono restare appese: dopo qualche secondo passo alla copia
+          const attesa = new Promise((_, no) => setTimeout(() => no(new Error("rete lenta o assente")), navigator.onLine === false ? 0 : 5000));
+          const r = await Promise.race([Promise.all([
+            supabase.from("attestati").select("*"),
+            supabase.from("droni").select("*"),
+            supabase.from("permessi").select("*"),
+            supabase.from("piani_volo").select("*"),
+          ]), attesa]);
+          if (r.some((x) => x.error)) throw r.find((x) => x.error).error;
+          [att, drn, perm, piani] = r.map((x) => x.data || []);
+        } catch (e) {
+          att = undefined;
+        }
+      }
+      if (att) {
+        setDaCopia(null);
+        salvaCopiaControllo({ attestati: att, droni: drn, permessi: perm, piani: pianiPerCopia(piani), ...(azienda?.nome ? { azienda: { nome: azienda.nome } } : {}) });
+      } else {
+        // senza rete: uso la copia salvata sul telefono
+        const c = leggiCopiaControllo() || {};
+        att = c.attestati || []; drn = c.droni || []; perm = c.permessi || []; piani = c.piani || [];
+        setDaCopia(c.salvato || "");
+      }
+      setAttestatiUtente(att);
+      setDroniUtente(drn);
+      setPermessiUtente(perm);
+      setPianiUtente(piani);
       // se c'è un piano di volo per oggi lo propongo già scelto, con il suo drone
       const oggi = dataLocale();
       const diOggi = (pianoIniziale && (piani || []).find((x) => x.id === pianoIniziale)) || (piani || []).find((x) => x.data_prevista === oggi);
@@ -7596,6 +7769,12 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0", maxWidth: 560 }}>
         Se ti fermano per un controllo, qui trovi tutto da mostrare: attestati, assicurazione, drone e permessi. Funziona anche se non hai preparato un piano di volo.
       </p>
+      {daCopia !== null && (
+        <div style={{ background: "#13233d", border: "1px solid #2f5aa8", borderRadius: 8, padding: "10px 12px", marginBottom: 16, maxWidth: 560, fontSize: 12.5, color: "#e7eaee" }}>
+          📴 <strong>Senza rete</strong>: ti mostro la copia salvata sul telefono{daCopia ? ` il ${formatData(daCopia.slice(0, 10))} alle ${new Date(daCopia).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : ""}. Date e numeri ci sono tutti; i file allegati (PDF, foto) si aprono solo con il campo.
+          {onEsciCopia && <div style={{ marginTop: 8 }}><button type="button" onClick={onEsciCopia} style={{ background: "none", border: "1px solid #2f5aa8", color: "#9fb4d6", borderRadius: 6, padding: "5px 10px", fontSize: 12 }}>← Torna all'accesso</button></div>}
+        </div>
+      )}
 
       <div style={{ marginBottom: 16, maxWidth: 320 }}>
         <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Dove stai volando (opzionale)</label>
@@ -7751,7 +7930,8 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
             Chiudi ✕
           </button>
           <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px 0" }}>Documenti pilota</h1>
-          <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{azienda.nome}{impiantoSel ? ` — ${impiantoSel.nome}` : ""}{quandoPiano ? ` — ${quandoPiano}` : ""}</p>
+          {daCopia !== null && <p style={{ fontSize: 11.5, color: "#8a5a00", background: "#fff4d6", borderRadius: 4, padding: "4px 8px", margin: "0 0 6px 0", display: "inline-block" }}>Copia salvata sul telefono{daCopia ? ` il ${formatData(daCopia.slice(0, 10))}` : ""} · senza rete i file allegati non si aprono</p>}
+          <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{(daCopia !== null && copiaIniziale?.azienda?.nome) || azienda.nome}{impiantoSel ? ` — ${impiantoSel.nome}` : ""}{quandoPiano ? ` — ${quandoPiano}` : ""}</p>
 
           <h2 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0", borderTop: "2px solid #eee", paddingTop: 16 }}>Attestati</h2>
           {attestatiUtente.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : attestatiUtente.map((a) => {
@@ -11512,7 +11692,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
 
         <div style={{ borderTop: "1px solid #262b33", paddingTop: 18 }}>
           <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Account e privacy</h3>
-          <button onClick={() => supabase.auth.signOut()} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>
+          <button onClick={esciDallAccount} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>
             <LogOut size={14} /> Esci dall'account
           </button>
           <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 10px 0" }}>
