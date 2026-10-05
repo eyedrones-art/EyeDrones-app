@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
@@ -1648,7 +1648,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "pagina-pilota"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "pagina-pilota"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -1911,7 +1911,7 @@ function AppShell({ session }) {
         }
       `}</style>
 
-      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} />
+      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AvvisoInstallaApp />
@@ -1944,6 +1944,7 @@ function AppShell({ session }) {
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={pianoReale} />}
         {page === "suggerimenti" && <Suggerimenti session={session} paginaPrecedente={paginaPrecedente} />}
+        {page === "guide" && <GuideVolo droni={droni} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
         {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
@@ -2214,7 +2215,7 @@ function Login({ modoIniziale = "login", onTorna }) {
 
 // --- Sidebar -----------------------------------------------------------
 
-function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, batterieAvvisi, richiesteNuove }) {
+function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, batterieAvvisi, richiesteNuove, onControllo }) {
   const items = [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
     ...(usaIspezioni ? [
@@ -2229,6 +2230,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
+    { key: "guide", label: "Guide e consigli", icon: Lightbulb },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ShieldCheck },
     { key: "attestati", label: "Attestati", icon: Award },
@@ -2325,7 +2327,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
         </button>
       </div>
     </div>
-    <MenuTelefono items={items} page={page} setPage={setPage} userEmail={userEmail} piano={piano} usaIspezioni={usaIspezioni} avvisi={avvisi} />
+    <MenuTelefono items={items} page={page} setPage={setPage} userEmail={userEmail} piano={piano} usaIspezioni={usaIspezioni} avvisi={avvisi} onControllo={onControllo} />
     </>
   );
 }
@@ -2395,7 +2397,7 @@ function AvvisoInstallaApp() {
 }
 
 // menu per il telefono: barra fissa in basso con le 5 voci principali, il resto nel pannello "Altro"
-function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, avvisi }) {
+function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, avvisi, onControllo }) {
   const [altroAperto, setAltroAperto] = useState(false);
   const principali = [
     { key: "dashboard", label: "Home", icon: LayoutDashboard },
@@ -2428,7 +2430,10 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
         <img src={LOGO_EYEDRONES} alt="" style={{ width: 28, height: 28 }} />
         <span style={{ fontWeight: 700, fontSize: 15 }}>Eyedrones</span>
         {titoloPagina && titoloPagina !== "Panoramica" && <span style={{ color: "#6b7480", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {titoloPagina}</span>}
-        <span style={{ marginLeft: "auto", fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: piano === "pro" ? "#1d3a2a" : piano === "pilota" ? "#16263d" : "#2a2416", color: COLORE_PIANO[piano] || "#f5b942" }}>{(NOME_PIANO[piano] || "Free").toUpperCase()}</span>
+        {onControllo && (
+          <button type="button" onClick={() => { setAltroAperto(false); onControllo(); window.scrollTo(0, 0); }} aria-label="Controllo: mostra i documenti" title="Controllo: mostra i documenti" style={{ marginLeft: "auto", flexShrink: 0, display: "flex", alignItems: "center", gap: 4, background: "#13233d", border: "1px solid #2f5aa8", color: "#e7eaee", borderRadius: 6, padding: "3px 8px", fontSize: 12, fontWeight: 700 }}>👮 Controllo</button>
+        )}
+        <span style={{ marginLeft: onControllo ? 0 : "auto", flexShrink: 0, fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: piano === "pro" ? "#1d3a2a" : piano === "pilota" ? "#16263d" : "#2a2416", color: COLORE_PIANO[piano] || "#f5b942" }}>{(NOME_PIANO[piano] || "Free").toUpperCase()}</span>
       </header>
 
       <nav className="mt-tabbar" aria-label="Menu principale">
@@ -2699,6 +2704,24 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
             {mancanze.map((m, i) => <div key={i} style={{ fontSize: 12, color: "#e7d3bf" }}>• {m}</div>)}
           </div>
         )}
+
+        {(() => {
+          const daFare = (p.checklist_stato?.manovre || []).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean);
+          if (daFare.length === 0) return null;
+          return (
+            <details style={{ marginTop: 10, background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 6, padding: "8px 10px" }}>
+              <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#c4b5fd" }}>🎬 {p.checklist_stato?.lavoro ? `${p.checklist_stato.lavoro}: ` : "Da girare: "}{daFare.map((m) => m.nome.replace(/ \(.*\)$/, "")).join(" → ")}</summary>
+              {daFare.map((m) => (
+                <div key={m.id} style={{ fontSize: 12, lineHeight: 1.45, color: "#d6dde6", marginTop: 8 }}>
+                  <strong style={{ color: "#e7eaee" }}>{m.nome}</strong>: {m.come}
+                  <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
+                </div>
+              ))}
+            </details>
+          );
+        })()}
+
+        <ConsigliVolo tipo={p.tipo_ispezione} drone={drone} />
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
           <button onClick={() => onApriPiano(p.id)} style={btn(true)}>Apri il piano</button>
@@ -5590,12 +5613,12 @@ function calcolaND({ fps, apertura, iso, ev }) {
 
 const frazioneTempo = (t) => (t >= 1 ? `${t.toFixed(1)} s` : `1/${Math.round(1 / t)}`);
 
-function CalcolatoreND() {
-  const [aperto, setAperto] = useState(false);
-  const [fps, setFps] = useState(30);
+function CalcolatoreND({ evIniziale = 15, apertoIniziale = false }) {
+  const [aperto, setAperto] = useState(apertoIniziale);
+  const [fps, setFps] = useState(25);
   const [apertura, setApertura] = useState(1.7);
   const [iso, setIso] = useState(100);
-  const [ev, setEv] = useState(15);
+  const [ev, setEv] = useState(evIniziale);
   const r = calcolaND({ fps, apertura, iso, ev });
   const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
   return (
@@ -6308,6 +6331,379 @@ function CalcolatorePulizia() {
 }
 
 // riquadro in Pianificazione: lo strumento giusto per il tipo di lavoro scelto
+// --- Consigli pratici per tipo di volo e per drone (per chi comincia) ----------------------------------
+// dritte generali e prudenti: non sostituiscono un corso né il manuale del drone
+const CONSIGLI_VOLO = {
+  video: {
+    titolo: "Video",
+    voci: [
+      "Registra in 4K a 24, 25 o 30 fotogrammi al secondo. Se vuoi rallentare in montaggio usa 50 o 60.",
+      "Regola dei 180°: tempo di scatto circa il doppio dei fotogrammi (1/50 a 25 fps). Col sole servono i filtri ND: il calcolatore è nel riquadro «📷 Come impostare la camera».",
+      "Un solo movimento per ripresa, lento e continuo: avanti, salita, laterale oppure orbita. Registra 3–5 secondi prima e dopo il movimento.",
+      "Blocca esposizione e bilanciamento del bianco (non in automatico), così la luce non cambia a metà ripresa.",
+      "La luce più bella è nell'ora d'oro, dopo l'alba e prima del tramonto: ombre lunghe e colori caldi.",
+      "Il profilo colore «piatto» (D-Log o simili) usalo solo se poi correggi i colori. Altrimenti resta sul profilo normale.",
+    ],
+  },
+  foto: {
+    titolo: "Foto",
+    voci: [
+      "Scatta in RAW (DNG) insieme al JPG: dal RAW recuperi cielo e ombre.",
+      "ISO al minimo (100) e scatta col drone fermo in volo stazionario.",
+      "Con forte contrasto (sole e ombre) usa lo scatto a forcella (AEB) e unisci le foto in HDR.",
+      "Camera dritta in giù (90°) per forme e geometrie; inclinata a 30–45° per dare profondità.",
+      "Prova più altezze: bassa per i dettagli, più alta per il contesto, sempre entro il limite della zona.",
+      "Al sole lo schermo inganna: guarda l'istogramma per capire se la foto è troppo chiara o scura.",
+    ],
+  },
+  fpv: {
+    titolo: "FPV",
+    voci: [
+      "Col visore serve un osservatore accanto a te che tenga sempre il drone in vista.",
+      "In un posto nuovo fai prima un giro lento di ricognizione: cavi, rami e ostacoli si vedono male dal visore.",
+      "Pensa la traiettoria prima di decollare. Passaggi vicino agli oggetti solo con esperienza, mai sopra le persone.",
+      "Per un movimento fluido usa i filtri ND con il tempo di scatto vicino alla regola dei 180°, poi stabilizza in montaggio.",
+      "Le batterie calano in fretta, soprattutto col freddo: atterra con margine.",
+      "Le modalità manuali (Acro) si imparano prima al simulatore, non sul campo.",
+    ],
+  },
+  fotovoltaico: {
+    titolo: "Termografia fotovoltaico",
+    voci: [
+      "Serve sole pieno e stabile, con irraggiamento di almeno 600 W/m²: con le nuvole che passano i dati non sono confrontabili.",
+      "Le ore migliori sono quelle centrali, più o meno dalle 10 alle 15. L'impianto deve essere acceso e in produzione.",
+      "Non riprendere a 90° esatti sui pannelli: inclina un po' la camera per non vedere il riflesso del cielo e del drone.",
+      "Con vento forte i pannelli si raffreddano e le anomalie si vedono meno: meglio con vento debole.",
+      "Vola abbastanza basso da avere almeno 5×5 pixel termici per ogni cella.",
+      "Per ogni anomalia scatta anche la foto normale, così il cliente capisce dov'è.",
+    ],
+  },
+  edifici: {
+    titolo: "Termografia edifici",
+    voci: [
+      "Serve una bella differenza tra dentro e fuori, almeno 10–15 °C: meglio in inverno, presto al mattino o la sera.",
+      "La facciata non deve aver preso sole nelle ore prima: il calore del sole nasconde i difetti.",
+      "No pioggia né muri bagnati, e vento debole.",
+      "Imposta l'emissività adatta al materiale (per intonaco e mattone circa 0,9) e la temperatura riflessa.",
+      "Riprendi il più possibile di fronte alla facciata. Vetri e metalli lucidi riflettono: lì la temperatura non è affidabile.",
+    ],
+  },
+  danni: {
+    titolo: "Danni / perizia",
+    voci: [
+      "Prima una panoramica dell'edificio da tutti e quattro i lati, poi i dettagli: chi legge deve capire dove si trova ogni danno.",
+      "Tieni il GPS attivo, così ogni foto ha data e coordinate. Non ritoccare le foto della perizia.",
+      "Nei dettagli inquadra anche un riferimento di misura, come un coppo, una grondaia o una finestra.",
+      "Per i tetti va bene la camera inclinata a circa 45°; dall'alto (90°) per la vista d'insieme.",
+      "Annota subito cosa vedi in ogni foto: a casa non te lo ricordi più.",
+    ],
+  },
+  elettrico: {
+    titolo: "Impianti elettrici",
+    voci: [
+      "Linee e cabine creano campi magnetici che disturbano bussola e GPS: tieni distanza e non volare sopra i conduttori.",
+      "Calibra la bussola lontano da strutture metalliche, se il drone lo chiede.",
+      "Usa lo zoom invece di avvicinarti.",
+      "La termografia dei componenti ha senso con l'impianto sotto carico, cioè con corrente che passa.",
+      "Accordati prima con il gestore dell'impianto per accessi e autorizzazioni.",
+    ],
+  },
+  rilievo: {
+    titolo: "Rilievo / fotogrammetria",
+    voci: [
+      "Sovrapposizione delle foto circa 75–80% in avanti e 65–70% di lato. Il calcolatore qui sotto ti aiuta con altezza e GSD.",
+      "Tieni l'altezza costante sul terreno. In pendenza usa il volo che segue il terreno, se il drone lo ha.",
+      "Luce uniforme: cielo coperto omogeneo o sole alto. Le ombre che si spostano durante il volo rovinano il modello.",
+      "Tempo di scatto veloce (1/1000 o meno) per evitare foto mosse; otturatore meccanico se c'è.",
+      "Per misure precise servono punti di controllo a terra (GCP) o un drone RTK.",
+    ],
+  },
+  agricoltura: {
+    titolo: "Agricoltura",
+    voci: [
+      "Con la camera multispettrale fotografa il pannello di calibrazione prima e dopo il volo.",
+      "Vola con luce uniforme, verso mezzogiorno, e sempre alla stessa ora se confronti voli diversi.",
+      "Per i trattamenti servono abilitazioni e autorizzazioni specifiche: verifica le regole in vigore prima di qualsiasi irrorazione.",
+      "Vento debole e niente pioggia prevista: il prodotto deve restare dove serve.",
+    ],
+  },
+  pulizia: {
+    titolo: "Pulizia con drone",
+    voci: [
+      "Delimita l'area a terra e tienila sgombra di persone per tutto il lavoro.",
+      "Calcola il peso al decollo con tubo pieno o serbatoio: cambia molto la stabilità del drone.",
+      "Vento debole. Il getto deve stare lontano da finestre aperte, auto e persone.",
+      "Prova prima su un pezzo piccolo per vedere pressione e distanza giuste.",
+    ],
+  },
+};
+CONSIGLI_VOLO.altro = {
+  titolo: "Volo generico",
+  voci: [
+    "Prima di decollare: eliche integre, batterie cariche, punto di ritorno (home) registrato.",
+    "Imposta l'altezza di ritorno automatico sopra gli ostacoli più alti della zona.",
+    "Parti controvento: così al ritorno, con la batteria più scarica, il vento ti aiuta.",
+    "Tieni circa il 25–30% di batteria per tornare, di più se c'è vento.",
+  ],
+};
+
+// dritte in più in base al drone scelto
+function consigliDrone(drone) {
+  if (!drone) return [];
+  const classe = (drone.marcatura_classe || "").toUpperCase();
+  const nome = `${drone.nome || ""} ${drone.modello || ""}`.toLowerCase();
+  const voci = [];
+  if (classe === "C0" || /mini/.test(nome)) {
+    voci.push("Drone leggero: col vento oltre circa 20–25 km/h fatica, soprattutto in quota. Controlla sempre le raffiche nel meteo del piano di volo.");
+    voci.push("Se senti l'avviso di vento forte, scendi di quota e torna subito: in alto il vento è più forte che a terra.");
+  }
+  if (classe === "C1" || classe === "C2") voci.push("Controlla che il Remote ID sia attivo e che nell'app del drone ci sia il tuo codice operatore D-Flight.");
+  if (classe === "C2") voci.push("Vicino a persone non coinvolte attiva la modalità a bassa velocità: in A2 così puoi stare fino a 5 m invece di 30.");
+  if (classe === "C3" || classe === "C4") voci.push("Drone di categoria A3: stai lontano da persone e da zone abitate (almeno 150 m da zone residenziali, commerciali e industriali).");
+  if (/avata|fpv/.test(nome)) voci.push("Con un drone FPV resta in modalità Normale finché non sei sicuro. Il pulsante di frenata/stop va provato prima, a bassa quota.");
+  if (/mini\s?[345]/.test(nome)) voci.push("La camera ruota in verticale: per Reels, TikTok e storie gira direttamente in verticale invece di tagliare dopo.");
+  if (/air\s?3/.test(nome)) voci.push("Hai due camere: usa quella zoom (medio tele) per staccare il soggetto dallo sfondo e far sembrare le montagne più vicine.");
+  if (/mavic\s?3/.test(nome) && !/3t|thermal|enterprise/.test(nome)) voci.push("Le camere tele sono ottime per orbite larghe e riprese da lontano, senza avvicinarti al soggetto.");
+  if (/neo|flip/.test(nome)) voci.push("Le riprese automatiche (seguimi, allontanamento, orbita) sono comode, ma controlla prima che l'area intorno sia libera: il drone non vede tutto.");
+  if (/(\d+t\b|thermal|matrice|enterprise)/.test(nome)) voci.push("Per le termiche imposta la stessa scala di temperatura (range fisso) su tutte le foto, così le anomalie si confrontano tra loro.");
+  if (/air|mavic|pro/.test(nome) && !/mini/.test(nome) && classe !== "C0") voci.push("Usa gli ostacoli attivi (APAS o simili) solo come aiuto: di lato e all'indietro molti droni non vedono tutto.");
+  return voci;
+}
+
+function ConsigliVolo({ tipo, drone, apertoIniziale = false, inGuida = false }) {
+  const base = CONSIGLI_VOLO[tipo] || CONSIGLI_VOLO.altro;
+  const extra = consigliDrone(drone);
+  const corsi = CORSI_CONSIGLIATI.filter((c) => !c.tipi || c.tipi.includes(tipo)).slice(0, 2);
+  return (
+    <details open={apertoIniziale} style={{ background: "#171d16", border: "1px solid #2c4a2a", borderRadius: 8, padding: "10px 14px", margin: "14px 0" }}>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#a6e3a1" }}>{inGuida ? `💡 ${base.titolo}` : `💡 Consigli per questo volo · ${base.titolo}`}</summary>
+      <ul style={{ margin: "10px 0 0 0", paddingLeft: 18, fontSize: 12.5, lineHeight: 1.55, color: "#d6dde6" }}>
+        {base.voci.map((v) => <li key={v} style={{ marginBottom: 4 }}>{v}</li>)}
+      </ul>
+      {extra.length > 0 && (
+        <>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#a6e3a1", margin: "10px 0 4px 0" }}>Con il tuo {drone.nome}</p>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.55, color: "#d6dde6" }}>
+            {extra.map((v) => <li key={v} style={{ marginBottom: 4 }}>{v}</li>)}
+          </ul>
+        </>
+      )}
+      {corsi.length > 0 && (
+        <p style={{ fontSize: 12, margin: "10px 0 0 0" }}>🎓 Vuoi imparare meglio? {corsi.map((c, i) => <span key={c.nome}>{i > 0 && " · "}<a href={c.url} target="_blank" rel="noreferrer" style={{ color: "#4ade80" }}>{c.nome} ↗</a></span>)}</p>
+      )}
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "10px 0 0 0" }}>Consigli generali per chi comincia: non sostituiscono un corso, il manuale del drone né le regole in vigore.</p>
+    </details>
+  );
+}
+
+// manovre classiche per video belli: come si fanno con gli stick e quando usarle
+const MANOVRE_VIDEO = [
+  { id: "rivelazione", nome: "Rivelazione", come: "Parti con la camera verso il basso o dietro un ostacolo (albero, muro) e avanza alzando piano la camera: il paesaggio o l'edificio si «scopre».", stick: "Destro un filo in avanti e, insieme, rotella della camera (in alto a sinistra) piano verso l'alto. Variante: parti basso dietro l'ostacolo e sali con il sinistro in su.", quando: "Per aprire il video." },
+  { id: "allontanamento", nome: "Allontanamento (dronie)", come: "Camera sul soggetto, vola indietro e sali insieme, lentamente. Prima guarda bene dietro: molti droni non vedono gli ostacoli all'indietro.", stick: "Destro indietro e sinistro in su, tutti e due piano e insieme. Se il soggetto scende nell'inquadratura, abbassa un po' la camera con la rotella.", quando: "Per chiudere il video." },
+  { id: "orbita", nome: "Orbita", come: "Gira intorno al soggetto tenendolo al centro. Più è larga e lenta, più è cinematografica. Molti droni hanno l'orbita automatica (punto di interesse).", stick: "Destro di lato (per esempio a destra) e sinistro dalla parte opposta (a sinistra), insieme. Dosa il sinistro finché il soggetto resta al centro. Per girare dall'altra parte inverti tutti e due.", quando: "Edifici, monumenti, persone." },
+  { id: "dallalto", nome: "Dall'alto (top-down)", come: "Camera dritta in giù a 90°, poi sali piano o ruota su te stesso.", stick: "Rotella della camera tutta giù. Poi sinistro in su per salire, oppure sinistro a destra o a sinistra per ruotare su te stesso.", quando: "Strade, campi, tetti, piscine, spiagge." },
+  { id: "parallasse", nome: "Laterale con primo piano (parallasse)", come: "Vola di lato con qualcosa vicino (alberi, colonne) e lo sfondo lontano: lo sfondo scorre più lento e dà profondità.", stick: "Solo il destro, di lato e piano. Il sinistro resta fermo così la camera non ruota.", quando: "Per dare l'effetto «film»." },
+  { id: "salita", nome: "Salita verticale", come: "Sali dritto con la camera ferma in avanti.", stick: "Solo il sinistro in su, piano e costante. Il destro non si tocca.", quando: "Per mostrare la vista da un edificio, una torre o una collina." },
+  { id: "basso", nome: "Avanzamento basso", come: "Vola in avanti a pochi metri da terra o dall'acqua: dà velocità. Solo su zone libere da ostacoli e persone. Sull'acqua i sensori possono sbagliare la quota.", stick: "Destro in avanti. Il sinistro resta al centro, così la quota non cambia.", quando: "Campi, laghi, strade vuote." },
+  { id: "hyperlapse", nome: "Hyperlapse", come: "Drone fermo o lentissimo che scatta una foto ogni pochi secondi: nuvole, traffico e tramonti diventano un video veloce. Parti con la batteria piena.", stick: "Nessuno: scegli la modalità Hyperlapse nel menu foto del drone e lascia fare a lui. Tieni le mani pronte sugli stick.", quando: "Tramonti, città, cieli con nuvole." },
+];
+const MANOVRE_FPV = [
+  { id: "fpv-inseguimento", nome: "Inseguimento", come: "Segui il soggetto (bici, auto, barca) da dietro a distanza costante, alla sua stessa velocità.", stick: "Gas costante per tenere la quota, destro avanti e piccole correzioni di lato. Lo stick sinistro di lato serve per le curve morbide.", quando: "Sport, auto, barche. Solo con soggetti che lo sanno e in aree senza altre persone." },
+  { id: "fpv-passaggio", nome: "Passaggio dentro", come: "Passa attraverso un'apertura (arco, portone, varco tra alberi). Prima provalo lento e largo, poi più veloce.", stick: "Allinea il drone da lontano, poi solo destro avanti con il gas costante. Niente correzioni brusche all'ultimo momento.", quando: "Per l'effetto «wow». Solo con esperienza e senza persone dietro l'apertura." },
+  { id: "fpv-tuffo", nome: "Tuffo", come: "Parti alto sopra un edificio, una scogliera o una collina e scendi seguendo la parete.", stick: "Gas giù piano e destro un filo avanti per seguire la parete. Recupera prima del suolo, con margine.", quando: "Scogliere, cascate, edifici alti." },
+  { id: "fpv-orbita-bassa", nome: "Orbita bassa", come: "Gira intorno al soggetto a bassa quota, con la camera sempre su di lui.", stick: "Destro di lato e sinistro dalla parte opposta, come l'orbita normale ma più vicino e più fluido.", quando: "Persone, auto ferme, monumenti." },
+  { id: "fpv-rivelazione", nome: "Rivelazione dal basso", come: "Parti a pochi centimetri dal suolo dietro un ostacolo e sali scoprendo il paesaggio.", stick: "Destro avanti e gas su insieme, in modo progressivo.", quando: "Per aprire il video." },
+];
+const INQUADRATURE_FOTO = [
+  { id: "foto-90", nome: "Dall'alto a 90°", come: "Camera dritta in giù: cerca forme, linee e simmetrie.", stick: "Rotella della camera tutta giù. Con il sinistro di lato ruoti il drone per allineare l'inquadratura.", quando: "Strade, campi, tetti, piscine, spiagge." },
+  { id: "foto-45", nome: "Prospettiva a 45°", come: "Camera inclinata di circa 45° verso il soggetto: dà profondità e mostra anche le facciate.", stick: "Rotella a metà corsa, poi sali o scendi con il sinistro finché l'orizzonte è dove vuoi.", quando: "Case, castelli, paesaggi con soggetto." },
+  { id: "foto-pano", nome: "Panoramica", come: "Usa la modalità panorama del drone: scatta più foto e le unisce.", stick: "Nessuno: fermo in volo stazionario, scegli Panorama nel menu foto e aspetta che finisca.", quando: "Paesaggi larghi, vallate, laghi." },
+  { id: "foto-hdr", nome: "Scatto a forcella (HDR)", come: "Più foto a esposizioni diverse da unire dopo: cielo e ombre vengono bene insieme.", stick: "Nessuno: fermo in volo stazionario, scegli AEB (3 o 5 scatti) nel menu foto.", quando: "Sole forte con ombre, tramonti con controluce." },
+  { id: "foto-altezze", nome: "Stessa scena, tre altezze", come: "Scatta lo stesso soggetto da bassa, media e alta quota: in montaggio scegli la migliore.", stick: "Solo sinistro su, fermandoti a ogni altezza per scattare.", quando: "Quando non sai quale inquadratura piacerà di più al cliente." },
+];
+const TUTTE_MANOVRE = () => [...MANOVRE_VIDEO, ...MANOVRE_FPV, ...INQUADRATURE_FOTO];
+const SCALETTE_PRONTE = {
+  video: [
+    { id: "immobiliare", titolo: "Immobiliare", manovre: ["rivelazione", "orbita", "dallalto", "allontanamento"] },
+    { id: "matrimonio", titolo: "Matrimonio", manovre: ["rivelazione", "parallasse", "dallalto", "allontanamento"] },
+    { id: "evento", titolo: "Evento", manovre: ["salita", "orbita", "hyperlapse", "allontanamento"] },
+    { id: "aziendale", titolo: "Video aziendale", manovre: ["rivelazione", "parallasse", "dallalto", "basso"] },
+    { id: "paesaggio", titolo: "Paesaggio / turismo", manovre: ["rivelazione", "basso", "orbita", "hyperlapse", "allontanamento"] },
+  ],
+  fpv: [
+    { id: "fpv-location", titolo: "Location / struttura", manovre: ["fpv-rivelazione", "fpv-passaggio", "fpv-orbita-bassa"] },
+    { id: "fpv-sport", titolo: "Sport / auto", manovre: ["fpv-inseguimento", "fpv-orbita-bassa", "fpv-tuffo"] },
+  ],
+  foto: [
+    { id: "foto-immobiliare", titolo: "Immobiliare", manovre: ["foto-45", "foto-90", "foto-altezze", "foto-hdr"] },
+    { id: "foto-paesaggio", titolo: "Paesaggio", manovre: ["foto-pano", "foto-45", "foto-hdr"] },
+  ],
+};
+const DRITTE_MANOVRE = [
+  "Usa la modalità lenta (Cine o Tripod) e abbassa la velocità del gimbal nelle impostazioni: i movimenti diventano morbidi.",
+  "Al massimo due movimenti insieme (per esempio avanti + camera che sale). Di più sembra un errore.",
+  "Ogni ripresa deve avere 10–15 secondi buoni: parti e fermati con calma, il taglio lo fai in montaggio.",
+  "Pensa al montaggio prima di volare: apertura (rivelazione), dettagli e soggetto, chiusura (allontanamento).",
+];
+const SCALETTE_LAVORO = [
+  { titolo: "Immobiliare", voci: ["Rivelazione della facciata", "Orbita bassa intorno alla casa", "Dall'alto sul lotto e sul giardino", "Allontanamento per mostrare la zona e i servizi vicini"] },
+  { titolo: "Matrimonio", voci: ["Rivelazione della location", "Laterale lungo il viale o il giardino", "Dall'alto sul luogo della festa, senza passare sopra gli invitati", "Allontanamento sugli sposi alla fine, a distanza di sicurezza"] },
+  { titolo: "Evento", voci: ["Salita verticale per mostrare quanta gente c'è, senza sorvolarla", "Orbita larga sul palco o sul luogo", "Hyperlapse dell'allestimento", "Mai sopra assembramenti di persone"] },
+  { titolo: "Video aziendale", voci: ["Rivelazione della sede con il logo", "Laterale lungo capannoni o impianti", "Dall'alto su piazzali e parcheggi", "Avanzamento verso l'ingresso"] },
+];
+
+function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "video", lavoro, onCambiaLavoro }) {
+  const conScelta = Array.isArray(scelte) && onCambiaScelte;
+  const cambia = (id) => onCambiaScelte(scelte.includes(id) ? scelte.filter((x) => x !== id) : [...scelte, id]);
+  const elenco = tipo === "fpv" ? MANOVRE_FPV : tipo === "foto" ? INQUADRATURE_FOTO : MANOVRE_VIDEO;
+  const scalette = SCALETTE_PRONTE[tipo] || SCALETTE_PRONTE.video;
+  const [scalettaSel, setScalettaSel] = useState(() => (scalette.find((x) => x.titolo === lavoro) || scalette[0]).id);
+  const titolo = tipo === "foto" ? "📸 Inquadrature per foto belle" : tipo === "fpv" ? "🎬 Manovre FPV" : "🎬 Manovre per video belli";
+  const usaScaletta = () => {
+    const sc = scalette.find((x) => x.id === scalettaSel);
+    if (!sc) return;
+    onCambiaScelte(sc.manovre);
+    if (onCambiaLavoro) onCambiaLavoro(sc.titolo);
+  };
+  return (
+    <details open={apertoIniziale} style={{ background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 8, padding: "10px 14px", margin: "14px 0" }}>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#c4b5fd" }}>{titolo}{conScelta && scelte.length > 0 ? ` · ${lavoro ? lavoro + " · " : ""}${scelte.length} da fare` : ""}</summary>
+      <p style={{ fontSize: 11.5, color: "#a8a2bd", margin: "8px 0 0 0" }}>🕹️ Gli stick sono descritti nel «modo 2», quello standard dei radiocomandi DJI: sinistro = sali/scendi e ruota, destro = avanti/indietro e di lato.{conScelta ? " Spunta cosa vuoi fare: lo ritrovi in Home il giorno del volo." : ""}</p>
+      {conScelta && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 10, background: "#251e33", borderRadius: 6, padding: "8px 10px" }}>
+          <span style={{ fontSize: 12, color: "#e7eaee", fontWeight: 600 }}>Che lavoro fai?</span>
+          <select value={scalettaSel} onChange={(e) => setScalettaSel(e.target.value)} style={{ background: "#1b2028", color: "#e7eaee", border: "1px solid #3d2f5a", borderRadius: 5, padding: "5px 8px", fontSize: 12 }}>
+            {scalette.map((sc) => <option key={sc.id} value={sc.id}>{sc.titolo}</option>)}
+          </select>
+          <button type="button" onClick={usaScaletta} style={{ background: "#7c5cd6", color: "#fff", border: "none", borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700 }}>Usa questa scaletta</button>
+        </div>
+      )}
+      {conScelta && scelte.length > 0 && (
+        <p style={{ fontSize: 12, color: "#c4b5fd", margin: "8px 0 0 0" }}>Ordine: {scelte.map((id) => (TUTTE_MANOVRE().find((m) => m.id === id) || {}).nome).filter(Boolean).join(" → ")}</p>
+      )}
+      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+        {elenco.map((m) => (
+          <div key={m.id} style={{ fontSize: 12.5, lineHeight: 1.5, color: "#d6dde6" }}>
+            {conScelta ? (
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 700, color: "#e7eaee", cursor: "pointer" }}>
+                <input type="checkbox" checked={scelte.includes(m.id)} onChange={() => cambia(m.id)} /> {m.nome}
+              </label>
+            ) : <div style={{ fontWeight: 700, color: "#e7eaee" }}>{m.nome}</div>}
+            <div>{m.come}</div>
+            <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
+            <div style={{ color: "#a8a2bd", fontSize: 11.5 }}>👉 {m.quando}</div>
+          </div>
+        ))}
+      </div>
+      {tipo !== "foto" && (
+        <>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#c4b5fd", margin: "12px 0 4px 0" }}>Per farle venire bene</p>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.55, color: "#d6dde6" }}>
+            {DRITTE_MANOVRE.map((v) => <li key={v} style={{ marginBottom: 4 }}>{v}</li>)}
+          </ul>
+        </>
+      )}
+      {tipo === "video" && !conScelta && (
+        <>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#c4b5fd", margin: "12px 0 4px 0" }}>Scaletta per tipo di lavoro</p>
+          {SCALETTE_LAVORO.map((sc) => (
+            <div key={sc.titolo} style={{ fontSize: 12.5, color: "#d6dde6", marginBottom: 6 }}>
+              <strong style={{ color: "#e7eaee" }}>{sc.titolo}:</strong> {sc.voci.join(" → ")}
+            </div>
+          ))}
+        </>
+      )}
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "10px 0 0 0" }}>Prova le manovre nuove in un posto aperto e senza persone, a quota sicura, prima di farle durante un lavoro.</p>
+    </details>
+  );
+}
+
+// impostazioni della camera in base alla luce (indicative, con ISO 100 come base)
+const LUCI_CAMERA = [
+  { id: "sole", ev: 15, label: "☀️ Sole pieno", video: { iso: "100", tempo: "1/50 a 25 fps (1/60 a 30 fps)", nd: "ND forti: ND64 o più (con obiettivi molto luminosi anche ND128–256)", wb: "5500 K fisso" }, foto: { iso: "100", tempo: "automatico o 1/500–1/2000", extra: "Ombre dure: prova lo scatto a forcella (AEB) e compensazione −0,3/−0,7" } },
+  { id: "nuvole", ev: 13, label: "⛅ Nuvoloso luminoso", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND16–ND64", wb: "6000–6500 K fisso" }, foto: { iso: "100", tempo: "automatico", extra: "Luce morbida: ottima per case e persone, colori un po' freddi da scaldare dopo" } },
+  { id: "coperto", ev: 12, label: "☁️ Coperto / ombra", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND8–ND32", wb: "6500 K fisso" }, foto: { iso: "100–200", tempo: "automatico, non sotto 1/100", extra: "Aumenta un po' contrasto e saturazione in modifica" } },
+  { id: "oro", ev: 11, label: "✨ Ora d'oro", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND4–ND16 (la luce cala in fretta: ricontrolla ogni pochi minuti)", wb: "5500 K fisso, per tenere i colori caldi" }, foto: { iso: "100", tempo: "automatico", extra: "Controluce col sole: forcella (AEB) per non bruciare il cielo" } },
+  { id: "blu", label: "🌆 Dopo il tramonto / ora blu", video: { iso: "100–800 (non oltre, sui droni piccoli fa rumore)", tempo: "1/50 a 25 fps", nd: "Nessun filtro", wb: "4500–5500 K fisso" }, foto: { iso: "100", tempo: "lungo, fino a 1–2 s solo senza vento: fai più scatti", extra: "Usa la modalità notte o la forcella se il drone le ha" } },
+];
+
+function ImpostazioniCamera({ tipo = "video", lucePrevista }) {
+  const [luceSel, setLuceSel] = useState(lucePrevista || "sole");
+  const [modo, setModo] = useState(tipo === "foto" ? "foto" : "video");
+  const l = LUCI_CAMERA.find((x) => x.id === luceSel) || LUCI_CAMERA[0];
+  const riga = (k, v) => <div style={{ display: "flex", gap: 8, fontSize: 12.5, padding: "4px 0", borderBottom: "1px solid #24303d" }}><span style={{ width: 110, flexShrink: 0, color: "#8fb3d9" }}>{k}</span><span style={{ color: "#e7eaee" }}>{v}</span></div>;
+  const v = l[modo];
+  return (
+    <details style={{ background: "#141c26", border: "1px solid #2a4562", borderRadius: 8, padding: "10px 14px", margin: "14px 0" }}>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#8fc1ff" }}>📷 Come impostare la camera</summary>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+        {LUCI_CAMERA.map((x) => (
+          <button key={x.id} type="button" onClick={() => setLuceSel(x.id)} style={{ background: luceSel === x.id ? "#2a4562" : "#1b2028", color: "#e7eaee", border: `1px solid ${luceSel === x.id ? "#8fc1ff" : "#333a45"}`, borderRadius: 14, padding: "4px 10px", fontSize: 11.5 }}>{x.label}</button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+        {["video", "foto"].map((m) => (
+          <button key={m} type="button" onClick={() => setModo(m)} style={{ background: modo === m ? "#8fc1ff" : "transparent", color: modo === m ? "#141c26" : "#8fc1ff", border: "1px solid #8fc1ff", borderRadius: 5, padding: "3px 10px", fontSize: 11.5, fontWeight: 700 }}>{m === "video" ? "Video" : "Foto"}</button>
+        ))}
+      </div>
+      {lucePrevista && <p style={{ fontSize: 11, color: "#8b95a3", margin: "8px 0 0 0" }}>Ho scelto la luce in base all'ora del volo: cambiala se il cielo è diverso.</p>}
+      <div style={{ marginTop: 8 }}>
+        {riga("ISO", v.iso)}
+        {riga(modo === "video" ? "Tempo di scatto" : "Tempo", v.tempo)}
+        {modo === "video" && riga("Filtro ND", v.nd)}
+        {modo === "video" && riga("Bilanciamento", v.wb)}
+        {modo === "foto" && riga("Formato", "RAW (DNG) + JPG")}
+        {modo === "foto" && riga("Dritta", v.extra)}
+        {modo === "video" && riga("Profilo colore", "Normale; D-Log solo se poi correggi i colori")}
+      </div>
+      <p style={{ fontSize: 11.5, color: "#c3cad4", margin: "8px 0 0 0" }}>💡 Non te la senti di fare tutto a mano? Blocca ISO a 100 e lascia l'esposizione automatica con compensazione −0,3/−0,7 per non bruciare il cielo.{modo === "video" && l.ev ? " Il filtro ND esatto per il tuo drone te lo dà il calcolatore qui sotto." : ""}</p>
+      {modo === "video" && l.ev && <CalcolatoreND key={"nd-" + l.id} evIniziale={l.ev} />}
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Valori indicativi: cambiano con il drone e l'obiettivo. Guarda sempre l'istogramma.</p>
+    </details>
+  );
+}
+
+const GRUPPI_GUIDE = [
+  { titolo: "Riprese", tipi: ["video", "foto", "fpv"] },
+  { titolo: "Ispezioni", tipi: ["fotovoltaico", "edifici", "danni", "elettrico"] },
+  { titolo: "Lavori speciali", tipi: ["rilievo", "agricoltura", "pulizia"] },
+  { titolo: "Per ogni volo", tipi: ["altro"] },
+];
+
+function GuideVolo({ droni = [] }) {
+  const [droneId, setDroneId] = useState("");
+  const drone = droni.find((d) => d.id === droneId) || null;
+  return (
+    <div style={{ padding: "28px 32px", maxWidth: 760 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Guide e consigli</h1>
+      <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "4px 0 16px 0" }}>Dritte pratiche per fare riprese e ispezioni al meglio. Le trovi anche dentro la Pianificazione, in base al tipo di volo che scegli.</p>
+      {droni.length > 0 && (
+        <label style={{ display: "block", fontSize: 12, color: "#8b95a3", marginBottom: 14 }}>
+          Aggiungi i consigli per il tuo drone
+          <select value={droneId} onChange={(e) => setDroneId(e.target.value)} style={{ display: "block", marginTop: 4, background: "#1b2028", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "8px 10px", fontSize: 13 }}>
+            <option value="">— Nessuno —</option>
+            {droni.map((d) => <option key={d.id} value={d.id}>{d.nome}{d.marcatura_classe ? ` (${d.marcatura_classe})` : ""}</option>)}
+          </select>
+        </label>
+      )}
+      {GRUPPI_GUIDE.map((g) => (
+        <div key={g.titolo} style={{ marginBottom: 10 }}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: "#8b95a3", textTransform: "uppercase", letterSpacing: "0.05em", margin: "18px 0 0 0" }}>{g.titolo}</h2>
+          {g.tipi.map((t) => <ConsigliVolo key={t + droneId} tipo={t} drone={drone} inGuida />)}
+          {g.titolo === "Riprese" && (
+            <>
+              <ImpostazioniCamera />
+              <ManovreVideo tipo="video" />
+              <ManovreVideo tipo="fpv" />
+              <ManovreVideo tipo="foto" />
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StrumentiLavoro({ tipo }) {
   const [aperto, setAperto] = useState(false);
   const cfg = {
@@ -6359,6 +6755,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [zonaEsito, setZonaEsito] = useState(null); // ultimo controllo della zona, salvato con il piano
   const [puntoIndirizzo, setPuntoIndirizzo] = useState(null); // via e numero trovati su OpenStreetMap
   const [stsDati, setStsDati] = useState(null); // calcolatore STS-01 (salvato nel piano)
+  const [manovreScelte, setManovreScelte] = useState([]); // riprese da fare in questo volo (scaletta)
+  const [lavoroScelto, setLavoroScelto] = useState(""); // nome della scaletta pronta usata (es. Matrimonio)
   // scegliendo l'ora del volo, anche la direzione del sole si calcola per quell'ora
   const scegliOraPrevista = (ora) => { setOraPrevista(ora); if (ora) setOraSole(ora); };
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
@@ -6539,7 +6937,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
         ora_prevista: oraPrevista || null,
         drone_id: droneSelId || null,
         dflight_screenshot_url: dflightUrl,
-        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}) },
+        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}), ...(manovreScelte.length > 0 ? { manovre: manovreScelte, ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {}) },
       };
       // le coordinate si salvano solo per un luogo scelto a mano
       if (!impiantoSel) payload.luogo_coordinate = coordinateValide ? `${coordinateValide.lat}, ${coordinateValide.lon}` : null;
@@ -6576,6 +6974,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setOraPrevista(p.ora_prevista ? String(p.ora_prevista).slice(0, 5) : "");
     setZonaEsito(p.checklist_stato?.zona || null);
     setStsDati(p.checklist_stato?.sts || null);
+    setManovreScelte(Array.isArray(p.checklist_stato?.manovre) ? p.checklist_stato.manovre : []);
+    setLavoroScelto(p.checklist_stato?.lavoro || "");
     if (p.ora_prevista) setOraSole(String(p.ora_prevista).slice(0, 5));
     setDroneSelId(p.drone_id || "");
     setDflightShot(p.dflight_screenshot_url ? { dataUrl: p.dflight_screenshot_url, remota: true } : null);
@@ -6600,6 +7000,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setOraPrevista("");
     setZonaEsito(null);
     setStsDati(null);
+    setManovreScelte([]);
+    setLavoroScelto("");
     setDflightShot(null);
     setMeteo(null);
     setMeteoSpaziale(null);
@@ -6737,6 +7139,24 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             tipo={tipoIspezione}
           />
 
+          <ConsigliVolo key={"consigli-" + tipoIspezione} tipo={tipoIspezione} drone={droneSelezionato} />
+          {["video", "foto", "fpv"].includes(tipoIspezione) && (
+            <>
+              <ImpostazioniCamera key={"cam-" + tipoIspezione + (oraPrevista || "")} tipo={tipoIspezione} lucePrevista={(() => {
+                if (!luce || !oraPrevista) return undefined;
+                const fuso = meteo?.fusoOrario;
+                const [h, m] = oraPrevista.split(":").map(Number);
+                const min = h * 60 + m;
+                const tramonto = minutiDelGiorno(luce.tramonto, fuso), alba = minutiDelGiorno(luce.alba, fuso);
+                const oro = [luce.oraOroMattina, luce.oraOroSera].filter((f) => f && f[0] && f[1]).some(([a, b]) => min >= minutiDelGiorno(a, fuso) && min <= minutiDelGiorno(b, fuso));
+                if (tramonto != null && (min > tramonto || (alba != null && min < alba))) return "blu";
+                if (oro) return "oro";
+                return undefined;
+              })()} />
+              <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} scelte={manovreScelte} onCambiaScelte={setManovreScelte} lavoro={lavoroScelto} onCambiaLavoro={setLavoroScelto} />
+            </>
+          )}
+
           <StrumentiLavoro key={tipoIspezione} tipo={tipoIspezione} />
 
           <CalcolatoreSTS
@@ -6848,7 +7268,6 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               {luna && (
                 <div style={{ fontSize: 12.5, marginTop: 8, color: "#c3cad4" }}>{luna.emoji} Luna: <strong>{luna.nome}</strong>, illuminata al {luna.illuminata}%</div>
               )}
-              {["video", "fpv", "foto"].includes(tipoIspezione) && <CalcolatoreND />}
               {["video", "foto", "fpv"].includes(tipoIspezione) && (
                 <p style={{ fontSize: 11, color: "#6b7480", margin: "8px 0 0 0" }}>L'ora d'oro dà la luce più calda e morbida per le riprese. Prima dell'alba e dopo il tramonto controlla le regole per il volo notturno e le luci anticollisione del drone.</p>
               )}
