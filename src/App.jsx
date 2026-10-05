@@ -1650,7 +1650,10 @@ function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
   const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "pagina-pilota"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
-  const [page, setPageInterna] = useState(() => (PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard"));
+  // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
+  const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
+  const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard"));
+  useEffect(() => { if (vaiARichieste) window.history.replaceState(null, "", window.location.pathname); }, []);
   const [paginaPrecedente, setPaginaPrecedente] = useState(null); // da dove si apre «Suggerimenti», per capire dove c'è un problema
   const setPage = (p) => {
     if (p === "suggerimenti") setPaginaPrecedente((prec) => (page !== "suggerimenti" ? page : prec));
@@ -1939,7 +1942,7 @@ function AppShell({ session }) {
         {page === "abbonamento" && <Abbonamento piano={pianoReale} />}
         {page === "suggerimenti" && <Suggerimenti session={session} paginaPrecedente={paginaPrecedente} />}
         {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
-        {page === "pagina-pilota" && <LaMiaPagina azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} />}
+        {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} obiettivoFormativo={obiettivoFormativo} onSalvaObiettivo={salvaObiettivoFormativo} />}
@@ -7675,8 +7678,8 @@ function PaginaPilotaPubblica({ slug }) {
 }
 
 // «La mia pagina»: il pilota compone la sua pagina pubblica e legge le richieste arrivate
-function LaMiaPagina({ azienda, attestati, piano, onRichiesteCambiate, onCreaPreventivo }) {
-  const [scheda, setScheda] = useState("pagina"); // "pagina" | "richieste"
+function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onRichiesteCambiate, onCreaPreventivo }) {
+  const [scheda, setScheda] = useState(schedaIniziale); // "pagina" | "richieste"
   const [stato, setStato] = useState("carico"); // carico | pronto | manca-script
   const [salvata, setSalvata] = useState(null); // la riga com'è sul database (null = mai salvata)
   const [f, setF] = useState(null); // il modulo
@@ -7707,7 +7710,10 @@ function LaMiaPagina({ azienda, attestati, piano, onRichiesteCambiate, onCreaPre
     sito: r?.sito || "",
     instagram: r?.instagram || "",
     portfolio: Array.isArray(r?.portfolio) ? r.portfolio : [],
+    avviso_email: r?.avviso_email !== false,
   });
+  // la colonna avviso_email esiste solo dopo lo script avviso-richieste-email.sql
+  const avvisoDisponibile = !!salvata && "avviso_email" in salvata;
 
   const caricaRichieste = async () => {
     const { data, error } = await supabase.from("richieste_preventivo").select("*").order("created_at", { ascending: false });
@@ -7798,6 +7804,7 @@ function LaMiaPagina({ azienda, attestati, piano, onRichiesteCambiate, onCreaPre
       instagram: f.instagram.trim() || null,
       portfolio: f.portfolio.slice(0, limitePortfolio),
       aggiornata_il: new Date().toISOString(),
+      ...(avvisoDisponibile ? { avviso_email: f.avviso_email } : {}),
     };
     const { data, error } = await supabase.from("pagine_pilota").upsert(riga, { onConflict: "user_id" }).select().single();
     if (error) {
@@ -8028,6 +8035,13 @@ function LaMiaPagina({ azienda, attestati, piano, onRichiesteCambiate, onCreaPre
               <label><span style={etichetta}>Instagram</span><input value={f.instagram} onChange={cambia("instagram")} maxLength={100} placeholder="@nomeutente" style={inputStyle} /></label>
             </div>
           </div>
+
+          {avvisoDisponibile && (
+            <label style={{ ...sezione, flexDirection: "row", alignItems: "center", gap: 10, cursor: "pointer" }}>
+              <input type="checkbox" checked={f.avviso_email} onChange={cambia("avviso_email")} />
+              <span style={{ fontSize: 13.5 }}><strong>Avvisami via email</strong> quando arriva una richiesta <span style={{ color: "#8b95a3" }}>· all'indirizzo del tuo account</span></span>
+            </label>
+          )}
 
           {/* azioni */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "4px 0 12px 0" }}>
