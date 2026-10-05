@@ -2116,17 +2116,49 @@ function AppShell({ session }) {
 
 // --- Pagina di presentazione (prima del login) -----------------------------------------------
 
+// riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
+const VERSIONE_NOVITA = "2026-10";
+const NOVITA = [
+  { emoji: "📴", testo: "Documenti di controllo anche senza campo", pagina: "documenti-controllo" },
+  { emoji: "🎓", testo: "Lezioni e quiz A1/A3 e A2, con simulazione d'esame", pagina: "impara" },
+  { emoji: "📍", testo: "Posti belli vicino a te, consigliati dai piloti", pagina: "posti" },
+  { emoji: "🎬", testo: "Manovre con gli stick e impostazioni della camera nel piano di volo", pagina: "pianificazione" },
+  { emoji: "👥", testo: "Rubrica clienti e lavori pagati / da incassare", pagina: "clienti" },
+  { emoji: "📅", testo: "Volo nel calendario e avviso batterie col freddo", pagina: "pianificazione" },
+];
+function RiquadroNovita({ onVai }) {
+  const [visto, setVisto] = useState(() => { try { return localStorage.getItem("eyedrones_novita_viste") === VERSIONE_NOVITA; } catch { return false; } });
+  if (visto) return null;
+  const chiudi = () => { try { localStorage.setItem("eyedrones_novita_viste", VERSIONE_NOVITA); } catch { /* niente */ } setVisto(true); };
+  return (
+    <div style={{ position: "relative", background: "linear-gradient(135deg, #1c1726, #1b2028)", border: "1px solid #3d2f5a", borderRadius: 12, padding: "14px 16px", marginBottom: 18, maxWidth: 720 }}>
+      <button type="button" onClick={chiudi} aria-label="Chiudi le novità" style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
+      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#c4b5fd", marginBottom: 8 }}>✨ Novità di ottobre</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {NOVITA.map((n) => (
+          <button key={n.testo} type="button" onClick={() => { chiudi(); onVai(n.pagina); }} style={{ display: "flex", gap: 8, alignItems: "center", textAlign: "left", background: "none", border: "none", color: "#e7eaee", padding: "4px 0", fontSize: 13 }}>
+            <span>{n.emoji}</span><span style={{ flex: 1 }}>{n.testo}</span><span style={{ color: "#6b7480" }}>›</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const FUNZIONI_PRESENTAZIONE = [
   { emoji: "🌅", titolo: "Pianificazione e ora d'oro", testo: "Meteo ora per ora con le ore migliori, vento rispetto al tuo drone, indice Kp, alba, tramonto, ora d'oro, direzione del sole e filtri ND." },
   { emoji: "🛡️", titolo: "Zona di volo e regole", testo: "Scrivi la via: con il file ufficiale D-Flight vedi se la zona è libera, fino a che altezza e chi contattare, più le regole della classe del tuo drone." },
-  { emoji: "✈️", titolo: "Il prossimo volo in primo piano", testo: "Il giorno del volo lo trovi in apertura: meteo dell'ora prevista, zona, cosa manca prima di partire e il volo da registrare con un tocco." },
+  { emoji: "✈️", titolo: "Il prossimo volo in primo piano", testo: "Il giorno del volo lo trovi in apertura: meteo dell'ora prevista, zona, avviso batterie col freddo, le riprese da fare con gli stick e il promemoria nel calendario." },
+  { emoji: "🎓", titolo: "Lezioni e quiz A1/A3 e A2", testo: "Le regole spiegate semplici, quiz con la spiegazione di ogni risposta e la simulazione d'esame con tempo e punteggio come all'ENAC. Più la guida per volare in zona rossa." },
+  { emoji: "📍", titolo: "Posti belli vicino a te", testo: "Scrivi dove sei o usa la posizione: punti panoramici, castelli, laghi e i posti consigliati dagli altri piloti, con la zona di volo già controllata." },
+  { emoji: "🎬", titolo: "Consigli, manovre e camera", testo: "Per ogni tipo di volo e per il tuo drone: le manovre per video belli con gli stick, le scalette per lavoro e come impostare ISO, tempo e filtri ND in base alla luce." },
   { emoji: "📒", titolo: "Registro voli", testo: "Data, luogo, drone, batterie, durata, foto e video. Importa i voli dai file .SRT dei DJI, ritrovali su mappa o cercando la data." },
   { emoji: "🚔", titolo: "Pronto per i controlli", testo: "Attestati, assicurazione, drone, permessi e zona a schermo pieno con un tocco, anche senza campo: una copia resta sul telefono. Più PDF e avvisi prima delle scadenze." },
   { emoji: "📁", titolo: "Fascicolo del volo", testo: "Se dopo un volo ti chiedono spiegazioni (forze dell'ordine, ENAC, assicurazione o un cliente), in un solo PDF hai tutto: documenti validi quel giorno, piano, zona, checklist, manutenzione, liberatorie." },
   { emoji: "📐", titolo: "Volumi STS-01", testo: "Contingenza e buffer per il rischio a terra calcolati e disegnati sulla mappa, pronti per il manuale operativo e per il fascicolo." },
   { emoji: "📤", titolo: "Consegna al cliente", testo: "Una galleria con il tuo logo, PIN, filigrana e preferiti: il cliente sceglie le foto e scarica solo quando sblocchi tu." },
   { emoji: "✍️", titolo: "Liberatorie firmate", testo: "Il cliente o la persona ripresa firma col dito sul telefono: PDF con la firma salvato insieme al volo." },
-  { emoji: "💶", titolo: "Preventivi con il prezzo giusto", testo: "Pacchetti pronti, fascia di prezzo del mercato e il tuo prezzo minimo calcolato dai costi, poi il PDF da mandare. Rubrica clienti e lavori pagati o da incassare." },
+  { emoji: "💶", titolo: "Preventivi con il prezzo giusto", testo: "Pacchetti pronti, fascia di prezzo del mercato e il tuo prezzo minimo calcolato dai costi, poi il PDF da mandare. Rubrica clienti con WhatsApp a un tocco e lavori pagati o da incassare." },
   { emoji: "🔋", titolo: "Batterie e manutenzione", testo: "Cicli e stato di carica delle batterie, registro di eliche, firmware e riparazioni di ogni drone." },
   { emoji: "🔍", titolo: "Ispezioni e report", testo: "Fotovoltaico, edifici, danni: anomalie sulle foto termiche e report PDF professionali per il cliente." },
 ];
@@ -2980,6 +3012,8 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Conferma" />
         </div>
       )}
+
+      <RiquadroNovita onVai={onNav} />
 
       {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
 
