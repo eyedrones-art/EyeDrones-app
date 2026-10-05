@@ -7690,6 +7690,9 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
   const [salvataggio, setSalvataggio] = useState(null); // null | "salvo" | "ok" | messaggio d'errore
   const [abilitazioneLibera, setAbilitazioneLibera] = useState("");
   const [copiato, setCopiato] = useState(false);
+  const [slugAutomatico, setSlugAutomatico] = useState(false); // finché il pilota non lo tocca, l'indirizzo segue il nome
+  const [campoDaSistemare, setCampoDaSistemare] = useState(null); // "nome" | "slug" | "citta" | "servizi": evidenziato dopo un errore
+  const campi = { nome: useRef(null), slug: useRef(null), citta: useRef(null), servizi: useRef(null) };
   const limitePortfolio = LIMITE_PORTFOLIO[piano] || LIMITE_PORTFOLIO.free;
 
   const daRiga = (r) => ({
@@ -7727,6 +7730,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
       if (error) { setStato("manca-script"); setF(daRiga(null)); return; }
       setSalvata(data || null);
       setF(daRiga(data));
+      setSlugAutomatico(!data);
       setStato("pronto");
       caricaRichieste();
       const { data: m } = await supabase.from("voli_media").select("id, tipo, url, nome, created_at").in("tipo", ["foto", "video"]).order("created_at", { ascending: false }).limit(300);
@@ -7762,8 +7766,25 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
     return <div style={{ padding: "28px 32px", color: "#8b95a3", fontSize: 13 }}>Caricamento...</div>;
   }
 
-  const cambia = (k) => (e) => { setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }); setSalvataggio(null); };
-  const alterna = (k, valore) => { setF({ ...f, [k]: f[k].includes(valore) ? f[k].filter((x) => x !== valore) : [...f[k], valore] }); setSalvataggio(null); };
+  const cambia = (k) => (e) => {
+    const valore = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    const nuovo = { ...f, [k]: valore };
+    if (k === "nome" && slugAutomatico) nuovo.slug = pulisciSlug(valore || (azienda.nomeImpostato ? azienda.nome : ""));
+    setF(nuovo);
+    setSalvataggio(null);
+    if (campoDaSistemare === k) setCampoDaSistemare(null);
+  };
+  // dopo un errore porto il pilota sul campo da sistemare (sul telefono può essere lontano dal pulsante)
+  const vaiAlCampo = (chiave) => {
+    setCampoDaSistemare(chiave);
+    const el = campi[chiave] && campi[chiave].current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (el.tagName === "INPUT") setTimeout(() => el.focus({ preventScroll: true }), 350);
+  };
+  const avvisoCampo = (chiave, testo) => campoDaSistemare === chiave && <span role="alert" style={{ fontSize: 12, color: "#ff9c9c", display: "block", marginTop: 4 }}>{testo}</span>;
+  const bordoErrore = (chiave) => (campoDaSistemare === chiave ? { borderColor: "#ff6b6b", boxShadow: "0 0 0 2px #ff6b6b44" } : {});
+  const alterna = (k, valore) => { setF({ ...f, [k]: f[k].includes(valore) ? f[k].filter((x) => x !== valore) : [...f[k], valore] }); setSalvataggio(null); if (campoDaSistemare === k) setCampoDaSistemare(null); };
   const nelPortfolio = (m) => f.portfolio.some((p) => p.url === m.url);
   const alternaPortfolio = (m) => {
     if (nelPortfolio(m)) setF({ ...f, portfolio: f.portfolio.filter((p) => p.url !== m.url) });
@@ -7772,16 +7793,18 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
   };
 
   const slugPulito = pulisciSlug(f.slug);
-  const mancanti = [
-    !slugValido(slugPulito) && "un indirizzo valido",
-    !(f.nome.trim() || azienda.nomeImpostato) && "il nome",
-    !f.citta.trim() && "la città",
-    f.servizi.length === 0 && "almeno un servizio",
+  // nell'ordine in cui compaiono nella pagina
+  const elencoMancanti = [
+    !(f.nome.trim() || azienda.nomeImpostato) && { campo: "nome", testo: "il nome" },
+    !slugValido(slugPulito) && { campo: "slug", testo: "l'indirizzo della pagina" },
+    !f.citta.trim() && { campo: "citta", testo: "la città" },
+    f.servizi.length === 0 && { campo: "servizi", testo: "almeno un servizio" },
   ].filter(Boolean);
+  const mancanti = elencoMancanti.map((m) => m.testo);
 
   const salva = async (attiva = f.attiva) => {
-    if (!slugValido(slugPulito)) { setSalvataggio("L'indirizzo deve avere da 3 a 40 caratteri: lettere minuscole, numeri e trattini."); return; }
-    if (attiva && mancanti.length) { setSalvataggio(`Per pubblicare manca ${mancanti.join(", ")}.`); return; }
+    if (attiva && elencoMancanti.length) { setSalvataggio(`Per pubblicare manca ${mancanti.join(", ")}.`); vaiAlCampo(elencoMancanti[0].campo); return; }
+    if (!slugValido(slugPulito)) { setSalvataggio("Scrivi l'indirizzo della pagina (in alto): da 3 a 40 caratteri, solo lettere minuscole, numeri e trattini."); vaiAlCampo("slug"); return; }
     setSalvataggio("salvo");
     const uid = await idUtenteCorrente();
     const riga = {
@@ -7808,7 +7831,9 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
     };
     const { data, error } = await supabase.from("pagine_pilota").upsert(riga, { onConflict: "user_id" }).select().single();
     if (error) {
-      setSalvataggio(error.code === "23505" || /duplicate|unique/i.test(error.message) ? "Questo indirizzo è già usato da un altro pilota: scegline un altro." : "Salvataggio non riuscito: " + error.message);
+      const occupato = error.code === "23505" || /duplicate|unique/i.test(error.message);
+      setSalvataggio(occupato ? "Questo indirizzo è già usato da un altro pilota: scegline un altro (in alto)." : "Salvataggio non riuscito: " + error.message);
+      if (occupato) vaiAlCampo("slug");
       return;
     }
     setSalvata(data);
@@ -7928,9 +7953,9 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
             </div>
             <label>
               <span style={etichetta}>Indirizzo della pagina</span>
-              <div style={{ display: "flex", alignItems: "center", background: "#161a1f", border: "1px solid #333a45", borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", background: "#161a1f", border: "1px solid #333a45", borderRadius: 8, overflow: "hidden", ...bordoErrore("slug") }}>
                 <span className="mono" style={{ fontSize: 12.5, color: "#6b7480", padding: "0 0 0 12px", whiteSpace: "nowrap" }}>{window.location.host}/p/</span>
-                <input value={f.slug} onChange={(e) => { setF({ ...f, slug: pulisciSlugMentreScrivi(e.target.value) }); setSalvataggio(null); }} placeholder="il-tuo-nome" className="mono" style={{ ...inputStyle, border: "none", background: "transparent", paddingLeft: 2 }} />
+                <input ref={campi.slug} value={f.slug} onChange={(e) => { setF({ ...f, slug: pulisciSlugMentreScrivi(e.target.value) }); setSlugAutomatico(false); setSalvataggio(null); if (campoDaSistemare === "slug") setCampoDaSistemare(null); }} placeholder="il-tuo-nome" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="mono" style={{ ...inputStyle, border: "none", background: "transparent", paddingLeft: 2 }} />
               </div>
               <span style={{ fontSize: 11.5, marginTop: 4, display: "block", color: !slugValido(slugPulito) ? "#f5b942" : slugLibero === false ? "#ff9c9c" : slugLibero ? "#4ade80" : "#6b7480" }}>
                 {!slugValido(slugPulito) ? "Da 3 a 40 caratteri: lettere minuscole, numeri e trattini." : slugLibero === false ? "Già usato da un altro pilota." : slugLibero ? "✓ Disponibile" : "Controllo…"}
@@ -7952,9 +7977,10 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
               <img src={azienda.logo} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: "contain", background: "#12151a", border: "1px solid #2b313d" }} />
               <span style={{ fontSize: 12, color: "#8b95a3" }}>Il logo è quello di <strong>Impostazioni azienda</strong>, lo stesso dei report e dei preventivi.</span>
             </div>
-            <label><span style={etichetta}>Nome sulla pagina</span><input value={f.nome} onChange={cambia("nome")} maxLength={80} placeholder={azienda.nomeImpostato ? azienda.nome : "es. Marco Rossi Riprese Aeree"} style={inputStyle} /></label>
+            <label><span style={etichetta}>Nome sulla pagina</span><input ref={campi.nome} value={f.nome} onChange={cambia("nome")} maxLength={80} placeholder={azienda.nomeImpostato ? azienda.nome : "es. Marco Rossi Riprese Aeree"} style={{ ...inputStyle, ...bordoErrore("nome") }} />{avvisoCampo("nome", "Scrivi il nome da mostrare ai clienti: da qui nasce anche il tuo link.")}</label>
+            {slugAutomatico && slugValido(slugPulito) && <span style={{ fontSize: 11.5, color: "#8b95a3", marginTop: -6 }}>Il tuo link sarà <span className="mono" style={{ color: "#ffb877" }}>{window.location.host}/p/{slugPulito}</span> · puoi cambiarlo in alto</span>}
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
-              <label><span style={etichetta}>Città</span><input value={f.citta} onChange={cambia("citta")} maxLength={60} placeholder="es. Bergamo" style={inputStyle} /></label>
+              <label><span style={etichetta}>Città</span><input ref={campi.citta} value={f.citta} onChange={cambia("citta")} maxLength={60} placeholder="es. Bergamo" style={{ ...inputStyle, ...bordoErrore("citta") }} />{avvisoCampo("citta", "Scrivi la tua città.")}</label>
               <label><span style={etichetta}>Provincia</span><input value={f.provincia} onChange={cambia("provincia")} maxLength={2} placeholder="BG" style={{ ...inputStyle, textTransform: "uppercase" }} /></label>
               <label><span style={etichetta}>Ti sposti fino a (km)</span><input type="number" min="0" max="2000" value={f.raggio_km} onChange={cambia("raggio_km")} style={inputStyle} /></label>
             </div>
@@ -7962,8 +7988,9 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
           </div>
 
           {/* servizi */}
-          <div style={sezione}>
+          <div ref={campi.servizi} style={{ ...sezione, ...bordoErrore("servizi") }}>
             <h2 style={titoloSezione}>Servizi che offri</h2>
+            {avvisoCampo("servizi", "Tocca almeno un servizio che offri.")}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {[...SERVIZI_PILOTA, ...f.servizi.filter((s) => !SERVIZI_PILOTA.includes(s))].map((s) => (
                 <button key={s} type="button" aria-pressed={f.servizi.includes(s)} onClick={() => alterna("servizi", s)} style={chip(f.servizi.includes(s))}>{f.servizi.includes(s) ? "✓ " : ""}{s}</button>
