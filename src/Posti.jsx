@@ -246,3 +246,77 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
     </div>
   );
 }
+
+// Riquadro compatto per la Pianificazione: i posti belli intorno al luogo del volo (es. foto suggestive agli sposi).
+// Si carica solo quando lo apri, per non chiamare le mappe a ogni piano.
+export function PostiVicini({ supabase, punto, tipo, onZonaRossa }) {
+  const [aperto, setAperto] = useState(false);
+  const [km, setKm] = useState(5);
+  const [stato, setStato] = useState({ caricando: false, posti: null, errore: null });
+  const [zone, setZone] = useState(undefined);
+  const chiave = punto ? `${punto.lat.toFixed(3)},${punto.lon.toFixed(3)},${km}` : "";
+
+  useEffect(() => { if (aperto && zone === undefined) leggiZoneSalvate().then((d) => setZone(d && Array.isArray(d.zone) ? d.zone : null)).catch(() => setZone(null)); }, [aperto]);
+  useEffect(() => {
+    if (!aperto || !punto) return;
+    let annullato = false;
+    (async () => {
+      setStato({ caricando: true, posti: null, errore: null });
+      const dLat = km / 111, dLon = km / (111 * Math.cos((punto.lat * Math.PI) / 180));
+      const pil = await conTempoMassimo(
+        supabase.from("posti_consigliati").select("id, nome, lat, lon, tipo, nota, voto").gte("lat", punto.lat - dLat).lte("lat", punto.lat + dLat).gte("lon", punto.lon - dLon).lte("lon", punto.lon + dLon).limit(100)
+          .then(({ data, error }) => (error ? [] : data || [])), 10000,
+      ).catch(() => []);
+      const osm = await cercaPostiOsm(punto, km).catch(() => null);
+      if (annullato) return;
+      // consigli vicini tra loro (entro ~300 m) = un posto solo, con le note insieme
+      const daPiloti = [];
+      for (const c of pil) {
+        const g = daPiloti.find((x) => distanzaKm(x, c) < 0.3);
+        if (g) { g.n += 1; if (c.nota) g.note.push(c.nota); }
+        else daPiloti.push({ id: "pil-" + c.id, nome: c.nome, tipo: c.tipo || "Consigliato", emoji: "⭐", lat: c.lat, lon: c.lon, note: c.nota ? [c.nota] : [], n: 1, piloti: true });
+      }
+      const tutti = [...daPiloti, ...(osm || []).filter((p) => !daPiloti.some((g) => distanzaKm(g, p) < 0.3))]
+        .map((p) => ({ ...p, km: distanzaKm(punto, p) }))
+        .filter((p) => p.km <= km + 0.3 && p.km > 0.05)
+        .sort((a, b) => (a.piloti === b.piloti ? a.km - b.km : a.piloti ? -1 : 1));
+      setStato({ caricando: false, posti: tutti, errore: osm === null && tutti.length === 0 ? "Le mappe non rispondono adesso: riprova tra qualche minuto." : null });
+    })();
+    return () => { annullato = true; };
+  }, [aperto, chiave]);
+
+  if (!punto) return null;
+  const sottotitolo = ["video", "foto"].includes(tipo) ? "per foto e riprese suggestive (sposi, eventi, immobili)" : "per sapere cosa c'è intorno";
+  const stChip = (on) => ({ background: on ? "#ff8c42" : "#1f2530", color: on ? "#161a1f" : "#e7eaee", border: on ? "none" : "1px solid #333a45", borderRadius: 14, padding: "3px 10px", fontSize: 11.5, fontWeight: on ? 700 : 500 });
+  return (
+    <details open={aperto} onToggle={(e) => setAperto(e.currentTarget.open)} style={{ background: "#171c24", border: "1px solid #2b3a52", borderRadius: 8, padding: "10px 14px", margin: "14px 0" }}>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#9fc3ff" }}>📍 Posti belli qui vicino <span style={{ fontWeight: 400, color: "#8b95a3", fontSize: 12 }}>· {sottotitolo}</span></summary>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 10, fontSize: 11.5, color: "#8b95a3" }}>
+        Entro {[2, 5, 10].map((k) => <button key={k} type="button" onClick={() => setKm(k)} style={stChip(km === k)}>{k} km</button>)}
+      </div>
+      {stato.caricando && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 10 }}>Cerco i posti intorno…</div>}
+      {stato.errore && <div style={{ fontSize: 12.5, color: "#ff9c9c", marginTop: 10 }}>{stato.errore}</div>}
+      {stato.posti && stato.posti.length === 0 && !stato.errore && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 10 }}>Nessun posto segnato qui intorno: prova ad allargare la distanza.</div>}
+      {stato.posti && stato.posti.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+          {stato.posti.slice(0, 12).map((p) => {
+            const z = statoZona(zone, p);
+            return (
+              <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#1b2028", border: `1px solid ${p.piloti ? "#5a4a16" : "#2b313d"}`, borderRadius: 8, padding: "8px 10px" }}>
+                <span style={{ fontSize: 18 }}>{p.emoji}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{p.nome}</div>
+                  <div style={{ fontSize: 11.5, color: "#8b95a3" }}>{p.tipo} · {p.km < 1 ? `${Math.round(p.km * 1000)} m` : `${p.km.toFixed(1)} km`}{p.piloti ? ` · consigliato da ${p.n} ${p.n === 1 ? "pilota" : "piloti"}` : ""}</div>
+                  {(p.note || []).slice(0, 2).map((n) => <div key={n} style={{ fontSize: 11.5, color: "#d6dde6" }}>💬 «{n}»</div>)}
+                  {z && <div style={{ fontSize: 11.5, color: z.colore, fontWeight: 600 }}>🛡️ {z.testo}{z.colore !== "#4ade80" && onZonaRossa ? <> · <button type="button" onClick={onZonaRossa} style={{ background: "none", border: "none", color: "#ffb877", padding: 0, fontSize: 11.5, textDecoration: "underline" }}>come si fa?</button></> : null}</div>}
+                </div>
+                <a href={`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: "#3d8bfd", textDecoration: "none", whiteSpace: "nowrap" }}>🧭 Vai</a>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>{zone === null ? "Carica il file D-Flight qui sopra per vedere la zona di ogni posto. " : ""}Punti da OpenStreetMap e dai consigli dei piloti: controlla sempre zona, NOTAM e permessi del luogo (proprietà private, parchi).</p>
+    </details>
+  );
+}

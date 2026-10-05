@@ -8,6 +8,7 @@ import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaP
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
 const Impara = lazy(() => import("./Impara.jsx"));
 const Posti = lazy(() => import("./Posti.jsx"));
+const PostiVicini = lazy(() => import("./Posti.jsx").then((m) => ({ default: m.PostiVicini })));
 const Collaboratori = lazy(() => import("./Collaboratori.jsx"));
 // navigazione da componenti lontani (es. «Come si fa?» nella verifica zona): window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }))
 const vaiA = (detail) => window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }));
@@ -7585,6 +7586,12 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             piano={piano}
             onEsito={setZonaEsito}
           />
+
+          <Suspense fallback={null}>
+            <PostiVicini supabase={supabase} tipo={tipoIspezione}
+              punto={coordinateValide || puntoIndirizzo || leggiCoordinate(zonaEsito?.punto) || (meteo && meteo.lat != null ? { lat: meteo.lat, lon: meteo.lon } : null)}
+              onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa" })} />
+          </Suspense>
 
           <RegoleVolo
             drone={droneSelezionato}
