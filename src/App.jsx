@@ -2124,13 +2124,14 @@ function AppShell({ session }) {
 // --- Pagina di presentazione (prima del login) -----------------------------------------------
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10";
+const VERSIONE_NOVITA = "2026-10b";
 const NOVITA = [
   { emoji: "📴", testo: "Documenti di controllo anche senza campo", pagina: "documenti-controllo" },
   { emoji: "🎓", testo: "Lezioni e quiz A1/A3 e A2, con simulazione d'esame", pagina: "impara" },
-  { emoji: "📍", testo: "Posti belli vicino a te, consigliati dai piloti", pagina: "posti" },
+  { emoji: "📍", testo: "Posti belli vicino a te e vicino al luogo del volo, anche nel piano", pagina: "posti" },
   { emoji: "🎬", testo: "Manovre con gli stick e impostazioni della camera nel piano di volo", pagina: "pianificazione" },
-  { emoji: "👥", testo: "Rubrica clienti e lavori pagati / da incassare", pagina: "clienti" },
+  { emoji: "⏰", testo: "Pagamenti in ritardo con promemoria su WhatsApp, rubrica clienti", pagina: "preventivi" },
+  { emoji: "🤝", testo: "Collaboratori: la tua rubrica dei piloti con cui lavori", pagina: "collaboratori" },
   { emoji: "📅", testo: "Volo nel calendario e avviso batterie col freddo", pagina: "pianificazione" },
 ];
 function RiquadroNovita({ onVai }) {
