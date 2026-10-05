@@ -34,6 +34,9 @@ const distanzaKm = (a, b) => {
   return 6371 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 };
 
+const SERVER_MAPPE = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
+const conTempoMassimo = (promessa, ms) => Promise.race([promessa, new Promise((_, no) => setTimeout(() => no(new Error("tempo scaduto")), ms))]);
+
 async function cercaPostiOsm({ lat, lon }, raggioKm) {
   const r = Math.round(raggioKm * 1000);
   const q = `[out:json][timeout:25];(
@@ -45,9 +48,17 @@ async function cercaPostiOsm({ lat, lon }, raggioKm) {
     node["natural"="peak"]["name"](around:${r},${lat},${lon});
     nwr["man_made"="lighthouse"](around:${r},${lat},${lon});
   );out center tags 120;`;
-  const risp = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" } });
-  if (!risp.ok) throw new Error("mappe non raggiungibili");
-  const { elements = [] } = await risp.json();
+  // i server pubblici delle mappe a volte sono lenti: tempo massimo e un secondo server di riserva
+  let elements = null;
+  for (const url of SERVER_MAPPE) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const risp = await fetch(url, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: ctrl.signal });
+      if (risp.ok) { elements = (await risp.json()).elements || []; break; }
+    } catch (e) { /* provo il server successivo */ } finally { clearTimeout(t); }
+  }
+  if (!elements) throw new Error("mappe non raggiungibili");
   const visti = new Set();
   return elements.map((e) => {
     const t = e.tags || {};
@@ -77,6 +88,7 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
   const [posti, setPosti] = useState(null);
   const [consigli, setConsigli] = useState([]);
   const [caricando, setCaricando] = useState(false);
+  const [caricandoMappe, setCaricandoMappe] = useState(false);
   const [errore, setErrore] = useState(null);
   const [zone, setZone] = useState(undefined);
   const [filtro, setFiltro] = useState("tutti");
@@ -87,32 +99,38 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
   useEffect(() => { leggiZoneSalvate().then((d) => setZone(d && Array.isArray(d.zone) ? d.zone : null)).catch(() => setZone(null)); }, []);
 
   const carica = async (c, km = raggio) => {
-    setCentro(c); setCaricando(true); setErrore(null); setPosti(null);
+    setCentro(c); setCaricando(true); setCaricandoMappe(true); setErrore(null); setPosti([]); setConsigli([]);
     const dLat = km / 111, dLon = km / (111 * Math.cos((c.lat * Math.PI) / 180));
-    const [osm, pil] = await Promise.all([
-      cercaPostiOsm(c, km).catch(() => null),
+    // prima i consigli dei piloti (veloci), poi i punti delle mappe quando arrivano
+    const pil = await conTempoMassimo(
       supabase.from("posti_consigliati").select("id, nome, lat, lon, tipo, nota, voto, created_at").gte("lat", c.lat - dLat).lte("lat", c.lat + dLat).gte("lon", c.lon - dLon).lte("lon", c.lon + dLon).limit(300)
         .then(({ data, error }) => (error ? [] : data || [])),
-    ]);
+      10000,
+    ).catch(() => []);
     setConsigli(pil);
-    if (osm === null && pil.length === 0) setErrore("Non riesco a leggere le mappe in questo momento: riprova tra poco.");
-    setPosti(osm || []);
     setCaricando(false);
+    const osm = await cercaPostiOsm(c, km).catch(() => null);
+    setCaricandoMappe(false);
+    if (osm === null) setErrore(pil.length ? "I punti panoramici delle mappe non arrivano adesso: ti mostro solo i consigli dei piloti. Riprova tra poco." : "Le mappe non rispondono in questo momento: riprova tra qualche minuto.");
+    setPosti(osm || []);
   };
   const cerca = async () => {
     if (!testo.trim()) return;
     setCaricando(true); setErrore(null);
-    const r = await cercaIndirizzo(testo);
+    const r = await conTempoMassimo(cercaIndirizzo(testo), 12000).catch(() => null);
     if (!r) { setCaricando(false); setErrore("Luogo non trovato: prova con il nome del paese."); return; }
     carica({ lat: r.lat, lon: r.lon, etichetta: testo.trim() });
   };
   const miaPosizione = () => {
     if (!navigator.geolocation) { setErrore("Questo telefono non dà la posizione."); return; }
     setCaricando(true); setErrore(null);
+    let finito = false;
+    // se il telefono non risponde (posizione spenta o permesso non dato) non resto bloccato
+    const guardia = setTimeout(() => { if (finito) return; finito = true; setCaricando(false); setErrore("Non ricevo la posizione: attiva la localizzazione del telefono e consenti l'accesso alla posizione, oppure scrivi il nome del paese."); }, 15000);
     navigator.geolocation.getCurrentPosition(
-      (pos) => carica({ lat: pos.coords.latitude, lon: pos.coords.longitude, etichetta: "la tua posizione" }),
-      () => { setCaricando(false); setErrore("Posizione non disponibile: scrivi il nome del paese."); },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+      (pos) => { if (finito) return; finito = true; clearTimeout(guardia); carica({ lat: pos.coords.latitude, lon: pos.coords.longitude, etichetta: "la tua posizione" }); },
+      () => { if (finito) return; finito = true; clearTimeout(guardia); setCaricando(false); setErrore("Posizione non disponibile: attiva la localizzazione e consenti l'accesso alla posizione, oppure scrivi il nome del paese."); },
+      { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 }
     );
   };
 
@@ -185,14 +203,14 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
 
       {zone === null && centro && <div style={{ fontSize: 12, color: "#f5b942", marginBottom: 10 }}>⚠ Per vedere la zona di volo di ogni posto carica il file D-Flight dalla Pianificazione (una volta sola).</div>}
       {errore && <div style={{ fontSize: 12.5, color: "#ff9c9c", marginBottom: 10 }}>{errore}</div>}
-      {caricando && <div style={{ fontSize: 13, color: "#8b95a3" }}>Cerco i posti…</div>}
+      {caricando && <div style={{ fontSize: 13, color: "#8b95a3" }}>{centro ? "Cerco i posti…" : "Cerco dove sei…"}</div>}
       {!centro && !caricando && <div style={{ background: "#1b2028", border: "1px dashed #333a45", borderRadius: 10, padding: 18, fontSize: 13, color: "#8b95a3", textAlign: "center" }}>Scrivi dove sei o tocca «📍 Vicino a me» per vedere i posti intorno.</div>}
 
       {centro && !caricando && (
         <>
-          <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 8 }}>{elenco.length} posti entro {raggio} km da {centro.etichetta}{gruppi.length ? ` · ⭐ ${gruppi.length} consigliati dai piloti` : ""}</div>
+          <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 8 }}>{elenco.length} posti entro {raggio} km da {centro.etichetta}{gruppi.length ? ` · ⭐ ${gruppi.length} consigliati dai piloti` : ""}{caricandoMappe ? " · cerco anche i punti panoramici delle mappe…" : ""}</div>
           {tipiPresenti.length > 1 && <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 8 }}><button type="button" onClick={() => setFiltro("tutti")} style={stChip(filtro === "tutti")}>Tutti</button>{tipiPresenti.map((t) => <button key={t} type="button" onClick={() => setFiltro(t)} style={stChip(filtro === t)}>{t}</button>)}</div>}
-          {elenco.length === 0 && <div style={{ fontSize: 13, color: "#8b95a3" }}>Nessun posto trovato: prova ad allargare la distanza.</div>}
+          {elenco.length === 0 && !caricandoMappe && <div style={{ fontSize: 13, color: "#8b95a3" }}>Nessun posto trovato: prova ad allargare la distanza.</div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {elenco.slice(0, 60).map((p) => {
               const ap = aperto === p.id;
