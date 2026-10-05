@@ -1652,8 +1652,11 @@ function AppShell({ session }) {
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
-  const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard"));
-  useEffect(() => { if (vaiARichieste) window.history.replaceState(null, "", window.location.pathname); }, []);
+  // scorciatoia dell'icona installata (?vai=controllo): apre subito i documenti a schermo pieno
+  const [vaiAControllo] = useState(() => new URLSearchParams(window.location.search).get("vai") === "controllo");
+  const [controlloSubito, setControlloSubito] = useState(vaiAControllo);
+  const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : vaiAControllo ? "documenti-controllo" : PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard"));
+  useEffect(() => { if (vaiARichieste || vaiAControllo) window.history.replaceState(null, "", window.location.pathname); }, []);
   const [paginaPrecedente, setPaginaPrecedente] = useState(null); // da dove si apre «Suggerimenti», per capire dove c'è un problema
   const setPage = (p) => {
     if (p === "suggerimenti") setPaginaPrecedente((prec) => (page !== "suggerimenti" ? page : prec));
@@ -1931,13 +1934,13 @@ function AppShell({ session }) {
             Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.
           </div>
         )}
-        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
-        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} />}
+        {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} schermoPienoSubito={controlloSubito} onSchermoPienoAperto={() => setControlloSubito(false)} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={pianoReale} />}
         {page === "suggerimenti" && <Suggerimenti session={session} paginaPrecedente={paginaPrecedente} />}
@@ -2715,7 +2718,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   );
 }
 
-function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano }) {
+function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
 
@@ -2770,6 +2773,16 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Panoramica</h1>
         <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "4px 0 0 0" }}>{sottotitolo}</p>
       </div>
+
+      {onControllo && (
+        <button type="button" onClick={onControllo} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 720, textAlign: "left", background: "#13233d", border: "1px solid #2f5aa8", borderRadius: 10, padding: "12px 16px", marginBottom: 18, color: "#e7eaee" }}>
+          <span style={{ fontSize: 26 }}>👮</span>
+          <span>
+            <span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>Controllo? Mostra i documenti</span>
+            <span style={{ display: "block", fontSize: 12, color: "#9fb4d6" }}>Attestati, assicurazione, drone e zona a schermo pieno, con un tocco</span>
+          </span>
+        </button>
+      )}
 
       {moduli === null && (
         <div style={{ background: "linear-gradient(135deg, #241d16, #1b2028)", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginBottom: 28, maxWidth: 720 }}>
@@ -7055,7 +7068,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
 
 // --- Documenti controllo (accesso rapido dal menu, senza dover pianificare prima un volo) -----------------------------------------------------------
 
-function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoIniziale, onPianoAperto, piano }) {
+function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoIniziale, onPianoAperto, piano, schermoPienoSubito, onSchermoPienoAperto }) {
   const [scelta, setScelta] = useState(""); // "" | "p:<id piano di volo>" | "i:<id impianto>"
   const [attestatiUtente, setAttestatiUtente] = useState([]);
   const [droniUtente, setDroniUtente] = useState([]);
@@ -7065,7 +7078,8 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
   const [dflightShot, setDflightShot] = useState(null);
   const [generandoPdfControllo, setGenerandoPdfControllo] = useState(false);
   const [pdfUrlControllo, setPdfUrlControllo] = useState(null);
-  const [mostraSchermoControllo, setMostraSchermoControllo] = useState(false);
+  const [mostraSchermoControllo, setMostraSchermoControllo] = useState(!!schermoPienoSubito);
+  useEffect(() => { if (schermoPienoSubito) { setMostraSchermoControllo(true); onSchermoPienoAperto && onSchermoPienoAperto(); } }, [schermoPienoSubito]);
 
   useEffect(() => {
     (async () => {
