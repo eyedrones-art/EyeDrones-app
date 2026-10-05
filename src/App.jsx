@@ -2706,11 +2706,11 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
         )}
 
         {(() => {
-          const daFare = (p.checklist_stato?.manovre || []).map((id) => MANOVRE_VIDEO.find((m) => m.id === id)).filter(Boolean);
+          const daFare = (p.checklist_stato?.manovre || []).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean);
           if (daFare.length === 0) return null;
           return (
             <details style={{ marginTop: 10, background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 6, padding: "8px 10px" }}>
-              <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#c4b5fd" }}>🎬 Da girare: {daFare.map((m) => m.nome.replace(/ \(.*\)$/, "")).join(" → ")}</summary>
+              <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#c4b5fd" }}>🎬 {p.checklist_stato?.lavoro ? `${p.checklist_stato.lavoro}: ` : "Da girare: "}{daFare.map((m) => m.nome.replace(/ \(.*\)$/, "")).join(" → ")}</summary>
               {daFare.map((m) => (
                 <div key={m.id} style={{ fontSize: 12, lineHeight: 1.45, color: "#d6dde6", marginTop: 8 }}>
                   <strong style={{ color: "#e7eaee" }}>{m.nome}</strong>: {m.come}
@@ -6507,6 +6507,38 @@ const MANOVRE_VIDEO = [
   { id: "basso", nome: "Avanzamento basso", come: "Vola in avanti a pochi metri da terra o dall'acqua: dà velocità. Solo su zone libere da ostacoli e persone. Sull'acqua i sensori possono sbagliare la quota.", stick: "Destro in avanti. Il sinistro resta al centro, così la quota non cambia.", quando: "Campi, laghi, strade vuote." },
   { id: "hyperlapse", nome: "Hyperlapse", come: "Drone fermo o lentissimo che scatta una foto ogni pochi secondi: nuvole, traffico e tramonti diventano un video veloce. Parti con la batteria piena.", stick: "Nessuno: scegli la modalità Hyperlapse nel menu foto del drone e lascia fare a lui. Tieni le mani pronte sugli stick.", quando: "Tramonti, città, cieli con nuvole." },
 ];
+const MANOVRE_FPV = [
+  { id: "fpv-inseguimento", nome: "Inseguimento", come: "Segui il soggetto (bici, auto, barca) da dietro a distanza costante, alla sua stessa velocità.", stick: "Gas costante per tenere la quota, destro avanti e piccole correzioni di lato. Lo stick sinistro di lato serve per le curve morbide.", quando: "Sport, auto, barche. Solo con soggetti che lo sanno e in aree senza altre persone." },
+  { id: "fpv-passaggio", nome: "Passaggio dentro", come: "Passa attraverso un'apertura (arco, portone, varco tra alberi). Prima provalo lento e largo, poi più veloce.", stick: "Allinea il drone da lontano, poi solo destro avanti con il gas costante. Niente correzioni brusche all'ultimo momento.", quando: "Per l'effetto «wow». Solo con esperienza e senza persone dietro l'apertura." },
+  { id: "fpv-tuffo", nome: "Tuffo", come: "Parti alto sopra un edificio, una scogliera o una collina e scendi seguendo la parete.", stick: "Gas giù piano e destro un filo avanti per seguire la parete. Recupera prima del suolo, con margine.", quando: "Scogliere, cascate, edifici alti." },
+  { id: "fpv-orbita-bassa", nome: "Orbita bassa", come: "Gira intorno al soggetto a bassa quota, con la camera sempre su di lui.", stick: "Destro di lato e sinistro dalla parte opposta, come l'orbita normale ma più vicino e più fluido.", quando: "Persone, auto ferme, monumenti." },
+  { id: "fpv-rivelazione", nome: "Rivelazione dal basso", come: "Parti a pochi centimetri dal suolo dietro un ostacolo e sali scoprendo il paesaggio.", stick: "Destro avanti e gas su insieme, in modo progressivo.", quando: "Per aprire il video." },
+];
+const INQUADRATURE_FOTO = [
+  { id: "foto-90", nome: "Dall'alto a 90°", come: "Camera dritta in giù: cerca forme, linee e simmetrie.", stick: "Rotella della camera tutta giù. Con il sinistro di lato ruoti il drone per allineare l'inquadratura.", quando: "Strade, campi, tetti, piscine, spiagge." },
+  { id: "foto-45", nome: "Prospettiva a 45°", come: "Camera inclinata di circa 45° verso il soggetto: dà profondità e mostra anche le facciate.", stick: "Rotella a metà corsa, poi sali o scendi con il sinistro finché l'orizzonte è dove vuoi.", quando: "Case, castelli, paesaggi con soggetto." },
+  { id: "foto-pano", nome: "Panoramica", come: "Usa la modalità panorama del drone: scatta più foto e le unisce.", stick: "Nessuno: fermo in volo stazionario, scegli Panorama nel menu foto e aspetta che finisca.", quando: "Paesaggi larghi, vallate, laghi." },
+  { id: "foto-hdr", nome: "Scatto a forcella (HDR)", come: "Più foto a esposizioni diverse da unire dopo: cielo e ombre vengono bene insieme.", stick: "Nessuno: fermo in volo stazionario, scegli AEB (3 o 5 scatti) nel menu foto.", quando: "Sole forte con ombre, tramonti con controluce." },
+  { id: "foto-altezze", nome: "Stessa scena, tre altezze", come: "Scatta lo stesso soggetto da bassa, media e alta quota: in montaggio scegli la migliore.", stick: "Solo sinistro su, fermandoti a ogni altezza per scattare.", quando: "Quando non sai quale inquadratura piacerà di più al cliente." },
+];
+const TUTTE_MANOVRE = () => [...MANOVRE_VIDEO, ...MANOVRE_FPV, ...INQUADRATURE_FOTO];
+const SCALETTE_PRONTE = {
+  video: [
+    { id: "immobiliare", titolo: "Immobiliare", manovre: ["rivelazione", "orbita", "dallalto", "allontanamento"] },
+    { id: "matrimonio", titolo: "Matrimonio", manovre: ["rivelazione", "parallasse", "dallalto", "allontanamento"] },
+    { id: "evento", titolo: "Evento", manovre: ["salita", "orbita", "hyperlapse", "allontanamento"] },
+    { id: "aziendale", titolo: "Video aziendale", manovre: ["rivelazione", "parallasse", "dallalto", "basso"] },
+    { id: "paesaggio", titolo: "Paesaggio / turismo", manovre: ["rivelazione", "basso", "orbita", "hyperlapse", "allontanamento"] },
+  ],
+  fpv: [
+    { id: "fpv-location", titolo: "Location / struttura", manovre: ["fpv-rivelazione", "fpv-passaggio", "fpv-orbita-bassa"] },
+    { id: "fpv-sport", titolo: "Sport / auto", manovre: ["fpv-inseguimento", "fpv-orbita-bassa", "fpv-tuffo"] },
+  ],
+  foto: [
+    { id: "foto-immobiliare", titolo: "Immobiliare", manovre: ["foto-45", "foto-90", "foto-altezze", "foto-hdr"] },
+    { id: "foto-paesaggio", titolo: "Paesaggio", manovre: ["foto-pano", "foto-45", "foto-hdr"] },
+  ],
+};
 const DRITTE_MANOVRE = [
   "Usa la modalità lenta (Cine o Tripod) e abbassa la velocità del gimbal nelle impostazioni: i movimenti diventano morbidi.",
   "Al massimo due movimenti insieme (per esempio avanti + camera che sale). Di più sembra un errore.",
@@ -6520,15 +6552,37 @@ const SCALETTE_LAVORO = [
   { titolo: "Video aziendale", voci: ["Rivelazione della sede con il logo", "Laterale lungo capannoni o impianti", "Dall'alto su piazzali e parcheggi", "Avanzamento verso l'ingresso"] },
 ];
 
-function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte }) {
+function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "video", lavoro, onCambiaLavoro }) {
   const conScelta = Array.isArray(scelte) && onCambiaScelte;
   const cambia = (id) => onCambiaScelte(scelte.includes(id) ? scelte.filter((x) => x !== id) : [...scelte, id]);
+  const elenco = tipo === "fpv" ? MANOVRE_FPV : tipo === "foto" ? INQUADRATURE_FOTO : MANOVRE_VIDEO;
+  const scalette = SCALETTE_PRONTE[tipo] || SCALETTE_PRONTE.video;
+  const [scalettaSel, setScalettaSel] = useState(() => (scalette.find((x) => x.titolo === lavoro) || scalette[0]).id);
+  const titolo = tipo === "foto" ? "📸 Inquadrature per foto belle" : tipo === "fpv" ? "🎬 Manovre FPV" : "🎬 Manovre per video belli";
+  const usaScaletta = () => {
+    const sc = scalette.find((x) => x.id === scalettaSel);
+    if (!sc) return;
+    onCambiaScelte(sc.manovre);
+    if (onCambiaLavoro) onCambiaLavoro(sc.titolo);
+  };
   return (
     <details open={apertoIniziale} style={{ background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 8, padding: "10px 14px", margin: "14px 0" }}>
-      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#c4b5fd" }}>🎬 Manovre per video belli{conScelta && scelte.length > 0 ? ` · ${scelte.length} da fare` : ""}</summary>
-      <p style={{ fontSize: 11.5, color: "#a8a2bd", margin: "8px 0 0 0" }}>🕹️ Gli stick sono descritti nel «modo 2», quello standard dei radiocomandi DJI: sinistro = sali/scendi e ruota, destro = avanti/indietro e di lato.{conScelta ? " Spunta le manovre che vuoi fare: le ritrovi in Home il giorno del volo." : ""}</p>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#c4b5fd" }}>{titolo}{conScelta && scelte.length > 0 ? ` · ${lavoro ? lavoro + " · " : ""}${scelte.length} da fare` : ""}</summary>
+      <p style={{ fontSize: 11.5, color: "#a8a2bd", margin: "8px 0 0 0" }}>🕹️ Gli stick sono descritti nel «modo 2», quello standard dei radiocomandi DJI: sinistro = sali/scendi e ruota, destro = avanti/indietro e di lato.{conScelta ? " Spunta cosa vuoi fare: lo ritrovi in Home il giorno del volo." : ""}</p>
+      {conScelta && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 10, background: "#251e33", borderRadius: 6, padding: "8px 10px" }}>
+          <span style={{ fontSize: 12, color: "#e7eaee", fontWeight: 600 }}>Che lavoro fai?</span>
+          <select value={scalettaSel} onChange={(e) => setScalettaSel(e.target.value)} style={{ background: "#1b2028", color: "#e7eaee", border: "1px solid #3d2f5a", borderRadius: 5, padding: "5px 8px", fontSize: 12 }}>
+            {scalette.map((sc) => <option key={sc.id} value={sc.id}>{sc.titolo}</option>)}
+          </select>
+          <button type="button" onClick={usaScaletta} style={{ background: "#7c5cd6", color: "#fff", border: "none", borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700 }}>Usa questa scaletta</button>
+        </div>
+      )}
+      {conScelta && scelte.length > 0 && (
+        <p style={{ fontSize: 12, color: "#c4b5fd", margin: "8px 0 0 0" }}>Ordine: {scelte.map((id) => (TUTTE_MANOVRE().find((m) => m.id === id) || {}).nome).filter(Boolean).join(" → ")}</p>
+      )}
       <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
-        {MANOVRE_VIDEO.map((m) => (
+        {elenco.map((m) => (
           <div key={m.id} style={{ fontSize: 12.5, lineHeight: 1.5, color: "#d6dde6" }}>
             {conScelta ? (
               <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 700, color: "#e7eaee", cursor: "pointer" }}>
@@ -6541,17 +6595,69 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte }) {
           </div>
         ))}
       </div>
-      <p style={{ fontSize: 12, fontWeight: 700, color: "#c4b5fd", margin: "12px 0 4px 0" }}>Per farle venire bene</p>
-      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.55, color: "#d6dde6" }}>
-        {DRITTE_MANOVRE.map((v) => <li key={v} style={{ marginBottom: 4 }}>{v}</li>)}
-      </ul>
-      <p style={{ fontSize: 12, fontWeight: 700, color: "#c4b5fd", margin: "12px 0 4px 0" }}>Scaletta per tipo di lavoro</p>
-      {SCALETTE_LAVORO.map((sc) => (
-        <div key={sc.titolo} style={{ fontSize: 12.5, color: "#d6dde6", marginBottom: 6 }}>
-          <strong style={{ color: "#e7eaee" }}>{sc.titolo}:</strong> {sc.voci.join(" → ")}
-        </div>
-      ))}
+      {tipo !== "foto" && (
+        <>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#c4b5fd", margin: "12px 0 4px 0" }}>Per farle venire bene</p>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.55, color: "#d6dde6" }}>
+            {DRITTE_MANOVRE.map((v) => <li key={v} style={{ marginBottom: 4 }}>{v}</li>)}
+          </ul>
+        </>
+      )}
+      {tipo === "video" && !conScelta && (
+        <>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#c4b5fd", margin: "12px 0 4px 0" }}>Scaletta per tipo di lavoro</p>
+          {SCALETTE_LAVORO.map((sc) => (
+            <div key={sc.titolo} style={{ fontSize: 12.5, color: "#d6dde6", marginBottom: 6 }}>
+              <strong style={{ color: "#e7eaee" }}>{sc.titolo}:</strong> {sc.voci.join(" → ")}
+            </div>
+          ))}
+        </>
+      )}
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "10px 0 0 0" }}>Prova le manovre nuove in un posto aperto e senza persone, a quota sicura, prima di farle durante un lavoro.</p>
+    </details>
+  );
+}
+
+// impostazioni della camera in base alla luce (indicative, con ISO 100 come base)
+const LUCI_CAMERA = [
+  { id: "sole", label: "☀️ Sole pieno", video: { iso: "100", tempo: "1/50 a 25 fps (1/60 a 30 fps)", nd: "ND forti: ND64 o più (con obiettivi molto luminosi anche ND128–256)", wb: "5500 K fisso" }, foto: { iso: "100", tempo: "automatico o 1/500–1/2000", extra: "Ombre dure: prova lo scatto a forcella (AEB) e compensazione −0,3/−0,7" } },
+  { id: "nuvole", label: "⛅ Nuvoloso luminoso", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND16–ND64", wb: "6000–6500 K fisso" }, foto: { iso: "100", tempo: "automatico", extra: "Luce morbida: ottima per case e persone, colori un po' freddi da scaldare dopo" } },
+  { id: "coperto", label: "☁️ Coperto / ombra", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND8–ND32", wb: "6500 K fisso" }, foto: { iso: "100–200", tempo: "automatico, non sotto 1/100", extra: "Aumenta un po' contrasto e saturazione in modifica" } },
+  { id: "oro", label: "✨ Ora d'oro", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND4–ND16 (la luce cala in fretta: ricontrolla ogni pochi minuti)", wb: "5500 K fisso, per tenere i colori caldi" }, foto: { iso: "100", tempo: "automatico", extra: "Controluce col sole: forcella (AEB) per non bruciare il cielo" } },
+  { id: "blu", label: "🌆 Dopo il tramonto / ora blu", video: { iso: "100–800 (non oltre, sui droni piccoli fa rumore)", tempo: "1/50 a 25 fps", nd: "Nessun filtro", wb: "4500–5500 K fisso" }, foto: { iso: "100", tempo: "lungo, fino a 1–2 s solo senza vento: fai più scatti", extra: "Usa la modalità notte o la forcella se il drone le ha" } },
+];
+
+function ImpostazioniCamera({ tipo = "video", lucePrevista }) {
+  const [luceSel, setLuceSel] = useState(lucePrevista || "sole");
+  const [modo, setModo] = useState(tipo === "foto" ? "foto" : "video");
+  const l = LUCI_CAMERA.find((x) => x.id === luceSel) || LUCI_CAMERA[0];
+  const riga = (k, v) => <div style={{ display: "flex", gap: 8, fontSize: 12.5, padding: "4px 0", borderBottom: "1px solid #24303d" }}><span style={{ width: 110, flexShrink: 0, color: "#8fb3d9" }}>{k}</span><span style={{ color: "#e7eaee" }}>{v}</span></div>;
+  const v = l[modo];
+  return (
+    <details style={{ background: "#141c26", border: "1px solid #2a4562", borderRadius: 8, padding: "10px 14px", margin: "14px 0" }}>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#8fc1ff" }}>📷 Come impostare la camera</summary>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+        {LUCI_CAMERA.map((x) => (
+          <button key={x.id} type="button" onClick={() => setLuceSel(x.id)} style={{ background: luceSel === x.id ? "#2a4562" : "#1b2028", color: "#e7eaee", border: `1px solid ${luceSel === x.id ? "#8fc1ff" : "#333a45"}`, borderRadius: 14, padding: "4px 10px", fontSize: 11.5 }}>{x.label}</button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+        {["video", "foto"].map((m) => (
+          <button key={m} type="button" onClick={() => setModo(m)} style={{ background: modo === m ? "#8fc1ff" : "transparent", color: modo === m ? "#141c26" : "#8fc1ff", border: "1px solid #8fc1ff", borderRadius: 5, padding: "3px 10px", fontSize: 11.5, fontWeight: 700 }}>{m === "video" ? "Video" : "Foto"}</button>
+        ))}
+      </div>
+      {lucePrevista && <p style={{ fontSize: 11, color: "#8b95a3", margin: "8px 0 0 0" }}>Ho scelto la luce in base all'ora del volo: cambiala se il cielo è diverso.</p>}
+      <div style={{ marginTop: 8 }}>
+        {riga("ISO", v.iso)}
+        {riga(modo === "video" ? "Tempo di scatto" : "Tempo", v.tempo)}
+        {modo === "video" && riga("Filtro ND", v.nd)}
+        {modo === "video" && riga("Bilanciamento", v.wb)}
+        {modo === "foto" && riga("Formato", "RAW (DNG) + JPG")}
+        {modo === "foto" && riga("Dritta", v.extra)}
+        {modo === "video" && riga("Profilo colore", "Normale; D-Log solo se poi correggi i colori")}
+      </div>
+      <p style={{ fontSize: 11.5, color: "#c3cad4", margin: "8px 0 0 0" }}>💡 Non te la senti di fare tutto a mano? Blocca ISO a 100 e lascia l'esposizione automatica con compensazione −0,3/−0,7 per non bruciare il cielo.{modo === "video" ? " Il valore esatto del filtro ND te lo dà il calcolatore ND." : ""}</p>
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Valori indicativi: cambiano con il drone e l'obiettivo. Guarda sempre l'istogramma.</p>
     </details>
   );
 }
@@ -6583,7 +6689,14 @@ function GuideVolo({ droni = [] }) {
         <div key={g.titolo} style={{ marginBottom: 10 }}>
           <h2 style={{ fontSize: 13, fontWeight: 700, color: "#8b95a3", textTransform: "uppercase", letterSpacing: "0.05em", margin: "18px 0 0 0" }}>{g.titolo}</h2>
           {g.tipi.map((t) => <ConsigliVolo key={t + droneId} tipo={t} drone={drone} inGuida />)}
-          {g.titolo === "Riprese" && <ManovreVideo />}
+          {g.titolo === "Riprese" && (
+            <>
+              <ImpostazioniCamera />
+              <ManovreVideo tipo="video" />
+              <ManovreVideo tipo="fpv" />
+              <ManovreVideo tipo="foto" />
+            </>
+          )}
         </div>
       ))}
     </div>
@@ -6642,6 +6755,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [puntoIndirizzo, setPuntoIndirizzo] = useState(null); // via e numero trovati su OpenStreetMap
   const [stsDati, setStsDati] = useState(null); // calcolatore STS-01 (salvato nel piano)
   const [manovreScelte, setManovreScelte] = useState([]); // riprese da fare in questo volo (scaletta)
+  const [lavoroScelto, setLavoroScelto] = useState(""); // nome della scaletta pronta usata (es. Matrimonio)
   // scegliendo l'ora del volo, anche la direzione del sole si calcola per quell'ora
   const scegliOraPrevista = (ora) => { setOraPrevista(ora); if (ora) setOraSole(ora); };
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
@@ -6822,7 +6936,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
         ora_prevista: oraPrevista || null,
         drone_id: droneSelId || null,
         dflight_screenshot_url: dflightUrl,
-        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}), ...(manovreScelte.length > 0 ? { manovre: manovreScelte } : {}) },
+        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}), ...(manovreScelte.length > 0 ? { manovre: manovreScelte, ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {}) },
       };
       // le coordinate si salvano solo per un luogo scelto a mano
       if (!impiantoSel) payload.luogo_coordinate = coordinateValide ? `${coordinateValide.lat}, ${coordinateValide.lon}` : null;
@@ -6860,6 +6974,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setZonaEsito(p.checklist_stato?.zona || null);
     setStsDati(p.checklist_stato?.sts || null);
     setManovreScelte(Array.isArray(p.checklist_stato?.manovre) ? p.checklist_stato.manovre : []);
+    setLavoroScelto(p.checklist_stato?.lavoro || "");
     if (p.ora_prevista) setOraSole(String(p.ora_prevista).slice(0, 5));
     setDroneSelId(p.drone_id || "");
     setDflightShot(p.dflight_screenshot_url ? { dataUrl: p.dflight_screenshot_url, remota: true } : null);
@@ -6885,6 +7000,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setZonaEsito(null);
     setStsDati(null);
     setManovreScelte([]);
+    setLavoroScelto("");
     setDflightShot(null);
     setMeteo(null);
     setMeteoSpaziale(null);
@@ -7023,7 +7139,22 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           />
 
           <ConsigliVolo key={"consigli-" + tipoIspezione} tipo={tipoIspezione} drone={droneSelezionato} />
-          {["video", "foto", "fpv"].includes(tipoIspezione) && <ManovreVideo scelte={manovreScelte} onCambiaScelte={setManovreScelte} />}
+          {["video", "foto", "fpv"].includes(tipoIspezione) && (
+            <>
+              <ImpostazioniCamera key={"cam-" + tipoIspezione + (oraPrevista || "")} tipo={tipoIspezione} lucePrevista={(() => {
+                if (!luce || !oraPrevista) return undefined;
+                const fuso = meteo?.fusoOrario;
+                const [h, m] = oraPrevista.split(":").map(Number);
+                const min = h * 60 + m;
+                const tramonto = minutiDelGiorno(luce.tramonto, fuso), alba = minutiDelGiorno(luce.alba, fuso);
+                const oro = [luce.oraOroMattina, luce.oraOroSera].filter((f) => f && f[0] && f[1]).some(([a, b]) => min >= minutiDelGiorno(a, fuso) && min <= minutiDelGiorno(b, fuso));
+                if (tramonto != null && (min > tramonto || (alba != null && min < alba))) return "blu";
+                if (oro) return "oro";
+                return undefined;
+              })()} />
+              <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} scelte={manovreScelte} onCambiaScelte={setManovreScelte} lavoro={lavoroScelto} onCambiaLavoro={setLavoroScelto} />
+            </>
+          )}
 
           <StrumentiLavoro key={tipoIspezione} tipo={tipoIspezione} />
 
