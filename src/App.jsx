@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
@@ -1536,6 +1536,9 @@ export default function App() {
   // link di consegna al cliente: pagina pubblica, senza login
   const tokenGalleria = new URLSearchParams(window.location.search).get("galleria");
   if (tokenGalleria) return <GalleriaCondivisa token={tokenGalleria} />;
+  // pagina pubblica del pilota: app.eyedrones.it/p/nome (o ?pilota=nome), senza login
+  const slugPilota = slugPilotaDaIndirizzo();
+  if (slugPilota) return <PaginaPilotaPubblica slug={slugPilota} />;
   return <AppAutenticata />;
 }
 
@@ -1645,9 +1648,12 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "pagina-pilota"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
-  const [page, setPageInterna] = useState(() => (PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard"));
+  // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
+  const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
+  const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard"));
+  useEffect(() => { if (vaiARichieste) window.history.replaceState(null, "", window.location.pathname); }, []);
   const [paginaPrecedente, setPaginaPrecedente] = useState(null); // da dove si apre «Suggerimenti», per capire dove c'è un problema
   const setPage = (p) => {
     if (p === "suggerimenti") setPaginaPrecedente((prec) => (page !== "suggerimenti" ? page : prec));
@@ -1709,6 +1715,8 @@ function AppShell({ session }) {
   const [batterie, setBatterie] = useState([]);
   const [eventiVolo, setEventiVolo] = useState([]);
   const [dflightScadenza, setDflightScadenza] = useState(undefined); // undefined = colonna non ancora creata dallo script SQL
+  const [richiesteNuove, setRichiesteNuove] = useState(0); // richieste di preventivo arrivate dalla pagina pubblica e non ancora aperte
+  const [bozzaPreventivo, setBozzaPreventivo] = useState(null); // richiesta da trasformare in preventivo
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
@@ -1780,6 +1788,12 @@ function AppShell({ session }) {
     if (error) alert("Non sono riuscito a salvare la scadenza (" + error.message + "). Controlla di aver eseguito lo script SQL «eventi-dflight.sql».");
   };
 
+  // solo il numero: se la tabella non esiste ancora (script pagina-pilota.sql) resta 0
+  const caricaRichiesteNuove = async () => {
+    const { count } = await supabase.from("richieste_preventivo").select("id", { count: "exact", head: true }).eq("stato", "nuova");
+    setRichiesteNuove(count || 0);
+  };
+
   const caricaBatterie = async () => {
     const { data } = await supabase.from("batterie").select("*").order("created_at", { ascending: true });
     setBatterie(data || []);
@@ -1816,7 +1830,7 @@ function AppShell({ session }) {
     setLoading(false);
   };
 
-  useEffect(() => { caricaProfilo(); loadData(); caricaVoli(); caricaBatterie(); caricaEventiVolo(); }, []);
+  useEffect(() => { caricaProfilo(); loadData(); caricaVoli(); caricaBatterie(); caricaEventiVolo(); caricaRichiesteNuove(); }, []);
 
   // quanti report ha gi\u00e0 generato l'utente nel mese corrente (log persistente: non si azzera cancellando impianti/ispezioni)
   const oggi = new Date();
@@ -1894,7 +1908,7 @@ function AppShell({ session }) {
         }
       `}</style>
 
-      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} />
+      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AvvisoInstallaApp />
@@ -1927,7 +1941,8 @@ function AppShell({ session }) {
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={pianoReale} />}
         {page === "suggerimenti" && <Suggerimenti session={session} paginaPrecedente={paginaPrecedente} />}
-        {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} />}
+        {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
+        {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} obiettivoFormativo={obiettivoFormativo} onSalvaObiettivo={salvaObiettivoFormativo} />}
@@ -2196,7 +2211,7 @@ function Login({ modoIniziale = "login", onTorna }) {
 
 // --- Sidebar -----------------------------------------------------------
 
-function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, batterieAvvisi }) {
+function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, batterieAvvisi, richiesteNuove }) {
   const items = [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
     ...(usaIspezioni ? [
@@ -2217,12 +2232,13 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { key: "droni", label: "I miei droni", icon: Plane },
     { intestazione: "Lavoro" },
     { key: "preventivi", label: "Preventivi", icon: FileText },
+    { key: "pagina-pilota", label: "La mia pagina", icon: Globe },
     { intestazione: "Account" },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
     { key: "suggerimenti", label: "Suggerimenti", icon: MessageSquare },
   ];
-  const avvisi = { attestati: attestatiInScadenza, droni: droniInScadenza, batterie: batterieAvvisi };
+  const avvisi = { attestati: attestatiInScadenza, droni: droniInScadenza, batterie: batterieAvvisi, "pagina-pilota": richiesteNuove };
   return (
     <>
     <div className="sidebar" style={{ background: "#12151a", borderRight: "1px solid #262b33", padding: "20px 14px", display: "flex", flexShrink: 0 }}>
@@ -2282,6 +2298,9 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
             )}
             {it.key === "droni" && droniInScadenza > 0 && (
               <span className="sidebar-label" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto", background: "#ff4d4d", color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{droniInScadenza}</span>
+            )}
+            {it.key === "pagina-pilota" && richiesteNuove > 0 && (
+              <span className="sidebar-label" title="Richieste di preventivo nuove" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto", background: "#ff4d4d", color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{richiesteNuove}</span>
             )}
             {it.key === "batterie" && batterieAvvisi > 0 && (
               <span className="sidebar-label" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto", background: "#ff4d4d", color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{batterieAvvisi}</span>
@@ -4048,7 +4067,7 @@ function ConsigliPrezzo({ onUsa }) {
   );
 }
 
-function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) {
+function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento, bozza, onBozzaUsata }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [cliente, setCliente] = useState("");
@@ -4062,6 +4081,7 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
   const [dataPreventivo, setDataPreventivo] = useState(() => new Date().toISOString().slice(0, 10));
   const [salvataggio, setSalvataggio] = useState(false);
   const [cambiandoStato, setCambiandoStato] = useState(null);
+  const [richiesta, setRichiesta] = useState(null); // il preventivo nasce da una richiesta della pagina pubblica: la mostro come promemoria
 
   const listino = voci.reduce((s, v) => s + (Number(v.importo) || 0), 0);
   const scontoVal = Number(scontoImporto) || 0;
@@ -4111,9 +4131,22 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
   const resetForm = () => {
     setCliente(""); setLuogoIntervento(""); setOggetto("");
     setVoci([{ descrizione: "", importo: "" }]); setScontoImporto("");
-    setValiditaGiorni("30"); setNote(""); setKwp(""); setEditingId(null);
+    setValiditaGiorni("30"); setNote(""); setKwp(""); setEditingId(null); setRichiesta(null);
     setDataPreventivo(new Date().toISOString().slice(0, 10));
   };
+
+  // arrivo da «La mia pagina» → «Crea preventivo»: compilo con i dati della richiesta del cliente
+  useEffect(() => {
+    if (!bozza) return;
+    resetForm();
+    setRichiesta(bozza);
+    setCliente(bozza.nome || "");
+    setLuogoIntervento(bozza.luogo || "");
+    setOggetto(bozza.servizio || "");
+    setShowForm(true);
+    window.scrollTo(0, 0);
+    if (onBozzaUsata) onBozzaUsata();
+  }, [bozza]);
 
   const apriModifica = (p) => {
     setEditingId(p.id);
@@ -4157,6 +4190,7 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
     }
     setSalvataggio(false);
     if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
+    if (richiesta && !editingId) await supabase.from("richieste_preventivo").update({ stato: "preventivo" }).eq("id", richiesta.id);
     resetForm();
     setShowForm(false);
     onReload();
@@ -4197,6 +4231,15 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento }) 
       {showForm && (
         <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 540, display: "flex", flexDirection: "column", gap: 12 }}>
           {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un preventivo esistente</div>}
+          {richiesta && !editingId && (
+            <div style={{ background: "#16263d", border: "1px solid #24456e", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5 }}>
+              <div style={{ fontWeight: 700, color: "#e7eaee", marginBottom: 2 }}>📩 Richiesta dalla tua pagina · {formatData(richiesta.created_at)}</div>
+              {richiesta.descrizione && <div style={{ whiteSpace: "pre-wrap" }}>{richiesta.descrizione}</div>}
+              {richiesta.data_desiderata && <div>Data desiderata: {formatData(richiesta.data_desiderata)}</div>}
+              <div>{[richiesta.telefono && `Tel. ${richiesta.telefono}`, richiesta.email].filter(Boolean).join(" · ")}</div>
+              <div style={{ fontSize: 11, color: "#8b95a3", marginTop: 4 }}>Solo per te: non compare nel PDF. Salvando, la richiesta passa a «Preventivo fatto».</div>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 2 }}>
               <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome cliente</label>
@@ -7355,6 +7398,673 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
 
 
 // --- Registro voli generale (video / foto / FPV / ispezioni) -----------------------------------------------------------
+
+// --- Pagina pubblica del pilota: app.eyedrones.it/p/<nome> --------------------------------------
+// i dati vivono nelle tabelle "pagine_pilota" e "richieste_preventivo" (script supabase/pagina-pilota.sql);
+// la pagina pubblica legge solo tramite la funzione pagina_pilota e scrive solo tramite invia_richiesta_preventivo.
+
+const SERVIZI_PILOTA = [
+  "Riprese aeree foto e video", "Matrimoni ed eventi", "Immobiliare e turismo", "Video per aziende", "Riprese FPV",
+  "Ispezioni termografiche fotovoltaico", "Ispezioni tetti e facciate", "Rilievi e fotogrammetria", "Monitoraggio cantieri",
+  "Agricoltura di precisione", "Pulizia pannelli e facciate",
+];
+const LIMITE_PORTFOLIO = { free: 6, pilota: 24, pro: 24 };
+const SLUG_RISERVATI = ["admin", "app", "api", "eyedrones", "partner", "pilota", "piloti", "assistenza", "info", "login", "accedi", "registrati", "nuovo", "test"];
+
+// "Studio Aereo Rossi!" → "studio-aereo-rossi"
+function pulisciSlug(testo) {
+  return String(testo || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/g, "");
+}
+// mentre si scrive il trattino finale resta, così si può continuare con la parola dopo
+const pulisciSlugMentreScrivi = (testo) => String(testo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+/, "").slice(0, 40);
+const slugValido = (s) => /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(s) && !SLUG_RISERVATI.includes(s);
+
+function slugPilotaDaIndirizzo() {
+  const m = window.location.pathname.match(/^\/p\/([a-z0-9-]{3,40})\/?$/i);
+  if (m) return m[1].toLowerCase();
+  const q = new URLSearchParams(window.location.search).get("pilota");
+  return q && /^[a-z0-9-]{3,40}$/i.test(q) ? q.toLowerCase() : null;
+}
+const linkPaginaPilota = (slug) => `${window.location.origin}/p/${slug}`;
+
+// link sicuri verso l'esterno: solo http(s), WhatsApp e telefono ridotti a cifre
+const linkWeb = (v) => {
+  const t = String(v || "").trim();
+  if (!t) return null;
+  const u = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : null; } catch (e) { return null; }
+};
+const linkInstagram = (v) => {
+  const t = String(v || "").trim().replace(/^@/, "");
+  if (!t) return null;
+  if (/instagram\.com/i.test(t)) return linkWeb(t);
+  return /^[a-z0-9._]{1,30}$/i.test(t) ? `https://instagram.com/${t}` : null;
+};
+const numeroWhatsapp = (v) => {
+  let n = String(v || "").replace(/[^\d+]/g, "").replace(/^\+/, "").replace(/^00/, "");
+  if (!n) return null;
+  if (/^3\d{8,9}$/.test(n)) n = "39" + n; // cellulare italiano scritto senza prefisso
+  return n.length >= 8 ? n : null;
+};
+const mediaSicuro = (m) => m && typeof m.url === "string" && /^https:\/\//i.test(m.url);
+
+function PaginaPilotaPubblica({ slug }) {
+  const [dati, setDati] = useState(undefined); // undefined = caricamento, null = pagina non trovata
+  const [lightbox, setLightbox] = useState(null);
+  const [modulo, setModulo] = useState({ nome: "", email: "", telefono: "", servizio: "", luogo: "", data: "", descrizione: "", sito_web: "" });
+  const [consenso, setConsenso] = useState(false);
+  const [invio, setInvio] = useState(null); // null | "invio" | "ok" | messaggio d'errore
+  const formRef = useRef(null);
+
+  useEffect(() => {
+    let annullato = false;
+    supabase.rpc("pagina_pilota", { p_slug: slug }).then(({ data, error }) => {
+      if (annullato) return;
+      setDati(error ? null : data || null);
+      if (data) supabase.rpc("visita_pagina_pilota", { p_slug: slug }).then(() => {}, () => {});
+    });
+    return () => { annullato = true; };
+  }, [slug]);
+
+  // titolo e descrizione per la scheda del browser e per chi condivide il link
+  useEffect(() => {
+    if (!dati) return;
+    const dove = [dati.citta, dati.provincia && `(${dati.provincia})`].filter(Boolean).join(" ");
+    document.title = `${dati.nome || "Pilota di droni"} — Pilota di droni${dove ? ` a ${dove}` : ""}`;
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute("content", (dati.presentazione || `${(dati.servizi || []).join(", ")}. Richiedi un preventivo.`).slice(0, 160));
+  }, [dati]);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const chiudi = (e) => e.key === "Escape" && setLightbox(null);
+    window.addEventListener("keydown", chiudi);
+    return () => window.removeEventListener("keydown", chiudi);
+  }, [lightbox]);
+
+  const pagina = { minHeight: "100vh", color: "#e7eaee", fontFamily: "'IBM Plex Sans', sans-serif", padding: "24px 16px 40px 16px" };
+  const scheda = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: 18 };
+  const titoletto = { fontSize: 12, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#8b95a3", margin: "0 0 10px 0" };
+  const linkIscrizione = "https://app.eyedrones.it/?ref=pagina-pilota";
+
+  if (dati === undefined) {
+    return <div style={{ ...pagina, display: "flex", alignItems: "center", justifyContent: "center", color: "#8b95a3" }}>Caricamento...</div>;
+  }
+  if (!dati) {
+    return (
+      <div style={{ ...pagina, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+        <div style={{ maxWidth: 380 }}>
+          <div style={{ fontSize: 36, marginBottom: 8 }}>🚁</div>
+          <h1 style={{ fontSize: 18, margin: "0 0 8px 0" }}>Pagina non disponibile</h1>
+          <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 16px 0" }}>L'indirizzo non è corretto oppure il pilota ha nascosto la sua pagina.</p>
+          <a href={linkIscrizione} style={{ fontSize: 13, color: "#ffb877" }}>Sei un pilota? Crea la tua pagina con Eyedrones →</a>
+        </div>
+      </div>
+    );
+  }
+
+  const servizi = dati.servizi || [];
+  const abilitazioni = dati.abilitazioni || [];
+  const portfolio = (Array.isArray(dati.portfolio) ? dati.portfolio : []).filter(mediaSicuro);
+  const wa = numeroWhatsapp(dati.whatsapp);
+  const sito = linkWeb(dati.sito);
+  const insta = linkInstagram(dati.instagram);
+  const logo = dati.logo && !String(dati.logo).startsWith(LOGO_PRECEDENTE_PREFISSO) ? dati.logo : null;
+  const iniziali = String(dati.nome || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
+  const dove = [dati.citta, dati.provincia && `(${dati.provincia})`].filter(Boolean).join(" ");
+  const cambia = (k) => (e) => { setModulo({ ...modulo, [k]: e.target.value }); if (invio && invio !== "invio") setInvio(null); };
+  const vaiAlModulo = () => formRef.current && formRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  const invia = async (e) => {
+    e.preventDefault();
+    if (modulo.sito_web) { setInvio("ok"); return; } // campo nascosto compilato = robot: fingo che sia andata
+    if (modulo.nome.trim().length < 2) { setInvio("Scrivi il tuo nome."); return; }
+    if (!modulo.email.trim() && !modulo.telefono.trim()) { setInvio("Lascia almeno un'email o un numero di telefono, così il pilota può risponderti."); return; }
+    if (!consenso) { setInvio("Per inviare la richiesta serve il consenso qui sopra."); return; }
+    setInvio("invio");
+    const { error } = await supabase.rpc("invia_richiesta_preventivo", {
+      p_slug: slug, p_nome: modulo.nome, p_email: modulo.email, p_telefono: modulo.telefono,
+      p_servizio: modulo.servizio, p_luogo: modulo.luogo, p_data: modulo.data || null, p_descrizione: modulo.descrizione,
+    });
+    if (error) {
+      const m = error.message || "";
+      setInvio(/email non valida/i.test(m) ? "L'indirizzo email non sembra corretto." : /troppe richieste/i.test(m) ? "Hai già inviato diverse richieste: il pilota ti risponderà presto." : "Invio non riuscito: controlla la connessione e riprova.");
+      return;
+    }
+    setInvio("ok");
+  };
+
+  const etichetta = { fontSize: 11.5, color: "#8b95a3", display: "block", marginBottom: 4 };
+  const bottonePrincipale = { background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "11px 16px", fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 };
+  const bottoneSecondario = { background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "10px 14px", fontWeight: 600, fontSize: 13.5, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 };
+
+  return (
+    <div style={pagina}>
+      <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+        <header style={{ ...scheda, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            {logo
+              ? <img src={logo} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "contain", background: "#12151a", border: "1px solid #2b313d", flexShrink: 0 }} />
+              : <div aria-hidden="true" style={{ width: 68, height: 68, borderRadius: 14, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 24, color: "#161a1f", flexShrink: 0 }}>{iniziali}</div>}
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ fontSize: 22, margin: 0, lineHeight: 1.2, overflowWrap: "anywhere" }}>{dati.nome || "Pilota di droni"}</h1>
+              <div style={{ fontSize: 13.5, color: "#aab3bf", marginTop: 4 }}>
+                Pilota di droni{dove ? ` · ${dove}` : ""}{dati.raggio_km ? ` · si sposta fino a ${dati.raggio_km} km` : ""}
+              </div>
+            </div>
+          </div>
+          {(dati.codice_operatore || dati.assicurato || abilitazioni.length > 0) && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {dati.codice_operatore && <span style={{ fontSize: 12, background: "#16263d", border: "1px solid #24456e", color: "#9cc4ff", borderRadius: 20, padding: "3px 10px" }}>✓ Operatore registrato · {dati.codice_operatore}</span>}
+              {dati.assicurato && <span style={{ fontSize: 12, background: "#1d3a2a", border: "1px solid #2c5a3f", color: "#86efac", borderRadius: 20, padding: "3px 10px" }}>✓ Assicurazione RC</span>}
+              {abilitazioni.slice(0, 3).map((a) => <span key={a} style={{ fontSize: 12, background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 20, padding: "3px 10px" }}>{a}</span>)}
+            </div>
+          )}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <button onClick={vaiAlModulo} style={bottonePrincipale}>Richiedi un preventivo</button>
+            {wa && <a href={`https://wa.me/${wa}?text=${encodeURIComponent(`Ciao ${dati.nome || ""}, ho visto la tua pagina e vorrei un preventivo.`)}`} target="_blank" rel="noopener noreferrer" style={bottoneSecondario}>💬 WhatsApp</a>}
+            {dati.telefono && <a href={`tel:${String(dati.telefono).replace(/[^\d+]/g, "")}`} style={bottoneSecondario}>📞 Chiama</a>}
+          </div>
+        </header>
+
+        {servizi.length > 0 && (
+          <section style={scheda}>
+            <h2 style={titoletto}>Servizi</h2>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {servizi.map((s) => <span key={s} style={{ fontSize: 13, background: "#ff8c4218", border: "1px solid #ff8c4255", color: "#ffb877", borderRadius: 20, padding: "5px 12px" }}>{s}</span>)}
+            </div>
+          </section>
+        )}
+
+        {dati.presentazione && (
+          <section style={scheda}>
+            <h2 style={titoletto}>Chi sono</h2>
+            <p style={{ fontSize: 14.5, lineHeight: 1.65, color: "#d5dae1", margin: 0, whiteSpace: "pre-wrap" }}>{dati.presentazione}</p>
+          </section>
+        )}
+
+        {portfolio.length > 0 && (
+          <section style={scheda}>
+            <h2 style={titoletto}>Lavori</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
+              {portfolio.map((m, i) => (
+                <button key={m.url + i} onClick={() => setLightbox(m)} aria-label={`Apri ${m.nome || "lavoro " + (i + 1)}`} style={{ padding: 0, border: "1px solid #2b313d", borderRadius: 8, overflow: "hidden", background: "#12151a", aspectRatio: "4 / 3", position: "relative" }}>
+                  {m.tipo === "video"
+                    ? <><video src={m.url} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /><span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, color: "#fff", textShadow: "0 1px 6px #000" }}>▶</span></>
+                    : <img src={m.url} alt={m.nome || ""} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {abilitazioni.length > 0 && (
+          <section style={scheda}>
+            <h2 style={titoletto}>Abilitazioni e attestati</h2>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+              {abilitazioni.map((a) => <li key={a} style={{ fontSize: 14, color: "#d5dae1" }}><span style={{ color: "#4ade80", marginRight: 8 }}>✓</span>{a}</li>)}
+            </ul>
+            <p style={{ fontSize: 11.5, color: "#6b7480", margin: "10px 0 0 0" }}>Dichiarati dal pilota.</p>
+          </section>
+        )}
+
+        <section ref={formRef} style={{ ...scheda, scrollMarginTop: 16 }}>
+          <h2 style={{ fontSize: 18, margin: "0 0 4px 0" }}>Richiedi un preventivo</h2>
+          <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 14px 0" }}>Descrivi cosa ti serve: {dati.nome || "il pilota"} ti risponde direttamente. La richiesta è gratuita e senza impegno.</p>
+          {invio === "ok" ? (
+            <div role="status" style={{ background: "#1d3a2a", border: "1px solid #2c5a3f", borderRadius: 8, padding: 14, fontSize: 14, color: "#d5f5e0" }}>
+              ✓ Richiesta inviata! {dati.nome || "Il pilota"} la riceve subito e ti ricontatta{modulo.email && modulo.telefono ? " via email o telefono" : modulo.email ? " via email" : " al telefono"}.
+            </div>
+          ) : (
+            <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+                <label><span style={etichetta}>Nome e cognome o azienda *</span><input required autoComplete="name" maxLength={80} value={modulo.nome} onChange={cambia("nome")} style={inputStyle} /></label>
+                <label><span style={etichetta}>Servizio</span>
+                  <select value={modulo.servizio} onChange={cambia("servizio")} style={inputStyle}>
+                    <option value="">Scegli…</option>
+                    {(servizi.length ? servizi : SERVIZI_PILOTA).map((s) => <option key={s} value={s}>{s}</option>)}
+                    <option value="Altro">Altro</option>
+                  </select>
+                </label>
+                <label><span style={etichetta}>Email</span><input type="email" autoComplete="email" maxLength={120} value={modulo.email} onChange={cambia("email")} style={inputStyle} /></label>
+                <label><span style={etichetta}>Telefono</span><input type="tel" autoComplete="tel" maxLength={30} value={modulo.telefono} onChange={cambia("telefono")} style={inputStyle} /></label>
+                <label><span style={etichetta}>Dove (comune o indirizzo)</span><input maxLength={120} value={modulo.luogo} onChange={cambia("luogo")} style={inputStyle} /></label>
+                <label><span style={etichetta}>Quando (se hai una data)</span><input type="date" min={dataLocale()} value={modulo.data} onChange={cambia("data")} style={inputStyle} /></label>
+              </div>
+              <label><span style={etichetta}>Cosa ti serve</span><textarea rows={4} maxLength={2000} value={modulo.descrizione} onChange={cambia("descrizione")} placeholder="es. video del matrimonio a giugno, foto aeree di un casale, ispezione di un impianto fotovoltaico da 50 kWp…" style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} /></label>
+              {/* campo trappola per i robot: invisibile alle persone */}
+              <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" value={modulo.sito_web} onChange={cambia("sito_web")} aria-hidden="true" style={{ position: "absolute", left: -9999, width: 1, height: 1, opacity: 0 }} />
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: "#aab3bf", lineHeight: 1.45 }}>
+                <input type="checkbox" checked={consenso} onChange={(e) => { setConsenso(e.target.checked); if (invio && invio !== "invio") setInvio(null); }} style={{ marginTop: 2 }} />
+                <span>Acconsento a inviare questi dati a {dati.nome || "questo pilota"}, che li userà solo per rispondere alla mia richiesta.</span>
+              </label>
+              {invio && invio !== "invio" && <p role="alert" style={{ fontSize: 13, color: "#ff9c9c", margin: 0 }}>{invio}</p>}
+              <button type="submit" disabled={invio === "invio"} style={{ ...bottonePrincipale, width: "100%", opacity: invio === "invio" ? 0.7 : 1 }}>{invio === "invio" ? "Invio…" : "Invia la richiesta"}</button>
+            </form>
+          )}
+        </section>
+
+        {(dati.email || sito || insta) && (
+          <section style={{ ...scheda, display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {dati.email && <a href={`mailto:${dati.email}`} style={bottoneSecondario}>✉️ {dati.email}</a>}
+            {sito && <a href={sito} target="_blank" rel="noopener noreferrer nofollow" style={bottoneSecondario}>🌐 Sito web</a>}
+            {insta && <a href={insta} target="_blank" rel="noopener noreferrer nofollow" style={bottoneSecondario}>📷 Instagram</a>}
+          </section>
+        )}
+
+        <footer style={{ textAlign: "center", fontSize: 12, color: "#6b7480", padding: "8px 0" }}>
+          <a href={linkIscrizione} style={{ color: "#8b95a3", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <img src={LOGO_EYEDRONES} alt="" style={{ width: 18, height: 18 }} /> Pagina creata con Eyedrones · <span style={{ color: "#ffb877" }}>sei un pilota? Crea la tua</span>
+          </a>
+        </footer>
+      </div>
+
+      {lightbox && (
+        <div role="dialog" aria-modal="true" onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 1000 }}>
+          <button onClick={() => setLightbox(null)} aria-label="Chiudi" style={{ position: "absolute", top: 14, right: 14, background: "#262b33", border: "none", color: "#fff", borderRadius: 20, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}><X size={18} /></button>
+          {lightbox.tipo === "video"
+            ? <video src={lightbox.url} controls autoPlay playsInline onClick={(e) => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 8 }} />
+            : <img src={lightbox.url} alt={lightbox.nome || ""} onClick={(e) => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 8, objectFit: "contain" }} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// «La mia pagina»: il pilota compone la sua pagina pubblica e legge le richieste arrivate
+function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onRichiesteCambiate, onCreaPreventivo }) {
+  const [scheda, setScheda] = useState(schedaIniziale); // "pagina" | "richieste"
+  const [stato, setStato] = useState("carico"); // carico | pronto | manca-script
+  const [salvata, setSalvata] = useState(null); // la riga com'è sul database (null = mai salvata)
+  const [f, setF] = useState(null); // il modulo
+  const [slugLibero, setSlugLibero] = useState(null); // null = da controllare | true | false
+  const [media, setMedia] = useState([]);
+  const [richieste, setRichieste] = useState([]);
+  const [nuoveAllApertura, setNuoveAllApertura] = useState([]); // per evidenziarle anche dopo averle segnate come lette
+  const [salvataggio, setSalvataggio] = useState(null); // null | "salvo" | "ok" | messaggio d'errore
+  const [abilitazioneLibera, setAbilitazioneLibera] = useState("");
+  const [copiato, setCopiato] = useState(false);
+  const limitePortfolio = LIMITE_PORTFOLIO[piano] || LIMITE_PORTFOLIO.free;
+
+  const daRiga = (r) => ({
+    slug: r?.slug || pulisciSlug(azienda.nomeImpostato ? azienda.nome : ""),
+    attiva: !!r?.attiva,
+    nome: r?.nome || "",
+    presentazione: r?.presentazione || "",
+    citta: r?.citta || "",
+    provincia: r?.provincia || "",
+    raggio_km: r?.raggio_km != null ? String(r.raggio_km) : "50",
+    servizi: r?.servizi || [],
+    abilitazioni: r?.abilitazioni || [],
+    codice_operatore: r?.codice_operatore || "",
+    assicurato: !!r?.assicurato,
+    telefono: r?.telefono || "",
+    whatsapp: r?.whatsapp || "",
+    email: r?.email || "",
+    sito: r?.sito || "",
+    instagram: r?.instagram || "",
+    portfolio: Array.isArray(r?.portfolio) ? r.portfolio : [],
+    avviso_email: r?.avviso_email !== false,
+  });
+  // la colonna avviso_email esiste solo dopo lo script avviso-richieste-email.sql
+  const avvisoDisponibile = !!salvata && "avviso_email" in salvata;
+
+  const caricaRichieste = async () => {
+    const { data, error } = await supabase.from("richieste_preventivo").select("*").order("created_at", { ascending: false });
+    if (error) return;
+    setRichieste(data || []);
+  };
+
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase.from("pagine_pilota").select("*").maybeSingle();
+      if (error) { setStato("manca-script"); setF(daRiga(null)); return; }
+      setSalvata(data || null);
+      setF(daRiga(data));
+      setStato("pronto");
+      caricaRichieste();
+      const { data: m } = await supabase.from("voli_media").select("id, tipo, url, nome, created_at").in("tipo", ["foto", "video"]).order("created_at", { ascending: false }).limit(300);
+      setMedia((m || []).filter(mediaSicuro));
+    })();
+  }, []);
+
+  // aprendo le richieste, quelle nuove diventano lette (il bollino nel menu si spegne)
+  useEffect(() => {
+    if (scheda !== "richieste") return;
+    const nuove = richieste.filter((r) => r.stato === "nuova").map((r) => r.id);
+    if (nuove.length === 0) return;
+    setNuoveAllApertura((prec) => [...new Set([...prec, ...nuove])]);
+    setRichieste(richieste.map((r) => (r.stato === "nuova" ? { ...r, stato: "letta" } : r)));
+    supabase.from("richieste_preventivo").update({ stato: "letta" }).in("id", nuove).then(() => onRichiesteCambiate && onRichiesteCambiate());
+  }, [scheda, richieste]);
+
+  // l'indirizzo è libero? controllo mentre si scrive
+  useEffect(() => {
+    if (!f || stato !== "pronto") return;
+    const slug = pulisciSlug(f.slug);
+    if (!slugValido(slug)) { setSlugLibero(null); return; }
+    if (salvata && salvata.slug === slug) { setSlugLibero(true); return; }
+    setSlugLibero(null);
+    const t = setTimeout(async () => {
+      const { data, error } = await supabase.rpc("slug_pilota_libero", { p_slug: slug });
+      if (!error) setSlugLibero(!!data);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [f?.slug, stato]);
+
+  if (stato === "carico" || !f) {
+    return <div style={{ padding: "28px 32px", color: "#8b95a3", fontSize: 13 }}>Caricamento...</div>;
+  }
+
+  const cambia = (k) => (e) => { setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }); setSalvataggio(null); };
+  const alterna = (k, valore) => { setF({ ...f, [k]: f[k].includes(valore) ? f[k].filter((x) => x !== valore) : [...f[k], valore] }); setSalvataggio(null); };
+  const nelPortfolio = (m) => f.portfolio.some((p) => p.url === m.url);
+  const alternaPortfolio = (m) => {
+    if (nelPortfolio(m)) setF({ ...f, portfolio: f.portfolio.filter((p) => p.url !== m.url) });
+    else if (f.portfolio.length < limitePortfolio) setF({ ...f, portfolio: [...f.portfolio, { url: m.url, tipo: m.tipo, nome: m.nome || "" }] });
+    setSalvataggio(null);
+  };
+
+  const slugPulito = pulisciSlug(f.slug);
+  const mancanti = [
+    !slugValido(slugPulito) && "un indirizzo valido",
+    !(f.nome.trim() || azienda.nomeImpostato) && "il nome",
+    !f.citta.trim() && "la città",
+    f.servizi.length === 0 && "almeno un servizio",
+  ].filter(Boolean);
+
+  const salva = async (attiva = f.attiva) => {
+    if (!slugValido(slugPulito)) { setSalvataggio("L'indirizzo deve avere da 3 a 40 caratteri: lettere minuscole, numeri e trattini."); return; }
+    if (attiva && mancanti.length) { setSalvataggio(`Per pubblicare manca ${mancanti.join(", ")}.`); return; }
+    setSalvataggio("salvo");
+    const uid = await idUtenteCorrente();
+    const riga = {
+      user_id: uid,
+      slug: slugPulito,
+      attiva,
+      nome: f.nome.trim() || null,
+      presentazione: f.presentazione.trim() || null,
+      citta: f.citta.trim() || null,
+      provincia: f.provincia.trim().toUpperCase().slice(0, 2) || null,
+      raggio_km: Number(f.raggio_km) > 0 ? Math.round(Number(f.raggio_km)) : null,
+      servizi: f.servizi,
+      abilitazioni: f.abilitazioni,
+      codice_operatore: f.codice_operatore.trim().toUpperCase() || null,
+      assicurato: f.assicurato,
+      telefono: f.telefono.trim() || null,
+      whatsapp: f.whatsapp.trim() || null,
+      email: f.email.trim() || null,
+      sito: f.sito.trim() || null,
+      instagram: f.instagram.trim() || null,
+      portfolio: f.portfolio.slice(0, limitePortfolio),
+      aggiornata_il: new Date().toISOString(),
+      ...(avvisoDisponibile ? { avviso_email: f.avviso_email } : {}),
+    };
+    const { data, error } = await supabase.from("pagine_pilota").upsert(riga, { onConflict: "user_id" }).select().single();
+    if (error) {
+      setSalvataggio(error.code === "23505" || /duplicate|unique/i.test(error.message) ? "Questo indirizzo è già usato da un altro pilota: scegline un altro." : "Salvataggio non riuscito: " + error.message);
+      return;
+    }
+    setSalvata(data);
+    setF(daRiga(data));
+    setSalvataggio("ok");
+  };
+
+  const link = linkPaginaPilota(salvata?.slug || f.slug);
+  const copia = async () => { await copiaNegliAppunti(link); setCopiato(true); setTimeout(() => setCopiato(false), 2000); };
+  const condividi = async () => {
+    try { await navigator.share({ title: f.nome || azienda.nome, text: "Richiedi un preventivo per riprese e servizi con drone:", url: link }); }
+    catch (e) { /* condivisione annullata */ }
+  };
+
+  const tipiAttestati = [...new Set((attestati || []).map((a) => a.tipo).filter((t) => t && !/^Altro$/i.test(t) && !/^Assicurazione$/i.test(t)))];
+  const aggiungiAbilitazioneLibera = () => {
+    const t = abilitazioneLibera.trim().slice(0, 80);
+    if (t && !f.abilitazioni.includes(t)) setF({ ...f, abilitazioni: [...f.abilitazioni, t] });
+    setAbilitazioneLibera("");
+  };
+
+  const sezione = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 18, display: "flex", flexDirection: "column", gap: 12 };
+  const titoloSezione = { fontSize: 14, fontWeight: 700, margin: 0 };
+  const etichetta = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
+  const chip = (on) => ({ background: on ? "#ff8c4222" : "#262b33", border: `1px solid ${on ? "#ff8c42" : "#333a45"}`, color: on ? "#ffb877" : "#c3cad4", borderRadius: 20, padding: "5px 12px", fontSize: 12.5 });
+  const nuoveRichieste = richieste.filter((r) => r.stato === "nuova").length;
+  const richiesteAperte = richieste.filter((r) => r.stato !== "archiviata");
+  const richiesteArchiviate = richieste.filter((r) => r.stato === "archiviata");
+
+  const aggiornaRichiesta = async (r, nuovoStato) => {
+    setRichieste(richieste.map((x) => (x.id === r.id ? { ...x, stato: nuovoStato } : x)));
+    await supabase.from("richieste_preventivo").update({ stato: nuovoStato }).eq("id", r.id);
+    if (onRichiesteCambiate) onRichiesteCambiate();
+  };
+  const eliminaRichiesta = async (r) => {
+    if (!window.confirm(`Eliminare la richiesta di ${r.nome}?`)) return;
+    setRichieste(richieste.filter((x) => x.id !== r.id));
+    await supabase.from("richieste_preventivo").delete().eq("id", r.id);
+    if (onRichiesteCambiate) onRichiesteCambiate();
+  };
+
+  const schedaRichiesta = (r) => {
+    const wa = numeroWhatsapp(r.telefono);
+    const evidenziata = nuoveAllApertura.includes(r.id);
+    return (
+      <div key={r.id} style={{ background: "#1b2028", border: `1px solid ${evidenziata ? "#ff8c4288" : "#2b313d"}`, borderRadius: 10, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{r.nome}{evidenziata && <span style={{ fontSize: 10.5, fontWeight: 700, background: "#ff8c42", color: "#161a1f", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle" }}>NUOVA</span>}</div>
+          <div style={{ fontSize: 12, color: "#8b95a3" }}>{new Date(r.created_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+        </div>
+        <div style={{ fontSize: 13, color: "#c3cad4", display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
+          {r.servizio && <span>🎯 {r.servizio}</span>}
+          {r.luogo && <span>📍 {r.luogo}</span>}
+          {r.data_desiderata && <span>📅 {formatData(r.data_desiderata)}</span>}
+          {r.stato === "preventivo" && <span style={{ color: "#4ade80" }}>✓ Preventivo fatto</span>}
+        </div>
+        {r.descrizione && <div style={{ fontSize: 13.5, color: "#d5dae1", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{r.descrizione}</div>}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2 }}>
+          {r.stato !== "archiviata" && <button onClick={() => onCreaPreventivo(r)} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "7px 12px", fontWeight: 700, fontSize: 12.5 }}>Crea preventivo{piano !== "pro" ? " 🔒" : ""}</button>}
+          {wa && <a href={`https://wa.me/${wa}?text=${encodeURIComponent(`Ciao ${r.nome}, ti scrivo per la tua richiesta${r.servizio ? ` di ${r.servizio.toLowerCase()}` : ""}.`)}`} target="_blank" rel="noopener noreferrer" style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 11px", fontSize: 12.5, textDecoration: "none" }}>💬 WhatsApp</a>}
+          {r.telefono && <a href={`tel:${String(r.telefono).replace(/[^\d+]/g, "")}`} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 11px", fontSize: 12.5, textDecoration: "none" }}>📞 {r.telefono}</a>}
+          {r.email && <a href={`mailto:${r.email}?subject=${encodeURIComponent("Il tuo preventivo" + (r.servizio ? ` — ${r.servizio}` : ""))}`} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 11px", fontSize: 12.5, textDecoration: "none" }}>✉️ {r.email}</a>}
+          <span style={{ flex: 1 }} />
+          {r.stato === "archiviata"
+            ? <button onClick={() => aggiornaRichiesta(r, "letta")} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "6px 11px", fontSize: 12 }}>Ripristina</button>
+            : <button onClick={() => aggiornaRichiesta(r, "archiviata")} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "6px 11px", fontSize: 12 }}>Archivia</button>}
+          <button onClick={() => eliminaRichiesta(r)} aria-label={`Elimina la richiesta di ${r.nome}`} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "6px 9px", fontSize: 12 }}><X size={13} /></button>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="main-content" style={{ overflow: "auto", maxWidth: 820 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>🌐 La mia pagina</h1>
+      <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 16px 0", maxWidth: 600 }}>La tua vetrina online: servizi, lavori e un modulo con cui i clienti ti chiedono un preventivo. Mettila nella bio di Instagram, su WhatsApp e nella firma delle email.</p>
+
+      {stato === "manca-script" && (
+        <div style={{ marginBottom: 16, padding: "12px 14px", background: "#2a2416", border: "1px solid #5a4a20", borderRadius: 8, color: "#f5d78e", fontSize: 13 }}>
+          Per attivare la pagina pubblica esegui una volta lo script <span className="mono">supabase/pagina-pilota.sql</span> su Supabase (SQL Editor → incolla → Run), poi ricarica l'app.
+        </div>
+      )}
+
+      <div role="tablist" style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        {[{ k: "pagina", l: "La pagina" }, { k: "richieste", l: `Richieste${richieste.length ? ` (${richiesteAperte.length})` : ""}` }].map((t) => (
+          <button key={t.k} role="tab" aria-selected={scheda === t.k} onClick={() => setScheda(t.k)} style={{ ...chip(scheda === t.k), borderRadius: 8, padding: "7px 14px", fontWeight: 600, fontSize: 13 }}>
+            {t.l}{t.k === "richieste" && nuoveRichieste > 0 && <span style={{ fontSize: 10.5, fontWeight: 700, background: "#ff4d4d", color: "#fff", borderRadius: 10, padding: "1px 6px", marginLeft: 6 }}>{nuoveRichieste}</span>}
+          </button>
+        ))}
+      </div>
+
+      {scheda === "richieste" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {richiesteAperte.length === 0 && (
+            <div style={{ ...sezione, alignItems: "center", textAlign: "center", color: "#8b95a3", fontSize: 13.5 }}>
+              <div style={{ fontSize: 30 }}>📭</div>
+              {salvata?.attiva ? "Ancora nessuna richiesta. Condividi il link della tua pagina: le richieste dei clienti arrivano qui." : "Pubblica la tua pagina e condividi il link: le richieste dei clienti arriveranno qui."}
+            </div>
+          )}
+          {richiesteAperte.map(schedaRichiesta)}
+          {richiesteArchiviate.length > 0 && (
+            <details style={{ marginTop: 6 }}>
+              <summary style={{ fontSize: 13, color: "#8b95a3", cursor: "pointer" }}>Archiviate ({richiesteArchiviate.length})</summary>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>{richiesteArchiviate.map(schedaRichiesta)}</div>
+            </details>
+          )}
+        </div>
+      )}
+
+      {scheda === "pagina" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* stato e link */}
+          <div style={{ ...sezione, borderColor: salvata?.attiva ? "#2c5a3f" : "#2b313d" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 10, background: salvata?.attiva ? "#1d3a2a" : "#262b33", color: salvata?.attiva ? "#4ade80" : "#8b95a3" }}>{salvata?.attiva ? "● ONLINE" : "○ NON PUBBLICATA"}</span>
+              {salvata?.attiva && <span style={{ fontSize: 12, color: "#8b95a3" }}>{salvata.visite || 0} {salvata.visite === 1 ? "visita" : "visite"} · {richieste.length} {richieste.length === 1 ? "richiesta" : "richieste"}</span>}
+            </div>
+            <label>
+              <span style={etichetta}>Indirizzo della pagina</span>
+              <div style={{ display: "flex", alignItems: "center", background: "#161a1f", border: "1px solid #333a45", borderRadius: 8, overflow: "hidden" }}>
+                <span className="mono" style={{ fontSize: 12.5, color: "#6b7480", padding: "0 0 0 12px", whiteSpace: "nowrap" }}>{window.location.host}/p/</span>
+                <input value={f.slug} onChange={(e) => { setF({ ...f, slug: pulisciSlugMentreScrivi(e.target.value) }); setSalvataggio(null); }} placeholder="il-tuo-nome" className="mono" style={{ ...inputStyle, border: "none", background: "transparent", paddingLeft: 2 }} />
+              </div>
+              <span style={{ fontSize: 11.5, marginTop: 4, display: "block", color: !slugValido(slugPulito) ? "#f5b942" : slugLibero === false ? "#ff9c9c" : slugLibero ? "#4ade80" : "#6b7480" }}>
+                {!slugValido(slugPulito) ? "Da 3 a 40 caratteri: lettere minuscole, numeri e trattini." : slugLibero === false ? "Già usato da un altro pilota." : slugLibero ? "✓ Disponibile" : "Controllo…"}
+              </span>
+            </label>
+            {salvata?.attiva && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <a href={link} target="_blank" rel="noopener noreferrer" style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, textDecoration: "none" }}>Apri la pagina ↗</a>
+                <button onClick={copia} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "7px 12px", fontSize: 12.5 }}>{copiato ? "✓ Copiato" : "Copia il link"}</button>
+                {typeof navigator !== "undefined" && navigator.share && <button onClick={condividi} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "7px 12px", fontSize: 12.5 }}>Condividi</button>}
+              </div>
+            )}
+          </div>
+
+          {/* chi sei */}
+          <div style={sezione}>
+            <h2 style={titoloSezione}>Chi sei</h2>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <img src={azienda.logo} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: "contain", background: "#12151a", border: "1px solid #2b313d" }} />
+              <span style={{ fontSize: 12, color: "#8b95a3" }}>Il logo è quello di <strong>Impostazioni azienda</strong>, lo stesso dei report e dei preventivi.</span>
+            </div>
+            <label><span style={etichetta}>Nome sulla pagina</span><input value={f.nome} onChange={cambia("nome")} maxLength={80} placeholder={azienda.nomeImpostato ? azienda.nome : "es. Marco Rossi Riprese Aeree"} style={inputStyle} /></label>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
+              <label><span style={etichetta}>Città</span><input value={f.citta} onChange={cambia("citta")} maxLength={60} placeholder="es. Bergamo" style={inputStyle} /></label>
+              <label><span style={etichetta}>Provincia</span><input value={f.provincia} onChange={cambia("provincia")} maxLength={2} placeholder="BG" style={{ ...inputStyle, textTransform: "uppercase" }} /></label>
+              <label><span style={etichetta}>Ti sposti fino a (km)</span><input type="number" min="0" max="2000" value={f.raggio_km} onChange={cambia("raggio_km")} style={inputStyle} /></label>
+            </div>
+            <label><span style={etichetta}>Presentazione</span><textarea rows={4} maxLength={1200} value={f.presentazione} onChange={cambia("presentazione")} placeholder="Due righe su di te: da quanto voli, che lavori fai, con che droni, cosa ti distingue." style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} /></label>
+          </div>
+
+          {/* servizi */}
+          <div style={sezione}>
+            <h2 style={titoloSezione}>Servizi che offri</h2>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {[...SERVIZI_PILOTA, ...f.servizi.filter((s) => !SERVIZI_PILOTA.includes(s))].map((s) => (
+                <button key={s} type="button" aria-pressed={f.servizi.includes(s)} onClick={() => alterna("servizi", s)} style={chip(f.servizi.includes(s))}>{f.servizi.includes(s) ? "✓ " : ""}{s}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* lavori */}
+          <div style={sezione}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+              <h2 style={titoloSezione}>I tuoi lavori</h2>
+              <span style={{ fontSize: 12, color: f.portfolio.length >= limitePortfolio ? "#f5b942" : "#8b95a3" }}>{f.portfolio.length}/{limitePortfolio} scelti{piano === "free" ? " · fino a 24 con Pilota o Pro" : ""}</span>
+            </div>
+            {media.length === 0
+              ? <p style={{ fontSize: 13, color: "#8b95a3", margin: 0 }}>Carica foto e video nei voli del <strong>Registro voli</strong>: poi li scegli qui. Usa solo materiale che il cliente ti permette di mostrare.</p>
+              : <>
+                <p style={{ fontSize: 12.5, color: "#8b95a3", margin: 0 }}>Tocca le foto e i video da mostrare, nell'ordine in cui vuoi vederli. Scegli solo materiale che i clienti ti permettono di pubblicare.</p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 6, maxHeight: 360, overflowY: "auto" }}>
+                  {media.map((m) => {
+                    const pos = f.portfolio.findIndex((p) => p.url === m.url);
+                    return (
+                      <button key={m.id} type="button" aria-pressed={pos >= 0} onClick={() => alternaPortfolio(m)} title={m.nome || ""} style={{ position: "relative", padding: 0, aspectRatio: "1 / 1", borderRadius: 6, overflow: "hidden", border: pos >= 0 ? "2px solid #ff8c42" : "1px solid #2b313d", background: "#12151a", opacity: pos < 0 && f.portfolio.length >= limitePortfolio ? 0.4 : 1 }}>
+                        {m.tipo === "video"
+                          ? <video src={m.url} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                          : <img src={m.url} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+                        {m.tipo === "video" && <span style={{ position: "absolute", left: 4, bottom: 3, fontSize: 11, color: "#fff", textShadow: "0 1px 3px #000" }}>▶</span>}
+                        {pos >= 0 && <span style={{ position: "absolute", top: 4, right: 4, background: "#ff8c42", color: "#161a1f", borderRadius: 10, minWidth: 20, height: 20, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{pos + 1}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>}
+          </div>
+
+          {/* fiducia */}
+          <div style={sezione}>
+            <h2 style={titoloSezione}>Abilitazioni e garanzie</h2>
+            {tipiAttestati.length > 0 && (
+              <>
+                <span style={{ fontSize: 12, color: "#8b95a3" }}>Dai tuoi attestati:</span>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {tipiAttestati.map((t) => <button key={t} type="button" aria-pressed={f.abilitazioni.includes(t)} onClick={() => alterna("abilitazioni", t)} style={chip(f.abilitazioni.includes(t))}>{f.abilitazioni.includes(t) ? "✓ " : ""}{t}</button>)}
+                </div>
+              </>
+            )}
+            {f.abilitazioni.filter((a) => !tipiAttestati.includes(a)).length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {f.abilitazioni.filter((a) => !tipiAttestati.includes(a)).map((a) => <button key={a} type="button" onClick={() => alterna("abilitazioni", a)} style={chip(true)} title="Togli">✓ {a} ✕</button>)}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 6 }}>
+              <input value={abilitazioneLibera} onChange={(e) => setAbilitazioneLibera(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aggiungiAbilitazioneLibera(); } }} maxLength={80} placeholder="Aggiungi altro (es. Corso fotogrammetria)" style={inputStyle} />
+              <button type="button" onClick={aggiungiAbilitazioneLibera} disabled={!abilitazioneLibera.trim()} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "0 12px", fontSize: 13 }}>Aggiungi</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, alignItems: "end" }}>
+              <label><span style={etichetta}>Codice operatore D-Flight (facoltativo)</span><input value={f.codice_operatore} onChange={cambia("codice_operatore")} maxLength={20} placeholder="ITAxxxxxxxxxxxx" className="mono" style={inputStyle} /></label>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: "#c3cad4", paddingBottom: 9 }}><input type="checkbox" checked={f.assicurato} onChange={cambia("assicurato")} /> Ho un'assicurazione RC per i voli</label>
+            </div>
+          </div>
+
+          {/* contatti */}
+          <div style={sezione}>
+            <h2 style={titoloSezione}>Contatti diretti <span style={{ fontWeight: 400, fontSize: 12, color: "#8b95a3" }}>· tutti facoltativi: il modulo di richiesta c'è sempre</span></h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+              <label><span style={etichetta}>WhatsApp</span><input type="tel" value={f.whatsapp} onChange={cambia("whatsapp")} maxLength={30} placeholder="es. 333 1234567" style={inputStyle} /></label>
+              <label><span style={etichetta}>Telefono</span><input type="tel" value={f.telefono} onChange={cambia("telefono")} maxLength={30} style={inputStyle} /></label>
+              <label><span style={etichetta}>Email pubblica</span><input type="email" value={f.email} onChange={cambia("email")} maxLength={120} style={inputStyle} /></label>
+              <label><span style={etichetta}>Sito web</span><input value={f.sito} onChange={cambia("sito")} maxLength={200} placeholder="www.…" style={inputStyle} /></label>
+              <label><span style={etichetta}>Instagram</span><input value={f.instagram} onChange={cambia("instagram")} maxLength={100} placeholder="@nomeutente" style={inputStyle} /></label>
+            </div>
+          </div>
+
+          {avvisoDisponibile && (
+            <label style={{ ...sezione, flexDirection: "row", alignItems: "center", gap: 10, cursor: "pointer" }}>
+              <input type="checkbox" checked={f.avviso_email} onChange={cambia("avviso_email")} />
+              <span style={{ fontSize: 13.5 }}><strong>Avvisami via email</strong> quando arriva una richiesta <span style={{ color: "#8b95a3" }}>· all'indirizzo del tuo account</span></span>
+            </label>
+          )}
+
+          {/* azioni */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "4px 0 12px 0" }}>
+            {salvata?.attiva ? (
+              <>
+                <button onClick={() => salva(true)} disabled={salvataggio === "salvo"} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 700, fontSize: 13.5 }}>{salvataggio === "salvo" ? "Salvo…" : "Salva le modifiche"}</button>
+                <button onClick={() => salva(false)} disabled={salvataggio === "salvo"} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 8, padding: "9px 14px", fontSize: 13 }}>Nascondi la pagina</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => salva(true)} disabled={salvataggio === "salvo" || stato === "manca-script"} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 700, fontSize: 13.5, opacity: stato === "manca-script" ? 0.5 : 1 }}>{salvataggio === "salvo" ? "Pubblico…" : "Pubblica la pagina"}</button>
+                <button onClick={() => salva(false)} disabled={salvataggio === "salvo" || stato === "manca-script"} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 8, padding: "9px 14px", fontSize: 13 }}>Salva bozza</button>
+              </>
+            )}
+            {salvataggio === "ok" && <span role="status" style={{ fontSize: 12.5, color: "#4ade80" }}>✓ {salvata?.attiva ? "Pagina online" : "Salvata (non pubblica)"}</span>}
+            {salvataggio && !["ok", "salvo"].includes(salvataggio) && <span role="alert" style={{ fontSize: 12.5, color: "#ff9c9c" }}>{salvataggio}</span>}
+            {!salvata?.attiva && !salvataggio && mancanti.length > 0 && <span style={{ fontSize: 12, color: "#8b95a3" }}>Per pubblicare manca {mancanti.join(", ")}.</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // --- Consegna al cliente: link pubblico alla galleria di un volo -------------------------------
 // i dati vivono nella tabella "condivisioni" (script supabase/condivisioni-galleria.sql);
