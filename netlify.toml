@@ -23,3 +23,9 @@
   for = "/partner-*"
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
+
+# pagina pubblica del pilota: app.eyedrones.it/p/<nome> apre l'app, che mostra la pagina senza login
+[[redirects]]
+  from = "/p/*"
+  to = "/index.html"
+  status = 200
