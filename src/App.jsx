@@ -1599,6 +1599,15 @@ function NuovaPassword({ onFatto, dentroApp = false }) {
   );
 }
 
+// provenienza degli iscritti (?ref=facebook, ?ref=instagram, ?ref=pinotti...): solo lettere, numeri, - e _
+const pulisciRef = (v) => {
+  const r = String(v || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 40);
+  return r || null;
+};
+const refSalvato = () => {
+  try { return pulisciRef(localStorage.getItem("eyedrones_ref")); } catch { return null; }
+};
+
 function AppAutenticata() {
   const [session, setSession] = useState(undefined); // undefined = ancora in caricamento, null = non loggato
   // aperto il link "Password dimenticata?": prima di entrare si sceglie la nuova password
@@ -1606,8 +1615,8 @@ function AppAutenticata() {
 
   useEffect(() => {
     // memorizzo eventuale provenienza (?ref=nomeaffiliato) per collegarla all'account al momento della registrazione
-    const refParam = new URLSearchParams(window.location.search).get("ref");
-    if (refParam) localStorage.setItem("eyedrones_ref", refParam);
+    const refParam = pulisciRef(new URLSearchParams(window.location.search).get("ref"));
+    if (refParam) { try { localStorage.setItem("eyedrones_ref", refParam); } catch { /* memoria del browser non disponibile */ } }
 
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: listener } = supabase.auth.onAuthStateChange((evento, s) => {
@@ -1706,7 +1715,8 @@ function AppShell({ session }) {
   const caricaProfilo = async () => {
     let { data: profilo } = await supabase.from("profili").select("*").eq("user_id", session.user.id).maybeSingle();
     if (!profilo) {
-      const referral = localStorage.getItem("eyedrones_ref");
+      // la provenienza è salvata anche nell'account alla registrazione: serve quando il link di conferma si apre in un altro browser
+      const referral = refSalvato() || pulisciRef(session.user.user_metadata?.ref);
       const { data: nuovo } = await supabase.from("profili").insert({ user_id: session.user.id, referral: referral || null, email: session.user.email }).select().single();
       profilo = nuovo;
     } else if (!profilo.email) {
@@ -2109,7 +2119,7 @@ function Login({ modoIniziale = "login", onTorna }) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else if (modo === "registrati") {
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } });
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin, data: refSalvato() ? { ref: refSalvato() } : undefined } });
         if (error) throw error;
         // Supabase non dà errore se l'email è già registrata: lo riconosco dall'utente senza identità
         if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) throw new Error("already registered");
