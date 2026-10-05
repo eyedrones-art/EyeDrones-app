@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
+const Impara = lazy(() => import("./Impara.jsx"));
+const Posti = lazy(() => import("./Posti.jsx"));
+// navigazione da componenti lontani (es. «Come si fa?» nella verifica zona): window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }))
+const vaiA = (detail) => window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }));
 
 const SUPABASE_URL = "https://kywmesdqemxqjasixpzq.supabase.co";
 const SUPABASE_KEY = "sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ";
@@ -1764,7 +1768,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "clienti", "pagina-pilota"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "pagina-pilota"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -1915,6 +1919,16 @@ function AppShell({ session }) {
   };
 
   const [clienti, setClienti] = useState([]);
+  const [schedaImpara, setSchedaImpara] = useState("a1a3");
+  const [luogoDaPianificare, setLuogoDaPianificare] = useState(null); // da «Posti»: { nome, lat, lon }
+  useEffect(() => {
+    const ascolta = (e) => {
+      const d = e.detail || {};
+      if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
+    };
+    window.addEventListener("eyedrones-vai", ascolta);
+    return () => window.removeEventListener("eyedrones-vai", ascolta);
+  }, []);
   const caricaClienti = async () => {
     const { data, error } = await supabase.from("clienti").select("*").order("nome", { ascending: true });
     setClienti(error ? [] : data || []); // tabella non ancora creata: rubrica vuota
@@ -2069,13 +2083,24 @@ function AppShell({ session }) {
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
-        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} luogoIniziale={luogoDaPianificare} onLuogoUsato={() => setLuogoDaPianificare(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} schermoPienoSubito={controlloSubito} onSchermoPienoAperto={() => setControlloSubito(false)} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={pianoReale} />}
         {page === "suggerimenti" && <Suggerimenti session={session} paginaPrecedente={paginaPrecedente} />}
-        {page === "guide" && <GuideVolo droni={droni} />}
+        {(page === "impara" || page === "guide") && (
+          <Suspense fallback={<LoadingBlock />}>
+            <Impara schedaIniziale={page === "guide" ? "consigli" : schedaImpara} consigli={<GuideVolo droni={droni} incorporata />} />
+          </Suspense>
+        )}
+        {page === "posti" && (
+          <Suspense fallback={<LoadingBlock />}>
+            <Posti supabase={supabase} cercaIndirizzo={cercaIndirizzoItalia} voli={voliDashboard} inputStyle={inputStyle}
+              onPianifica={(l) => { setLuogoDaPianificare(l); setPage("pianificazione"); window.scrollTo(0, 0); }}
+              onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa" })} />
+          </Suspense>
+        )}
         {page === "clienti" && <Clienti clienti={clienti} preventivi={preventivi} onCambiati={caricaClienti} onApriPreventivi={() => setPage("preventivi")} />}
         <datalist id="rubrica-clienti">{clienti.map((c) => <option key={c.id} value={c.nome} />)}</datalist>
         {page === "preventivi" && <Preventivi preventivi={preventivi} clienti={clienti} onClientiCambiati={caricaClienti} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
@@ -2361,9 +2386,10 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "galleria", label: "Foto e video", icon: Camera },
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
+    { key: "posti", label: "Posti", icon: Compass },
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
-    { key: "guide", label: "Guide e consigli", icon: Lightbulb },
+    { key: "impara", label: "Impara e quiz", icon: GraduationCap },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ClipboardCheck },
     { key: "attestati", label: "Attestati", icon: Award },
@@ -6153,6 +6179,9 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         {!vicina && valoreReale(z.condizioni) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
         {!vicina && z.validita && <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 2 }}>Attiva: {z.validita.map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}</div>}
         {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {d.consiglio}</div>}
+        {!vicina && (z.restrizione === "REQ_AUTHORISATION" || z.restrizione === "PROHIBITED") && (
+          <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa" })} style={{ marginTop: 6, background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si fa a volare qui?</button>
+        )}
         {!vicina && autorita.map((a, i) => (
           <div key={i} style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 3 }}>
             🏛️ {a.nome || "Ente"}{a.servizio ? ` (${SERVIZI_ENTE[a.servizio.toUpperCase()] || a.servizio})` : ""}
@@ -6988,13 +7017,13 @@ const GRUPPI_GUIDE = [
   { titolo: "Per ogni volo", tipi: ["altro"] },
 ];
 
-function GuideVolo({ droni = [] }) {
+function GuideVolo({ droni = [], incorporata = false }) {
   const [droneId, setDroneId] = useState("");
   const drone = droni.find((d) => d.id === droneId) || null;
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 760 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Guide e consigli</h1>
-      <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "4px 0 16px 0" }}>Dritte pratiche per fare riprese e ispezioni al meglio. Le trovi anche dentro la Pianificazione, in base al tipo di volo che scegli.</p>
+    <div style={{ padding: incorporata ? "0 32px" : "28px 32px", maxWidth: 760 }}>
+      {!incorporata && <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Guide e consigli</h1>}
+      {!incorporata && <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "4px 0 16px 0" }}>Dritte pratiche per fare riprese e ispezioni al meglio. Le trovi anche dentro la Pianificazione, in base al tipo di volo che scegli.</p>}
       {droni.length > 0 && (
         <label style={{ display: "block", fontSize: 12, color: "#8b95a3", marginBottom: 14 }}>
           Aggiungi i consigli per il tuo drone
@@ -7057,7 +7086,7 @@ const CAMPI_DETTAGLI = {
   ],
 };
 
-function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, piano, pianoIniziale, onPianoAperto }) {
+function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, piano, pianoIniziale, onPianoAperto, luogoIniziale, onLuogoUsato }) {
   const [impiantoSel, setImpiantoSel] = useState(null);
   const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
   const [dataPrevista, setDataPrevista] = useState(() => new Date().toISOString().slice(0, 10));
@@ -7092,6 +7121,15 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [modoLibero, setModoLibero] = useState(false); // true = un luogo scelto a mano, senza impianto
   const [luogoLibero, setLuogoLibero] = useState("");
   const [coordinateLibere, setCoordinateLibere] = useState("");
+  // arrivo da «Posti»: preparo un piano nuovo in quel luogo
+  useEffect(() => {
+    if (!luogoIniziale) return;
+    setImpiantoSel(null); setModoLibero(true);
+    setLuogoLibero(luogoIniziale.nome || "");
+    setCoordinateLibere(`${luogoIniziale.lat.toFixed(5)}, ${luogoIniziale.lon.toFixed(5)}`);
+    setTipoIspezione("video");
+    if (onLuogoUsato) onLuogoUsato();
+  }, [luogoIniziale]);
   const [gpsInCorso, setGpsInCorso] = useState(false);
 
   const caricaTutto = async () => {
