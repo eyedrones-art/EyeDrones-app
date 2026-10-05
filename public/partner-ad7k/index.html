@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>EyeDrones per Drone Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: una colonna di lettura, con "schermate" dell'app disegnate in CSS accanto ai testi; si impila sul telefono */
+:root {
+  --bg: #12151c; --surface: #1b2028; --surface-2: #161a1f; --line: #2b313d;
+  --fg: #e7eaee; --muted: #9aa4b1; --faint: #6b7480;
+  --accent: #ff8c42; --accent-deep: #e0552f; --violet: #a78bfa;
+  --ok: #4ade80; --warn: #f5b942; --blue: #7fb0ff;
+  --on-accent: #161a1f;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+    --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+    --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1;
+    --ok: #1f8a4c; --warn: #a86d07; --blue: #2f64c8; --on-accent: #ffffff;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+  --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+  --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1;
+  --ok: #1f8a4c; --warn: #a86d07; --blue: #2f64c8; --on-accent: #ffffff;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 0; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.12; margin: 0; }
+h1 { font-size: clamp(34px, 6vw, 56px); letter-spacing: -0.01em; }
+h2 { font-size: clamp(26px, 4vw, 34px); }
+h3 { font-size: 19px; }
+p { margin: 0; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 18px; }
+.marchio { font-family: var(--display); font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+.occhio { width: 30px; height: 18px; border-radius: 50%; border: 2.5px solid var(--accent); position: relative; }
+.occhio::after { content: ""; position: absolute; inset: 3px 9px; border-radius: 50%; background: var(--violet); }
+.top a { font-family: var(--mono); font-size: 13px; text-decoration: none; }
+
+.hero { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 44px; align-items: center; padding-block: 36px 64px; }
+.hero > div { min-width: 0; }
+.hero .lead { font-size: 18.5px; color: var(--muted); margin-top: 18px; max-width: 34em; }
+.per { margin-top: 22px; display: inline-flex; gap: 10px; align-items: baseline; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 14px; }
+.per strong { font-family: var(--display); font-size: 18px; }
+
+/* schermate dell'app */
+.telefono { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 14px; max-width: 360px; justify-self: center; width: 100%; box-shadow: 0 30px 70px rgba(0,0,0,0.28); }
+.schermo-top { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--faint); padding: 2px 4px 10px; }
+.card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.card + .card { margin-top: 10px; }
+.card .etich { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--blue); }
+.card .grande { font-weight: 600; font-size: 16px; margin-top: 3px; }
+.ore { display: flex; gap: 5px; margin-top: 10px; }
+.ora { flex: 1; text-align: center; border-radius: 7px; padding: 5px 0; font-family: var(--mono); font-size: 11px; border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.ora.sel { border: 2px solid var(--accent); }
+.ora i { display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin: 3px auto; }
+.riga-stato { font-size: 13px; font-weight: 600; margin-top: 8px; }
+.ok { color: var(--ok); } .warn { color: var(--warn); }
+.avviso { display: flex; justify-content: space-between; gap: 10px; align-items: center; font-size: 13px; }
+.partner-btn { display: inline-flex; gap: 6px; align-items: center; margin-top: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-deep)); color: var(--on-accent); border-radius: 7px; padding: 7px 11px; font-size: 12.5px; font-weight: 600; }
+.tag { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid var(--line); color: var(--faint); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; }
+
+section { padding-block: 56px; border-top: 1px solid var(--line); }
+.intro-sez { max-width: 40em; display: grid; gap: 10px; margin-bottom: 30px; }
+
+.funzioni { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 26px; }
+.funzioni h3 { font-size: 17px; margin-bottom: 8px; }
+.funzioni ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; font-size: 14.5px; color: var(--muted); }
+.funzioni li::before { content: "—"; color: var(--accent); margin-right: 7px; }
+
+.momenti { display: grid; gap: 12px; }
+.momento { display: grid; grid-template-columns: 210px minmax(0, 1fr) minmax(0, 1.1fr); gap: 18px; align-items: start; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+.momento .dove { font-family: var(--mono); font-size: 12px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.momento .quando { font-weight: 600; }
+.momento .cosa { color: var(--muted); font-size: 14.5px; }
+.momento .corso { font-family: var(--display); font-size: 17px; color: var(--accent); }
+.gruppo { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--violet); margin: 18px 0 2px; }
+.regole { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 22px; font-size: 14.5px; color: var(--muted); }
+.regole span::before { content: "✓"; color: var(--ok); margin-right: 7px; font-weight: 700; }
+
+.proposta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.blocco { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: grid; gap: 12px; align-content: start; }
+.blocco .cifra { font-family: var(--display); font-size: 40px; color: var(--accent); line-height: 1; }
+.blocco .cifra small { font-size: 16px; color: var(--muted); font-family: var(--body); margin-left: 6px; }
+.blocco ul { margin: 0; padding-left: 18px; color: var(--muted); display: grid; gap: 6px; font-size: 14.5px; }
+.vantaggi { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 28px; }
+.vantaggi div { border-top: 2px solid var(--accent); padding-top: 12px; }
+.vantaggi h3 { font-size: 16px; margin-bottom: 6px; }
+.vantaggi p { font-size: 14.5px; color: var(--muted); }
+
+.passi { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; counter-reset: passo; }
+.passi li { counter-increment: passo; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; font-size: 14.5px; color: var(--muted); }
+.passi li::before { content: counter(passo); display: block; font-family: var(--display); font-size: 28px; color: var(--accent); margin-bottom: 6px; }
+.passi strong { color: var(--fg); }
+code { font-family: var(--mono); font-size: 13px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; word-break: break-all; }
+
+.contatti { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 18px; }
+.chip { display: inline-flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-family: var(--mono); font-size: 14px; }
+.chip button { font: inherit; font-size: 12px; background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+.cta { display: inline-flex; background: linear-gradient(135deg, var(--accent), var(--accent-deep)); color: var(--on-accent); text-decoration: none; font-weight: 600; border-radius: 10px; padding: 12px 18px; }
+footer { padding-block: 28px 40px; color: var(--faint); font-size: 13px; border-top: 1px solid var(--line); }
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; gap: 30px; padding-block: 18px 44px; }
+  .funzioni { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .momento { grid-template-columns: 1fr; gap: 6px; }
+  .proposta, .vantaggi, .passi { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) { .funzioni { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: no-preference) {
+  .telefono { animation: sale 0.7s ease-out both; }
+  @keyframes sale { from { transform: translateY(10px); } to { transform: none; } }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <span class="marchio"><span class="occhio" aria-hidden="true"></span>EyeDrones</span>
+    <a href="https://app.eyedrones.it" target="_blank" rel="noopener">app.eyedrones.it ↗</a>
+  </header>
+
+  <div class="hero">
+    <div>
+      <p class="eyebrow">Proposta di collaborazione</p>
+      <h1 style="margin-top:12px">L'app per il pilota che lavora, con i tuoi corsi al momento giusto.</h1>
+      <p class="lead">EyeDrones accompagna il pilota dal piano di volo alla consegna al cliente: meteo, zone D-Flight, documenti per i controlli, STS, liberatorie, preventivi e report in PDF pronti in pochi tocchi. Proprio nei momenti in cui al pilota manca una competenza o un attestato, può proporre i tuoi corsi.</p>
+      <div class="per"><span class="muted">Per</span> <strong>Andrea Pinotti · Drone Academy</strong> <span class="muted">da Ivan, EyeDrones</span></div>
+    </div>
+
+    <div class="telefono" aria-label="Esempio di schermata di EyeDrones">
+      <div class="schermo-top"><span>Anteprima · Home</span><span>PRO</span></div>
+      <div class="card">
+        <div class="etich">✈️ Il tuo prossimo volo</div>
+        <div class="grande">Oggi alle 17:00 · Cafasse</div>
+        <div class="muted" style="font-size:12.5px">Video · DJI Mini 4 Pro (C0)</div>
+        <div class="ore">
+          <div class="ora">15<i></i>9</div><div class="ora">16<i></i>9</div><div class="ora sel">17<i></i>8</div><div class="ora">18<i></i>7</div><div class="ora">19<i></i>6</div>
+        </div>
+        <div class="riga-stato ok">✓ Condizioni buone alle 17:00</div>
+        <div class="riga-stato warn">🛡️ Libero fino a 25 m · sopra serve autorizzazione</div>
+      </div>
+      <div class="card">
+        <div class="avviso"><span>💨 Vento max 14 km/h · raffiche 21</span><span class="ok" style="font-weight:600">sotto il limite del drone</span></div>
+        <div class="avviso" style="margin-top:6px"><span>🧲 Indice Kp 2 · attività geomagnetica bassa</span><span class="ok" style="font-weight:600">GPS e bussola ok</span></div>
+      </div>
+      <div class="card">
+        <div class="avviso"><span>🪪 Attestato A2</span><span class="muted" style="font-size:12px">non presente, drone C2</span></div>
+        <span class="partner-btn">🎓 Corso A2 ↗</span><span class="tag">Partner</span>
+      </div>
+      <div class="card">
+        <div class="avviso"><span>🌡️ Ispezione fotovoltaico</span><span class="muted" style="font-size:12px">nessun attestato di termografia</span></div>
+        <span class="partner-btn">🎓 Corso di termografia con drone ↗</span><span class="tag">Partner</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="intro-sez">
+      <p class="eyebrow">Cos'è EyeDrones</p>
+      <h2>Tutto il lavoro del pilota in un'app, da telefono e computer</h2>
+      <p class="muted">Pensata per chi fa riprese, FPV e ispezioni. Si usa gratis e ha due piani a pagamento: Pilota (6,90 € al mese) e Pro (12,90 € al mese).</p>
+    </div>
+    <div class="funzioni">
+      <div>
+        <h3>Pianifica</h3>
+        <ul><li>Meteo ora per ora: vento e raffiche confrontati con il limite del drone, pioggia, visibilità</li><li>Indice Kp: attività geomagnetica che disturba GPS e bussola</li><li>Ora d'oro, sole, luna, filtri ND</li><li>Zona di volo dal file ufficiale D-Flight</li><li>Volumi STS-01 disegnati sulla mappa</li></ul>
+      </div>
+      <div>
+        <h3>Vola in regola</h3>
+        <ul><li>Regole della classe del drone (C0–C4)</li><li>Attestati, assicurazione, droni con avvisi di scadenza</li><li>Documenti per i controlli a schermo pieno</li><li>Fascicolo PDF di ogni volo</li></ul>
+      </div>
+      <div>
+        <h3>Lavora con i clienti</h3>
+        <ul><li>Preventivi PDF in pochi tocchi, col tuo logo e il prezzo consigliato</li><li>Galleria con PIN, filigrana e preferiti</li><li>Liberatorie firmate col dito</li><li>Registro voli, batterie e manutenzione</li></ul>
+      </div>
+      <div>
+        <h3>Ispezioni</h3>
+        <ul><li>Anomalie sulle foto termiche</li><li>Report PDF professionali, pronti in pochi tocchi</li><li>Impianti fotovoltaici, edifici, danni</li><li>Storico per ogni impianto</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="intro-sez">
+      <p class="eyebrow">Dove compaiono i tuoi corsi</p>
+      <h2>Al pilota giusto, nel momento in cui gli servono</h2>
+      <p class="muted">L'app sa che drone usa il pilota, che lavori fa, che attestati ha e quando scadono. Il tuo corso compare solo quando c'è un motivo concreto, con un pulsante che porta al tuo link e un codice sconto dedicato.</p>
+    </div>
+
+    <p class="gruppo">Attestati e normativa</p>
+    <div class="momenti">
+      <div class="momento"><span class="dove">Home · Attestati</span><span class="quando">Un attestato sta per scadere o manca l'A1/A3</span><span><span class="corso">Corso normativa droni</span><br><span class="cosa">Avviso di scadenza con il corso per rinnovare o prepararsi.</span></span></div>
+      <div class="momento"><span class="dove">Pianifica · Regole del volo</span><span class="quando">Drone C2 senza attestato A2, oppure volo in STS senza attestato STS</span><span><span class="corso">Corso A2 / STS</span><br><span class="cosa">L'app spiega cosa serve per quel volo e propone il corso.</span></span></div>
+      <div class="momento"><span class="dove">Home · Obiettivo formativo</span><span class="quando">Il pilota ha scelto il suo prossimo obiettivo (A2, STS, termografia…)</span><span><span class="corso">Il corso giusto per l'obiettivo</span><br><span class="cosa">Un riquadro in Home finché l'obiettivo non è raggiunto.</span></span></div>
+    </div>
+
+    <p class="gruppo">Specializzazioni</p>
+    <div class="momenti">
+      <div class="momento"><span class="dove">Ispezioni · Report</span><span class="quando">Fa ispezioni di fotovoltaico ma non ha un attestato di termografia</span><span><span class="corso">Termografia con drone</span><br><span class="cosa">Dentro il flusso delle ispezioni e dei report termografici.</span></span></div>
+      <div class="momento"><span class="dove">Registro voli · Pianifica</span><span class="quando">Fa foto aeree, immobiliare o ispezioni</span><span><span class="corso">Fotogrammetria, teoria e pratica</span><br><span class="cosa">«Vuoi fare anche rilievi 3D e ortofoto?»</span></span></div>
+      <div class="momento"><span class="dove">Ispezioni</span><span class="quando">Usa il drone per lavori sul territorio</span><span><span class="corso">Agricoltura di precisione</span><br><span class="cosa">Come nuova attività da affiancare alle ispezioni.</span></span></div>
+      <div class="momento"><span class="dove">I miei droni · Manutenzione</span><span class="quando">Registra interventi, riparazioni o problemi di segnale</span><span><span class="corso">Radiotrasmissione e manutenzione</span><br><span class="cosa">Accanto al registro degli interventi sul drone.</span></span></div>
+    </div>
+
+    <div class="regole">
+      <span>Compare solo a chi interessa</span>
+      <span>Scritta «Partner» ben visibile</span>
+      <span>«Non mi interessa» lo nasconde per qualche mese</span>
+      <span>Link e codici aggiornabili in qualsiasi momento</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="intro-sez">
+      <p class="eyebrow">La proposta</p>
+      <h2>Una collaborazione nei due sensi</h2>
+      <p class="muted">Paghi solo sui risultati e tutto si può adattare: queste sono le cifre da cui partirei.</p>
+    </div>
+    <div class="proposta">
+      <div class="blocco">
+        <p class="eyebrow">1 · I tuoi corsi in EyeDrones</p>
+        <div class="cifra">25%<small>di commissione su ogni corso venduto</small></div>
+        <ul>
+          <li>Codice sconto dedicato ai piloti EyeDrones, per esempio −10%</li>
+          <li>Corsi proposti nei momenti descritti sopra</li>
+          <li>Nessun costo fisso: si paga solo sulle vendite</li>
+        </ul>
+      </div>
+      <div class="blocco">
+        <p class="eyebrow">2 · EyeDrones per i tuoi allievi</p>
+        <div class="cifra">3 mesi<small>di EyeDrones Pro in omaggio</small></div>
+        <ul>
+          <li>Per chi compra un tuo corso: un valore di 38,70 € che a te non costa nulla</li>
+          <li>Un link dedicato, per esempio <code>app.eyedrones.it/?ref=pinotti</code></li>
+          <li>Quando partiranno gli abbonamenti: il 30% di quelli che arrivano da te, per il primo anno</li>
+        </ul>
+      </div>
+    </div>
+    <div class="vantaggi">
+      <div><h3>Per te</h3><p>Più corsi venduti, proposti solo a chi ne ha bisogno. Un corso più ricco con l'app inclusa e una rendita sugli abbonamenti.</p></div>
+      <div><h3>Per i piloti</h3><p>Uno sconto sui corsi e un'app che li aiuta a mettere in pratica quello che hanno imparato, dal primo volo al primo cliente.</p></div>
+      <div><h3>Per EyeDrones</h3><p>Nuovi utenti da una fonte di cui i piloti si fidano e una commissione che sostiene lo sviluppo dell'app.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="intro-sez">
+      <p class="eyebrow">Come si parte</p>
+      <h2>Pronto in pochi giorni</h2>
+    </div>
+    <ol class="passi">
+      <li><strong>Mi mandi i link</strong> di affiliazione o i codici sconto dei corsi.</li>
+      <li><strong>Li inserisco nell'app</strong> nei punti descritti: compaiono subito a tutti i piloti interessati.</li>
+      <li><strong>Attivo il link per i tuoi allievi</strong> con i 3 mesi di Pro in omaggio, da mettere nelle pagine dei corsi o nelle email.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="intro-sez">
+      <p class="eyebrow">Contatti</p>
+      <h2>Proviamo?</h2>
+      <p class="muted">Rispondo volentieri per scritto, su WhatsApp o via email, con screenshot e video dell'app. Puoi anche provarla subito: la registrazione è gratuita.</p>
+    </div>
+    <div class="contatti">
+      <a class="cta" href="https://app.eyedrones.it" target="_blank" rel="noopener">Prova EyeDrones ↗</a>
+      <span class="chip"><span id="email">info@eyedrones.it</span><button type="button" id="copia">Copia</button></span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">EyeDrones · app.eyedrones.it · Le percentuali sono una proposta di partenza, da definire insieme.</div>
+</footer>
+
+<script>
+  document.getElementById("copia").addEventListener("click", async (e) => {
+    const b = e.currentTarget;
+    try { await navigator.clipboard.writeText("info@eyedrones.it"); b.textContent = "Copiata"; }
+    catch (err) {
+      const r = document.createRange(); r.selectNodeContents(document.getElementById("email"));
+      const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Selezionata";
+    }
+    setTimeout(() => { b.textContent = "Copia"; }, 2000);
+  });
+</script>
+</body>
+</html>
