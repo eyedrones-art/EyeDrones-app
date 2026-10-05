@@ -5613,12 +5613,12 @@ function calcolaND({ fps, apertura, iso, ev }) {
 
 const frazioneTempo = (t) => (t >= 1 ? `${t.toFixed(1)} s` : `1/${Math.round(1 / t)}`);
 
-function CalcolatoreND() {
-  const [aperto, setAperto] = useState(false);
-  const [fps, setFps] = useState(30);
+function CalcolatoreND({ evIniziale = 15, apertoIniziale = false }) {
+  const [aperto, setAperto] = useState(apertoIniziale);
+  const [fps, setFps] = useState(25);
   const [apertura, setApertura] = useState(1.7);
   const [iso, setIso] = useState(100);
-  const [ev, setEv] = useState(15);
+  const [ev, setEv] = useState(evIniziale);
   const r = calcolaND({ fps, apertura, iso, ev });
   const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
   return (
@@ -6338,7 +6338,7 @@ const CONSIGLI_VOLO = {
     titolo: "Video",
     voci: [
       "Registra in 4K a 24, 25 o 30 fotogrammi al secondo. Se vuoi rallentare in montaggio usa 50 o 60.",
-      "Regola dei 180°: tempo di scatto circa il doppio dei fotogrammi (1/50 a 25 fps). Col sole servono i filtri ND: c'è il calcolatore qui sotto.",
+      "Regola dei 180°: tempo di scatto circa il doppio dei fotogrammi (1/50 a 25 fps). Col sole servono i filtri ND: il calcolatore è nel riquadro «📷 Come impostare la camera».",
       "Un solo movimento per ripresa, lento e continuo: avanti, salita, laterale oppure orbita. Registra 3–5 secondi prima e dopo il movimento.",
       "Blocca esposizione e bilanciamento del bianco (non in automatico), così la luce non cambia a metà ripresa.",
       "La luce più bella è nell'ora d'oro, dopo l'alba e prima del tramonto: ombre lunghe e colori caldi.",
@@ -6620,10 +6620,10 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
 
 // impostazioni della camera in base alla luce (indicative, con ISO 100 come base)
 const LUCI_CAMERA = [
-  { id: "sole", label: "☀️ Sole pieno", video: { iso: "100", tempo: "1/50 a 25 fps (1/60 a 30 fps)", nd: "ND forti: ND64 o più (con obiettivi molto luminosi anche ND128–256)", wb: "5500 K fisso" }, foto: { iso: "100", tempo: "automatico o 1/500–1/2000", extra: "Ombre dure: prova lo scatto a forcella (AEB) e compensazione −0,3/−0,7" } },
-  { id: "nuvole", label: "⛅ Nuvoloso luminoso", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND16–ND64", wb: "6000–6500 K fisso" }, foto: { iso: "100", tempo: "automatico", extra: "Luce morbida: ottima per case e persone, colori un po' freddi da scaldare dopo" } },
-  { id: "coperto", label: "☁️ Coperto / ombra", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND8–ND32", wb: "6500 K fisso" }, foto: { iso: "100–200", tempo: "automatico, non sotto 1/100", extra: "Aumenta un po' contrasto e saturazione in modifica" } },
-  { id: "oro", label: "✨ Ora d'oro", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND4–ND16 (la luce cala in fretta: ricontrolla ogni pochi minuti)", wb: "5500 K fisso, per tenere i colori caldi" }, foto: { iso: "100", tempo: "automatico", extra: "Controluce col sole: forcella (AEB) per non bruciare il cielo" } },
+  { id: "sole", ev: 15, label: "☀️ Sole pieno", video: { iso: "100", tempo: "1/50 a 25 fps (1/60 a 30 fps)", nd: "ND forti: ND64 o più (con obiettivi molto luminosi anche ND128–256)", wb: "5500 K fisso" }, foto: { iso: "100", tempo: "automatico o 1/500–1/2000", extra: "Ombre dure: prova lo scatto a forcella (AEB) e compensazione −0,3/−0,7" } },
+  { id: "nuvole", ev: 13, label: "⛅ Nuvoloso luminoso", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND16–ND64", wb: "6000–6500 K fisso" }, foto: { iso: "100", tempo: "automatico", extra: "Luce morbida: ottima per case e persone, colori un po' freddi da scaldare dopo" } },
+  { id: "coperto", ev: 12, label: "☁️ Coperto / ombra", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND8–ND32", wb: "6500 K fisso" }, foto: { iso: "100–200", tempo: "automatico, non sotto 1/100", extra: "Aumenta un po' contrasto e saturazione in modifica" } },
+  { id: "oro", ev: 11, label: "✨ Ora d'oro", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND4–ND16 (la luce cala in fretta: ricontrolla ogni pochi minuti)", wb: "5500 K fisso, per tenere i colori caldi" }, foto: { iso: "100", tempo: "automatico", extra: "Controluce col sole: forcella (AEB) per non bruciare il cielo" } },
   { id: "blu", label: "🌆 Dopo il tramonto / ora blu", video: { iso: "100–800 (non oltre, sui droni piccoli fa rumore)", tempo: "1/50 a 25 fps", nd: "Nessun filtro", wb: "4500–5500 K fisso" }, foto: { iso: "100", tempo: "lungo, fino a 1–2 s solo senza vento: fai più scatti", extra: "Usa la modalità notte o la forcella se il drone le ha" } },
 ];
 
@@ -6656,7 +6656,8 @@ function ImpostazioniCamera({ tipo = "video", lucePrevista }) {
         {modo === "foto" && riga("Dritta", v.extra)}
         {modo === "video" && riga("Profilo colore", "Normale; D-Log solo se poi correggi i colori")}
       </div>
-      <p style={{ fontSize: 11.5, color: "#c3cad4", margin: "8px 0 0 0" }}>💡 Non te la senti di fare tutto a mano? Blocca ISO a 100 e lascia l'esposizione automatica con compensazione −0,3/−0,7 per non bruciare il cielo.{modo === "video" ? " Il valore esatto del filtro ND te lo dà il calcolatore ND." : ""}</p>
+      <p style={{ fontSize: 11.5, color: "#c3cad4", margin: "8px 0 0 0" }}>💡 Non te la senti di fare tutto a mano? Blocca ISO a 100 e lascia l'esposizione automatica con compensazione −0,3/−0,7 per non bruciare il cielo.{modo === "video" && l.ev ? " Il filtro ND esatto per il tuo drone te lo dà il calcolatore qui sotto." : ""}</p>
+      {modo === "video" && l.ev && <CalcolatoreND key={"nd-" + l.id} evIniziale={l.ev} />}
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Valori indicativi: cambiano con il drone e l'obiettivo. Guarda sempre l'istogramma.</p>
     </details>
   );
@@ -7267,7 +7268,6 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               {luna && (
                 <div style={{ fontSize: 12.5, marginTop: 8, color: "#c3cad4" }}>{luna.emoji} Luna: <strong>{luna.nome}</strong>, illuminata al {luna.illuminata}%</div>
               )}
-              {["video", "fpv", "foto"].includes(tipoIspezione) && <CalcolatoreND />}
               {["video", "foto", "fpv"].includes(tipoIspezione) && (
                 <p style={{ fontSize: 11, color: "#6b7480", margin: "8px 0 0 0" }}>L'ora d'oro dà la luce più calda e morbida per le riprese. Prima dell'alba e dopo il tramonto controlla le regole per il volo notturno e le luci anticollisione del drone.</p>
               )}
