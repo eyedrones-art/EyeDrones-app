@@ -6436,13 +6436,18 @@ function consigliDrone(drone) {
   const nome = `${drone.nome || ""} ${drone.modello || ""}`.toLowerCase();
   const voci = [];
   if (classe === "C0" || /mini/.test(nome)) {
-    voci.push("Drone leggero: col vento oltre circa 20–25 km/h fatica, soprattutto in quota. Controlla le raffiche nel meteo qui sopra.");
+    voci.push("Drone leggero: col vento oltre circa 20–25 km/h fatica, soprattutto in quota. Controlla sempre le raffiche nel meteo del piano di volo.");
     voci.push("Se senti l'avviso di vento forte, scendi di quota e torna subito: in alto il vento è più forte che a terra.");
   }
   if (classe === "C1" || classe === "C2") voci.push("Controlla che il Remote ID sia attivo e che nell'app del drone ci sia il tuo codice operatore D-Flight.");
   if (classe === "C2") voci.push("Vicino a persone non coinvolte attiva la modalità a bassa velocità: in A2 così puoi stare fino a 5 m invece di 30.");
   if (classe === "C3" || classe === "C4") voci.push("Drone di categoria A3: stai lontano da persone e da zone abitate (almeno 150 m da zone residenziali, commerciali e industriali).");
   if (/avata|fpv/.test(nome)) voci.push("Con un drone FPV resta in modalità Normale finché non sei sicuro. Il pulsante di frenata/stop va provato prima, a bassa quota.");
+  if (/mini\s?[345]/.test(nome)) voci.push("La camera ruota in verticale: per Reels, TikTok e storie gira direttamente in verticale invece di tagliare dopo.");
+  if (/air\s?3/.test(nome)) voci.push("Hai due camere: usa quella zoom (medio tele) per staccare il soggetto dallo sfondo e far sembrare le montagne più vicine.");
+  if (/mavic\s?3/.test(nome) && !/3t|thermal|enterprise/.test(nome)) voci.push("Le camere tele sono ottime per orbite larghe e riprese da lontano, senza avvicinarti al soggetto.");
+  if (/neo|flip/.test(nome)) voci.push("Le riprese automatiche (seguimi, allontanamento, orbita) sono comode, ma controlla prima che l'area intorno sia libera: il drone non vede tutto.");
+  if (/(\d+t\b|thermal|matrice|enterprise)/.test(nome)) voci.push("Per le termiche imposta la stessa scala di temperatura (range fisso) su tutte le foto, così le anomalie si confrontano tra loro.");
   if (/air|mavic|pro/.test(nome) && !/mini/.test(nome) && classe !== "C0") voci.push("Usa gli ostacoli attivi (APAS o simili) solo come aiuto: di lato e all'indietro molti droni non vedono tutto.");
   return voci;
 }
@@ -6469,6 +6474,58 @@ function ConsigliVolo({ tipo, drone, apertoIniziale = false, inGuida = false }) 
         <p style={{ fontSize: 12, margin: "10px 0 0 0" }}>🎓 Vuoi imparare meglio? {corsi.map((c, i) => <span key={c.nome}>{i > 0 && " · "}<a href={c.url} target="_blank" rel="noreferrer" style={{ color: "#4ade80" }}>{c.nome} ↗</a></span>)}</p>
       )}
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "10px 0 0 0" }}>Consigli generali per chi comincia: non sostituiscono un corso, il manuale del drone né le regole in vigore.</p>
+    </details>
+  );
+}
+
+// manovre classiche per video belli: come si fanno con gli stick e quando usarle
+const MANOVRE_VIDEO = [
+  { nome: "Rivelazione", come: "Parti con la camera verso il basso o dietro un ostacolo (albero, muro) e avanza alzando piano la camera: il paesaggio o l'edificio si «scopre».", quando: "Per aprire il video." },
+  { nome: "Allontanamento (dronie)", come: "Camera sul soggetto, vola indietro e sali insieme, lentamente. Prima guarda bene dietro: molti droni non vedono gli ostacoli all'indietro.", quando: "Per chiudere il video." },
+  { nome: "Orbita", come: "Gira intorno al soggetto tenendolo al centro: stick destro di lato e stick sinistro dalla parte opposta. Più è larga e lenta, più è cinematografica. Molti droni hanno l'orbita automatica (punto di interesse).", quando: "Edifici, monumenti, persone." },
+  { nome: "Dall'alto (top-down)", come: "Camera dritta in giù a 90°, poi sali piano o ruota su te stesso.", quando: "Strade, campi, tetti, piscine, spiagge." },
+  { nome: "Laterale con primo piano (parallasse)", come: "Vola di lato con qualcosa vicino (alberi, colonne) e lo sfondo lontano: lo sfondo scorre più lento e dà profondità.", quando: "Per dare l'effetto «film»." },
+  { nome: "Salita verticale", come: "Sali dritto con la camera ferma in avanti.", quando: "Per mostrare la vista da un edificio, una torre o una collina." },
+  { nome: "Avanzamento basso", come: "Vola in avanti a pochi metri da terra o dall'acqua: dà velocità. Solo su zone libere da ostacoli e persone. Sull'acqua i sensori possono sbagliare la quota.", quando: "Campi, laghi, strade vuote." },
+  { nome: "Hyperlapse", come: "Drone fermo o lentissimo che scatta una foto ogni pochi secondi: nuvole, traffico e tramonti diventano un video veloce. Parti con la batteria piena.", quando: "Tramonti, città, cieli con nuvole." },
+];
+const DRITTE_MANOVRE = [
+  "Usa la modalità lenta (Cine o Tripod) e abbassa la velocità del gimbal nelle impostazioni: i movimenti diventano morbidi.",
+  "Al massimo due movimenti insieme (per esempio avanti + camera che sale). Di più sembra un errore.",
+  "Ogni ripresa deve avere 10–15 secondi buoni: parti e fermati con calma, il taglio lo fai in montaggio.",
+  "Pensa al montaggio prima di volare: apertura (rivelazione), dettagli e soggetto, chiusura (allontanamento).",
+];
+const SCALETTE_LAVORO = [
+  { titolo: "Immobiliare", voci: ["Rivelazione della facciata", "Orbita bassa intorno alla casa", "Dall'alto sul lotto e sul giardino", "Allontanamento per mostrare la zona e i servizi vicini"] },
+  { titolo: "Matrimonio", voci: ["Rivelazione della location", "Laterale lungo il viale o il giardino", "Dall'alto sul luogo della festa, senza passare sopra gli invitati", "Allontanamento sugli sposi alla fine, a distanza di sicurezza"] },
+  { titolo: "Evento", voci: ["Salita verticale per mostrare quanta gente c'è, senza sorvolarla", "Orbita larga sul palco o sul luogo", "Hyperlapse dell'allestimento", "Mai sopra assembramenti di persone"] },
+  { titolo: "Video aziendale", voci: ["Rivelazione della sede con il logo", "Laterale lungo capannoni o impianti", "Dall'alto su piazzali e parcheggi", "Avanzamento verso l'ingresso"] },
+];
+
+function ManovreVideo({ apertoIniziale = false }) {
+  return (
+    <details open={apertoIniziale} style={{ background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 8, padding: "10px 14px", margin: "14px 0" }}>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#c4b5fd" }}>🎬 Manovre per video belli</summary>
+      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+        {MANOVRE_VIDEO.map((m) => (
+          <div key={m.nome} style={{ fontSize: 12.5, lineHeight: 1.5, color: "#d6dde6" }}>
+            <div style={{ fontWeight: 700, color: "#e7eaee" }}>{m.nome}</div>
+            <div>{m.come}</div>
+            <div style={{ color: "#a8a2bd", fontSize: 11.5 }}>👉 {m.quando}</div>
+          </div>
+        ))}
+      </div>
+      <p style={{ fontSize: 12, fontWeight: 700, color: "#c4b5fd", margin: "12px 0 4px 0" }}>Per farle venire bene</p>
+      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.55, color: "#d6dde6" }}>
+        {DRITTE_MANOVRE.map((v) => <li key={v} style={{ marginBottom: 4 }}>{v}</li>)}
+      </ul>
+      <p style={{ fontSize: 12, fontWeight: 700, color: "#c4b5fd", margin: "12px 0 4px 0" }}>Scaletta per tipo di lavoro</p>
+      {SCALETTE_LAVORO.map((sc) => (
+        <div key={sc.titolo} style={{ fontSize: 12.5, color: "#d6dde6", marginBottom: 6 }}>
+          <strong style={{ color: "#e7eaee" }}>{sc.titolo}:</strong> {sc.voci.join(" → ")}
+        </div>
+      ))}
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "10px 0 0 0" }}>Prova le manovre nuove in un posto aperto e senza persone, a quota sicura, prima di farle durante un lavoro.</p>
     </details>
   );
 }
@@ -6500,6 +6557,7 @@ function GuideVolo({ droni = [] }) {
         <div key={g.titolo} style={{ marginBottom: 10 }}>
           <h2 style={{ fontSize: 13, fontWeight: 700, color: "#8b95a3", textTransform: "uppercase", letterSpacing: "0.05em", margin: "18px 0 0 0" }}>{g.titolo}</h2>
           {g.tipi.map((t) => <ConsigliVolo key={t + droneId} tipo={t} drone={drone} inGuida />)}
+          {g.titolo === "Riprese" && <ManovreVideo />}
         </div>
       ))}
     </div>
@@ -6936,6 +6994,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           />
 
           <ConsigliVolo key={"consigli-" + tipoIspezione} tipo={tipoIspezione} drone={droneSelezionato} />
+          {["video", "foto", "fpv"].includes(tipoIspezione) && <ManovreVideo />}
 
           <StrumentiLavoro key={tipoIspezione} tipo={tipoIspezione} />
 
