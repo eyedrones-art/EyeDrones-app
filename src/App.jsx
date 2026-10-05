@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
@@ -8,6 +8,7 @@ import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaP
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
 const Impara = lazy(() => import("./Impara.jsx"));
 const Posti = lazy(() => import("./Posti.jsx"));
+const Collaboratori = lazy(() => import("./Collaboratori.jsx"));
 // navigazione da componenti lontani (es. «Come si fa?» nella verifica zona): window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }))
 const vaiA = (detail) => window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }));
 
@@ -1768,7 +1769,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "pagina-pilota"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2079,7 +2080,7 @@ function AppShell({ session }) {
               : <>Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.</>}
           </div>
         )}
-        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
@@ -2092,6 +2093,11 @@ function AppShell({ session }) {
         {(page === "impara" || page === "guide") && (
           <Suspense fallback={<LoadingBlock />}>
             <Impara schedaIniziale={page === "guide" ? "consigli" : schedaImpara} consigli={<GuideVolo droni={droni} incorporata />} />
+          </Suspense>
+        )}
+        {page === "collaboratori" && (
+          <Suspense fallback={<LoadingBlock />}>
+            <Collaboratori supabase={supabase} inputStyle={inputStyle} servizi={SERVIZI_PILOTA} />
           </Suspense>
         )}
         {page === "posti" && (
@@ -2429,6 +2435,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { intestazione: "Lavoro" },
     { key: "preventivi", label: "Preventivi", icon: FileText },
     { key: "clienti", label: "Clienti", icon: Users },
+    { key: "collaboratori", label: "Collaboratori", icon: Handshake },
     { key: "pagina-pilota", label: "La mia pagina", icon: Globe },
     { intestazione: "Account" },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
@@ -2939,7 +2946,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   );
 }
 
-function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo }) {
+function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [] }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
 
@@ -2954,6 +2961,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
     ...droni.filter((d) => d.prossima_manutenzione).map((d) => ({ id: "d" + d.id, nome: `Manutenzione — ${d.nome}`, stato: statoManutenzione(d.prossima_manutenzione), vai: "droni" })),
     ...(batterie || []).flatMap((b) => avvisiBatteria(b).map((a, i) => ({ id: `b${b.id}-${i}`, nome: `Batteria — ${b.nome}`, stato: a, vai: "batterie" }))),
     ...(eventiVolo || []).filter((e) => !e.segnalato).map((e) => ({ id: "e" + e.id, nome: `Segnalazione evento — ${etichettaEvento(e.tipo)}`, stato: statoEvento(e), vai: "registro-voli" })),
+    ...preventivi.filter((p) => giorniRitardo(p) > 0).map((p) => ({ id: "pag" + p.id, nome: `Pagamento — ${p.cliente} (${euro(Number(p.prezzo) || 0)})`, stato: { livello: "scaduto", colore: "#ff6b6b", testo: `In ritardo di ${giorniRitardo(p)} giorni` }, vai: "preventivi" })),
     ...(dflightScadenza ? [{ id: "dflight", nome: "Abbonamento D-Flight (QR code operatore)", stato: statoScadenza(dflightScadenza), vai: "droni" }] : []),
     ...droni.filter((d) => d.qr_dflight_nuovo === false).map((d) => ({ id: "q" + d.id, nome: `QR code D-Flight — ${d.nome}`, stato: { livello: "in_scadenza", colore: "#f5b942", testo: "Stampa e applica il nuovo QR code" }, vai: "droni" })),
   ];
@@ -4124,6 +4132,29 @@ const NOTE_LEGALI_PREVENTIVO_DEFAULT = "Il presente preventivo ha validità di {
 // Le versioni più recenti (dalla 3.4) leggono anche i file del Matrice 4T. Verificare periodicamente che il link resti valido.
 const LINK_DJI_THERMAL_TOOL = "https://enterprise.dji.com/matrice-4-series/downloads";
 
+// --- Pagamenti: entro quando, ritardi, clienti puntuali ----------------------------------------------------
+const GIORNI_PAGAMENTO_DEFAULT = 30;
+const scadenzaPagamento = (p) => p.scadenza_pagamento || (p.data ? dataLocaleDa(p.data, GIORNI_PAGAMENTO_DEFAULT) : null);
+const giorniTra = (da, a) => Math.round((new Date(a + "T12:00:00") - new Date(da + "T12:00:00")) / 86400000);
+// giorni di ritardo di un lavoro accettato e non ancora pagato (0 = non in ritardo)
+const giorniRitardo = (p) => {
+  const sc = scadenzaPagamento(p);
+  if (p.stato !== "accettato" || p.pagato || !sc) return 0;
+  return Math.max(0, giorniTra(sc, dataLocale()));
+};
+const pagatoInRitardo = (p) => { const sc = scadenzaPagamento(p); return !!(p.pagato && p.data_pagamento && sc && p.data_pagamento > sc); };
+// com'è andata con questo cliente: per decidere se chiedere un acconto
+function affidabilitaCliente(nome, preventivi) {
+  const n = (nome || "").trim().toLowerCase();
+  const suoi = (preventivi || []).filter((p) => p.stato === "accettato" && (p.cliente || "").trim().toLowerCase() === n);
+  const pagati = suoi.filter((p) => p.pagato);
+  return { lavori: suoi.length, pagati: pagati.length, ritardi: pagati.filter(pagatoInRitardo).length, inRitardoOra: suoi.filter((p) => giorniRitardo(p) > 0).length };
+}
+function messaggioSollecito(p, azienda) {
+  const sc = scadenzaPagamento(p);
+  return `Buongiorno, le ricordo il pagamento di ${euro(Number(p.prezzo) || 0)}${p.oggetto ? ` per «${p.oggetto}»` : ""}${p.numero ? ` (preventivo ${p.numero})` : ""}${sc ? `, previsto entro il ${formatData(sc)}` : ""}. Se ha già provveduto non consideri questo messaggio. Grazie!${azienda?.nome && azienda.nome !== "EyeDrones" ? `\n${azienda.nome}` : ""}`;
+}
+
 // --- Incassi: quanto hai incassato e quanto ti devono ---------------------------------------------------
 function RiepilogoIncassi({ preventivi }) {
   const accettati = (preventivi || []).filter((p) => p.stato === "accettato");
@@ -4135,6 +4166,7 @@ function RiepilogoIncassi({ preventivi }) {
   const dataIncasso = (p) => p.data_pagamento || p.data || "";
   const incAnno = somma(pagati.filter((p) => dataIncasso(p).startsWith(anno)));
   const incMese = somma(pagati.filter((p) => dataIncasso(p).startsWith(mese)));
+  const inRitardo = daIncassare.filter((p) => giorniRitardo(p) > 0);
   const box = (titolo, valore, colore, sotto) => (
     <div style={{ flex: "1 1 140px", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "10px 14px" }}>
       <div style={{ fontSize: 11.5, color: "#8b95a3" }}>{titolo}</div>
@@ -4147,7 +4179,7 @@ function RiepilogoIncassi({ preventivi }) {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {box("Incassato questo mese", incMese, "#4ade80")}
         {box(`Incassato nel ${anno}`, incAnno, "#4ade80")}
-        {box("Da incassare", somma(daIncassare), daIncassare.length ? "#f5b942" : "#8b95a3", daIncassare.length ? `${daIncassare.length} ${daIncassare.length === 1 ? "lavoro accettato" : "lavori accettati"}` : "tutto incassato")}
+        {box("Da incassare", somma(daIncassare), inRitardo.length ? "#ff6b6b" : daIncassare.length ? "#f5b942" : "#8b95a3", inRitardo.length ? `⏰ ${euro(somma(inRitardo))} in ritardo (${inRitardo.length})` : daIncassare.length ? `${daIncassare.length} ${daIncassare.length === 1 ? "lavoro accettato" : "lavori accettati"}` : "tutto incassato")}
       </div>
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Conti dai preventivi accettati: un promemoria per te, non sostituisce fatture e registri fiscali.</p>
     </div>
@@ -4237,6 +4269,13 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
                       {suoi.length > 0 ? `${suoi.length} ${suoi.length === 1 ? "preventivo" : "preventivi"}` : "Nessun preventivo"}
                       {incassato > 0 && <> · <span style={{ color: "#4ade80" }}>incassato {euro(incassato)}</span></>}
                       {daIncassare > 0 && <> · <span style={{ color: "#f5b942" }}>da incassare {euro(daIncassare)}</span></>}
+                      {(() => {
+                        const a = affidabilitaCliente(c.nome, preventivi);
+                        if (a.inRitardoOra) return <> · <span style={{ color: "#ff6b6b" }}>⏰ in ritardo ora</span></>;
+                        if (a.ritardi) return <> · <span style={{ color: "#f5b942" }}>⚠ ha pagato in ritardo {a.ritardi} {a.ritardi === 1 ? "volta" : "volte"} su {a.pagati}</span></>;
+                        if (a.pagati) return <> · <span style={{ color: "#4ade80" }}>✓ paga puntuale</span></>;
+                        return null;
+                      })()}
                     </div>
                   </div>
                   <ChevronRight size={16} style={{ color: "#6b7480", transform: aperta ? "rotate(90deg)" : "none" }} />
@@ -4597,8 +4636,17 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
 
   const cambiaStato = async (id, nuovoStato) => {
     setCambiandoStato(id);
-    await supabase.from("preventivi").update({ stato: nuovoStato }).eq("id", id);
+    const p = preventivi.find((x) => x.id === id);
+    const conScadenza = nuovoStato === "accettato" && p && !p.scadenza_pagamento ? { scadenza_pagamento: dataLocale(GIORNI_PAGAMENTO_DEFAULT) } : {};
+    const { error } = await supabase.from("preventivi").update({ stato: nuovoStato, ...conScadenza }).eq("id", id);
+    if (error && conScadenza.scadenza_pagamento) await supabase.from("preventivi").update({ stato: nuovoStato }).eq("id", id); // colonna non ancora creata
     setCambiandoStato(null);
+    onReload();
+  };
+
+  const cambiaScadenza = async (p, data) => {
+    const { error } = await supabase.from("preventivi").update({ scadenza_pagamento: data || null }).eq("id", p.id);
+    if (error) { alert(/scadenza_pagamento|column/i.test(error.message) ? "Per scegliere la data di pagamento esegui prima lo script supabase/pagamenti-collaboratori.sql su Supabase." : "Non riuscito: " + error.message); return; }
     onReload();
   };
 
@@ -4651,6 +4699,17 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
             <div style={{ flex: 2 }}>
               <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome cliente</label>
               <input placeholder="es. Mario Rossi" list="rubrica-clienti" value={cliente} onChange={(e) => setCliente(e.target.value)} style={inputStyle} />
+              {(() => {
+                const a = affidabilitaCliente(cliente, preventivi.filter((x) => x.id !== editingId));
+                if (!cliente.trim() || a.lavori === 0) return null;
+                if (a.ritardi === 0 && a.inRitardoOra === 0) return a.pagati > 0 ? <div style={{ fontSize: 11.5, color: "#4ade80", marginTop: 4 }}>✓ Cliente puntuale: {a.pagati} {a.pagati === 1 ? "lavoro pagato" : "lavori pagati"} in tempo</div> : null;
+                return (
+                  <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 4 }}>
+                    ⚠ {a.inRitardoOra ? `Ha ${a.inRitardoOra} ${a.inRitardoOra === 1 ? "pagamento" : "pagamenti"} in ritardo adesso` : `Ha pagato in ritardo ${a.ritardi} ${a.ritardi === 1 ? "volta" : "volte"} su ${a.pagati}`}: valuta di chiedere un acconto.{" "}
+                    <button type="button" onClick={() => setNote((n) => (n ? n + "\n" : "") + "Acconto del 30% alla conferma, saldo alla consegna del lavoro.")} style={{ background: "none", border: "none", color: "#3d8bfd", padding: 0, fontSize: 11.5, textDecoration: "underline" }}>Aggiungi acconto nelle note</button>
+                  </div>
+                );
+              })()}
             </div>
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Data preventivo</label>
@@ -4775,9 +4834,20 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
                   {promemoria && (
                     <div style={{ fontSize: 11.5, color: promemoria.colore, fontWeight: 600, marginTop: 3 }}>⏰ {promemoria.testo}</div>
                   )}
+                  {p.stato === "accettato" && !p.pagato && (() => {
+                    const rit = giorniRitardo(p);
+                    const tel = (clienti.find((c) => c.nome.trim().toLowerCase() === (p.cliente || "").trim().toLowerCase()) || {}).telefono;
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4, fontSize: 11.5, color: rit ? "#ff6b6b" : "#8b95a3" }}>
+                        {rit ? <strong>⏰ In ritardo di {rit} {rit === 1 ? "giorno" : "giorni"}</strong> : <span>Pagamento entro</span>}
+                        <input type="date" value={scadenzaPagamento(p) || ""} onChange={(e) => cambiaScadenza(p, e.target.value)} title="Entro quando deve pagare" style={{ background: "#161a1f", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 4, padding: "2px 6px", fontSize: 11.5 }} />
+                        {rit > 0 && <a href={`https://wa.me/${numeroWhatsapp(tel) || ""}?text=${encodeURIComponent(messaggioSollecito(p, azienda))}`} target="_blank" rel="noreferrer" style={{ color: "#4ade80", fontWeight: 700, textDecoration: "none", border: "1px solid #2c5a3a", borderRadius: 4, padding: "2px 8px" }}>💬 Manda un promemoria</a>}
+                      </div>
+                    );
+                  })()}
                   {p.stato === "accettato" && (
                     <button type="button" disabled={cambiandoStato === p.id} onClick={() => segnaPagato(p, !p.pagato)} title={p.pagato ? "Tocca per segnarlo di nuovo da incassare" : "Tocca quando il cliente ha pagato"} style={{ marginTop: 6, fontSize: 11.5, fontWeight: 700, borderRadius: 12, padding: "3px 10px", border: "none", background: p.pagato ? "#1d3a2a" : "#3a2a12", color: p.pagato ? "#4ade80" : "#f5b942" }}>
-                      {p.pagato ? `✓ Pagato${p.data_pagamento ? ` il ${formatData(p.data_pagamento)}` : ""}` : "💶 Da incassare · segna pagato"}
+                      {p.pagato ? `✓ Pagato${p.data_pagamento ? ` il ${formatData(p.data_pagamento)}` : ""}${pagatoInRitardo(p) ? " (in ritardo)" : ""}` : "💶 Da incassare · segna pagato"}
                     </button>
                   )}
                 </div>
@@ -8329,6 +8399,7 @@ const numeroWhatsapp = (v) => {
   let n = String(v || "").replace(/[^\d+]/g, "").replace(/^\+/, "").replace(/^00/, "");
   if (!n) return null;
   if (/^3\d{8,9}$/.test(n)) n = "39" + n; // cellulare italiano scritto senza prefisso
+  else if (/^0\d{5,10}$/.test(n)) n = "39" + n; // fisso italiano senza prefisso
   return n.length >= 8 ? n : null;
 };
 const mediaSicuro = (m) => m && typeof m.url === "string" && /^https:\/\//i.test(m.url);
