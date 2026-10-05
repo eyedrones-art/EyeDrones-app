@@ -2705,6 +2705,24 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
           </div>
         )}
 
+        {(() => {
+          const daFare = (p.checklist_stato?.manovre || []).map((id) => MANOVRE_VIDEO.find((m) => m.id === id)).filter(Boolean);
+          if (daFare.length === 0) return null;
+          return (
+            <details style={{ marginTop: 10, background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 6, padding: "8px 10px" }}>
+              <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#c4b5fd" }}>🎬 Da girare: {daFare.map((m) => m.nome.replace(/ \(.*\)$/, "")).join(" → ")}</summary>
+              {daFare.map((m) => (
+                <div key={m.id} style={{ fontSize: 12, lineHeight: 1.45, color: "#d6dde6", marginTop: 8 }}>
+                  <strong style={{ color: "#e7eaee" }}>{m.nome}</strong>: {m.come}
+                  <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
+                </div>
+              ))}
+            </details>
+          );
+        })()}
+
+        <ConsigliVolo tipo={p.tipo_ispezione} drone={drone} />
+
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
           <button onClick={() => onApriPiano(p.id)} style={btn(true)}>Apri il piano</button>
           <button onClick={() => onDocumenti(p.id)} style={btn(false)}>🚔 Documenti controllo</button>
@@ -6480,14 +6498,14 @@ function ConsigliVolo({ tipo, drone, apertoIniziale = false, inGuida = false }) 
 
 // manovre classiche per video belli: come si fanno con gli stick e quando usarle
 const MANOVRE_VIDEO = [
-  { nome: "Rivelazione", come: "Parti con la camera verso il basso o dietro un ostacolo (albero, muro) e avanza alzando piano la camera: il paesaggio o l'edificio si «scopre».", quando: "Per aprire il video." },
-  { nome: "Allontanamento (dronie)", come: "Camera sul soggetto, vola indietro e sali insieme, lentamente. Prima guarda bene dietro: molti droni non vedono gli ostacoli all'indietro.", quando: "Per chiudere il video." },
-  { nome: "Orbita", come: "Gira intorno al soggetto tenendolo al centro: stick destro di lato e stick sinistro dalla parte opposta. Più è larga e lenta, più è cinematografica. Molti droni hanno l'orbita automatica (punto di interesse).", quando: "Edifici, monumenti, persone." },
-  { nome: "Dall'alto (top-down)", come: "Camera dritta in giù a 90°, poi sali piano o ruota su te stesso.", quando: "Strade, campi, tetti, piscine, spiagge." },
-  { nome: "Laterale con primo piano (parallasse)", come: "Vola di lato con qualcosa vicino (alberi, colonne) e lo sfondo lontano: lo sfondo scorre più lento e dà profondità.", quando: "Per dare l'effetto «film»." },
-  { nome: "Salita verticale", come: "Sali dritto con la camera ferma in avanti.", quando: "Per mostrare la vista da un edificio, una torre o una collina." },
-  { nome: "Avanzamento basso", come: "Vola in avanti a pochi metri da terra o dall'acqua: dà velocità. Solo su zone libere da ostacoli e persone. Sull'acqua i sensori possono sbagliare la quota.", quando: "Campi, laghi, strade vuote." },
-  { nome: "Hyperlapse", come: "Drone fermo o lentissimo che scatta una foto ogni pochi secondi: nuvole, traffico e tramonti diventano un video veloce. Parti con la batteria piena.", quando: "Tramonti, città, cieli con nuvole." },
+  { id: "rivelazione", nome: "Rivelazione", come: "Parti con la camera verso il basso o dietro un ostacolo (albero, muro) e avanza alzando piano la camera: il paesaggio o l'edificio si «scopre».", stick: "Destro un filo in avanti e, insieme, rotella della camera (in alto a sinistra) piano verso l'alto. Variante: parti basso dietro l'ostacolo e sali con il sinistro in su.", quando: "Per aprire il video." },
+  { id: "allontanamento", nome: "Allontanamento (dronie)", come: "Camera sul soggetto, vola indietro e sali insieme, lentamente. Prima guarda bene dietro: molti droni non vedono gli ostacoli all'indietro.", stick: "Destro indietro e sinistro in su, tutti e due piano e insieme. Se il soggetto scende nell'inquadratura, abbassa un po' la camera con la rotella.", quando: "Per chiudere il video." },
+  { id: "orbita", nome: "Orbita", come: "Gira intorno al soggetto tenendolo al centro. Più è larga e lenta, più è cinematografica. Molti droni hanno l'orbita automatica (punto di interesse).", stick: "Destro di lato (per esempio a destra) e sinistro dalla parte opposta (a sinistra), insieme. Dosa il sinistro finché il soggetto resta al centro. Per girare dall'altra parte inverti tutti e due.", quando: "Edifici, monumenti, persone." },
+  { id: "dallalto", nome: "Dall'alto (top-down)", come: "Camera dritta in giù a 90°, poi sali piano o ruota su te stesso.", stick: "Rotella della camera tutta giù. Poi sinistro in su per salire, oppure sinistro a destra o a sinistra per ruotare su te stesso.", quando: "Strade, campi, tetti, piscine, spiagge." },
+  { id: "parallasse", nome: "Laterale con primo piano (parallasse)", come: "Vola di lato con qualcosa vicino (alberi, colonne) e lo sfondo lontano: lo sfondo scorre più lento e dà profondità.", stick: "Solo il destro, di lato e piano. Il sinistro resta fermo così la camera non ruota.", quando: "Per dare l'effetto «film»." },
+  { id: "salita", nome: "Salita verticale", come: "Sali dritto con la camera ferma in avanti.", stick: "Solo il sinistro in su, piano e costante. Il destro non si tocca.", quando: "Per mostrare la vista da un edificio, una torre o una collina." },
+  { id: "basso", nome: "Avanzamento basso", come: "Vola in avanti a pochi metri da terra o dall'acqua: dà velocità. Solo su zone libere da ostacoli e persone. Sull'acqua i sensori possono sbagliare la quota.", stick: "Destro in avanti. Il sinistro resta al centro, così la quota non cambia.", quando: "Campi, laghi, strade vuote." },
+  { id: "hyperlapse", nome: "Hyperlapse", come: "Drone fermo o lentissimo che scatta una foto ogni pochi secondi: nuvole, traffico e tramonti diventano un video veloce. Parti con la batteria piena.", stick: "Nessuno: scegli la modalità Hyperlapse nel menu foto del drone e lascia fare a lui. Tieni le mani pronte sugli stick.", quando: "Tramonti, città, cieli con nuvole." },
 ];
 const DRITTE_MANOVRE = [
   "Usa la modalità lenta (Cine o Tripod) e abbassa la velocità del gimbal nelle impostazioni: i movimenti diventano morbidi.",
@@ -6502,15 +6520,23 @@ const SCALETTE_LAVORO = [
   { titolo: "Video aziendale", voci: ["Rivelazione della sede con il logo", "Laterale lungo capannoni o impianti", "Dall'alto su piazzali e parcheggi", "Avanzamento verso l'ingresso"] },
 ];
 
-function ManovreVideo({ apertoIniziale = false }) {
+function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte }) {
+  const conScelta = Array.isArray(scelte) && onCambiaScelte;
+  const cambia = (id) => onCambiaScelte(scelte.includes(id) ? scelte.filter((x) => x !== id) : [...scelte, id]);
   return (
     <details open={apertoIniziale} style={{ background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 8, padding: "10px 14px", margin: "14px 0" }}>
-      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#c4b5fd" }}>🎬 Manovre per video belli</summary>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#c4b5fd" }}>🎬 Manovre per video belli{conScelta && scelte.length > 0 ? ` · ${scelte.length} da fare` : ""}</summary>
+      <p style={{ fontSize: 11.5, color: "#a8a2bd", margin: "8px 0 0 0" }}>🕹️ Gli stick sono descritti nel «modo 2», quello standard dei radiocomandi DJI: sinistro = sali/scendi e ruota, destro = avanti/indietro e di lato.{conScelta ? " Spunta le manovre che vuoi fare: le ritrovi in Home il giorno del volo." : ""}</p>
       <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
         {MANOVRE_VIDEO.map((m) => (
-          <div key={m.nome} style={{ fontSize: 12.5, lineHeight: 1.5, color: "#d6dde6" }}>
-            <div style={{ fontWeight: 700, color: "#e7eaee" }}>{m.nome}</div>
+          <div key={m.id} style={{ fontSize: 12.5, lineHeight: 1.5, color: "#d6dde6" }}>
+            {conScelta ? (
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 700, color: "#e7eaee", cursor: "pointer" }}>
+                <input type="checkbox" checked={scelte.includes(m.id)} onChange={() => cambia(m.id)} /> {m.nome}
+              </label>
+            ) : <div style={{ fontWeight: 700, color: "#e7eaee" }}>{m.nome}</div>}
             <div>{m.come}</div>
+            <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
             <div style={{ color: "#a8a2bd", fontSize: 11.5 }}>👉 {m.quando}</div>
           </div>
         ))}
@@ -6615,6 +6641,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [zonaEsito, setZonaEsito] = useState(null); // ultimo controllo della zona, salvato con il piano
   const [puntoIndirizzo, setPuntoIndirizzo] = useState(null); // via e numero trovati su OpenStreetMap
   const [stsDati, setStsDati] = useState(null); // calcolatore STS-01 (salvato nel piano)
+  const [manovreScelte, setManovreScelte] = useState([]); // riprese da fare in questo volo (scaletta)
   // scegliendo l'ora del volo, anche la direzione del sole si calcola per quell'ora
   const scegliOraPrevista = (ora) => { setOraPrevista(ora); if (ora) setOraSole(ora); };
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
@@ -6795,7 +6822,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
         ora_prevista: oraPrevista || null,
         drone_id: droneSelId || null,
         dflight_screenshot_url: dflightUrl,
-        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}) },
+        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}), ...(manovreScelte.length > 0 ? { manovre: manovreScelte } : {}) },
       };
       // le coordinate si salvano solo per un luogo scelto a mano
       if (!impiantoSel) payload.luogo_coordinate = coordinateValide ? `${coordinateValide.lat}, ${coordinateValide.lon}` : null;
@@ -6832,6 +6859,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setOraPrevista(p.ora_prevista ? String(p.ora_prevista).slice(0, 5) : "");
     setZonaEsito(p.checklist_stato?.zona || null);
     setStsDati(p.checklist_stato?.sts || null);
+    setManovreScelte(Array.isArray(p.checklist_stato?.manovre) ? p.checklist_stato.manovre : []);
     if (p.ora_prevista) setOraSole(String(p.ora_prevista).slice(0, 5));
     setDroneSelId(p.drone_id || "");
     setDflightShot(p.dflight_screenshot_url ? { dataUrl: p.dflight_screenshot_url, remota: true } : null);
@@ -6856,6 +6884,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setOraPrevista("");
     setZonaEsito(null);
     setStsDati(null);
+    setManovreScelte([]);
     setDflightShot(null);
     setMeteo(null);
     setMeteoSpaziale(null);
@@ -6994,7 +7023,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           />
 
           <ConsigliVolo key={"consigli-" + tipoIspezione} tipo={tipoIspezione} drone={droneSelezionato} />
-          {["video", "foto", "fpv"].includes(tipoIspezione) && <ManovreVideo />}
+          {["video", "foto", "fpv"].includes(tipoIspezione) && <ManovreVideo scelte={manovreScelte} onCambiaScelte={setManovreScelte} />}
 
           <StrumentiLavoro key={tipoIspezione} tipo={tipoIspezione} />
 
