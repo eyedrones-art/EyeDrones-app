@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
+const Impara = lazy(() => import("./Impara.jsx"));
+const Posti = lazy(() => import("./Posti.jsx"));
+// navigazione da componenti lontani (es. «Come si fa?» nella verifica zona): window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }))
+const vaiA = (detail) => window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }));
 
 const SUPABASE_URL = "https://kywmesdqemxqjasixpzq.supabase.co";
 const SUPABASE_KEY = "sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ";
@@ -1592,7 +1596,7 @@ function NuovaPassword({ onFatto, dentroApp = false }) {
       <div style={{ width: "100%", maxWidth: 340 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 20 }}>
           <img src={LOGO_EYEDRONES} alt="" style={{ width: 40, height: 40 }} />
-          <span style={{ fontWeight: 700, fontSize: 18, color: "#e7eaee" }}>Eyedrones</span>
+          <span style={{ fontWeight: 700, fontSize: 18, color: "#e7eaee" }}>EyeDrones</span>
         </div>
         <h1 style={{ fontSize: 18, color: "#e7eaee", margin: "0 0 4px 0", textAlign: "center" }}>Scegli una nuova password</h1>
         <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "0 0 16px 0", textAlign: "center" }}>Hai aperto il link per reimpostarla: scrivi quella nuova.</p>
@@ -1611,10 +1615,112 @@ const refSalvato = () => {
   try { return pulisciRef(localStorage.getItem("eyedrones_ref")); } catch { return null; }
 };
 
+// --- Copia dei documenti di controllo sul telefono (per i controlli dove non c'è campo) ---------------
+// solo dati di testo (attestati, droni, permessi, piani vicini): i file allegati richiedono la rete
+const CHIAVE_COPIA_CONTROLLO = "eyedrones_copia_controllo";
+function leggiCopiaControllo() {
+  try { const c = JSON.parse(localStorage.getItem(CHIAVE_COPIA_CONTROLLO) || "null"); return c && typeof c === "object" ? c : null; } catch { return null; }
+}
+function salvaCopiaControllo(parziale) {
+  try {
+    const attuale = leggiCopiaControllo() || {};
+    localStorage.setItem(CHIAVE_COPIA_CONTROLLO, JSON.stringify({ ...attuale, ...parziale, salvato: new Date().toISOString() }));
+  } catch { /* memoria piena o non disponibile: pazienza */ }
+}
+function cancellaCopiaControllo() {
+  try { localStorage.removeItem(CHIAVE_COPIA_CONTROLLO); } catch { /* niente */ }
+}
+const esciDallAccount = () => { cancellaCopiaControllo(); supabase.auth.signOut(); };
+// tiene solo i piani da ieri in avanti, per non riempire la memoria
+const pianiPerCopia = (piani) => (piani || []).filter((x) => !x.data_prevista || x.data_prevista >= dataLocale(-1)).slice(0, 30);
+
+// --- Batterie e temperatura ------------------------------------------------------------------------------
+function avvisoBatterieTemperatura(t) {
+  if (t == null || Number.isNaN(Number(t))) return null;
+  const v = Math.round(Number(t));
+  if (v < 0) return { colore: "#7fb0ff", testo: `🥶 ${v} °C, sotto zero: batterie al caldo (in tasca o in auto) fino al decollo, 1 minuto in volo stazionario prima di partire, voli brevi e atterra con il 30–40%. Attento al ghiaccio sulle eliche e controlla nel manuale la temperatura minima del drone.` };
+  if (v < 10) return { colore: "#7fb0ff", testo: `❄️ ${v} °C: fa freddo per le batterie. Tienile al caldo fino al decollo, aspetta qualche secondo in volo stazionario, conta su meno autonomia e atterra con più margine.` };
+  if (v > 35) return { colore: "#ff8c42", testo: `🔥 ${v} °C: molto caldo. Non lasciare drone e batterie al sole o in auto, falle raffreddare prima di ricaricarle e fai voli più corti.` };
+  return null;
+}
+
+// --- Aggiungi al calendario -----------------------------------------------------------------------------
+function datiCalendarioPiano({ data, ora, titolo, luogo, dettagli }) {
+  if (!data) return null;
+  const d = data.replace(/-/g, "");
+  let inizio, fine, tuttoIlGiorno = false;
+  if (ora) {
+    const [h, m] = ora.split(":").map(Number);
+    const fineMin = h * 60 + m + 60;
+    inizio = `${d}T${String(h).padStart(2, "0")}${String(m).padStart(2, "0")}00`;
+    const giornoFine = fineMin >= 1440 ? dataLocaleDa(data, 1).replace(/-/g, "") : d;
+    const fm = fineMin % 1440;
+    fine = `${giornoFine}T${String(Math.floor(fm / 60)).padStart(2, "0")}${String(fm % 60).padStart(2, "0")}00`;
+  } else {
+    tuttoIlGiorno = true;
+    inizio = d;
+    fine = dataLocaleDa(data, 1).replace(/-/g, "");
+  }
+  return { inizio, fine, tuttoIlGiorno, titolo, luogo: luogo || "", dettagli: dettagli || "" };
+}
+function dataLocaleDa(data, giorni) {
+  const [y, m, g] = data.split("-").map(Number);
+  const x = new Date(y, m - 1, g + giorni);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+}
+function linkGoogleCalendar(c) {
+  const q = new URLSearchParams({ action: "TEMPLATE", text: c.titolo, dates: `${c.inizio}/${c.fine}`, details: c.dettagli, location: c.luogo });
+  return `https://calendar.google.com/calendar/render?${q.toString()}`;
+}
+function scaricaIcs(c) {
+  const esc = (t) => String(t || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+  const dt = (k, v) => (c.tuttoIlGiorno ? `${k};VALUE=DATE:${v}` : `${k}:${v}`);
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//EyeDrones//Piano di volo//IT", "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${Date.now()}-${Math.random().toString(36).slice(2)}@app.eyedrones.it`,
+    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z")}`,
+    dt("DTSTART", c.inizio), dt("DTEND", c.fine),
+    `SUMMARY:${esc(c.titolo)}`, `LOCATION:${esc(c.luogo)}`, `DESCRIPTION:${esc(c.dettagli)}`,
+    "BEGIN:VALARM", "TRIGGER:-P1D", "ACTION:DISPLAY", `DESCRIPTION:${esc("Domani: " + c.titolo)}`, "END:VALARM",
+    ...(c.tuttoIlGiorno ? [] : ["BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", `DESCRIPTION:${esc("Tra un'ora: " + c.titolo)}`, "END:VALARM"]),
+    "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+  const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = "volo-eyedrones.ics";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+function calendarioDaPiano(p, drone) {
+  const ora = p.ora_prevista ? String(p.ora_prevista).slice(0, 5) : "";
+  const tipo = ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione || "Volo";
+  return datiCalendarioPiano({
+    data: p.data_prevista, ora,
+    titolo: `🚁 ${tipo} · ${p.impianto_nome || "Volo con drone"}`,
+    luogo: [p.impianto_nome, p.checklist_stato?.zona?.punto].filter(Boolean).join(" · "),
+    dettagli: [drone ? `Drone: ${drone.nome}` : "", "Prima di partire apri EyeDrones: meteo, zona, checklist e documenti per il controllo.", "https://app.eyedrones.it"].filter(Boolean).join("\n"),
+  });
+}
+function PulsantiCalendario({ dati, compatto = false }) {
+  if (!dati) return null;
+  const st = { display: "inline-flex", alignItems: "center", gap: 5, background: compatto ? "none" : "#1f2530", color: compatto ? "#3d8bfd" : "#e7eaee", border: compatto ? "none" : "1px solid #333a45", borderRadius: 6, padding: compatto ? "2px 4px" : "8px 12px", fontSize: 12.5, textDecoration: compatto ? "underline" : "none" };
+  return (
+    <div style={{ display: "flex", gap: compatto ? 4 : 6, flexWrap: "wrap", alignItems: "center", fontSize: 12.5, color: "#8b95a3" }}>
+      {compatto && <span>📅 Aggiungi al calendario:</span>}
+      <a href={linkGoogleCalendar(dati)} target="_blank" rel="noreferrer" style={st}>{compatto ? "Google" : "📅 Google Calendar"}</a>
+      {compatto && <span>·</span>}
+      <button type="button" onClick={() => scaricaIcs(dati)} style={st}>{compatto ? "iPhone / altro" : "📅 iPhone / altro calendario"}</button>
+    </div>
+  );
+}
+
 function AppAutenticata() {
   const [session, setSession] = useState(undefined); // undefined = ancora in caricamento, null = non loggato
   // aperto il link "Password dimenticata?": prima di entrare si sceglie la nuova password
   const [recupero, setRecupero] = useState(() => /type=recovery/.test(window.location.hash));
+  // senza rete e senza accesso valido si possono comunque mostrare i documenti salvati sul telefono
+  const [copiaAperta, setCopiaAperta] = useState(false);
 
   useEffect(() => {
     // memorizzo eventuale provenienza (?ref=nomeaffiliato) per collegarla all'account al momento della registrazione
@@ -1638,7 +1744,21 @@ function AppAutenticata() {
   }
 
   if (!session) {
-    return <Accesso />;
+    const copia = leggiCopiaControllo();
+    if (copiaAperta && copia) {
+      return <DocumentiControllo azienda={copia.azienda || { nome: "" }} impianti={[]} soloCopia schermoPienoSubito onSchermoPienoAperto={() => {}} onEsciCopia={() => setCopiaAperta(false)} />;
+    }
+    return (
+      <>
+        {copia && (
+          <div style={{ position: "sticky", top: 0, zIndex: 900, background: "#13233d", borderBottom: "1px solid #2f5aa8", padding: "10px 16px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontFamily: "'IBM Plex Sans', sans-serif" }}>
+            <span style={{ fontSize: 13, color: "#e7eaee" }}>👮 Sei senza rete o devi rientrare? I tuoi documenti di controllo sono salvati sul telefono.</span>
+            <button type="button" onClick={() => setCopiaAperta(true)} style={{ background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 13, fontWeight: 700 }}>Mostra i documenti</button>
+          </div>
+        )}
+        <Accesso />
+      </>
+    );
   }
 
   if (recupero) return <NuovaPassword onFatto={() => { setRecupero(false); window.history.replaceState(null, "", window.location.pathname); }} />;
@@ -1648,7 +1768,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "pagina-pilota"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "pagina-pilota"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -1691,7 +1811,7 @@ function AppShell({ session }) {
     };
   }, []);
   const [impiantoAttivo, setImpiantoAttivo] = useState(null);
-  const [azienda, setAzienda] = useState({ nome: "Eyedrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "" });
+  const [azienda, setAzienda] = useState({ nome: "EyeDrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "" });
   const [pianoReale, setPiano] = useState("free");
   // durante il lancio tutti usano le funzioni Pro; la pagina Abbonamento mostra il piano vero
   const piano = lancioInCorso() ? "pro" : pianoReale;
@@ -1739,13 +1859,14 @@ function AppShell({ session }) {
       setObiettivoFormativo(profilo.obiettivo_formativo || "");
       setDflightScadenza("dflight_scadenza" in profilo ? profilo.dflight_scadenza || "" : undefined);
       setAzienda({
-        nome: profilo.azienda_nome || "Eyedrones",
+        nome: profilo.azienda_nome || "EyeDrones",
         nomeImpostato: !!profilo.azienda_nome,
         logo: profilo.azienda_logo && !profilo.azienda_logo.startsWith(LOGO_PRECEDENTE_PREFISSO) ? profilo.azienda_logo : LOGO_EYEDRONES,
         tariffaBase: profilo.tariffa_base ?? 150,
         tariffaKwp: profilo.tariffa_kwp ?? 0.12,
         noteLegaliPreventivo: profilo.preventivo_note_legali || "",
       });
+      salvaCopiaControllo({ azienda: { nome: profilo.azienda_nome || "EyeDrones" } });
     }
     setProfiloCaricato(true);
   };
@@ -1797,6 +1918,22 @@ function AppShell({ session }) {
     setRichiesteNuove(count || 0);
   };
 
+  const [clienti, setClienti] = useState([]);
+  const [schedaImpara, setSchedaImpara] = useState("a1a3");
+  const [luogoDaPianificare, setLuogoDaPianificare] = useState(null); // da «Posti»: { nome, lat, lon }
+  useEffect(() => {
+    const ascolta = (e) => {
+      const d = e.detail || {};
+      if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
+    };
+    window.addEventListener("eyedrones-vai", ascolta);
+    return () => window.removeEventListener("eyedrones-vai", ascolta);
+  }, []);
+  const caricaClienti = async () => {
+    const { data, error } = await supabase.from("clienti").select("*").order("nome", { ascending: true });
+    setClienti(error ? [] : data || []); // tabella non ancora creata: rubrica vuota
+  };
+
   const caricaBatterie = async () => {
     const { data } = await supabase.from("batterie").select("*").order("created_at", { ascending: true });
     setBatterie(data || []);
@@ -1827,13 +1964,19 @@ function AppShell({ session }) {
       setPermessi(perm || []);
       setAttestati(att || []);
       setDroni(drn || []);
+      salvaCopiaControllo({ attestati: att || [], droni: drn || [], permessi: perm || [] });
     } catch (err) {
       setDbError(err.message || "Errore di connessione al database");
     }
     setLoading(false);
   };
 
-  useEffect(() => { caricaProfilo(); loadData(); caricaVoli(); caricaBatterie(); caricaEventiVolo(); caricaRichiesteNuove(); }, []);
+  useEffect(() => { caricaProfilo(); loadData(); caricaVoli(); caricaBatterie(); caricaEventiVolo(); caricaRichiesteNuove(); caricaClienti(); }, []);
+  // piani vicini nella copia per i controlli senza rete
+  useEffect(() => {
+    supabase.from("piani_volo").select("*").gte("data_prevista", dataLocale(-1)).order("data_prevista", { ascending: true }).limit(30)
+      .then(({ data, error }) => { if (!error && data) salvaCopiaControllo({ piani: pianiPerCopia(data) }); });
+  }, []);
 
   // quanti report ha gi\u00e0 generato l'utente nel mese corrente (log persistente: non si azzera cancellando impianti/ispezioni)
   const oggi = new Date();
@@ -1923,7 +2066,7 @@ function AppShell({ session }) {
               <ul style={{ margin: "4px 0 0 0", paddingLeft: 18, color: "#c3cad4" }}>
                 <li>scegli il video dalla <strong>Galleria</strong> o da <strong>File</strong>, invece di registrarlo al momento con la fotocamera;</li>
                 <li>chiudi le altre app aperte, poi riprova;</li>
-                <li>se capita spesso, installa Eyedrones sul telefono (avviso in alto): l'app viene chiusa meno spesso.</li>
+                <li>se capita spesso, installa EyeDrones sul telefono (avviso in alto): l'app viene chiusa meno spesso.</li>
               </ul>
             </div>
             <button onClick={() => setPaginaRiaperta(false)} aria-label="Chiudi avviso" style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={16} /></button>
@@ -1931,21 +2074,36 @@ function AppShell({ session }) {
         )}
         {dbError && (
           <div style={{ margin: 16, padding: "10px 14px", background: "#2a1616", border: "1px solid #5a2a2a", borderRadius: 8, color: "#ff9c9c", fontSize: 12.5 }}>
-            Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.
+            {typeof navigator !== "undefined" && navigator.onLine === false
+              ? <>Sei senza rete: i dati si aggiornano quando torna il campo. I documenti di controllo restano disponibili dalla copia salvata sul telefono (👮 Controllo).</>
+              : <>Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.</>}
           </div>
         )}
         {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
-        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} luogoIniziale={luogoDaPianificare} onLuogoUsato={() => setLuogoDaPianificare(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} schermoPienoSubito={controlloSubito} onSchermoPienoAperto={() => setControlloSubito(false)} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={pianoReale} />}
         {page === "suggerimenti" && <Suggerimenti session={session} paginaPrecedente={paginaPrecedente} />}
-        {page === "guide" && <GuideVolo droni={droni} />}
-        {page === "preventivi" && <Preventivi preventivi={preventivi} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
+        {(page === "impara" || page === "guide") && (
+          <Suspense fallback={<LoadingBlock />}>
+            <Impara schedaIniziale={page === "guide" ? "consigli" : schedaImpara} consigli={<GuideVolo droni={droni} incorporata />} />
+          </Suspense>
+        )}
+        {page === "posti" && (
+          <Suspense fallback={<LoadingBlock />}>
+            <Posti supabase={supabase} cercaIndirizzo={cercaIndirizzoItalia} voli={voliDashboard} inputStyle={inputStyle}
+              onPianifica={(l) => { setLuogoDaPianificare(l); setPage("pianificazione"); window.scrollTo(0, 0); }}
+              onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa" })} />
+          </Suspense>
+        )}
+        {page === "clienti" && <Clienti clienti={clienti} preventivi={preventivi} onCambiati={caricaClienti} onApriPreventivi={() => setPage("preventivi")} />}
+        <datalist id="rubrica-clienti">{clienti.map((c) => <option key={c.id} value={c.nome} />)}</datalist>
+        {page === "preventivi" && <Preventivi preventivi={preventivi} clienti={clienti} onClientiCambiati={caricaClienti} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
         {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
@@ -1958,17 +2116,49 @@ function AppShell({ session }) {
 
 // --- Pagina di presentazione (prima del login) -----------------------------------------------
 
+// riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
+const VERSIONE_NOVITA = "2026-10";
+const NOVITA = [
+  { emoji: "📴", testo: "Documenti di controllo anche senza campo", pagina: "documenti-controllo" },
+  { emoji: "🎓", testo: "Lezioni e quiz A1/A3 e A2, con simulazione d'esame", pagina: "impara" },
+  { emoji: "📍", testo: "Posti belli vicino a te, consigliati dai piloti", pagina: "posti" },
+  { emoji: "🎬", testo: "Manovre con gli stick e impostazioni della camera nel piano di volo", pagina: "pianificazione" },
+  { emoji: "👥", testo: "Rubrica clienti e lavori pagati / da incassare", pagina: "clienti" },
+  { emoji: "📅", testo: "Volo nel calendario e avviso batterie col freddo", pagina: "pianificazione" },
+];
+function RiquadroNovita({ onVai }) {
+  const [visto, setVisto] = useState(() => { try { return localStorage.getItem("eyedrones_novita_viste") === VERSIONE_NOVITA; } catch { return false; } });
+  if (visto) return null;
+  const chiudi = () => { try { localStorage.setItem("eyedrones_novita_viste", VERSIONE_NOVITA); } catch { /* niente */ } setVisto(true); };
+  return (
+    <div style={{ position: "relative", background: "linear-gradient(135deg, #1c1726, #1b2028)", border: "1px solid #3d2f5a", borderRadius: 12, padding: "14px 16px", marginBottom: 18, maxWidth: 720 }}>
+      <button type="button" onClick={chiudi} aria-label="Chiudi le novità" style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
+      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#c4b5fd", marginBottom: 8 }}>✨ Novità di ottobre</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {NOVITA.map((n) => (
+          <button key={n.testo} type="button" onClick={() => { chiudi(); onVai(n.pagina); }} style={{ display: "flex", gap: 8, alignItems: "center", textAlign: "left", background: "none", border: "none", color: "#e7eaee", padding: "4px 0", fontSize: 13 }}>
+            <span>{n.emoji}</span><span style={{ flex: 1 }}>{n.testo}</span><span style={{ color: "#6b7480" }}>›</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const FUNZIONI_PRESENTAZIONE = [
   { emoji: "🌅", titolo: "Pianificazione e ora d'oro", testo: "Meteo ora per ora con le ore migliori, vento rispetto al tuo drone, indice Kp, alba, tramonto, ora d'oro, direzione del sole e filtri ND." },
   { emoji: "🛡️", titolo: "Zona di volo e regole", testo: "Scrivi la via: con il file ufficiale D-Flight vedi se la zona è libera, fino a che altezza e chi contattare, più le regole della classe del tuo drone." },
-  { emoji: "✈️", titolo: "Il prossimo volo in primo piano", testo: "Il giorno del volo lo trovi in apertura: meteo dell'ora prevista, zona, cosa manca prima di partire e il volo da registrare con un tocco." },
+  { emoji: "✈️", titolo: "Il prossimo volo in primo piano", testo: "Il giorno del volo lo trovi in apertura: meteo dell'ora prevista, zona, avviso batterie col freddo, le riprese da fare con gli stick e il promemoria nel calendario." },
+  { emoji: "🎓", titolo: "Lezioni e quiz A1/A3 e A2", testo: "Le regole spiegate semplici, quiz con la spiegazione di ogni risposta e la simulazione d'esame con tempo e punteggio come all'ENAC. Più la guida per volare in zona rossa." },
+  { emoji: "📍", titolo: "Posti belli vicino a te", testo: "Scrivi dove sei o usa la posizione: punti panoramici, castelli, laghi e i posti consigliati dagli altri piloti, con la zona di volo già controllata." },
+  { emoji: "🎬", titolo: "Consigli, manovre e camera", testo: "Per ogni tipo di volo e per il tuo drone: le manovre per video belli con gli stick, le scalette per lavoro e come impostare ISO, tempo e filtri ND in base alla luce." },
   { emoji: "📒", titolo: "Registro voli", testo: "Data, luogo, drone, batterie, durata, foto e video. Importa i voli dai file .SRT dei DJI, ritrovali su mappa o cercando la data." },
-  { emoji: "🚔", titolo: "Pronto per i controlli", testo: "Attestati, assicurazione, drone, permessi, zona e screenshot D-Flight a schermo pieno o in PDF, con avvisi prima delle scadenze." },
+  { emoji: "🚔", titolo: "Pronto per i controlli", testo: "Attestati, assicurazione, drone, permessi e zona a schermo pieno con un tocco, anche senza campo: una copia resta sul telefono. Più PDF e avvisi prima delle scadenze." },
   { emoji: "📁", titolo: "Fascicolo del volo", testo: "Se dopo un volo ti chiedono spiegazioni (forze dell'ordine, ENAC, assicurazione o un cliente), in un solo PDF hai tutto: documenti validi quel giorno, piano, zona, checklist, manutenzione, liberatorie." },
   { emoji: "📐", titolo: "Volumi STS-01", testo: "Contingenza e buffer per il rischio a terra calcolati e disegnati sulla mappa, pronti per il manuale operativo e per il fascicolo." },
   { emoji: "📤", titolo: "Consegna al cliente", testo: "Una galleria con il tuo logo, PIN, filigrana e preferiti: il cliente sceglie le foto e scarica solo quando sblocchi tu." },
   { emoji: "✍️", titolo: "Liberatorie firmate", testo: "Il cliente o la persona ripresa firma col dito sul telefono: PDF con la firma salvato insieme al volo." },
-  { emoji: "💶", titolo: "Preventivi con il prezzo giusto", testo: "Pacchetti pronti, fascia di prezzo del mercato e il tuo prezzo minimo calcolato dai costi, poi il PDF da mandare." },
+  { emoji: "💶", titolo: "Preventivi con il prezzo giusto", testo: "Pacchetti pronti, fascia di prezzo del mercato e il tuo prezzo minimo calcolato dai costi, poi il PDF da mandare. Rubrica clienti con WhatsApp a un tocco e lavori pagati o da incassare." },
   { emoji: "🔋", titolo: "Batterie e manutenzione", testo: "Cicli e stato di carica delle batterie, registro di eliche, firmware e riparazioni di ogni drone." },
   { emoji: "🔍", titolo: "Ispezioni e report", testo: "Fotovoltaico, edifici, danni: anomalie sulle foto termiche e report PDF professionali per il cliente." },
 ];
@@ -1999,7 +2189,7 @@ function Presentazione({ onAccedi, onRegistrati }) {
       <header style={{ position: "sticky", top: 0, zIndex: 10, background: "rgba(16, 18, 26, 0.85)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", borderBottom: "1px solid #1f242c" }}>
         <div className="lp-wrap" style={{ display: "flex", alignItems: "center", gap: 10, height: 64 }}>
           <img src={LOGO_EYEDRONES} alt="" style={{ width: 34, height: 34 }} />
-          <span style={{ fontWeight: 700, fontSize: 17 }}>Eyedrones</span>
+          <span style={{ fontWeight: 700, fontSize: 17 }}>EyeDrones</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
             <button onClick={onAccedi} style={{ ...bottoneSecondario, padding: "8px 14px", fontSize: 14, border: "none" }}>Accedi</button>
             <button onClick={onRegistrati} style={{ ...bottonePrimario, padding: "8px 14px", fontSize: 14 }}>Registrati<span className="lp-solo-largo"> gratis</span></button>
@@ -2053,7 +2243,7 @@ function Presentazione({ onAccedi, onRegistrati }) {
         </section>
 
         <section className="lp-wrap" style={{ paddingBottom: 56 }}>
-          <h2 style={{ fontSize: 26, margin: "0 0 6px 0" }}>Cosa puoi fare con Eyedrones</h2>
+          <h2 style={{ fontSize: 26, margin: "0 0 6px 0" }}>Cosa puoi fare con EyeDrones</h2>
           <p style={{ color: "#8b95a3", margin: "0 0 22px 0", fontSize: 15 }}>Scegli tu cosa usare: solo riprese, solo ispezioni o entrambe.</p>
           <div className="lp-griglia">
             {FUNZIONI_PRESENTAZIONE.map((f) => (
@@ -2083,7 +2273,7 @@ function Presentazione({ onAccedi, onRegistrati }) {
 
       <footer style={{ borderTop: "1px solid #1f242c" }}>
         <div className="lp-wrap" style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", padding: "20px", fontSize: 13, color: "#6b7480" }}>
-          <span>© {new Date().getFullYear()} Eyedrones</span>
+          <span>© {new Date().getFullYear()} EyeDrones</span>
           <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: "#8b95a3", textDecoration: "none" }}>Contatti</a>
           <LinkLegali stile={{ color: "#8b95a3", textDecoration: "none" }} separatore={null} />
           <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ color: "#8b95a3", textDecoration: "none" }}>D-Flight ↗</a>
@@ -2162,8 +2352,8 @@ function Login({ modoIniziale = "login", onTorna }) {
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 26, position: "relative" }}>
           <div style={{ position: "absolute", width: 130, height: 130, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,140,66,0.22), rgba(126,58,242,0.14) 60%, transparent 75%)", filter: "blur(2px)", zIndex: 0 }} />
-          <img src={LOGO_EYEDRONES} alt="Eyedrones" style={{ width: 52, height: 52, objectFit: "contain", position: "relative", zIndex: 1 }} />
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 17, position: "relative", zIndex: 1 }}>Eyedrones</span>
+          <img src={LOGO_EYEDRONES} alt="EyeDrones" style={{ width: 52, height: 52, objectFit: "contain", position: "relative", zIndex: 1 }} />
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 17, position: "relative", zIndex: 1 }}>EyeDrones</span>
         </div>
         <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 22, position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
@@ -2228,15 +2418,17 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "galleria", label: "Foto e video", icon: Camera },
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
+    { key: "posti", label: "Posti", icon: Compass },
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
-    { key: "guide", label: "Guide e consigli", icon: Lightbulb },
+    { key: "impara", label: "Impara e quiz", icon: GraduationCap },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
-    { key: "permessi", label: "Permessi", icon: ShieldCheck },
+    { key: "permessi", label: "Permessi", icon: ClipboardCheck },
     { key: "attestati", label: "Attestati", icon: Award },
     { key: "droni", label: "I miei droni", icon: Plane },
     { intestazione: "Lavoro" },
     { key: "preventivi", label: "Preventivi", icon: FileText },
+    { key: "clienti", label: "Clienti", icon: Users },
     { key: "pagina-pilota", label: "La mia pagina", icon: Globe },
     { intestazione: "Account" },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
@@ -2248,8 +2440,8 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     <>
     <div className="sidebar" style={{ background: "#12151a", borderRight: "1px solid #262b33", padding: "20px 14px", display: "flex", flexShrink: 0 }}>
       <div className="sidebar-brand" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px 18px 8px", marginBottom: 4, borderBottom: "1px solid #262b33", position: "relative" }}>
-        <img src={LOGO_EYEDRONES} alt="Eyedrones" style={{ width: 36, height: 36, objectFit: "contain", flexShrink: 0 }} />
-        <span className="sidebar-brand-label" style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>Eyedrones</span>
+        <img src={LOGO_EYEDRONES} alt="EyeDrones" style={{ width: 36, height: 36, objectFit: "contain", flexShrink: 0 }} />
+        <span className="sidebar-brand-label" style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>EyeDrones</span>
         <div style={{ position: "absolute", bottom: -1, left: 0, width: 46, height: 2, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
       </div>
       {items.map((it) => {
@@ -2322,7 +2514,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
         <a href={`mailto:${SUPPORT_EMAIL}`} style={{ display: "block", fontSize: 11, color: "#3d8bfd", padding: "0 10px 8px 10px", textDecoration: "none" }}>
           Assistenza
         </a>
-        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "9px 10px", fontSize: 13, fontWeight: 600 }}>
+        <button onClick={esciDallAccount} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "9px 10px", fontSize: 13, fontWeight: 600 }}>
           <LogOut size={14} /> Esci
         </button>
       </div>
@@ -2377,7 +2569,7 @@ function AvvisoInstallaApp() {
     <div style={{ margin: "12px 16px 0 16px", background: "linear-gradient(135deg, rgba(126, 58, 242, 0.18), rgba(255, 140, 66, 0.14)), #1b2028", border: "1px solid #ff8c4255", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
       <img src="/icon-192.png" alt="" style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 180 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700 }}>Installa Eyedrones sul telefono</div>
+        <div style={{ fontSize: 13.5, fontWeight: 700 }}>Installa EyeDrones sul telefono</div>
         {!passiIphone ? (
           <div style={{ fontSize: 12, color: "#aab3bf", marginTop: 2 }}>Si apre con un tocco dalla schermata Home, a schermo intero, come un'app vera. Gratis, niente store.</div>
         ) : (
@@ -2428,12 +2620,12 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
     <div className="menu-telefono">
       <header className="mt-topbar">
         <img src={LOGO_EYEDRONES} alt="" style={{ width: 28, height: 28 }} />
-        <span style={{ fontWeight: 700, fontSize: 15 }}>Eyedrones</span>
+        <span style={{ fontWeight: 700, fontSize: 15 }}>EyeDrones</span>
         {titoloPagina && titoloPagina !== "Panoramica" && <span style={{ color: "#6b7480", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {titoloPagina}</span>}
-        {onControllo && (
+        {onControllo && page !== "dashboard" && (
           <button type="button" onClick={() => { setAltroAperto(false); onControllo(); window.scrollTo(0, 0); }} aria-label="Controllo: mostra i documenti" title="Controllo: mostra i documenti" style={{ marginLeft: "auto", flexShrink: 0, display: "flex", alignItems: "center", gap: 4, background: "#13233d", border: "1px solid #2f5aa8", color: "#e7eaee", borderRadius: 6, padding: "3px 8px", fontSize: 12, fontWeight: 700 }}>👮 Controllo</button>
         )}
-        <span style={{ marginLeft: onControllo ? 0 : "auto", flexShrink: 0, fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: piano === "pro" ? "#1d3a2a" : piano === "pilota" ? "#16263d" : "#2a2416", color: COLORE_PIANO[piano] || "#f5b942" }}>{(NOME_PIANO[piano] || "Free").toUpperCase()}</span>
+        <span style={{ marginLeft: onControllo && page !== "dashboard" ? 0 : "auto", flexShrink: 0, fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: piano === "pro" ? "#1d3a2a" : piano === "pilota" ? "#16263d" : "#2a2416", color: COLORE_PIANO[piano] || "#f5b942" }}>{(NOME_PIANO[piano] || "Free").toUpperCase()}</span>
       </header>
 
       <nav className="mt-tabbar" aria-label="Menu principale">
@@ -2484,7 +2676,7 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
                 <span style={{ fontSize: 12, color: "#6b7480", flex: 1, minWidth: 0, wordBreak: "break-all" }}>Accesso con {userEmail}</span>
                 <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontSize: 13, color: "#3d8bfd", textDecoration: "none" }}>Assistenza</a>
               </div>
-              <button onClick={() => supabase.auth.signOut()} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 8, padding: "12px", fontSize: 14.5, fontWeight: 600 }}>
+              <button onClick={esciDallAccount} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 8, padding: "12px", fontSize: 14.5, fontWeight: 600 }}>
                 <LogOut size={16} /> Esci dall'account
               </button>
             </div>
@@ -2696,6 +2888,11 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
         </div>
 
         {testoZona && <div style={{ fontSize: 12.5, marginTop: 8, color: testoZona[0], fontWeight: 600 }}>🛡️ {testoZona[1]}</div>}
+        {(() => {
+          const t = allOra?.temperatura ?? (ore.length ? Math.min(...ore.map((o) => o.temperatura).filter((x) => x != null)) : null);
+          const a = avvisoBatterieTemperatura(Number.isFinite(t) ? t : null);
+          return a && <div style={{ fontSize: 12.5, marginTop: 6, color: a.colore }}>{a.testo}</div>;
+        })()}
         <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 4 }}>📣 Controlla i NOTAM su <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ color: "#3d8bfd" }}>D-Flight ↗</a> prima di partire</div>
 
         {mancanze.length > 0 && (
@@ -2735,6 +2932,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
             ...(punto ? { coordinate_gps: `${punto.lat.toFixed(5)}, ${punto.lon.toFixed(5)}` } : {}),
           })} style={btn(false)}>📒 Registra il volo</button>
         </div>
+        <div style={{ marginTop: 8 }}><PulsantiCalendario dati={calendarioDaPiano(p, drone)} compatto /></div>
       </div>
       {elencoAltri}
     </section>
@@ -2802,7 +3000,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           <span style={{ fontSize: 26 }}>👮</span>
           <span>
             <span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>Controllo? Mostra i documenti</span>
-            <span style={{ display: "block", fontSize: 12, color: "#9fb4d6" }}>Attestati, assicurazione, drone e zona a schermo pieno, con un tocco</span>
+            <span style={{ display: "block", fontSize: 12, color: "#9fb4d6" }}>Attestati, assicurazione, drone e zona a schermo pieno, con un tocco. Funziona anche senza campo.</span>
           </span>
         </button>
       )}
@@ -2814,6 +3012,8 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Conferma" />
         </div>
       )}
+
+      <RiquadroNovita onVai={onNav} />
 
       {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
 
@@ -2861,7 +3061,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 14 }}>
             <StatCard label="Voli registrati" value={voli.length} sub="nel tuo registro" />
             <StatCard label="Tempo di volo" value={formattaDurata(minutiVoli)} sub="dove la durata è indicata" accent="#ff8c42" />
-            <StatCard label={`Voli nel ${annoCorrente}`} value={voliAnno} sub="da inizio anno" />
+            {voliAnno !== voli.length && <StatCard label={`Voli nel ${annoCorrente}`} value={voliAnno} sub="da inizio anno" />}
           </div>
           {ultimiVoli.length === 0 ? (
             <EmptyState text="Nessun volo ancora. Tocca «Aggiungi foto o video» per iniziare: creiamo noi il volo di oggi con quello che scegli." />
@@ -3020,7 +3220,7 @@ function ListaImpianti({ impianti, loading, onReload, onOpenImpianto, ispezioni,
           <input placeholder="Nome impianto" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} style={inputStyle} />
           <input placeholder="Zona / località" value={form.zona} onChange={(e) => setForm({ ...form, zona: e.target.value })} style={inputStyle} />
           <input placeholder="Potenza (kWp)" type="number" value={form.kwp} onChange={(e) => setForm({ ...form, kwp: e.target.value })} style={inputStyle} />
-          <input placeholder="Cliente" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} style={inputStyle} />
+          <input placeholder="Cliente" list="rubrica-clienti" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} style={inputStyle} />
           <button onClick={salva} disabled={!form.nome || saving} style={{ marginTop: 6, background: form.nome ? "#ff8c42" : "#333a45", color: form.nome ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
             {saving ? "Salvataggio..." : editingId ? "Aggiorna impianto" : "Salva impianto"}
           </button>
@@ -3693,10 +3893,10 @@ function Abbonamento({ piano }) {
   const linkDiretto = (chiave) => (LINK_PAGAMENTO[chiave] || {})[periodo];
   const linkUpgrade = (chiave) => linkDiretto(chiave)
     ? linkDiretto(chiave)
-    : `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Richiesta upgrade piano ${NOME_PIANO[chiave]} (${nomePeriodo})`)}&body=${encodeURIComponent(`Ciao, vorrei passare al piano ${NOME_PIANO[chiave]} con pagamento ${nomePeriodo} sul mio account Eyedrones.`)}`;
+    : `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Richiesta upgrade piano ${NOME_PIANO[chiave]} (${nomePeriodo})`)}&body=${encodeURIComponent(`Ciao, vorrei passare al piano ${NOME_PIANO[chiave]} con pagamento ${nomePeriodo} sul mio account EyeDrones.`)}`;
   // finché i pagamenti non sono automatici, la pausa si chiede per email come l'upgrade
-  const linkPausa = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Pausa abbonamento ${NOME_PIANO[piano] || ""}`)}&body=${encodeURIComponent(`Ciao, vorrei mettere in pausa il mio abbonamento Eyedrones per ${mesiPausa} ${mesiPausa === 1 ? "mese" : "mesi"}. I miei dati restano salvati e l'abbonamento riparte da solo alla fine della pausa.`)}`;
-  const linkDisdetta = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Disdetta abbonamento ${NOME_PIANO[piano] || ""}`)}&body=${encodeURIComponent("Ciao, vorrei disdire il mio abbonamento Eyedrones. Ho capito che resta attivo fino alla fine del periodo già pagato e che poi l'account torna al piano Free, senza perdere i dati.")}`;
+  const linkPausa = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Pausa abbonamento ${NOME_PIANO[piano] || ""}`)}&body=${encodeURIComponent(`Ciao, vorrei mettere in pausa il mio abbonamento EyeDrones per ${mesiPausa} ${mesiPausa === 1 ? "mese" : "mesi"}. I miei dati restano salvati e l'abbonamento riparte da solo alla fine della pausa.`)}`;
+  const linkDisdetta = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Disdetta abbonamento ${NOME_PIANO[piano] || ""}`)}&body=${encodeURIComponent("Ciao, vorrei disdire il mio abbonamento EyeDrones. Ho capito che resta attivo fino alla fine del periodo già pagato e che poi l'account torna al piano Free, senza perdere i dati.")}`;
   const prezzo = (chiave) => {
     const pr = PREZZI_PIANO[chiave];
     const fondatori = lancio
@@ -3924,6 +4124,163 @@ const NOTE_LEGALI_PREVENTIVO_DEFAULT = "Il presente preventivo ha validità di {
 // Le versioni più recenti (dalla 3.4) leggono anche i file del Matrice 4T. Verificare periodicamente che il link resti valido.
 const LINK_DJI_THERMAL_TOOL = "https://enterprise.dji.com/matrice-4-series/downloads";
 
+// --- Incassi: quanto hai incassato e quanto ti devono ---------------------------------------------------
+function RiepilogoIncassi({ preventivi }) {
+  const accettati = (preventivi || []).filter((p) => p.stato === "accettato");
+  if (accettati.length === 0) return null;
+  const anno = dataLocale().slice(0, 4), mese = dataLocale().slice(0, 7);
+  const somma = (l) => l.reduce((s, p) => s + (Number(p.prezzo) || 0), 0);
+  const pagati = accettati.filter((p) => p.pagato);
+  const daIncassare = accettati.filter((p) => !p.pagato);
+  const dataIncasso = (p) => p.data_pagamento || p.data || "";
+  const incAnno = somma(pagati.filter((p) => dataIncasso(p).startsWith(anno)));
+  const incMese = somma(pagati.filter((p) => dataIncasso(p).startsWith(mese)));
+  const box = (titolo, valore, colore, sotto) => (
+    <div style={{ flex: "1 1 140px", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "10px 14px" }}>
+      <div style={{ fontSize: 11.5, color: "#8b95a3" }}>{titolo}</div>
+      <div className="mono" style={{ fontSize: 19, fontWeight: 700, color: colore, marginTop: 2 }}>{euro(valore)}</div>
+      {sotto && <div style={{ fontSize: 11, color: "#6b7480", marginTop: 2 }}>{sotto}</div>}
+    </div>
+  );
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {box("Incassato questo mese", incMese, "#4ade80")}
+        {box(`Incassato nel ${anno}`, incAnno, "#4ade80")}
+        {box("Da incassare", somma(daIncassare), daIncassare.length ? "#f5b942" : "#8b95a3", daIncassare.length ? `${daIncassare.length} ${daIncassare.length === 1 ? "lavoro accettato" : "lavori accettati"}` : "tutto incassato")}
+      </div>
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Conti dai preventivi accettati: un promemoria per te, non sostituisce fatture e registri fiscali.</p>
+    </div>
+  );
+}
+
+// --- Rubrica clienti ---------------------------------------------------------------------------------------
+function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
+  const vuoto = { nome: "", telefono: "", email: "", indirizzo: "", piva_cf: "", note: "" };
+  const [form, setForm] = useState(vuoto);
+  const [editingId, setEditingId] = useState(null);
+  const [aperto, setAperto] = useState(false);
+  const [cerca, setCerca] = useState("");
+  const [espanso, setEspanso] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+  const stesso = (a, b) => (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
+  const elenco = clienti.filter((c) => !cerca || [c.nome, c.telefono, c.email, c.indirizzo].some((x) => (x || "").toLowerCase().includes(cerca.toLowerCase())));
+
+  const salva = async () => {
+    if (!form.nome.trim()) return;
+    setSalvando(true);
+    const dati = Object.fromEntries(Object.entries(form).map(([k, v]) => [k, typeof v === "string" ? v.trim() || null : v]));
+    const { error } = editingId ? await supabase.from("clienti").update(dati).eq("id", editingId) : await supabase.from("clienti").insert(dati);
+    setSalvando(false);
+    if (error) { alert(/clienti|relation|schema cache/i.test(error.message) ? "Per usare la rubrica esegui prima lo script supabase/clienti-incassi.sql su Supabase." : "Salvataggio non riuscito: " + error.message); return; }
+    setForm(vuoto); setEditingId(null); setAperto(false); onCambiati();
+  };
+  const modifica = (c) => { setForm({ ...vuoto, ...Object.fromEntries(Object.keys(vuoto).map((k) => [k, c[k] || ""])) }); setEditingId(c.id); setAperto(true); window.scrollTo(0, 0); };
+  const elimina = async (c) => {
+    if (!window.confirm(`Togliere ${c.nome} dalla rubrica? I preventivi restano.`)) return;
+    await supabase.from("clienti").delete().eq("id", c.id);
+    onCambiati();
+  };
+  const campo = (k, label, extra = {}) => (
+    <div style={{ flex: "1 1 200px" }}>
+      <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>{label}</label>
+      <input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} style={inputStyle} {...extra} />
+    </div>
+  );
+  const linkSt = { fontSize: 12, color: "#3d8bfd", textDecoration: "none", border: "1px solid #2b313d", borderRadius: 5, padding: "4px 8px" };
+  const soloNumeri = (t) => (t || "").replace(/[^\d+]/g, "").replace(/^00/, "+");
+  const perWhatsapp = (t) => { const n = soloNumeri(t).replace(/^\+/, ""); return n.length <= 10 ? "39" + n : n; };
+
+  return (
+    <div style={{ padding: "28px 32px", maxWidth: 820 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Clienti</h1>
+        <button onClick={() => { setForm(vuoto); setEditingId(null); setAperto(!aperto); }} style={{ display: "flex", alignItems: "center", gap: 6, background: aperto ? "transparent" : "#ff8c42", color: aperto ? "#8b95a3" : "#161a1f", border: aperto ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          {aperto ? "Annulla" : <><Plus size={14} /> Nuovo cliente</>}
+        </button>
+      </div>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0" }}>La tua rubrica: la ritrovi già pronta quando scrivi il cliente in preventivi e voli. I clienti nuovi dei preventivi si aggiungono da soli.</p>
+
+      {aperto && (
+        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 16, marginBottom: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{campo("nome", "Nome o ragione sociale *", { placeholder: "es. Studio Rossi" })}{campo("telefono", "Telefono", { type: "tel", placeholder: "es. 333 1234567" })}</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{campo("email", "Email", { type: "email" })}{campo("piva_cf", "P. IVA o codice fiscale")}</div>
+          {campo("indirizzo", "Indirizzo")}
+          <div>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note</label>
+            <textarea rows={2} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="es. preferisce WhatsApp, cancello sul retro" style={{ ...inputStyle, resize: "vertical" }} />
+          </div>
+          <button onClick={salva} disabled={!form.nome.trim() || salvando} style={{ background: form.nome.trim() ? "#ff8c42" : "#333a45", color: form.nome.trim() ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+            {salvando ? "Salvataggio..." : editingId ? "Aggiorna cliente" : "Salva cliente"}
+          </button>
+        </div>
+      )}
+
+      {clienti.length > 5 && <input placeholder="🔍 Cerca per nome, telefono, email..." value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ ...inputStyle, marginBottom: 12, maxWidth: 360 }} />}
+
+      {clienti.length === 0 ? (
+        <EmptyState text="Nessun cliente ancora. Aggiungine uno, oppure crea un preventivo: il cliente finisce qui da solo." />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {elenco.map((c) => {
+            const suoi = preventivi.filter((p) => stesso(p.cliente, c.nome));
+            const accettati = suoi.filter((p) => p.stato === "accettato");
+            const incassato = accettati.filter((p) => p.pagato).reduce((t, p) => t + (Number(p.prezzo) || 0), 0);
+            const daIncassare = accettati.filter((p) => !p.pagato).reduce((t, p) => t + (Number(p.prezzo) || 0), 0);
+            const aperta = espanso === c.id;
+            return (
+              <div key={c.id} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "12px 16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center", cursor: "pointer" }} onClick={() => setEspanso(aperta ? null : c.id)}>
+                  <div>
+                    <div style={{ fontSize: 14.5, fontWeight: 700 }}>{c.nome}</div>
+                    <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
+                      {suoi.length > 0 ? `${suoi.length} ${suoi.length === 1 ? "preventivo" : "preventivi"}` : "Nessun preventivo"}
+                      {incassato > 0 && <> · <span style={{ color: "#4ade80" }}>incassato {euro(incassato)}</span></>}
+                      {daIncassare > 0 && <> · <span style={{ color: "#f5b942" }}>da incassare {euro(daIncassare)}</span></>}
+                    </div>
+                  </div>
+                  <ChevronRight size={16} style={{ color: "#6b7480", transform: aperta ? "rotate(90deg)" : "none" }} />
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                  {c.telefono && <a href={`https://wa.me/${perWhatsapp(c.telefono)}`} target="_blank" rel="noreferrer" style={linkSt}>💬 WhatsApp</a>}
+                  {c.email && <a href={`mailto:${c.email}`} style={linkSt}>✉️ Email</a>}
+                  {c.telefono && <a href={`tel:${soloNumeri(c.telefono)}`} style={linkSt}>📞 Chiama</a>}
+                  {c.indirizzo && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.indirizzo)}`} target="_blank" rel="noreferrer" style={linkSt}>📍 Mappa</a>}
+                </div>
+                {aperta && (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2b313d", fontSize: 12.5, color: "#c3cad4", display: "flex", flexDirection: "column", gap: 4 }}>
+                    {c.telefono && <div>📞 {c.telefono}</div>}
+                    {c.email && <div>✉️ {c.email}</div>}
+                    {c.indirizzo && <div>📍 {c.indirizzo}</div>}
+                    {c.piva_cf && <div>🧾 {c.piva_cf}</div>}
+                    {c.note && <div>📝 {c.note}</div>}
+                    {suoi.length > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        <div style={{ fontWeight: 700, color: "#e7eaee", marginBottom: 4 }}>Preventivi</div>
+                        {suoi.map((p) => (
+                          <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                            <span>{formatData(p.data)} · {p.oggetto || p.luogo_intervento || p.numero || "Preventivo"}</span>
+                            <span className="mono" style={{ color: p.stato === "accettato" ? (p.pagato ? "#4ade80" : "#f5b942") : "#8b95a3" }}>{euro(Number(p.prezzo) || 0)} {p.stato === "accettato" ? (p.pagato ? "✓" : "· da incassare") : `· ${(STATI_PREVENTIVO.find((x) => x.key === p.stato) || {}).label || ""}`}</span>
+                          </div>
+                        ))}
+                        <button type="button" onClick={onApriPreventivi} style={{ marginTop: 6, background: "none", border: "none", color: "#3d8bfd", padding: 0, fontSize: 12 }}>Vai ai preventivi →</button>
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                      <button type="button" onClick={() => modifica(c)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Modifica</button>
+                      <button type="button" onClick={() => elimina(c)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Togli dalla rubrica</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const STATI_PREVENTIVO = [
   { key: "inviato", label: "Inviato", color: "#3d8bfd" },
   { key: "accettato", label: "Accettato", color: "#4ade80" },
@@ -4103,7 +4460,7 @@ function ConsigliPrezzo({ onUsa }) {
   );
 }
 
-function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento, bozza, onBozzaUsata }) {
+function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, piano, onReload, onVaiAbbonamento, bozza, onBozzaUsata }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [cliente, setCliente] = useState("");
@@ -4227,6 +4584,12 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento, bo
     setSalvataggio(false);
     if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
     if (richiesta && !editingId) await supabase.from("richieste_preventivo").update({ stato: "preventivo" }).eq("id", richiesta.id);
+    // cliente nuovo: lo aggiungo da solo alla rubrica (se la tabella c'è)
+    const nomeCliente = cliente.trim();
+    if (nomeCliente && !clienti.some((c) => c.nome.trim().toLowerCase() === nomeCliente.toLowerCase())) {
+      const { error: errC } = await supabase.from("clienti").insert({ nome: nomeCliente });
+      if (!errC && onClientiCambiati) onClientiCambiati();
+    }
     resetForm();
     setShowForm(false);
     onReload();
@@ -4236,6 +4599,14 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento, bo
     setCambiandoStato(id);
     await supabase.from("preventivi").update({ stato: nuovoStato }).eq("id", id);
     setCambiandoStato(null);
+    onReload();
+  };
+
+  const segnaPagato = async (p, pagato) => {
+    setCambiandoStato(p.id);
+    const { error } = await supabase.from("preventivi").update({ pagato, data_pagamento: pagato ? dataLocale() : null }).eq("id", p.id);
+    setCambiandoStato(null);
+    if (error) { alert(/pagato|data_pagamento|column/i.test(error.message) ? "Per usare «pagato / da incassare» esegui prima lo script supabase/clienti-incassi.sql su Supabase." : "Non riuscito: " + error.message); return; }
     onReload();
   };
 
@@ -4279,7 +4650,7 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento, bo
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 2 }}>
               <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome cliente</label>
-              <input placeholder="es. Mario Rossi" value={cliente} onChange={(e) => setCliente(e.target.value)} style={inputStyle} />
+              <input placeholder="es. Mario Rossi" list="rubrica-clienti" value={cliente} onChange={(e) => setCliente(e.target.value)} style={inputStyle} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Data preventivo</label>
@@ -4378,6 +4749,8 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento, bo
         </div>
       )}
 
+      <RiepilogoIncassi preventivi={preventivi} />
+
       {preventivi.length === 0 ? (
         <EmptyState text="Nessun preventivo ancora. Creane uno con il pulsante qui sopra." />
       ) : (
@@ -4401,6 +4774,11 @@ function Preventivi({ preventivi, azienda, piano, onReload, onVaiAbbonamento, bo
                   </div>
                   {promemoria && (
                     <div style={{ fontSize: 11.5, color: promemoria.colore, fontWeight: 600, marginTop: 3 }}>⏰ {promemoria.testo}</div>
+                  )}
+                  {p.stato === "accettato" && (
+                    <button type="button" disabled={cambiandoStato === p.id} onClick={() => segnaPagato(p, !p.pagato)} title={p.pagato ? "Tocca per segnarlo di nuovo da incassare" : "Tocca quando il cliente ha pagato"} style={{ marginTop: 6, fontSize: 11.5, fontWeight: 700, borderRadius: 12, padding: "3px 10px", border: "none", background: p.pagato ? "#1d3a2a" : "#3a2a12", color: p.pagato ? "#4ade80" : "#f5b942" }}>
+                      {p.pagato ? `✓ Pagato${p.data_pagamento ? ` il ${formatData(p.data_pagamento)}` : ""}` : "💶 Da incassare · segna pagato"}
+                    </button>
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -5835,6 +6213,9 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         {!vicina && valoreReale(z.condizioni) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
         {!vicina && z.validita && <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 2 }}>Attiva: {z.validita.map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}</div>}
         {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {d.consiglio}</div>}
+        {!vicina && (z.restrizione === "REQ_AUTHORISATION" || z.restrizione === "PROHIBITED") && (
+          <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa" })} style={{ marginTop: 6, background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si fa a volare qui?</button>
+        )}
         {!vicina && autorita.map((a, i) => (
           <div key={i} style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 3 }}>
             🏛️ {a.nome || "Ente"}{a.servizio ? ` (${SERVIZI_ENTE[a.servizio.toUpperCase()] || a.servizio})` : ""}
@@ -6670,13 +7051,13 @@ const GRUPPI_GUIDE = [
   { titolo: "Per ogni volo", tipi: ["altro"] },
 ];
 
-function GuideVolo({ droni = [] }) {
+function GuideVolo({ droni = [], incorporata = false }) {
   const [droneId, setDroneId] = useState("");
   const drone = droni.find((d) => d.id === droneId) || null;
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 760 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Guide e consigli</h1>
-      <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "4px 0 16px 0" }}>Dritte pratiche per fare riprese e ispezioni al meglio. Le trovi anche dentro la Pianificazione, in base al tipo di volo che scegli.</p>
+    <div style={{ padding: incorporata ? "0 32px" : "28px 32px", maxWidth: 760 }}>
+      {!incorporata && <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Guide e consigli</h1>}
+      {!incorporata && <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "4px 0 16px 0" }}>Dritte pratiche per fare riprese e ispezioni al meglio. Le trovi anche dentro la Pianificazione, in base al tipo di volo che scegli.</p>}
       {droni.length > 0 && (
         <label style={{ display: "block", fontSize: 12, color: "#8b95a3", marginBottom: 14 }}>
           Aggiungi i consigli per il tuo drone
@@ -6739,7 +7120,7 @@ const CAMPI_DETTAGLI = {
   ],
 };
 
-function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, piano, pianoIniziale, onPianoAperto }) {
+function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, piano, pianoIniziale, onPianoAperto, luogoIniziale, onLuogoUsato }) {
   const [impiantoSel, setImpiantoSel] = useState(null);
   const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
   const [dataPrevista, setDataPrevista] = useState(() => new Date().toISOString().slice(0, 10));
@@ -6774,6 +7155,15 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [modoLibero, setModoLibero] = useState(false); // true = un luogo scelto a mano, senza impianto
   const [luogoLibero, setLuogoLibero] = useState("");
   const [coordinateLibere, setCoordinateLibere] = useState("");
+  // arrivo da «Posti»: preparo un piano nuovo in quel luogo
+  useEffect(() => {
+    if (!luogoIniziale) return;
+    setImpiantoSel(null); setModoLibero(true);
+    setLuogoLibero(luogoIniziale.nome || "");
+    setCoordinateLibere(`${luogoIniziale.lat.toFixed(5)}, ${luogoIniziale.lon.toFixed(5)}`);
+    setTipoIspezione("video");
+    if (onLuogoUsato) onLuogoUsato();
+  }, [luogoIniziale]);
   const [gpsInCorso, setGpsInCorso] = useState(false);
 
   const caricaTutto = async () => {
@@ -7178,6 +7568,16 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               </div>
             </div>
           )}
+          {giornoPrevisto && (() => {
+            const hP = oraPrevista ? Number(oraPrevista.slice(0, 2)) : null;
+            const tOra = hP != null ? (meteo?.orari || []).find((o) => o.data === dataPrevista && o.ora === hP)?.temperatura : null;
+            const a = tOra != null ? avvisoBatterieTemperatura(tOra) : (avvisoBatterieTemperatura(giornoPrevisto.tMin) || avvisoBatterieTemperatura(giornoPrevisto.tMax));
+            return a && (
+              <div style={{ marginTop: 8, background: "#161a1f", border: `1px solid ${a.colore}66`, borderRadius: 6, padding: "8px 12px", fontSize: 12.5, color: a.colore }}>
+                🔋 {a.testo}{tOra == null ? " (temperature del giorno: per un avviso preciso inserisci l'ora prevista)" : ""}
+              </div>
+            );
+          })()}
           {meteo && !giornoPrevisto && (
             <p style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 8 }}>La data scelta è oltre i 16 giorni di previsione disponibile — riprova più vicino alla data.</p>
           )}
@@ -7383,6 +7783,17 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               </button>
             )}
           </div>
+          {dataPrevista && (
+            <div style={{ marginTop: 10 }}>
+              <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "0 0 6px 0" }}>Mettilo nel calendario del telefono, con un promemoria il giorno prima:</p>
+              <PulsantiCalendario dati={datiCalendarioPiano({
+                data: dataPrevista, ora: oraPrevista ? oraPrevista.slice(0, 5) : "",
+                titolo: `🚁 ${ETICHETTE_TIPO_PIANO[tipoIspezione] || "Volo"} · ${destinazione.nome || "Volo con drone"}`,
+                luogo: [destinazione.nome, coordinateValide ? `${coordinateValide.lat.toFixed(5)}, ${coordinateValide.lon.toFixed(5)}` : ""].filter(Boolean).join(" · "),
+                dettagli: [droneSelezionato ? `Drone: ${droneSelezionato.nome}` : "", "Prima di partire apri EyeDrones: meteo, zona, checklist e documenti per il controllo.", "https://app.eyedrones.it"].filter(Boolean).join("\n"),
+              })} />
+            </div>
+          )}
         </div>
       )}
 
@@ -7487,12 +7898,15 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
 
 // --- Documenti controllo (accesso rapido dal menu, senza dover pianificare prima un volo) -----------------------------------------------------------
 
-function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoIniziale, onPianoAperto, piano, schermoPienoSubito, onSchermoPienoAperto }) {
+function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoIniziale, onPianoAperto, piano, schermoPienoSubito, onSchermoPienoAperto, soloCopia = false, onEsciCopia }) {
+  const copiaIniziale = useState(() => leggiCopiaControllo())[0];
   const [scelta, setScelta] = useState(""); // "" | "p:<id piano di volo>" | "i:<id impianto>"
-  const [attestatiUtente, setAttestatiUtente] = useState([]);
-  const [droniUtente, setDroniUtente] = useState([]);
-  const [permessiUtente, setPermessiUtente] = useState([]);
-  const [pianiUtente, setPianiUtente] = useState([]);
+  const [attestatiUtente, setAttestatiUtente] = useState(() => copiaIniziale?.attestati || []);
+  const [droniUtente, setDroniUtente] = useState(() => copiaIniziale?.droni || []);
+  const [permessiUtente, setPermessiUtente] = useState(() => copiaIniziale?.permessi || []);
+  const [pianiUtente, setPianiUtente] = useState(() => copiaIniziale?.piani || []);
+  // quando i dati arrivano dalla copia sul telefono (niente rete): data dell'ultimo salvataggio
+  const [daCopia, setDaCopia] = useState(soloCopia ? copiaIniziale?.salvato || "" : null);
   const [droneSelId, setDroneSelId] = useState("");
   const [dflightShot, setDflightShot] = useState(null);
   const [generandoPdfControllo, setGenerandoPdfControllo] = useState(false);
@@ -7502,16 +7916,36 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
 
   useEffect(() => {
     (async () => {
-      const [{ data: att }, { data: drn }, { data: perm }, { data: piani }] = await Promise.all([
-        supabase.from("attestati").select("*"),
-        supabase.from("droni").select("*"),
-        supabase.from("permessi").select("*"),
-        supabase.from("piani_volo").select("*"),
-      ]);
-      setAttestatiUtente(att || []);
-      setDroniUtente(drn || []);
-      setPermessiUtente(perm || []);
-      setPianiUtente(piani || []);
+      let att, drn, perm, piani;
+      if (!soloCopia) {
+        try {
+          // senza campo le richieste possono restare appese: dopo qualche secondo passo alla copia
+          const attesa = new Promise((_, no) => setTimeout(() => no(new Error("rete lenta o assente")), navigator.onLine === false ? 0 : 5000));
+          const r = await Promise.race([Promise.all([
+            supabase.from("attestati").select("*"),
+            supabase.from("droni").select("*"),
+            supabase.from("permessi").select("*"),
+            supabase.from("piani_volo").select("*"),
+          ]), attesa]);
+          if (r.some((x) => x.error)) throw r.find((x) => x.error).error;
+          [att, drn, perm, piani] = r.map((x) => x.data || []);
+        } catch (e) {
+          att = undefined;
+        }
+      }
+      if (att) {
+        setDaCopia(null);
+        salvaCopiaControllo({ attestati: att, droni: drn, permessi: perm, piani: pianiPerCopia(piani), ...(azienda?.nome ? { azienda: { nome: azienda.nome } } : {}) });
+      } else {
+        // senza rete: uso la copia salvata sul telefono
+        const c = leggiCopiaControllo() || {};
+        att = c.attestati || []; drn = c.droni || []; perm = c.permessi || []; piani = c.piani || [];
+        setDaCopia(c.salvato || "");
+      }
+      setAttestatiUtente(att);
+      setDroniUtente(drn);
+      setPermessiUtente(perm);
+      setPianiUtente(piani);
       // se c'è un piano di volo per oggi lo propongo già scelto, con il suo drone
       const oggi = dataLocale();
       const diOggi = (pianoIniziale && (piani || []).find((x) => x.id === pianoIniziale)) || (piani || []).find((x) => x.data_prevista === oggi);
@@ -7596,6 +8030,17 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0", maxWidth: 560 }}>
         Se ti fermano per un controllo, qui trovi tutto da mostrare: attestati, assicurazione, drone e permessi. Funziona anche se non hai preparato un piano di volo.
       </p>
+      {daCopia === null && (
+        <div style={{ background: "#14251b", border: "1px solid #2c5a3a", borderRadius: 8, padding: "8px 12px", marginBottom: 16, maxWidth: 560, fontSize: 12.5, color: "#bfe8cc" }}>
+          📶 <strong>Funziona anche senza campo.</strong> Una copia di questi dati resta sul telefono e si aggiorna ogni volta che apri l'app con la rete: se ti fermano dove non prende, apri comunque 👮 Controllo.
+        </div>
+      )}
+      {daCopia !== null && (
+        <div style={{ background: "#13233d", border: "1px solid #2f5aa8", borderRadius: 8, padding: "10px 12px", marginBottom: 16, maxWidth: 560, fontSize: 12.5, color: "#e7eaee" }}>
+          📴 <strong>Senza rete</strong>: ti mostro la copia salvata sul telefono{daCopia ? ` il ${formatData(daCopia.slice(0, 10))} alle ${new Date(daCopia).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : ""}. Date e numeri ci sono tutti; i file allegati (PDF, foto) si aprono solo con il campo.
+          {onEsciCopia && <div style={{ marginTop: 8 }}><button type="button" onClick={onEsciCopia} style={{ background: "none", border: "1px solid #2f5aa8", color: "#9fb4d6", borderRadius: 6, padding: "5px 10px", fontSize: 12 }}>← Torna all'accesso</button></div>}
+        </div>
+      )}
 
       <div style={{ marginBottom: 16, maxWidth: 320 }}>
         <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Dove stai volando (opzionale)</label>
@@ -7751,7 +8196,8 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
             Chiudi ✕
           </button>
           <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px 0" }}>Documenti pilota</h1>
-          <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{azienda.nome}{impiantoSel ? ` — ${impiantoSel.nome}` : ""}{quandoPiano ? ` — ${quandoPiano}` : ""}</p>
+          {daCopia !== null && <p style={{ fontSize: 11.5, color: "#8a5a00", background: "#fff4d6", borderRadius: 4, padding: "4px 8px", margin: "0 0 6px 0", display: "inline-block" }}>Copia salvata sul telefono{daCopia ? ` il ${formatData(daCopia.slice(0, 10))}` : ""} · senza rete i file allegati non si aprono</p>}
+          <p style={{ fontSize: 13, color: "#555", margin: "0 0 20px 0" }}>{(daCopia !== null && copiaIniziale?.azienda?.nome) || azienda.nome}{impiantoSel ? ` — ${impiantoSel.nome}` : ""}{quandoPiano ? ` — ${quandoPiano}` : ""}</p>
 
           <h2 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0", borderTop: "2px solid #eee", paddingTop: 16 }}>Attestati</h2>
           {attestatiUtente.length === 0 ? <p style={{ fontSize: 13, color: "#888" }}>Nessuno registrato.</p> : attestatiUtente.map((a) => {
@@ -7936,7 +8382,7 @@ function PaginaPilotaPubblica({ slug }) {
           <div style={{ fontSize: 36, marginBottom: 8 }}>🚁</div>
           <h1 style={{ fontSize: 18, margin: "0 0 8px 0" }}>Pagina non disponibile</h1>
           <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 16px 0" }}>L'indirizzo non è corretto oppure il pilota ha nascosto la sua pagina.</p>
-          <a href={linkIscrizione} style={{ fontSize: 13, color: "#ffb877" }}>Sei un pilota? Crea la tua pagina con Eyedrones →</a>
+          <a href={linkIscrizione} style={{ fontSize: 13, color: "#ffb877" }}>Sei un pilota? Crea la tua pagina con EyeDrones →</a>
         </div>
       </div>
     );
@@ -8093,7 +8539,7 @@ function PaginaPilotaPubblica({ slug }) {
 
         <footer style={{ textAlign: "center", fontSize: 12, color: "#6b7480", padding: "8px 0" }}>
           <a href={linkIscrizione} style={{ color: "#8b95a3", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <img src={LOGO_EYEDRONES} alt="" style={{ width: 18, height: 18 }} /> Pagina creata con Eyedrones · <span style={{ color: "#ffb877" }}>sei un pilota? Crea la tua</span>
+            <img src={LOGO_EYEDRONES} alt="" style={{ width: 18, height: 18 }} /> Pagina creata con EyeDrones · <span style={{ color: "#ffb877" }}>sei un pilota? Crea la tua</span>
           </a>
         </footer>
       </div>
@@ -8821,16 +9267,16 @@ function GalleriaCondivisa({ token }) {
   const links = media.filter((m) => m.tipo === "link");
   const conFiligrana = !!dati.filigrana;
   const puoScaricare = dati.download !== false;
-  const testoFiligrana = dati.azienda_nome || "Eyedrones";
+  const testoFiligrana = dati.azienda_nome || "EyeDrones";
   const nienteMenu = conFiligrana ? (e) => e.preventDefault() : undefined;
 
   return (
     <div style={pagina}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
-          <img src={dati.azienda_logo && !dati.azienda_logo.startsWith(LOGO_PRECEDENTE_PREFISSO) ? dati.azienda_logo : LOGO_EYEDRONES} alt={dati.azienda_nome || "Eyedrones"} style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6 }} />
+          <img src={dati.azienda_logo && !dati.azienda_logo.startsWith(LOGO_PRECEDENTE_PREFISSO) ? dati.azienda_logo : LOGO_EYEDRONES} alt={dati.azienda_nome || "EyeDrones"} style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6 }} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 12, color: "#8b95a3" }}>{dati.azienda_nome || "Eyedrones"}</div>
+            <div style={{ fontSize: 12, color: "#8b95a3" }}>{dati.azienda_nome || "EyeDrones"}</div>
             <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>{dati.titolo || [dati.luogo, formatData(dati.data)].filter(Boolean).join(" · ") || "Le tue riprese"}</h1>
           </div>
         </div>
@@ -8998,7 +9444,7 @@ function costruisciPDFLiberatoria({ azienda, titolo, testo, nome, firmaDataUrl, 
   if (firmaDataUrl) doc.addImage(firmaDataUrl, "PNG", 15, y + 3, 80, 30);
   doc.setDrawColor(150); doc.line(15, y + 34, 95, y + 34);
   doc.setFontSize(8); doc.setTextColor(130);
-  doc.text("Documento firmato elettronicamente sul dispositivo dell'operatore con l'app Eyedrones.", 15, 287);
+  doc.text("Documento firmato elettronicamente sul dispositivo dell'operatore con l'app EyeDrones.", 15, 287);
   return doc;
 }
 
@@ -10167,7 +10613,7 @@ async function disegnaImmagineAnno(st, nome) {
   alone.addColorStop(0, "rgba(255,140,66,0.25)"); alone.addColorStop(1, "rgba(255,140,66,0)");
   x.fillStyle = alone; x.fillRect(0, 0, W, H);
   try { const logo = await caricaImmagine(LOGO_EYEDRONES); x.drawImage(logo, 80, 80, 110, 110); } catch (e) { /* senza logo */ }
-  x.fillStyle = "#ffffff"; x.font = "700 44px sans-serif"; x.fillText("Eyedrones", 215, 150);
+  x.fillStyle = "#ffffff"; x.font = "700 44px sans-serif"; x.fillText("EyeDrones", 215, 150);
   x.fillStyle = "#aab3bf"; x.font = "400 34px sans-serif"; x.fillText(nome || "", 215, 195);
   const titolo = x.createLinearGradient(80, 0, 1000, 0);
   titolo.addColorStop(0, "#a06bff"); titolo.addColorStop(1, "#ff8c42");
@@ -10207,10 +10653,10 @@ function StatisticheAnno({ voli, azienda }) {
   const condividi = async () => {
     setLavoro(true);
     try {
-      const blob = await disegnaImmagineAnno(st, azienda?.nome && azienda.nome !== "Eyedrones" ? azienda.nome : "");
+      const blob = await disegnaImmagineAnno(st, azienda?.nome && azienda.nome !== "EyeDrones" ? azienda.nome : "");
       const file = new File([blob], `il-mio-${anno}-in-volo.png`, { type: "image/png" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: `Il mio ${anno} in volo`, text: `Il mio ${anno} in volo con Eyedrones 🚁` });
+        await navigator.share({ files: [file], title: `Il mio ${anno} in volo`, text: `Il mio ${anno} in volo con EyeDrones 🚁` });
       } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -10969,21 +11415,26 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Registro voli</h1>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={() => (showForm ? chiudiForm() : apriNuovo())} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+            {showForm ? "Annulla" : <><Plus size={14} /> Nuovo volo</>}
+          </button>
           <label style={{ display: "flex", alignItems: "center", gap: 6, background: "#241d16", color: "#ffb877", border: "1px solid #ff8c42", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
             <Camera size={14} /> Aggiungi foto / video
             <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple onChange={scegliFileRapido} style={{ display: "none" }} />
           </label>
-          <StatisticheAnno voli={tutti} azienda={azienda} />
-          <ImportaSRT droni={droni} numeroVoli={voli.length} piano={piano} onVaiAbbonamento={onVaiAbbonamento} onImportati={(n) => { carica(); window.alert(`Creati ${n} ${n === 1 ? "volo" : "voli"} dai file .SRT.`); }} />
-          <button onClick={scaricaPdf} disabled={generandoPdf || visibili.length === 0} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
-            <FileDown size={14} /> {generandoPdf ? "Preparazione..." : "PDF"}
-          </button>
-          <button onClick={scaricaCsv} disabled={visibili.length === 0} title={piano === "free" ? "Esportazione CSV: disponibile dal piano Pilota" : "Scarica i dati in formato CSV"} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: piano === "free" ? "#8b95a3" : "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
-            {piano === "free" ? "🔒" : <FileDown size={14} />} CSV
-          </button>
-          <button onClick={() => (showForm ? chiudiForm() : apriNuovo())} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
-            {showForm ? "Annulla" : <><Plus size={14} /> Nuovo volo</>}
-          </button>
+          <details className="menu-strumenti" style={{ position: "relative" }}>
+            <summary style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13 }}>⋯ Altro</summary>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+              <StatisticheAnno voli={tutti} azienda={azienda} />
+              <ImportaSRT droni={droni} numeroVoli={voli.length} piano={piano} onVaiAbbonamento={onVaiAbbonamento} onImportati={(n) => { carica(); window.alert(`Creati ${n} ${n === 1 ? "volo" : "voli"} dai file .SRT.`); }} />
+              <button onClick={scaricaPdf} disabled={generandoPdf || visibili.length === 0} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
+                <FileDown size={14} /> {generandoPdf ? "Preparazione..." : "PDF"}
+              </button>
+              <button onClick={scaricaCsv} disabled={visibili.length === 0} title={piano === "free" ? "Esportazione CSV: disponibile dal piano Pilota" : "Scarica i dati in formato CSV"} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: piano === "free" ? "#8b95a3" : "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
+                {piano === "free" ? "🔒" : <FileDown size={14} />} CSV
+              </button>
+            </div>
+          </details>
         </div>
       </div>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 18px 0", maxWidth: 600 }}>
@@ -11142,7 +11593,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             </div>
             <div style={{ flex: 2, minWidth: 180 }}>
               <label style={lbl}>Cliente / committente (facoltativo)</label>
-              <input type="text" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} style={inputStyle} />
+              <input type="text" list="rubrica-clienti" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} style={inputStyle} />
             </div>
           </div>
 
@@ -11197,7 +11648,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 16, maxWidth: 620 }}>
             <StatCard label="Voli mostrati" value={visibili.length} sub={filtroTipo === "tutti" && filtroAnno === "tutti" && !q ? "in totale" : "con i filtri attivi"} />
             <StatCard label="Tempo di volo" value={formattaDurata(minutiTotali)} sub="dove la durata è indicata" accent="#ff8c42" />
-            <StatCard label={`Voli nel ${annoCorrente}`} value={voliQuestAnno} sub="da inizio anno" />
+            {voliQuestAnno !== visibili.length && <StatCard label={`Voli nel ${annoCorrente}`} value={voliQuestAnno} sub="da inizio anno" />}
           </div>
 
           {Object.keys(perDrone).length > 0 && (
@@ -11420,7 +11871,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
       setSpostamento("Non sono riuscito a spostare i documenti: " + (e.message || e));
     }
   };
-  const linkEliminazione = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Richiesta eliminazione account Eyedrones")}&body=${encodeURIComponent(`Ciao, chiedo di eliminare definitivamente il mio account Eyedrones (${userEmail || ""}) con tutti i dati collegati: voli, foto, video, documenti, batterie, droni e link condivisi. Se ho un abbonamento attivo, vi chiedo di interromperlo.`)}`;
+  const linkEliminazione = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Richiesta eliminazione account EyeDrones")}&body=${encodeURIComponent(`Ciao, chiedo di eliminare definitivamente il mio account EyeDrones (${userEmail || ""}) con tutti i dati collegati: voli, foto, video, documenti, batterie, droni e link condivisi. Se ho un abbonamento attivo, vi chiedo di interromperlo.`)}`;
   const proAttivo = piano === "pro";
 
   const handleLogo = (e) => {
@@ -11512,7 +11963,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
 
         <div style={{ borderTop: "1px solid #262b33", paddingTop: 18 }}>
           <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Account e privacy</h3>
-          <button onClick={() => supabase.auth.signOut()} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>
+          <button onClick={esciDallAccount} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>
             <LogOut size={14} /> Esci dall'account
           </button>
           <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 10px 0" }}>
