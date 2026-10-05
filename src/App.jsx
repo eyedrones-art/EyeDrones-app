@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Network } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
@@ -8,11 +8,7 @@ import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaP
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
 const Impara = lazy(() => import("./Impara.jsx"));
 const Posti = lazy(() => import("./Posti.jsx"));
-const CandidaturaCollaborazione = lazy(() => import("./Collaboratori.jsx").then((m) => ({ default: m.CandidaturaCollaborazione })));
-const RetePiloti = lazy(() => import("./Collaboratori.jsx").then((m) => ({ default: m.RetePiloti })));
-// chi gestisce EyeDrones vede anche la «Rete piloti» (stessi indirizzi delle regole su Supabase)
-const EMAIL_AMMINISTRATORI = ["eyedrones@libero.it", "ravinale.ivan@libero.it"];
-const eAmministratore = (email) => EMAIL_AMMINISTRATORI.includes(String(email || "").toLowerCase());
+const Collaboratori = lazy(() => import("./Collaboratori.jsx"));
 // navigazione da componenti lontani (es. «Come si fa?» nella verifica zona): window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }))
 const vaiA = (detail) => window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }));
 
@@ -1773,7 +1769,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collabora", "rete-piloti", "pagina-pilota"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2099,14 +2095,9 @@ function AppShell({ session }) {
             <Impara schedaIniziale={page === "guide" ? "consigli" : schedaImpara} consigli={<GuideVolo droni={droni} incorporata />} />
           </Suspense>
         )}
-        {page === "collabora" && (
+        {page === "collaboratori" && (
           <Suspense fallback={<LoadingBlock />}>
-            <CandidaturaCollaborazione supabase={supabase} inputStyle={inputStyle} attestati={attestati} droni={droni} azienda={azienda} email={session.user.email} servizi={SERVIZI_PILOTA} />
-          </Suspense>
-        )}
-        {page === "rete-piloti" && eAmministratore(session.user.email) && (
-          <Suspense fallback={<LoadingBlock />}>
-            <RetePiloti supabase={supabase} inputStyle={inputStyle} servizi={SERVIZI_PILOTA} />
+            <Collaboratori supabase={supabase} inputStyle={inputStyle} servizi={SERVIZI_PILOTA} />
           </Suspense>
         )}
         {page === "posti" && (
@@ -2444,12 +2435,11 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { intestazione: "Lavoro" },
     { key: "preventivi", label: "Preventivi", icon: FileText },
     { key: "clienti", label: "Clienti", icon: Users },
+    { key: "collaboratori", label: "Collaboratori", icon: Handshake },
     { key: "pagina-pilota", label: "La mia pagina", icon: Globe },
     { intestazione: "Account" },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
-    { key: "collabora", label: "Collabora con EyeDrones", icon: Handshake },
-    ...(eAmministratore(userEmail) ? [{ key: "rete-piloti", label: "Rete piloti", icon: Network }] : []),
     { key: "suggerimenti", label: "Suggerimenti", icon: MessageSquare },
   ];
   const avvisi = { attestati: attestatiInScadenza, droni: droniInScadenza, batterie: batterieAvvisi, "pagina-pilota": richiesteNuove };
