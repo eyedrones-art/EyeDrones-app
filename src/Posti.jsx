@@ -14,6 +14,9 @@ const TIPI_OSM = [
   { chiave: "waterfall", emoji: "🌊", nome: "Cascata" },
   { chiave: "peak", emoji: "⛰️", nome: "Vetta" },
   { chiave: "lighthouse", emoji: "🗼", nome: "Faro" },
+  { chiave: "church", emoji: "⛪", nome: "Chiesa storica" },
+  { chiave: "monument", emoji: "🏛️", nome: "Monumento" },
+  { chiave: "attraction", emoji: "📸", nome: "Da vedere" },
 ];
 const TIPI_PILOTI = ["Panorama", "Lago / mare", "Montagna", "Castello / borgo", "Campagna", "Città", "FPV"];
 const tipoDa = (t) => {
@@ -26,6 +29,9 @@ const tipoDa = (t) => {
   if (t.waterway === "waterfall") return "waterfall";
   if (t.natural === "peak") return "peak";
   if (t.man_made === "lighthouse") return "lighthouse";
+  if (t.historic === "church" || (t.amenity === "place_of_worship" && t.wikipedia)) return "church";
+  if (["tower", "fort", "city_gate", "monument"].includes(t.historic)) return "monument";
+  if (t.tourism === "attraction") return "attraction";
   return null;
 };
 const distanzaKm = (a, b) => {
@@ -40,7 +46,7 @@ const conTempoMassimo = (promessa, ms) => Promise.race([promessa, new Promise((_
 const primoBuono = (promesse) => new Promise((ok, no) => { let falliti = 0; promesse.forEach((p) => p.then(ok, () => { if (++falliti === promesse.length) no(new Error("nessuna risposta")); })); });
 
 // memoria dei risultati per zona (7 giorni): la seconda volta i posti compaiono subito
-const CHIAVE_MEMORIA = "eyedrones_posti_memoria2"; // «2»: dimentica i risultati vecchi con città e aeroporti
+const CHIAVE_MEMORIA = "eyedrones_posti_memoria3"; // cambia nome quando la ricerca migliora: i risultati vecchi si dimenticano
 const chiaveZona = ({ lat, lon }, km) => `${lat.toFixed(2)},${lon.toFixed(2)},${km}`;
 function daMemoria(c, km) {
   try { const m = JSON.parse(localStorage.getItem(CHIAVE_MEMORIA) || "{}")[chiaveZona(c, km)]; return m && Date.now() - m.t < 7 * 86400000 ? m.posti : null; } catch { return null; }
@@ -59,13 +65,15 @@ async function cercaPostiMappe({ lat, lon }, raggioKm) {
   const r = Math.round(Math.min(raggioKm, 30) * 1000);
   const q = `[out:json][timeout:12];(
     node["tourism"="viewpoint"](around:${r},${lat},${lon});
-    nwr["historic"~"^(castle|ruins|monastery)$"]["name"](around:${r},${lat},${lon});
+    nwr["historic"~"^(castle|ruins|monastery|church|tower|fort|city_gate|monument)$"]["name"](around:${r},${lat},${lon});
+    nwr["tourism"="attraction"]["name"](around:${r},${lat},${lon});
+    nwr["amenity"="place_of_worship"]["wikipedia"]["name"](around:${r},${lat},${lon});
     way["natural"="water"]["water"~"^(lake|reservoir)$"]["name"](around:${r},${lat},${lon});
     nwr["natural"="beach"]["name"](around:${r},${lat},${lon});
     node["waterway"="waterfall"]["name"](around:${r},${lat},${lon});
     node["natural"="peak"]["name"](around:${r},${lat},${lon});
     nwr["man_made"="lighthouse"](around:${r},${lat},${lon});
-  );out center tags 80;`;
+  );out center tags 150;`;
   const prova = (url) => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 14000);
@@ -87,13 +95,13 @@ async function cercaPostiMappe({ lat, lon }, raggioKm) {
 
 // Wikipedia: luoghi d'interesse con una voce (ville, chiese, castelli, laghi, monumenti). Risponde in fretta.
 // Tengo solo i posti belli da riprendere: niente città e paesi, aeroporti, stazioni, strade, scuole o aziende.
-const BELLI = /\b(castell[oi]|villa|ville|chiesa|santuario|abbazia|basilica|cattedrale|duomo|torre|rocca|forte|fortezza|borgo|lago|laghi|ponte|parco|giardin[oi]|belvedere|palazzo|palazzina|residenza|monastero|convento|cascata|cascate|monte|colle|eremo|cappella|pieve|reggia|anfiteatro|faro|spiaggia|isola|riserva|oasi|sacra|certosa|ricetto|mulino|cascina|lungolago|lungomare|diga|gola|orrido)\b/i;
+const BELLI = /\b(castell[oi]|villa|ville|chiesa|chiese|santuario|abbazia|basilica|cattedrale|duomo|torre|torri|rocca|forte|fortezza|borgo|lago|laghi|ponte|parco|giardin[oi]|belvedere|palazzo|palazzina|residenza|monastero|convento|piazza|fontana|porta|portico|portici|teatro|colline?|cascata|cascate|monte|colle|eremo|cappella|pieve|reggia|anfiteatro|faro|spiaggia|isola|riserva|oasi|sacra|certosa|ricetto|mulino|cascina|lungolago|lungomare|diga|gola|orrido)\b/i;
 const BRUTTI = /\b(comun[ei]|frazione|citt[aà]|quartiere|paese|capoluogo|aeroport[oi]|aeroportuale|aerodromo|aviosuperficie|eliporto|stazione|ferrovi|metropolitana|autostrada|tangenziale|strada|statale|autostazione|ospedale|clinica|scuola|liceo|istituto|universit|stadio|palazzetto|azienda|societ[aà]|squadra|calcio|centro commerciale|ipermercato|cimitero|caserma|carcere|casa circondariale|fabbrica|stabilimento|industria|discarica|depuratore|centrale|inceneritore|ufficio|tribunale|municipio)\b/i;
 async function cercaPostiWikipedia({ lat, lon }, raggioKm) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 9000);
   try {
-    const u = `https://it.wikipedia.org/w/api.php?action=query&generator=geosearch&ggscoord=${lat}|${lon}&ggsradius=${Math.round(Math.min(raggioKm, 10) * 1000)}&ggslimit=60&prop=coordinates|description&format=json&formatversion=2&origin=*`;
+    const u = `https://it.wikipedia.org/w/api.php?action=query&generator=geosearch&ggscoord=${lat}|${lon}&ggsradius=${Math.round(Math.min(raggioKm, 10) * 1000)}&ggslimit=300&prop=coordinates|description&colimit=max&format=json&formatversion=2&origin=*`;
     const risp = await fetch(u, { signal: ctrl.signal });
     if (!risp.ok) throw new Error("wikipedia " + risp.status);
     const dati = await risp.json();
@@ -350,7 +358,7 @@ export function PostiVicini({ supabase, punto, tipo, onZonaRossa }) {
       {stato.posti && stato.posti.length === 0 && !stato.errore && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 10 }}>Nessun posto segnato qui intorno: prova ad allargare la distanza.</div>}
       {stato.posti && stato.posti.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
-          {stato.posti.slice(0, 12).map((p) => {
+          {stato.posti.slice(0, 20).map((p) => {
             const z = statoZona(zone, p);
             return (
               <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#1b2028", border: `1px solid ${p.piloti ? "#5a4a16" : "#2b313d"}`, borderRadius: 8, padding: "8px 10px" }}>
