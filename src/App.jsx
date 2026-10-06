@@ -21,16 +21,44 @@ const SUPABASE_KEY = "sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 installaSegnalazioneErrori(supabase);
 
-// Android: i link a D-Flight aprono l'app ufficiale (it.dflight.app) se è installata, altrimenti il sito come prima
+// Android: l'app D-Flight non accetta link dal web, quindi chiedo se aprire l'app (pagina del Play Store con «Apri»)
+// o il sito; la scelta si può ricordare
 const LINK_DFLIGHT = "https://www.d-flight.it/web-app/";
+const DFLIGHT_STORE = "intent://details?id=it.dflight.app#Intent;scheme=market;package=com.android.vending;S.browser_fallback_url=" + encodeURIComponent("https://play.google.com/store/apps/details?id=it.dflight.app") + ";end";
+const CHIAVE_DFLIGHT = "eyedrones_dflight_scelta";
+function apriDflight(scelta, href) {
+  if (scelta === "app") window.location.href = DFLIGHT_STORE;
+  else window.open(href || LINK_DFLIGHT, "_blank", "noopener");
+}
+function chiediDflight(href) {
+  const sfondo = document.createElement("div");
+  sfondo.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;font-family:'IBM Plex Sans',sans-serif";
+  sfondo.innerHTML = `<div style="background:#1b2028;border:1px solid #2b313d;border-radius:14px 14px 0 0;padding:18px 18px 22px;width:100%;max-width:460px;color:#e7eaee">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px">🗺️ Apri D-Flight</div>
+    <div style="font-size:12.5px;color:#8b95a3;margin-bottom:14px">L'app D-Flight si apre dal Play Store: tocca «Apri» nella pagina che compare.</div>
+    <button data-s="app" style="width:100%;padding:12px;border-radius:8px;border:none;background:linear-gradient(90deg,#e0552f,#ff8c42);color:#161a1f;font-weight:700;font-size:14px;margin-bottom:8px">📱 Apri l'app D-Flight</button>
+    <button data-s="sito" style="width:100%;padding:12px;border-radius:8px;border:1px solid #333a45;background:#1f2530;color:#e7eaee;font-weight:600;font-size:14px;margin-bottom:10px">🌐 Apri il sito</button>
+    <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;color:#aab3bf"><input type="checkbox" data-r> Ricorda la scelta (si cambia in Impostazioni)</label>
+  </div>`;
+  sfondo.addEventListener("click", (e) => {
+    const s = e.target.closest?.("button")?.dataset.s;
+    if (e.target === sfondo) { sfondo.remove(); return; }
+    if (!s) return;
+    if (sfondo.querySelector("[data-r]").checked) { try { localStorage.setItem(CHIAVE_DFLIGHT, s); } catch { /* solo comodità */ } }
+    sfondo.remove();
+    apriDflight(s, href);
+  });
+  document.body.appendChild(sfondo);
+}
 if (typeof document !== "undefined" && /Android/i.test(navigator.userAgent)) {
   document.addEventListener("click", (e) => {
     const a = e.target?.closest?.("a[href^='https://www.d-flight.it/web-app']");
     if (!a || e.defaultPrevented) return;
     e.preventDefault();
-    // Chrome non avvia un'app «a caso» (la schermata iniziale non accetta link dal web): chiedo all'app D-Flight
-    // di aprire il suo indirizzo; se non lo gestisce o non è installata, Chrome apre il sito
-    window.location.href = `intent://www.d-flight.it/web-app/#Intent;scheme=https;package=it.dflight.app;S.browser_fallback_url=${encodeURIComponent(LINK_DFLIGHT)};end`;
+    let ricordata = null;
+    try { ricordata = localStorage.getItem(CHIAVE_DFLIGHT); } catch { /* niente */ }
+    if (ricordata === "app" || ricordata === "sito") apriDflight(ricordata, a.href);
+    else chiediDflight(a.href);
   }, true);
 }
 
@@ -12052,6 +12080,20 @@ function InvitoImpronta() {
   );
 }
 
+// solo Android: come aprire D-Flight (app dal Play Store, sito, oppure chiedi ogni volta)
+function SceltaDflight() {
+  const [scelta, setScelta] = useState(() => { try { return localStorage.getItem(CHIAVE_DFLIGHT) || ""; } catch { return ""; } });
+  if (!/Android/i.test(navigator.userAgent)) return null;
+  const cambia = (v) => { setScelta(v); try { v ? localStorage.setItem(CHIAVE_DFLIGHT, v) : localStorage.removeItem(CHIAVE_DFLIGHT); } catch { /* niente */ } };
+  const chip = (v, testo) => <button type="button" onClick={() => cambia(v)} style={{ background: scelta === v ? "#ff8c42" : "#1f2530", color: scelta === v ? "#161a1f" : "#e7eaee", border: scelta === v ? "none" : "1px solid #333a45", borderRadius: 14, padding: "4px 12px", fontSize: 12, fontWeight: scelta === v ? 700 : 500 }}>{testo}</button>;
+  return (
+    <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>🗺️ Quando apri D-Flight</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{chip("", "Chiedi ogni volta")}{chip("app", "📱 App")}{chip("sito", "🌐 Sito")}</div>
+    </div>
+  );
+}
+
 function AccessoImpronta() {
   const [stato, setStato] = useState(improntaAttiva() ? "attiva" : "");
   const [lavoro, setLavoro] = useState(false);
@@ -12238,6 +12280,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
           </p>
           <SpazioEPromemoria />
           <AccessoImpronta />
+          <SceltaDflight />
           <details style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12 }}>
             <summary style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>🔑 Cambia password</summary>
             <div style={{ marginTop: 10, maxWidth: 340 }}><NuovaPassword dentroApp /></div>
