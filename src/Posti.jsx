@@ -34,40 +34,84 @@ const distanzaKm = (a, b) => {
   return 6371 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 };
 
-const SERVER_MAPPE = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
+const SERVER_MAPPE = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
 const conTempoMassimo = (promessa, ms) => Promise.race([promessa, new Promise((_, no) => setTimeout(() => no(new Error("tempo scaduto")), ms))]);
+// il primo che risponde bene vince (come Promise.any, che non c'è sui telefoni più vecchi)
+const primoBuono = (promesse) => new Promise((ok, no) => { let falliti = 0; promesse.forEach((p) => p.then(ok, () => { if (++falliti === promesse.length) no(new Error("nessuna risposta")); })); });
 
-async function cercaPostiOsm({ lat, lon }, raggioKm) {
-  const r = Math.round(raggioKm * 1000);
-  const q = `[out:json][timeout:25];(
+// memoria dei risultati per zona (7 giorni): la seconda volta i posti compaiono subito
+const CHIAVE_MEMORIA = "eyedrones_posti_memoria";
+const chiaveZona = ({ lat, lon }, km) => `${lat.toFixed(2)},${lon.toFixed(2)},${km}`;
+function daMemoria(c, km) {
+  try { const m = JSON.parse(localStorage.getItem(CHIAVE_MEMORIA) || "{}")[chiaveZona(c, km)]; return m && Date.now() - m.t < 7 * 86400000 ? m.posti : null; } catch { return null; }
+}
+function inMemoria(c, km, posti) {
+  try {
+    const m = JSON.parse(localStorage.getItem(CHIAVE_MEMORIA) || "{}");
+    m[chiaveZona(c, km)] = { t: Date.now(), posti };
+    const chiavi = Object.keys(m).sort((x, y) => m[y].t - m[x].t).slice(0, 15); // tengo solo le 15 zone più recenti
+    localStorage.setItem(CHIAVE_MEMORIA, JSON.stringify(Object.fromEntries(chiavi.map((k) => [k, m[k]]))));
+  } catch { /* memoria piena: pazienza */ }
+}
+
+// mappe OpenStreetMap (Overpass): belvedere, castelli, laghi, spiagge, cascate, vette, fari
+async function cercaPostiMappe({ lat, lon }, raggioKm) {
+  const r = Math.round(Math.min(raggioKm, 30) * 1000);
+  const q = `[out:json][timeout:12];(
     node["tourism"="viewpoint"](around:${r},${lat},${lon});
     nwr["historic"~"^(castle|ruins|monastery)$"]["name"](around:${r},${lat},${lon});
-    nwr["natural"="water"]["water"~"^(lake|reservoir)$"]["name"](around:${r},${lat},${lon});
+    way["natural"="water"]["water"~"^(lake|reservoir)$"]["name"](around:${r},${lat},${lon});
     nwr["natural"="beach"]["name"](around:${r},${lat},${lon});
-    node["waterway"="waterfall"](around:${r},${lat},${lon});
+    node["waterway"="waterfall"]["name"](around:${r},${lat},${lon});
     node["natural"="peak"]["name"](around:${r},${lat},${lon});
     nwr["man_made"="lighthouse"](around:${r},${lat},${lon});
-  );out center tags 120;`;
-  // i server pubblici delle mappe a volte sono lenti: tempo massimo e un secondo server di riserva
-  let elements = null;
-  for (const url of SERVER_MAPPE) {
+  );out center tags 80;`;
+  const prova = (url) => {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 15000);
-    try {
-      const risp = await fetch(url, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: ctrl.signal });
-      if (risp.ok) { elements = (await risp.json()).elements || []; break; }
-    } catch (e) { /* provo il server successivo */ } finally { clearTimeout(t); }
-  }
-  if (!elements) throw new Error("mappe non raggiungibili");
+    const t = setTimeout(() => ctrl.abort(), 14000);
+    return fetch(url, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: ctrl.signal })
+      .then((risp) => { if (!risp.ok) throw new Error("risposta " + risp.status); return risp.json(); })
+      .finally(() => clearTimeout(t));
+  };
+  const { elements = [] } = await primoBuono(SERVER_MAPPE.map(prova));
   const visti = new Set();
   return elements.map((e) => {
-    const t = e.tags || {};
-    const tipo = tipoDa(t);
+    const tg = e.tags || {};
+    const tipo = tipoDa(tg);
     const p = e.lat != null ? { lat: e.lat, lon: e.lon } : e.center ? { lat: e.center.lat, lon: e.center.lon } : null;
     if (!tipo || !p) return null;
     const info = TIPI_OSM.find((x) => x.chiave === tipo);
-    return { id: `osm-${e.type}-${e.id}`, fonte: "mappe", nome: t.name || info.nome, tipo: info.nome, emoji: info.emoji, ...p };
+    return { id: `osm-${e.type}-${e.id}`, fonte: "mappe", nome: tg.name || info.nome, tipo: info.nome, emoji: info.emoji, ...p };
   }).filter((x) => x && !visti.has(x.nome + x.tipo) && visti.add(x.nome + x.tipo));
+}
+
+// Wikipedia: luoghi d'interesse con una voce (ville, chiese, borghi, monumenti). Risponde in fretta.
+async function cercaPostiWikipedia({ lat, lon }, raggioKm) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 9000);
+  try {
+    const u = `https://it.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${Math.round(Math.min(raggioKm, 10) * 1000)}&gslimit=60&format=json&origin=*`;
+    const risp = await fetch(u, { signal: ctrl.signal });
+    if (!risp.ok) throw new Error("wikipedia " + risp.status);
+    const dati = await risp.json();
+    // tengo i luoghi che di solito sono belli da riprendere, non vie, stazioni o aziende
+    const BELLI = /castell|villa|chiesa|santuario|abbazia|basilica|cattedral|duomo|torre|rocca|forte|borgo|lago|ponte|parco|giardin|belvedere|palazzo|monastero|convento|cascata|monte|colle|eremo|cappella|pieve|reggia|anfiteatro|faro|porto|spiaggia|isola|valle|riserva/i;
+    return (dati?.query?.geosearch || [])
+      .filter((g) => BELLI.test(g.title))
+      .map((g) => ({ id: `wiki-${g.pageid}`, fonte: "mappe", nome: g.title, tipo: "Luogo d'interesse", emoji: "📌", lat: g.lat, lon: g.lon, link: `https://it.wikipedia.org/?curid=${g.pageid}` }));
+  } finally { clearTimeout(t); }
+}
+
+// tutte e due le fonti insieme: basta che una risponda; null solo se non risponde nessuna
+async function cercaPostiOsm(c, raggioKm) {
+  const ricordati = daMemoria(c, raggioKm);
+  if (ricordati) return ricordati;
+  const [mappe, wiki] = await Promise.all([cercaPostiMappe(c, raggioKm).catch(() => null), cercaPostiWikipedia(c, raggioKm).catch(() => null)]);
+  if (mappe === null && wiki === null) return null;
+  const tutti = [...(mappe || [])];
+  for (const w of wiki || []) if (!tutti.some((m) => distanzaKm(m, w) < 0.25 || m.nome.toLowerCase() === w.nome.toLowerCase())) tutti.push(w);
+  if (mappe !== null) inMemoria(c, raggioKm, tutti); // salvo solo i risultati completi
+  return tutti;
 }
 
 function statoZona(zone, p) {
@@ -233,6 +277,7 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
                         <button type="button" onClick={() => onPianifica({ nome: p.nome, lat: p.lat, lon: p.lon })} style={{ ...stLink, background: "#241d16", color: "#ffb877", borderColor: "#ff8c42" }}>📅 Pianifica qui</button>
                         <a href={`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`} target="_blank" rel="noreferrer" style={stLink}>🧭 Portami lì</a>
                         <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={stLink}>🗺️ D-Flight</a>
+                        {p.link && <a href={p.link} target="_blank" rel="noreferrer" style={stLink}>📖 Wikipedia</a>}
                       </div>
                     </div>
                   )}
@@ -240,7 +285,7 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
               );
             })}
           </div>
-          <p style={{ fontSize: 10.5, color: "#6b7480", margin: "12px 0 0 0" }}>Punti panoramici da OpenStreetMap (© contributori OpenStreetMap). Un posto bello non vuol dire che lì si possa volare: controlla sempre zona, NOTAM e regole del luogo (parchi, proprietà private).</p>
+          <p style={{ fontSize: 10.5, color: "#6b7480", margin: "12px 0 0 0" }}>Punti da OpenStreetMap (© contributori OpenStreetMap) e Wikipedia. Un posto bello non vuol dire che lì si possa volare: controlla sempre zona, NOTAM e regole del luogo (parchi, proprietà private).</p>
         </>
       )}
     </div>
@@ -294,7 +339,7 @@ export function PostiVicini({ supabase, punto, tipo, onZonaRossa }) {
       <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 10, fontSize: 11.5, color: "#8b95a3" }}>
         Entro {[2, 5, 10].map((k) => <button key={k} type="button" onClick={() => setKm(k)} style={stChip(km === k)}>{k} km</button>)}
       </div>
-      {stato.caricando && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 10 }}>Cerco i posti intorno…</div>}
+      {stato.caricando && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 10 }}>Cerco i posti intorno… di solito bastano pochi secondi.</div>}
       {stato.errore && <div style={{ fontSize: 12.5, color: "#ff9c9c", marginTop: 10 }}>{stato.errore}</div>}
       {stato.posti && stato.posti.length === 0 && !stato.errore && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 10 }}>Nessun posto segnato qui intorno: prova ad allargare la distanza.</div>}
       {stato.posti && stato.posti.length > 0 && (
@@ -310,13 +355,16 @@ export function PostiVicini({ supabase, punto, tipo, onZonaRossa }) {
                   {(p.note || []).slice(0, 2).map((n) => <div key={n} style={{ fontSize: 11.5, color: "#d6dde6" }}>💬 «{n}»</div>)}
                   {z && <div style={{ fontSize: 11.5, color: z.colore, fontWeight: 600 }}>🛡️ {z.testo}{z.colore !== "#4ade80" && onZonaRossa ? <> · <button type="button" onClick={onZonaRossa} style={{ background: "none", border: "none", color: "#ffb877", padding: 0, fontSize: 11.5, textDecoration: "underline" }}>come si fa?</button></> : null}</div>}
                 </div>
-                <a href={`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: "#3d8bfd", textDecoration: "none", whiteSpace: "nowrap" }}>🧭 Vai</a>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                  <a href={`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: "#3d8bfd", textDecoration: "none", whiteSpace: "nowrap" }}>🧭 Vai</a>
+                  {p.link && <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: "#3d8bfd", textDecoration: "none", whiteSpace: "nowrap" }}>📖 Info</a>}
+                </div>
               </div>
             );
           })}
         </div>
       )}
-      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>{zone === null ? "Carica il file D-Flight qui sopra per vedere la zona di ogni posto. " : ""}Punti da OpenStreetMap e dai consigli dei piloti: controlla sempre zona, NOTAM e permessi del luogo (proprietà private, parchi).</p>
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>{zone === null ? "Carica il file D-Flight qui sopra per vedere la zona di ogni posto. " : ""}Punti da OpenStreetMap, Wikipedia e dai consigli dei piloti: controlla sempre zona, NOTAM e permessi del luogo (proprietà private, parchi).</p>
     </details>
   );
 }
