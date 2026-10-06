@@ -2333,6 +2333,18 @@ function Accesso() {
   return <Login key={modo} modoIniziale={modo} onTorna={torna} />;
 }
 
+// --- Accesso con impronta o volto (passkey) ----------------------------------------------------
+// la impostazione «Passkey» va attivata su Supabase (Authentication), con il dominio app.eyedrones.it
+// IMPRONTA_PRONTA = true solo dopo averla attivata su Supabase, altrimenti il pulsante darebbe errore a tutti
+const IMPRONTA_PRONTA = false;
+const CHIAVE_IMPRONTA = "eyedrones_impronta";
+const improntaPossibile = () => IMPRONTA_PRONTA && typeof window !== "undefined" && !!window.PublicKeyCredential && !!supabase.auth.signInWithPasskey;
+const improntaAttiva = () => { try { return localStorage.getItem(CHIAVE_IMPRONTA) === "1"; } catch { return false; } };
+const segnaImpronta = (v) => { try { v ? localStorage.setItem(CHIAVE_IMPRONTA, "1") : localStorage.removeItem(CHIAVE_IMPRONTA); } catch { /* solo comodità */ } };
+// l'utente ha chiuso la finestra dell'impronta: niente errore da mostrare
+const improntaAnnullata = (err) => /NotAllowed|AbortError|ABORTED|cancel|annull/i.test(`${err?.name || ""} ${err?.code || ""} ${err?.message || ""}`);
+const improntaNonAttivaSulServer = (err) => /404|not found|disabled|not enabled|passkey.*(off|disabled)/i.test(`${err?.status || ""} ${err?.message || ""}`);
+
 // --- Login / Registrazione -----------------------------------------------------------
 
 function Login({ modoIniziale = "login", onTorna }) {
@@ -2372,6 +2384,20 @@ function Login({ modoIniziale = "login", onTorna }) {
     setCaricamento(false);
   };
 
+  const entraConImpronta = async () => {
+    setErrore(null); setMessaggio(null); setCaricamento(true);
+    try {
+      const { error } = await supabase.auth.signInWithPasskey();
+      if (error) throw error;
+      segnaImpronta(true);
+    } catch (err) {
+      if (!improntaAnnullata(err)) setErrore(improntaNonAttivaSulServer(err)
+        ? "L'accesso con impronta non è ancora disponibile: entra con email e password."
+        : "Non ho trovato un'impronta registrata per EyeDrones su questo telefono. Entra con email e password, poi attivala in Impostazioni → «Accesso con impronta».");
+    }
+    setCaricamento(false);
+  };
+
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", fontFamily: "'IBM Plex Sans', sans-serif", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 340 }}>
@@ -2395,10 +2421,12 @@ function Login({ modoIniziale = "login", onTorna }) {
             <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "0 0 14px 0" }}>Inserisci la tua email, ti mandiamo un link per reimpostare la password.</p>
           )}
           <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+            {/* name e autocomplete: così Google/Apple salvano la password e la volta dopo si entra con l'impronta o il volto */}
+            <input type="email" name="email" autoComplete="username" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
             {modo !== "recupera" && (
-              <input type="password" required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} minLength={6} />
+              <input type="password" name="password" autoComplete={modo === "registrati" ? "new-password" : "current-password"} required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} minLength={6} />
             )}
+            {modo === "login" && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: 0 }}>💡 Quando il telefono chiede di salvare la password, tocca «Salva»: la prossima volta entri con l'impronta o il volto.</p>}
             {chiediAccettazione && (
               <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#aab3bf", lineHeight: 1.45, cursor: "pointer" }}>
                 <input type="checkbox" checked={accettato} onChange={(e) => setAccettato(e.target.checked)} style={{ marginTop: 2 }} />
@@ -2415,6 +2443,11 @@ function Login({ modoIniziale = "login", onTorna }) {
               {caricamento ? "Attendi..." : modo === "login" ? "Accedi" : modo === "registrati" ? "Crea account" : "Invia link"}
             </button>
           </form>
+          {modo === "login" && improntaPossibile() && (
+            <button type="button" disabled={caricamento} onClick={entraConImpronta} style={{ width: "100%", marginTop: 10, background: improntaAttiva() ? "#1d3a2a" : "#1f2530", color: improntaAttiva() ? "#4ade80" : "#e7eaee", border: `1px solid ${improntaAttiva() ? "#2c5a3a" : "#333a45"}`, padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+              👆 Entra con l'impronta o il volto
+            </button>
+          )}
           {modo === "login" && (
             <button type="button" onClick={() => { setModo("recupera"); setErrore(null); setMessaggio(null); }} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12, marginTop: 12, padding: 0, width: "100%", textAlign: "center" }}>
               Password dimenticata?
@@ -11974,6 +12007,37 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
 }
 
 // spazio usato da foto/video/documenti e promemoria email delle scadenze
+function AccessoImpronta() {
+  const [stato, setStato] = useState(improntaAttiva() ? "attiva" : "");
+  const [lavoro, setLavoro] = useState(false);
+  if (!improntaPossibile()) return null;
+  const attiva = async () => {
+    setLavoro(true); setStato("");
+    try {
+      const { error } = await supabase.auth.registerPasskey();
+      if (error) throw error;
+      segnaImpronta(true); setStato("attiva");
+    } catch (err) {
+      if (improntaAnnullata(err)) setStato("");
+      else if (/exist|already|registered|duplicate/i.test(err?.message || "")) { segnaImpronta(true); setStato("attiva"); }
+      else setStato(improntaNonAttivaSulServer(err) ? "server" : "errore");
+    }
+    setLavoro(false);
+  };
+  return (
+    <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>👆 Accesso con impronta o volto</div>
+      <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 10px 0", lineHeight: 1.45 }}>
+        {stato === "attiva" ? "Attivo su questo telefono: se l'app ti chiede di rientrare, tocca «Entra con l'impronta o il volto»." : "Se l'app ti chiede di rientrare, entri con l'impronta (o il volto) invece di scrivere la password. Va attivato su ogni telefono o computer."}
+      </p>
+      {stato !== "attiva" && <button type="button" disabled={lavoro} onClick={attiva} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 12.5, fontWeight: 700 }}>{lavoro ? "Attendi…" : "Attiva su questo telefono"}</button>}
+      {stato === "attiva" && <button type="button" disabled={lavoro} onClick={attiva} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>Registra di nuovo</button>}
+      {stato === "server" && <p style={{ fontSize: 12, color: "#f5b942", margin: "8px 0 0 0" }}>Non ancora disponibile: lo stiamo attivando, riprova tra qualche giorno.</p>}
+      {stato === "errore" && <p style={{ fontSize: 12, color: "#ff9c9c", margin: "8px 0 0 0" }}>Non riuscito. Controlla che sul telefono sia attivo il blocco schermo con impronta o volto, poi riprova.</p>}
+    </div>
+  );
+}
+
 function SpazioEPromemoria() {
   const [byte, setByte] = useState(undefined);
   const [promemoria, setPromemoria] = useState(undefined); // undefined = sto leggendo, null = colonna non creata
@@ -12128,6 +12192,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
             {(LINK_PRIVACY || LINK_TERMINI) && <> · <LinkLegali stile={{ color: "#3d8bfd" }} /></>}
           </p>
           <SpazioEPromemoria />
+          <AccessoImpronta />
           <details style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12 }}>
             <summary style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>🔑 Cambia password</summary>
             <div style={{ marginTop: 10, maxWidth: 340 }}><NuovaPassword dentroApp /></div>
