@@ -26,6 +26,16 @@
 
 # pagina pubblica del pilota: app.eyedrones.it/p/<nome> apre l'app, che mostra la pagina senza login
 [[redirects]]
+  from = "/privacy"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/termini"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
   from = "/p/*"
   to = "/index.html"
   status = 200

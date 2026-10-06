@@ -250,3 +250,36 @@ export const DOMANDE = {
     { tema: "Rischio a terra", d: "Vuoi ridurre la distanza dalle persone a 5 m con il tuo C2. Cosa attivi?", r: ["La modalità Sport", "La modalità bassa velocità", "Il Remote ID", "La luce verde"], ok: 1, perche: "Solo con la modalità bassa velocità attiva puoi scendere da 30 m a 5 m." },
   ],
 };
+
+// Le sigle che si incontrano su D-Flight e nelle zone, spiegate come a chi vola per passione
+export const SIGLE_ZONE = [
+  { sigla: "D-Flight", nome: "Il portale ufficiale dei droni in Italia", cosa: "Ci si registra come operatore, si stampa il QR da attaccare al drone e si guarda la mappa delle zone.", fare: "Guardalo sempre prima di volare in un posto nuovo." },
+  { sigla: "ENAC", nome: "Ente Nazionale per l'Aviazione Civile", cosa: "Fa le regole, rilascia gli attestati e le autorizzazioni per i voli fuori dalla categoria Open.", fare: "Lo contatti per la categoria Specifica o per segnalare un incidente." },
+  { sigla: "ENAV", nome: "Chi gestisce il traffico aereo civile", cosa: "Controlla gli aerei intorno agli aeroporti. In molte zone vicino agli aeroporti è l'ente indicato per le autorizzazioni.", fare: "Se la zona dice ENAV, segui la procedura indicata nella scheda della zona (spesso la richiesta parte da D-Flight)." },
+  { sigla: "AM", nome: "Aeronautica Militare", cosa: "Gestisce aeroporti e zone militari.", fare: "Nelle zone militari contatta il comando indicato nella zona; se è vietata, cambia posto." },
+  { sigla: "UAS", nome: "Drone", cosa: "Sta per «sistema aeromobile senza equipaggio». «Zona geografica UAS» = zona con regole speciali per i droni.", fare: "Quando leggi UAS pensa semplicemente «drone»." },
+  { sigla: "CTR", nome: "Zona di controllo di un aeroporto", cosa: "Lo spazio intorno a un aeroporto dove gli aerei decollano e atterrano. Per i droni di solito si può volare solo molto bassi (es. 25, 45 o 60 m) e sopra serve l'autorizzazione.", fare: "Leggi l'altezza libera nella verifica zona e resta sotto." },
+  { sigla: "ATZ", nome: "Zona di traffico di un aeroporto", cosa: "Una zona più piccola intorno ad aeroporti e campi di volo.", fare: "Stesse attenzioni della CTR: guarda limiti e ente nella scheda della zona." },
+  { sigla: "ATM-09", nome: "Le zone ENAC intorno agli aeroporti", cosa: "Indicano fino a che altezza si può volare senza autorizzazione vicino agli aeroporti.", fare: "Se la zona dice «da 25 m», sotto i 25 m sei a posto con le regole della tua categoria." },
+  { sigla: "NFZ", nome: "No Fly Zone", cosa: "Zona dove il volo dei droni non è consentito.", fare: "Non volare: scegli un altro posto." },
+  { sigla: "R · P · D", nome: "Zone Regolamentate, Proibite, Pericolose", cosa: "Zone dello spazio aereo (in Italia hanno nomi come LI-R…, LI-P…, LI-D…). P = proibita, R = con regole o orari, D = attività pericolose (es. esercitazioni).", fare: "P: non si vola. R e D: leggi orari e condizioni nella scheda; nel dubbio non volare." },
+  { sigla: "NOTAM", nome: "Avviso temporaneo", cosa: "Comunicazione che chiude o limita una zona per un periodo: eventi, esercitazioni, elisoccorso, manifestazioni aeree.", fare: "Controllali su D-Flight il giorno prima e la mattina del volo." },
+  { sigla: "AGL / SFC", nome: "Altezza dal suolo", cosa: "AGL = sopra il terreno, SFC = dal suolo. È l'altezza che vedi sul radiocomando.", fare: "Se il limite è in AGL, confrontalo con l'altezza del drone." },
+  { sigla: "AMSL / MSL", nome: "Quota sul livello del mare", cosa: "Il limite è misurato dal mare, non da dove sei. In collina o in montagna cambia tutto.", fare: "Togli la quota del terreno: se la zona parte da 500 m AMSL e tu sei su un terreno a 300 m sul mare, la zona inizia 200 m sopra di te. Con il limite di 120 m della categoria Open resti sotto." },
+  { sigla: "FL · UNL", nome: "Livelli molto alti", cosa: "FL = livello di volo, quote da aerei (migliaia di metri). UNL = senza limite superiore.", fare: "Per i droni conta solo il limite in basso della zona." },
+  { sigla: "Vietato / Serve autorizzazione / Condizionata / Informativa", nome: "I tipi di zona su D-Flight", cosa: "Vietato = non si vola. Serve autorizzazione = si vola solo con il permesso dell'ente. Condizionata = si vola rispettando condizioni (altezza, orari). Informativa = solo un avviso.", fare: "In EyeDrones la verifica zona te lo dice già in parole semplici." },
+  { sigla: "Elisoccorso / HEMS", nome: "Elicotteri di emergenza", cosa: "Intorno agli ospedali con elisuperficie possono atterrare elicotteri in qualsiasi momento.", fare: "Stai lontano; se senti un elicottero, scendi e atterra." },
+];
+
+// Chi contattare in base al tipo di zona
+export const CONTATTI_ZONE = [
+  { emoji: "✈️", dove: "Vicino a un aeroporto civile (CTR, ATZ, zone ATM-09)", chi: "ENAV o il gestore indicato nella zona", come: "Il contatto e la procedura sono nella scheda della zona su D-Flight (e nella verifica zona di EyeDrones). Chiedi con diversi giorni di anticipo." },
+  { emoji: "🪖", dove: "Aeroporti e zone militari", chi: "Il comando dell'Aeronautica Militare indicato nella zona", come: "Usa il contatto scritto nella scheda della zona. Se la zona è vietata, non serve chiedere: cambia posto." },
+  { emoji: "🌲", dove: "Parchi nazionali e regionali, riserve naturali", chi: "L'ente parco", come: "Cerca sul sito dell'ente la pagina «autorizzazioni» o «nulla osta riprese»: spesso c'è un modulo da mandare via email o PEC." },
+  { emoji: "🏛️", dove: "Siti archeologici, musei, monumenti", chi: "L'ente che gestisce il sito", come: "Per le riprese (soprattutto se professionali) chiedi il permesso al gestore del sito." },
+  { emoji: "⚓", dove: "Porti e zone portuali", chi: "Capitaneria di porto o autorità portuale indicata nella zona", come: "Contatto nella scheda della zona su D-Flight o sul sito della Capitaneria." },
+  { emoji: "🏥", dove: "Ospedali con elisuperficie", chi: "L'ente indicato nella zona", come: "Meglio evitare: se proprio serve, usa il contatto della scheda della zona e vola solo con l'ok." },
+  { emoji: "🏠", dove: "Proprietà private, ville, agriturismi", chi: "Il proprietario", come: "Per decollare o atterrare in un terreno privato serve il permesso del proprietario. Per le riprese di persone, la liberatoria (anche in EyeDrones)." },
+  { emoji: "🎉", dove: "Eventi, manifestazioni, ordinanze comunali", chi: "Gli organizzatori e, se c'è un'ordinanza, il Comune", come: "Sopra gli assembramenti non si vola mai in categoria Open. Per eventi chiedi agli organizzatori e controlla eventuali ordinanze del Comune." },
+  { emoji: "📋", dove: "Voli fuori dalle regole Open (oltre 120 m, sopra persone, drone grande)", chi: "ENAC", come: "Servono la categoria Specifica, una dichiarazione STS o un'autorizzazione operativa: di solito con l'aiuto di un operatore o di una scuola." },
+];

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ESAMI, LEZIONI, GUIDA_ZONA_ROSSA, DOMANDE } from "./impara";
+import { ESAMI, LEZIONI, GUIDA_ZONA_ROSSA, DOMANDE, SIGLE_ZONE, CONTATTI_ZONE } from "./impara";
 
 // Sezione «Impara»: lezioni A1/A3 e A2, quiz con spiegazioni e simulazione d'esame, guida zona rossa, consigli di volo.
 const SCHEDE = [
@@ -178,6 +178,28 @@ function Quiz({ esameIniziale = "a1a3" }) {
   );
 }
 
+function SigleZone() {
+  const [cerca, setCerca] = useState("");
+  const elenco = SIGLE_ZONE.filter((x) => !cerca || `${x.sigla} ${x.nome} ${x.cosa}`.toLowerCase().includes(cerca.toLowerCase()));
+  return (
+    <details style={stCard}>
+      <summary style={{ cursor: "pointer", fontSize: 14.5, fontWeight: 700 }}>🔤 Le sigle spiegate</summary>
+      <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "8px 0" }}>Su D-Flight trovi tante sigle: ecco cosa vogliono dire e cosa fare, senza giri di parole.</p>
+      <input placeholder="🔍 Cerca una sigla (es. CTR, NOTAM, AMSL)" value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ width: "100%", background: "#161a1f", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "8px 10px", fontSize: 13, marginBottom: 8 }} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {elenco.map((x) => (
+          <div key={x.sigla} style={{ background: "#161a1f", borderRadius: 8, padding: "8px 10px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700 }}><span style={{ color: "#ff8c42" }}>{x.sigla}</span> · {x.nome}</div>
+            <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{x.cosa}</div>
+            <div style={{ fontSize: 12.5, color: "#4ade80", marginTop: 2 }}>✅ {x.fare}</div>
+          </div>
+        ))}
+        {elenco.length === 0 && <div style={{ fontSize: 12.5, color: "#8b95a3" }}>Sigla non trovata: guardala nella scheda della zona su D-Flight.</div>}
+      </div>
+    </details>
+  );
+}
+
 function ZonaRossa() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -190,7 +212,26 @@ function ZonaRossa() {
           </ul>
         </details>
       ))}
-      <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ ...stSecondario, alignSelf: "flex-start", textDecoration: "none" }}>🗺️ Apri la mappa D-Flight ↗</a>
+      <SigleZone />
+
+      <details style={stCard}>
+        <summary style={{ cursor: "pointer", fontSize: 14.5, fontWeight: 700 }}>📞 Chi contattare</summary>
+        <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "8px 0" }}>Il contatto giusto è quasi sempre scritto nella scheda della zona su D-Flight (e nella verifica zona di EyeDrones). Ecco chi è, caso per caso:</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {CONTATTI_ZONE.map((c) => (
+            <div key={c.dove} style={{ background: "#161a1f", borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>{c.emoji} {c.dove}</div>
+              <div style={{ fontSize: 12.5, color: "#ffb877", marginTop: 2 }}>👉 {c.chi}</div>
+              <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{c.come}</div>
+            </div>
+          ))}
+        </div>
+      </details>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ ...stSecondario, textDecoration: "none" }}>🗺️ Apri la mappa D-Flight ↗</a>
+        <a href="https://www.enac.gov.it/sicurezza-aerea/droni/" target="_blank" rel="noreferrer" style={{ ...stSecondario, textDecoration: "none" }}>🏛️ Pagina droni ENAC ↗</a>
+      </div>
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>Guida pratica: le condizioni esatte di ogni zona e le procedure dell'ente prevalgono sempre. Controlla D-Flight prima di ogni volo.</p>
     </div>
   );
