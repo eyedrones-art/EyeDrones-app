@@ -99,7 +99,7 @@ export default function Collaboratori({ supabase, inputStyle, servizi = [] }) {
 
       {form && (
         <div style={{ ...stCard, display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{campo("nome", "Nome o studio *", { placeholder: "es. Geom. Andrea Curci" })}{campo("citta", "Città")}</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{campo("nome", "Nome o studio *", { placeholder: "es. Mario Rossi o Studio Rossi Droni" })}{campo("citta", "Città")}</div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <div style={{ flex: "1 1 120px" }}>
               <label style={stLabel}>Provincia</label>
