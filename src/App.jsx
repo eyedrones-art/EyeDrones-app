@@ -21,6 +21,17 @@ const SUPABASE_KEY = "sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 installaSegnalazioneErrori(supabase);
 
+// Android: i link a D-Flight aprono l'app ufficiale (it.dflight.app) se è installata, altrimenti il sito come prima
+const LINK_DFLIGHT = "https://www.d-flight.it/web-app/";
+if (typeof document !== "undefined" && /Android/i.test(navigator.userAgent)) {
+  document.addEventListener("click", (e) => {
+    const a = e.target?.closest?.("a[href^='https://www.d-flight.it/web-app']");
+    if (!a || e.defaultPrevented) return;
+    e.preventDefault();
+    window.location.href = `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=it.dflight.app;S.browser_fallback_url=${encodeURIComponent(LINK_DFLIGHT)};end`;
+  }, true);
+}
+
 // --- Spazio per foto, video e documenti --------------------------------------------------------------------
 // Supabase gratuito ha 1 GB in tutto: durante il lancio ogni utente ha un tetto, da alzare con Supabase Pro
 const LIMITE_SPAZIO_MB = 300;
