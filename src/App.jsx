@@ -11,6 +11,8 @@ const Impara = lazy(() => import("./Impara.jsx"));
 const Posti = lazy(() => import("./Posti.jsx"));
 const PostiVicini = lazy(() => import("./Posti.jsx").then((m) => ({ default: m.PostiVicini })));
 const Collaboratori = lazy(() => import("./Collaboratori.jsx"));
+const PaginaPrivacy = lazy(() => import("./Legali.jsx").then((m) => ({ default: m.Privacy })));
+const PaginaTermini = lazy(() => import("./Legali.jsx").then((m) => ({ default: m.Termini })));
 // navigazione da componenti lontani (es. «Come si fa?» nella verifica zona): window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }))
 const vaiA = (detail) => window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }));
 
@@ -36,10 +38,10 @@ const LOGO_PRECEDENTE_PREFISSO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA
 
 const SUPPORT_EMAIL = "info@eyedrones.it";
 
-// informativa privacy e condizioni d'uso (es. pagine generate con Iubenda): incolla qui gli indirizzi quando sono pronti.
+// informativa privacy e condizioni d'uso: pagine dentro l'app (src/Legali.jsx); se un giorno si passa a Iubenda, incolla qui i loro indirizzi.
 // finché sono vuoti i link non compaiono e la registrazione non chiede di accettarle.
-const LINK_PRIVACY = "";
-const LINK_TERMINI = "";
+const LINK_PRIVACY = "/privacy";
+const LINK_TERMINI = "/termini";
 
 // link a privacy e condizioni, solo quelli già disponibili
 function LinkLegali({ stile, separatore = " · " }) {
@@ -1553,6 +1555,10 @@ const CATEGORIE_PER_TIPO = {
 // --- Shell -----------------------------------------------------------
 
 export default function App() {
+  // informativa privacy e condizioni d'uso: pagine pubbliche
+  const percorso = window.location.pathname.replace(/\/+$/, "");
+  if (percorso === "/privacy") return <Suspense fallback={null}><PaginaPrivacy /></Suspense>;
+  if (percorso === "/termini") return <Suspense fallback={null}><PaginaTermini /></Suspense>;
   // link di consegna al cliente: pagina pubblica, senza login
   const tokenGalleria = new URLSearchParams(window.location.search).get("galleria");
   if (tokenGalleria) return <GalleriaCondivisa token={tokenGalleria} />;
