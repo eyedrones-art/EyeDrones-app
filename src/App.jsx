@@ -28,7 +28,9 @@ if (typeof document !== "undefined" && /Android/i.test(navigator.userAgent)) {
     const a = e.target?.closest?.("a[href^='https://www.d-flight.it/web-app']");
     if (!a || e.defaultPrevented) return;
     e.preventDefault();
-    window.location.href = `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=it.dflight.app;S.browser_fallback_url=${encodeURIComponent(LINK_DFLIGHT)};end`;
+    // Chrome non avvia un'app «a caso» (la schermata iniziale non accetta link dal web): chiedo all'app D-Flight
+    // di aprire il suo indirizzo; se non lo gestisce o non è installata, Chrome apre il sito
+    window.location.href = `intent://www.d-flight.it/web-app/#Intent;scheme=https;package=it.dflight.app;S.browser_fallback_url=${encodeURIComponent(LINK_DFLIGHT)};end`;
   }, true);
 }
 
