@@ -2443,7 +2443,7 @@ function Login({ modoIniziale = "login", onTorna }) {
               {caricamento ? "Attendi..." : modo === "login" ? "Accedi" : modo === "registrati" ? "Crea account" : "Invia link"}
             </button>
           </form>
-          {modo === "login" && improntaPossibile() && (
+          {modo === "login" && improntaPossibile() && improntaAttiva() && (
             <button type="button" disabled={caricamento} onClick={entraConImpronta} style={{ width: "100%", marginTop: 10, background: improntaAttiva() ? "#1d3a2a" : "#1f2530", color: improntaAttiva() ? "#4ade80" : "#e7eaee", border: `1px solid ${improntaAttiva() ? "#2c5a3a" : "#333a45"}`, padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
               👆 Entra con l'impronta o il volto
             </button>
@@ -3076,6 +3076,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
         </div>
       )}
 
+      <InvitoImpronta />
       <RiquadroNovita onVai={onNav} />
 
       {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
@@ -12007,6 +12008,37 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
 }
 
 // spazio usato da foto/video/documenti e promemoria email delle scadenze
+// in Home, una volta sola: proposta di attivare l'impronta su questo telefono
+function InvitoImpronta() {
+  const [via, setVia] = useState(() => { try { return improntaAttiva() || localStorage.getItem("eyedrones_impronta_invito") === "no"; } catch { return true; } });
+  const [stato, setStato] = useState("");
+  if (via || !improntaPossibile()) return null;
+  const chiudi = () => { try { localStorage.setItem("eyedrones_impronta_invito", "no"); } catch { /* niente */ } setVia(true); };
+  const attiva = async () => {
+    setStato("attendi");
+    try {
+      const { error } = await supabase.auth.registerPasskey();
+      if (error) throw error;
+      segnaImpronta(true); setStato("fatto"); setTimeout(() => setVia(true), 2500);
+    } catch (err) {
+      if (/exist|already|registered|duplicate/i.test(err?.message || "")) { segnaImpronta(true); setStato("fatto"); setTimeout(() => setVia(true), 2500); }
+      else setStato(improntaAnnullata(err) ? "" : "errore");
+    }
+  };
+  return (
+    <div style={{ background: "#16241c", border: "1px solid #2c5a3a", borderRadius: 10, padding: "12px 14px", marginBottom: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+      <span style={{ fontSize: 22 }}>👆</span>
+      <div style={{ flex: "1 1 200px", fontSize: 13, color: "#d6dde6" }}>
+        {stato === "fatto" ? <strong style={{ color: "#4ade80" }}>Fatto! La prossima volta entri con l'impronta.</strong>
+          : stato === "errore" ? "Non riuscito: controlla che sul telefono sia attivo il blocco con impronta o volto. Puoi riprovare da Impostazioni."
+          : <><strong>Entra con l'impronta</strong> invece della password, se l'app ti chiede di rientrare.</>}
+      </div>
+      {stato !== "fatto" && <button type="button" disabled={stato === "attendi"} onClick={attiva} style={{ background: "#4ade80", color: "#0f1a14", border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 700 }}>{stato === "attendi" ? "Attendi…" : "Attiva"}</button>}
+      {stato !== "fatto" && <button type="button" onClick={chiudi} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12 }}>No grazie</button>}
+    </div>
+  );
+}
+
 function AccessoImpronta() {
   const [stato, setStato] = useState(improntaAttiva() ? "attiva" : "");
   const [lavoro, setLavoro] = useState(false);
