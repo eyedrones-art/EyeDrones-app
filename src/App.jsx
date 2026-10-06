@@ -2395,10 +2395,12 @@ function Login({ modoIniziale = "login", onTorna }) {
             <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "0 0 14px 0" }}>Inserisci la tua email, ti mandiamo un link per reimpostare la password.</p>
           )}
           <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+            {/* name e autocomplete: così Google/Apple salvano la password e la volta dopo si entra con l'impronta o il volto */}
+            <input type="email" name="email" autoComplete="username" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
             {modo !== "recupera" && (
-              <input type="password" required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} minLength={6} />
+              <input type="password" name="password" autoComplete={modo === "registrati" ? "new-password" : "current-password"} required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} minLength={6} />
             )}
+            {modo === "login" && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: 0 }}>💡 Quando il telefono chiede di salvare la password, tocca «Salva»: la prossima volta entri con l'impronta o il volto.</p>}
             {chiediAccettazione && (
               <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#aab3bf", lineHeight: 1.45, cursor: "pointer" }}>
                 <input type="checkbox" checked={accettato} onChange={(e) => setAccettato(e.target.checked)} style={{ marginTop: 2 }} />
