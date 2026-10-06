@@ -4656,6 +4656,20 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
     onReload();
   };
 
+  // promemoria di pagamento su WhatsApp: se in rubrica manca il numero lo chiedo una volta e lo salvo
+  const mandaSollecito = (p, scheda) => {
+    let numero = numeroWhatsapp(scheda?.telefono);
+    if (!numero) {
+      const scritto = window.prompt(`Numero di telefono di ${p.cliente} (es. 333 1234567).\nLo salvo nella rubrica Clienti, così la prossima volta non te lo chiedo.`, scheda?.telefono || "");
+      if (scritto === null) return;
+      numero = numeroWhatsapp(scritto);
+      if (!numero) { alert("Il numero non sembra giusto: scrivilo con tutte le cifre, es. 333 1234567."); return; }
+      const salva = scheda ? supabase.from("clienti").update({ telefono: scritto.trim() }).eq("id", scheda.id) : supabase.from("clienti").insert({ nome: (p.cliente || "").trim(), telefono: scritto.trim() });
+      salva.then(({ error }) => { if (!error && onClientiCambiati) onClientiCambiati(); });
+    }
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(messaggioSollecito(p, azienda))}`, "_blank", "noopener");
+  };
+
   const cambiaStato = async (id, nuovoStato) => {
     setCambiandoStato(id);
     const p = preventivi.find((x) => x.id === id);
@@ -4858,12 +4872,13 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
                   )}
                   {p.stato === "accettato" && !p.pagato && (() => {
                     const rit = giorniRitardo(p);
-                    const tel = (clienti.find((c) => c.nome.trim().toLowerCase() === (p.cliente || "").trim().toLowerCase()) || {}).telefono;
+                    const schedaCliente = clienti.find((c) => c.nome.trim().toLowerCase() === (p.cliente || "").trim().toLowerCase());
+                    const tel = schedaCliente?.telefono;
                     return (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4, fontSize: 11.5, color: rit ? "#ff6b6b" : "#8b95a3" }}>
                         {rit ? <strong>⏰ In ritardo di {rit} {rit === 1 ? "giorno" : "giorni"}</strong> : <span>Pagamento entro</span>}
                         <input type="date" value={scadenzaPagamento(p) || ""} onChange={(e) => cambiaScadenza(p, e.target.value)} title="Entro quando deve pagare" style={{ background: "#161a1f", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 4, padding: "2px 6px", fontSize: 11.5 }} />
-                        {rit > 0 && <a href={`https://wa.me/${numeroWhatsapp(tel) || ""}?text=${encodeURIComponent(messaggioSollecito(p, azienda))}`} target="_blank" rel="noreferrer" style={{ color: "#4ade80", fontWeight: 700, textDecoration: "none", border: "1px solid #2c5a3a", borderRadius: 4, padding: "2px 8px" }}>💬 Manda un promemoria</a>}
+                        {rit > 0 && <button type="button" onClick={() => mandaSollecito(p, schedaCliente)} style={{ background: "none", color: "#4ade80", fontWeight: 700, fontSize: 11.5, border: "1px solid #2c5a3a", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>💬 Manda un promemoria{numeroWhatsapp(tel) ? "" : " · aggiungi numero"}</button>}
                       </div>
                     );
                   })()}
