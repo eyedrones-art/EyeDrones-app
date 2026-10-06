@@ -40,7 +40,7 @@ const conTempoMassimo = (promessa, ms) => Promise.race([promessa, new Promise((_
 const primoBuono = (promesse) => new Promise((ok, no) => { let falliti = 0; promesse.forEach((p) => p.then(ok, () => { if (++falliti === promesse.length) no(new Error("nessuna risposta")); })); });
 
 // memoria dei risultati per zona (7 giorni): la seconda volta i posti compaiono subito
-const CHIAVE_MEMORIA = "eyedrones_posti_memoria";
+const CHIAVE_MEMORIA = "eyedrones_posti_memoria2"; // «2»: dimentica i risultati vecchi con città e aeroporti
 const chiaveZona = ({ lat, lon }, km) => `${lat.toFixed(2)},${lon.toFixed(2)},${km}`;
 function daMemoria(c, km) {
   try { const m = JSON.parse(localStorage.getItem(CHIAVE_MEMORIA) || "{}")[chiaveZona(c, km)]; return m && Date.now() - m.t < 7 * 86400000 ? m.posti : null; } catch { return null; }
@@ -85,20 +85,26 @@ async function cercaPostiMappe({ lat, lon }, raggioKm) {
   }).filter((x) => x && !visti.has(x.nome + x.tipo) && visti.add(x.nome + x.tipo));
 }
 
-// Wikipedia: luoghi d'interesse con una voce (ville, chiese, borghi, monumenti). Risponde in fretta.
+// Wikipedia: luoghi d'interesse con una voce (ville, chiese, castelli, laghi, monumenti). Risponde in fretta.
+// Tengo solo i posti belli da riprendere: niente città e paesi, aeroporti, stazioni, strade, scuole o aziende.
+const BELLI = /\b(castell[oi]|villa|ville|chiesa|santuario|abbazia|basilica|cattedrale|duomo|torre|rocca|forte|fortezza|borgo|lago|laghi|ponte|parco|giardin[oi]|belvedere|palazzo|palazzina|residenza|monastero|convento|cascata|cascate|monte|colle|eremo|cappella|pieve|reggia|anfiteatro|faro|spiaggia|isola|riserva|oasi|sacra|certosa|ricetto|mulino|cascina|lungolago|lungomare|diga|gola|orrido)\b/i;
+const BRUTTI = /\b(comun[ei]|frazione|citt[aà]|quartiere|paese|capoluogo|aeroport[oi]|aeroportuale|aerodromo|aviosuperficie|eliporto|stazione|ferrovi|metropolitana|autostrada|tangenziale|strada|statale|autostazione|ospedale|clinica|scuola|liceo|istituto|universit|stadio|palazzetto|azienda|societ[aà]|squadra|calcio|centro commerciale|ipermercato|cimitero|caserma|carcere|casa circondariale|fabbrica|stabilimento|industria|discarica|depuratore|centrale|inceneritore|ufficio|tribunale|municipio)\b/i;
 async function cercaPostiWikipedia({ lat, lon }, raggioKm) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 9000);
   try {
-    const u = `https://it.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${Math.round(Math.min(raggioKm, 10) * 1000)}&gslimit=60&format=json&origin=*`;
+    const u = `https://it.wikipedia.org/w/api.php?action=query&generator=geosearch&ggscoord=${lat}|${lon}&ggsradius=${Math.round(Math.min(raggioKm, 10) * 1000)}&ggslimit=60&prop=coordinates|description&format=json&formatversion=2&origin=*`;
     const risp = await fetch(u, { signal: ctrl.signal });
     if (!risp.ok) throw new Error("wikipedia " + risp.status);
     const dati = await risp.json();
-    // tengo i luoghi che di solito sono belli da riprendere, non vie, stazioni o aziende
-    const BELLI = /castell|villa|chiesa|santuario|abbazia|basilica|cattedral|duomo|torre|rocca|forte|borgo|lago|ponte|parco|giardin|belvedere|palazzo|monastero|convento|cascata|monte|colle|eremo|cappella|pieve|reggia|anfiteatro|faro|porto|spiaggia|isola|valle|riserva/i;
-    return (dati?.query?.geosearch || [])
-      .filter((g) => BELLI.test(g.title))
-      .map((g) => ({ id: `wiki-${g.pageid}`, fonte: "mappe", nome: g.title, tipo: "Luogo d'interesse", emoji: "📌", lat: g.lat, lon: g.lon, link: `https://it.wikipedia.org/?curid=${g.pageid}` }));
+    return (dati?.query?.pages || [])
+      .filter((g) => g.coordinates?.[0])
+      .filter((g) => {
+        const descr = g.description || "";
+        if (BRUTTI.test(g.title) || BRUTTI.test(descr)) return false;
+        return BELLI.test(g.title) || BELLI.test(descr);
+      })
+      .map((g) => ({ id: `wiki-${g.pageid}`, fonte: "mappe", nome: g.title, tipo: "Luogo d'interesse", emoji: "📌", lat: g.coordinates[0].lat, lon: g.coordinates[0].lon, link: `https://it.wikipedia.org/?curid=${g.pageid}` }));
   } finally { clearTimeout(t); }
 }
 
