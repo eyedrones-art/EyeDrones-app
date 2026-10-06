@@ -2336,7 +2336,7 @@ function Accesso() {
 // --- Accesso con impronta o volto (passkey) ----------------------------------------------------
 // la impostazione «Passkey» va attivata su Supabase (Authentication), con il dominio app.eyedrones.it
 // IMPRONTA_PRONTA = true solo dopo averla attivata su Supabase, altrimenti il pulsante darebbe errore a tutti
-const IMPRONTA_PRONTA = false;
+const IMPRONTA_PRONTA = true;
 const CHIAVE_IMPRONTA = "eyedrones_impronta";
 const improntaPossibile = () => IMPRONTA_PRONTA && typeof window !== "undefined" && !!window.PublicKeyCredential && !!supabase.auth.signInWithPasskey;
 const improntaAttiva = () => { try { return localStorage.getItem(CHIAVE_IMPRONTA) === "1"; } catch { return false; } };
