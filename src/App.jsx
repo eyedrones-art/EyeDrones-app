@@ -3,6 +3,8 @@ import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, 
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
+import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
+import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
@@ -2185,15 +2187,15 @@ function AppShell({ session }) {
 // --- Pagina di presentazione (prima del login) -----------------------------------------------
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10b";
+const VERSIONE_NOVITA = "2026-10c";
 const NOVITA = [
-  { emoji: "📴", testo: "Documenti di controllo anche senza campo", pagina: "documenti-controllo" },
-  { emoji: "🎓", testo: "Lezioni e quiz A1/A3 e A2, con simulazione d'esame", pagina: "impara" },
-  { emoji: "📍", testo: "Posti belli vicino a te e vicino al luogo del volo, anche nel piano", pagina: "posti" },
-  { emoji: "🎬", testo: "Manovre con gli stick e impostazioni della camera nel piano di volo", pagina: "pianificazione" },
-  { emoji: "⏰", testo: "Pagamenti in ritardo con promemoria su WhatsApp, rubrica clienti", pagina: "preventivi" },
-  { emoji: "🤝", testo: "Collaboratori: la tua rubrica dei piloti con cui lavori", pagina: "collaboratori" },
-  { emoji: "📅", testo: "Volo nel calendario e avviso batterie col freddo", pagina: "pianificazione" },
+  { emoji: "🔍", testo: "Ispezioni: foto da fare in ordine, semaforo per la termografia e frasi pronte per il report", pagina: "pianificazione" },
+  { emoji: "🕹️", testo: "Manovre animate: vedi come muovere gli stick e come viene la ripresa", pagina: "guide" },
+  { emoji: "✅", testo: "Il giorno del volo spunti le riprese fatte e hai l'ordine per il montaggio", pagina: "pianificazione" },
+  { emoji: "🎨", testo: "Camera e colori: D-Log o normale, filtri ND, LUT e post-produzione consigliata", pagina: "guide" },
+  { emoji: "👆", testo: "Entra con l'impronta o il volto (attivalo in Impostazioni)", pagina: "impostazioni" },
+  { emoji: "📍", testo: "Posti belli: molti più luoghi nelle città (piazze, torri, chiese, parchi)", pagina: "posti" },
+  { emoji: "🗺️", testo: "Su Android scegli se aprire l'app D-Flight o il sito", pagina: "pianificazione" },
 ];
 function RiquadroNovita({ onVai }) {
   const [visto, setVisto] = useState(() => { try { return localStorage.getItem("eyedrones_novita_viste") === VERSIONE_NOVITA; } catch { return false; } });
@@ -3005,21 +3007,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
           </div>
         )}
 
-        {(() => {
-          const daFare = (p.checklist_stato?.manovre || []).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean);
-          if (daFare.length === 0) return null;
-          return (
-            <details style={{ marginTop: 10, background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 6, padding: "8px 10px" }}>
-              <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#c4b5fd" }}>🎬 {p.checklist_stato?.lavoro ? `${p.checklist_stato.lavoro}: ` : "Da girare: "}{daFare.map((m) => m.nome.replace(/ \(.*\)$/, "")).join(" → ")}</summary>
-              {daFare.map((m) => (
-                <div key={m.id} style={{ fontSize: 12, lineHeight: 1.45, color: "#d6dde6", marginTop: 8 }}>
-                  <strong style={{ color: "#e7eaee" }}>{m.nome}</strong>: {m.come}
-                  <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
-                </div>
-              ))}
-            </details>
-          );
-        })()}
+        <DaGirare piano={p} />
 
         <ConsigliVolo tipo={p.tipo_ispezione} drone={drone} />
 
@@ -7051,6 +7039,7 @@ function ConsigliVolo({ tipo, drone, apertoIniziale = false, inGuida = false }) 
           </ul>
         </>
       )}
+      <CosaConsegnare tipo={tipo} />
       {corsi.length > 0 && (
         <p style={{ fontSize: 12, margin: "10px 0 0 0" }}>🎓 Vuoi imparare meglio? {corsi.map((c, i) => <span key={c.nome}>{i > 0 && " · "}<a href={c.url} target="_blank" rel="noreferrer" style={{ color: "#4ade80" }}>{c.nome} ↗</a></span>)}</p>
       )}
@@ -7084,7 +7073,7 @@ const INQUADRATURE_FOTO = [
   { id: "foto-hdr", nome: "Scatto a forcella (HDR)", come: "Più foto a esposizioni diverse da unire dopo: cielo e ombre vengono bene insieme.", stick: "Nessuno: fermo in volo stazionario, scegli AEB (3 o 5 scatti) nel menu foto.", quando: "Sole forte con ombre, tramonti con controluce." },
   { id: "foto-altezze", nome: "Stessa scena, tre altezze", come: "Scatta lo stesso soggetto da bassa, media e alta quota: in montaggio scegli la migliore.", stick: "Solo sinistro su, fermandoti a ogni altezza per scattare.", quando: "Quando non sai quale inquadratura piacerà di più al cliente." },
 ];
-const TUTTE_MANOVRE = () => [...MANOVRE_VIDEO, ...MANOVRE_FPV, ...INQUADRATURE_FOTO];
+const TUTTE_MANOVRE = () => [...MANOVRE_VIDEO, ...MANOVRE_FPV, ...INQUADRATURE_FOTO, ...Object.values(INQUADRATURE_ISPEZIONE).flat()];
 const SCALETTE_PRONTE = {
   video: [
     { id: "immobiliare", titolo: "Immobiliare", manovre: ["rivelazione", "orbita", "dallalto", "allontanamento"] },
@@ -7118,10 +7107,12 @@ const SCALETTE_LAVORO = [
 function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "video", lavoro, onCambiaLavoro }) {
   const conScelta = Array.isArray(scelte) && onCambiaScelte;
   const cambia = (id) => onCambiaScelte(scelte.includes(id) ? scelte.filter((x) => x !== id) : [...scelte, id]);
-  const elenco = tipo === "fpv" ? MANOVRE_FPV : tipo === "foto" ? INQUADRATURE_FOTO : MANOVRE_VIDEO;
-  const scalette = SCALETTE_PRONTE[tipo] || SCALETTE_PRONTE.video;
+  const ispezione = TIPI_ISPEZIONE.includes(tipo);
+  const elenco = ispezione ? INQUADRATURE_ISPEZIONE[tipo] : tipo === "fpv" ? MANOVRE_FPV : tipo === "foto" ? INQUADRATURE_FOTO : MANOVRE_VIDEO;
+  const scalette = (ispezione ? SCALETTE_ISPEZIONE[tipo] : SCALETTE_PRONTE[tipo]) || SCALETTE_PRONTE.video;
   const [scalettaSel, setScalettaSel] = useState(() => (scalette.find((x) => x.titolo === lavoro) || scalette[0]).id);
-  const titolo = tipo === "foto" ? "📸 Inquadrature per foto belle" : tipo === "fpv" ? "🎬 Manovre FPV" : "🎬 Manovre per video belli";
+  const [inVisione, setInVisione] = useState(null); // manovra con l'animazione aperta
+  const titolo = ispezione ? "🔍 Foto da fare per l'ispezione, in ordine" : tipo === "foto" ? "📸 Inquadrature per foto belle" : tipo === "fpv" ? "🎬 Manovre FPV" : "🎬 Manovre per video belli";
   const usaScaletta = () => {
     const sc = scalette.find((x) => x.id === scalettaSel);
     if (!sc) return;
@@ -7134,7 +7125,7 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
       <p style={{ fontSize: 11.5, color: "#a8a2bd", margin: "8px 0 0 0" }}>🕹️ Gli stick sono descritti nel «modo 2», quello standard dei radiocomandi DJI: sinistro = sali/scendi e ruota, destro = avanti/indietro e di lato.{conScelta ? " Spunta cosa vuoi fare: lo ritrovi in Home il giorno del volo." : ""}</p>
       {conScelta && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 10, background: "#251e33", borderRadius: 6, padding: "8px 10px" }}>
-          <span style={{ fontSize: 12, color: "#e7eaee", fontWeight: 600 }}>Che lavoro fai?</span>
+          <span style={{ fontSize: 12, color: "#e7eaee", fontWeight: 600 }}>{ispezione ? "Che ispezione fai?" : "Che lavoro fai?"}</span>
           <select value={scalettaSel} onChange={(e) => setScalettaSel(e.target.value)} style={{ background: "#1b2028", color: "#e7eaee", border: "1px solid #3d2f5a", borderRadius: 5, padding: "5px 8px", fontSize: 12 }}>
             {scalette.map((sc) => <option key={sc.id} value={sc.id}>{sc.titolo}</option>)}
           </select>
@@ -7155,10 +7146,16 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
             <div>{m.come}</div>
             <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
             <div style={{ color: "#a8a2bd", fontSize: 11.5 }}>👉 {m.quando}</div>
+            {haAnimazione(m.id) && (
+              <button type="button" onClick={() => setInVisione(inVisione === m.id ? null : m.id)} style={{ marginTop: 4, background: inVisione === m.id ? "#7c5cd6" : "#251e33", color: inVisione === m.id ? "#fff" : "#c4b5fd", border: "1px solid #3d2f5a", borderRadius: 12, padding: "3px 10px", fontSize: 11.5, fontWeight: 600 }}>
+                {inVisione === m.id ? "✕ Chiudi" : "▶️ Guarda come si fa"}
+              </button>
+            )}
+            {inVisione === m.id && <AnimazioneManovra id={m.id} />}
           </div>
         ))}
       </div>
-      {tipo !== "foto" && (
+      {["video", "fpv"].includes(tipo) && (
         <>
           <p style={{ fontSize: 12, fontWeight: 700, color: "#c4b5fd", margin: "12px 0 4px 0" }}>Per farle venire bene</p>
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.55, color: "#d6dde6" }}>
@@ -7181,6 +7178,52 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
   );
 }
 
+// il giorno del volo, in Home: le manovre scelte nel piano da spuntare sul posto, con l'animazione degli stick.
+// Le spunte vanno nel piano (checklist_stato.girate) e restano anche sul telefono, così valgono senza campo
+function DaGirare({ piano }) {
+  const daFare = (piano.checklist_stato?.manovre || []).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean);
+  const chiave = `eyedrones_girate_${piano.id}`;
+  const [girate, setGirate] = useState(() => {
+    try { const loc = JSON.parse(localStorage.getItem(chiave) || "null"); if (Array.isArray(loc)) return loc; } catch { /* niente */ }
+    return Array.isArray(piano.checklist_stato?.girate) ? piano.checklist_stato.girate : [];
+  });
+  const [inVisione, setInVisione] = useState(null);
+  if (daFare.length === 0) return null;
+  const cambia = (id) => {
+    const nuove = girate.includes(id) ? girate.filter((x) => x !== id) : [...girate, id];
+    setGirate(nuove);
+    try { localStorage.setItem(chiave, JSON.stringify(nuove)); } catch { /* solo comodità */ }
+    supabase.from("piani_volo").update({ checklist_stato: { ...(piano.checklist_stato || {}), girate: nuove } }).eq("id", piano.id).then(() => {}, () => {});
+  };
+  const fatte = daFare.filter((m) => girate.includes(m.id)).length;
+  const ispezione = TIPI_ISPEZIONE.includes(piano.tipo_ispezione);
+  const tutte = fatte === daFare.length;
+  const breve = (m) => m.nome.replace(/ \(.*\)$/, "");
+  return (
+    <details open style={{ marginTop: 10, background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 6, padding: "8px 10px" }}>
+      <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#c4b5fd" }}>
+        {ispezione ? "🔍" : "🎬"} {piano.checklist_stato?.lavoro ? `${piano.checklist_stato.lavoro} · ` : ispezione ? "Foto da fare · " : "Da girare · "}<span style={{ color: tutte ? "#4ade80" : "#e7eaee" }}>{fatte} di {daFare.length} {ispezione ? "fatte" : "girate"}</span>
+      </summary>
+      {daFare.map((m, i) => (
+        <div key={m.id} style={{ marginTop: 8, paddingTop: 8, borderTop: i ? "1px solid #2e2540" : "none" }}>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer", fontSize: 13, fontWeight: 700, color: girate.includes(m.id) ? "#8b95a3" : "#e7eaee", textDecoration: girate.includes(m.id) ? "line-through" : "none" }}>
+            <input type="checkbox" checked={girate.includes(m.id)} onChange={() => cambia(m.id)} style={{ width: 18, height: 18 }} /> {i + 1}. {m.nome}
+          </label>
+          {!girate.includes(m.id) && (
+            <div style={{ fontSize: 12, lineHeight: 1.45, color: "#d6dde6", marginLeft: 26 }}>
+              <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
+              {haAnimazione(m.id) && <button type="button" onClick={() => setInVisione(inVisione === m.id ? null : m.id)} style={{ marginTop: 4, background: inVisione === m.id ? "#7c5cd6" : "#251e33", color: inVisione === m.id ? "#fff" : "#c4b5fd", border: "1px solid #3d2f5a", borderRadius: 12, padding: "3px 10px", fontSize: 11.5, fontWeight: 600 }}>{inVisione === m.id ? "✕ Chiudi" : "▶️ Guarda come si fa"}</button>}
+              {inVisione === m.id && <AnimazioneManovra id={m.id} />}
+            </div>
+          )}
+        </div>
+      ))}
+      {["video", "foto", "fpv"].includes(piano.tipo_ispezione) && <ImpostazioniCamera tipo={piano.tipo_ispezione === "foto" ? "foto" : "video"} />}
+      {tutte && <div style={{ marginTop: 10, fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{ispezione ? "✅ Tutte le foto fatte! Ora caricale nell'ispezione e prepara il report (le frasi pronte sono nei consigli qui sotto)." : `✅ Tutto girato! In montaggio mettile in quest'ordine: ${daFare.map(breve).join(" → ")}`}</div>}
+    </details>
+  );
+}
+
 // impostazioni della camera in base alla luce (indicative, con ISO 100 come base)
 const LUCI_CAMERA = [
   { id: "sole", ev: 15, label: "☀️ Sole pieno", video: { iso: "100", tempo: "1/50 a 25 fps (1/60 a 30 fps)", nd: "ND forti: ND64 o più (con obiettivi molto luminosi anche ND128–256)", wb: "5500 K fisso" }, foto: { iso: "100", tempo: "automatico o 1/500–1/2000", extra: "Ombre dure: prova lo scatto a forcella (AEB) e compensazione −0,3/−0,7" } },
@@ -7189,6 +7232,59 @@ const LUCI_CAMERA = [
   { id: "oro", ev: 11, label: "✨ Ora d'oro", video: { iso: "100", tempo: "1/50 a 25 fps", nd: "ND4–ND16 (la luce cala in fretta: ricontrolla ogni pochi minuti)", wb: "5500 K fisso, per tenere i colori caldi" }, foto: { iso: "100", tempo: "automatico", extra: "Controluce col sole: forcella (AEB) per non bruciare il cielo" } },
   { id: "blu", label: "🌆 Dopo il tramonto / ora blu", video: { iso: "100–800 (non oltre, sui droni piccoli fa rumore)", tempo: "1/50 a 25 fps", nd: "Nessun filtro", wb: "4500–5500 K fisso" }, foto: { iso: "100", tempo: "lungo, fino a 1–2 s solo senza vento: fai più scatti", extra: "Usa la modalità notte o la forcella se il drone le ha" } },
 ];
+
+// profilo colore e post-produzione: due strade, in base a quanto tempo hai dopo il volo
+const COLORE_VIDEO = {
+  subito: {
+    titolo: "⚡ Pronto subito",
+    perchi: "Se consegni in giornata o non vuoi correggere i colori.",
+    righe: [
+      ["Profilo", "Normale (o «Standard»). Su alcuni DJI c'è anche HLG: colori ricchi, ma rende al meglio su schermi HDR."],
+      ["Esposizione", "Guarda l'istogramma: il cielo non deve «toccare» il bordo destro (bruciato)."],
+      ["Dopo", "Basta poco: un filo di contrasto e saturazione nell'app di montaggio, oppure niente."],
+    ],
+  },
+  dopo: {
+    titolo: "🎨 Lo correggo dopo",
+    perchi: "Per matrimoni, immobiliare e lavori curati: più margine su cielo e ombre.",
+    righe: [
+      ["Profilo", "D-Log M (Mini 4 Pro, Air 3, Avata 2 e simili), D-Log (Mavic 3) o D-Cinelike sui modelli che non hanno il Log. Serve il 10 bit, se il drone lo permette."],
+      ["ISO", "Usa l'ISO più basso che il drone ti lascia in Log (su alcuni modelli il minimo è più alto di 100)."],
+      ["Esposizione", "Un filo più chiara del normale (circa +0,3/+0,7): le ombre del Log sono le prime a fare rumore. Il cielo però non deve bruciare."],
+      ["Bianco", "Fisso, mai automatico: altrimenti i colori cambiano a metà ripresa."],
+    ],
+    post: [
+      "1. Applica la LUT ufficiale DJI del tuo profilo (es. «D-Log M to Rec.709»): si scarica gratis dalla pagina del drone sul sito DJI.",
+      "2. Sistema esposizione e bilanciamento del bianco, poi un po' di contrasto.",
+      "3. Saturazione con calma: i prati non devono diventare fluo e la pelle deve restare naturale.",
+      "4. Stessa correzione su tutte le clip dello stesso lavoro, così il video ha un aspetto unico.",
+    ],
+    app: "Da computer: DaVinci Resolve (gratis, il più completo). Da telefono: CapCut (gratis) o LumaFusion (iPhone/iPad, a pagamento). Tutti accettano le LUT.",
+  },
+};
+
+function ColoreVideo() {
+  const [strada, setStrada] = useState("subito");
+  const c = COLORE_VIDEO[strada];
+  const riga = (k, v) => <div key={k} style={{ display: "flex", gap: 8, fontSize: 12.5, padding: "4px 0", borderBottom: "1px solid #24303d" }}><span style={{ width: 78, flexShrink: 0, color: "#8fb3d9" }}>{k}</span><span style={{ color: "#e7eaee" }}>{v}</span></div>;
+  return (
+    <div style={{ marginTop: 12, background: "#111821", border: "1px solid #24303d", borderRadius: 6, padding: "8px 10px" }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8fc1ff", marginBottom: 6 }}>🎨 Colori: come girare e come correggere</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {Object.entries(COLORE_VIDEO).map(([k, x]) => <button key={k} type="button" onClick={() => setStrada(k)} style={{ background: strada === k ? "#8fc1ff" : "transparent", color: strada === k ? "#141c26" : "#8fc1ff", border: "1px solid #8fc1ff", borderRadius: 5, padding: "3px 10px", fontSize: 11.5, fontWeight: 600 }}>{x.titolo}</button>)}
+      </div>
+      <p style={{ fontSize: 11.5, color: "#a9b4c2", margin: "6px 0 2px 0" }}>{c.perchi}</p>
+      {c.righe.map(([k, v]) => riga(k, v))}
+      {c.post && (
+        <>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#8fc1ff", margin: "10px 0 4px 0" }}>In post-produzione</div>
+          {c.post.map((x) => <div key={x} style={{ fontSize: 12.5, color: "#d6dde6", lineHeight: 1.45, marginBottom: 3 }}>{x}</div>)}
+          <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 6 }}>💻 {c.app}</div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function ImpostazioniCamera({ tipo = "video", lucePrevista }) {
   const [luceSel, setLuceSel] = useState(lucePrevista || "sole");
@@ -7217,10 +7313,11 @@ function ImpostazioniCamera({ tipo = "video", lucePrevista }) {
         {modo === "video" && riga("Bilanciamento", v.wb)}
         {modo === "foto" && riga("Formato", "RAW (DNG) + JPG")}
         {modo === "foto" && riga("Dritta", v.extra)}
-        {modo === "video" && riga("Profilo colore", "Normale; D-Log solo se poi correggi i colori")}
+
       </div>
       <p style={{ fontSize: 11.5, color: "#c3cad4", margin: "8px 0 0 0" }}>💡 Non te la senti di fare tutto a mano? Blocca ISO a 100 e lascia l'esposizione automatica con compensazione −0,3/−0,7 per non bruciare il cielo.{modo === "video" && l.ev ? " Il filtro ND esatto per il tuo drone te lo dà il calcolatore qui sotto." : ""}</p>
       {modo === "video" && l.ev && <CalcolatoreND key={"nd-" + l.id} evIniziale={l.ev} />}
+      {modo === "video" && <ColoreVideo />}
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Valori indicativi: cambiano con il drone e l'obiettivo. Guarda sempre l'istogramma.</p>
     </details>
   );
@@ -7734,6 +7831,9 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} scelte={manovreScelte} onCambiaScelte={setManovreScelte} lavoro={lavoroScelto} onCambiaLavoro={setLavoroScelto} />
             </>
           )}
+          {TIPI_ISPEZIONE.includes(tipoIspezione) && (
+            <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} scelte={manovreScelte} onCambiaScelte={setManovreScelte} lavoro={lavoroScelto} onCambiaLavoro={setLavoroScelto} />
+          )}
 
           <StrumentiLavoro key={tipoIspezione} tipo={tipoIspezione} />
 
@@ -7756,6 +7856,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               </div>
             </div>
           )}
+          {giornoPrevisto && <SemaforoTermografia tipo={tipoIspezione} orari={meteo?.orari} data={dataPrevista} ora={oraPrevista} />}
           {giornoPrevisto && (() => {
             const hP = oraPrevista ? Number(oraPrevista.slice(0, 2)) : null;
             const tOra = hP != null ? (meteo?.orari || []).find((o) => o.data === dataPrevista && o.ora === hP)?.temperatura : null;
