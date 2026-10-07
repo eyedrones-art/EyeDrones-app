@@ -6303,10 +6303,13 @@ const traduciMotivi = (m) => String(m || "").split(/\s*,\s*/).filter(Boolean).ma
 // cerca un indirizzo in Italia (via, numero, comune) con OpenStreetMap; se col numero civico non lo trova, riprova
 // senza numero (punto a metà della via). Restituisce { lat, lon, etichetta } oppure null
 async function cercaIndirizzoItalia(testo) {
-  const pulito = String(testo || "").trim();
+  const pulito = String(testo || "").trim().replace(/([a-zà-ù])(\d)/gi, "$1 $2").replace(/(\d)([a-zà-ù]{3,})/gi, "$1 $2").replace(/\s{2,}/g, " ");
   if (!pulito) return null;
   const senzaNumero = pulito.replace(/\b(n\.?|nr\.?|civico)\s*/gi, "").replace(/\b\d+\s*[a-z]?(\/\s*\d+)?\b/gi, "").replace(/\s+,/g, ",").replace(/\s{2,}/g, " ").trim();
-  for (const q of [...new Set([pulito, senzaNumero])]) {
+  // «via Roma 148 cafasse» senza virgola: provo anche «via Roma 148, cafasse» (l'ultima parola come comune)
+  const parole = pulito.split(" ");
+  const conVirgola = !pulito.includes(",") && parole.length >= 3 ? `${parole.slice(0, -1).join(" ")}, ${parole.at(-1)}` : null;
+  for (const q of [...new Set([pulito, conVirgola, senzaNumero].filter(Boolean))]) {
     try {
       const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(q)}`);
       const [primo] = await r.json();
@@ -7537,7 +7540,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           setPuntoIndirizzo(trovato);
           datiMeteo = await recuperaMeteo({ lat: trovato.lat, lon: trovato.lon, nome: destinazione.nome });
         } else {
-          const comune = testo.includes(",") ? testo.split(",").pop().trim() : "";
+          const comune = testo.includes(",") ? testo.split(",").pop().trim() : (testo.trim().split(/\s+/).length > 1 ? testo.trim().split(/\s+/).pop() : "");
           datiMeteo = await recuperaMeteo(testo).catch((err) => (comune ? recuperaMeteo(comune) : Promise.reject(err)));
         }
       }
