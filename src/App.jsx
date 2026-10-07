@@ -2012,6 +2012,7 @@ function AppShell({ session }) {
     const ascolta = (e) => {
       const d = e.detail || {};
       if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
+      else if (d.pagina === "permessi") { setPage("permessi"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
     return () => window.removeEventListener("eyedrones-vai", ascolta);
@@ -6499,7 +6500,11 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
       verificata: new Date().toISOString(),
       fileDel: archivio.caricato,
       punto: `${latP.toFixed(5)}, ${lonP.toFixed(5)}`,
-      zone: esito.dentro.map((z) => ({ nome: z.nome, restrizione: z.restrizione, limiti: formattaLimiti(z.limiti), da: partenzaZona(z) })),
+      zone: esito.dentro.map((z) => {
+        // l'ente a cui chiedere il permesso (per il riquadro delle regole e il PDF)
+        const a = (z.autorita || []).find((x) => valoreReale(x.nome) || valoreReale(x.email)) || {};
+        return { nome: z.nome, restrizione: z.restrizione, limiti: formattaLimiti(z.limiti), da: partenzaZona(z), ente: valoreReale(a.nome) || null, email: valoreReale(a.email) || null, preavviso: valoreReale(a.preavviso) || null };
+      }),
       altezzaLibera: altezzaLibera(esito.dentro),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -6672,7 +6677,7 @@ const MOTIVI_ZONA_NON_CONTROLLATA = {
   carico: "sto caricando le zone…",
 };
 
-function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zonaApprossimata, attestati, notte, fpv, tipo }) {
+function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zonaApprossimata, zoneDelPunto, permessiRegistrati = 0, attestati, notte, fpv, tipo }) {
   const classe = (String(drone?.marcatura_classe || "").toUpperCase().match(/C\s*([0-6])/) || [])[1];
   const chiave = classe != null ? `C${classe}` : null;
   const info = chiave && REGOLE_CLASSE[chiave];
@@ -6706,12 +6711,43 @@ function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zon
               ? voce(null, <>Altezza massima <strong>{altezza} m dal suolo</strong>{altezzaZona != null && altezzaZona < 120 ? " (limite della zona senza autorizzazione)" : ""}</>)
               : voce(false, <>Qui <strong>senza autorizzazione non si può decollare</strong>: guarda la zona qui sopra</>)}
             {zonaApprossimata && <li style={{ marginTop: 3, color: "#f5b942" }}>⚠ Posizione approssimativa: controlla che il puntino sulla mappa sia nel posto esatto.</li>}
+            {(() => {
+              // permessi da chiedere per le zone in cui cade il punto
+              const daChiedere = (zoneDelPunto || []).filter((z) => z.restrizione === "REQ_AUTHORISATION" || z.restrizione === "PROHIBITED");
+              if (daChiedere.length === 0) return voce(true, "Permessi della zona: non serve nessuna autorizzazione per questo punto");
+              return (
+                <li style={{ marginTop: 4, listStyle: "none", marginLeft: -18, background: "#2a1d14", border: "1px solid #ff8c4266", borderRadius: 6, padding: "8px 10px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#ffb877" }}>🛂 Permessi da chiedere</div>
+                  {daChiedere.map((z, i) => {
+                    const vietata = z.restrizione === "PROHIBITED";
+                    const quando = z.da > 0 ? `solo se sali oltre ${z.da} m` : "già da terra";
+                    return (
+                      <div key={i} style={{ fontSize: 12, color: "#e7eaee", marginTop: 4 }}>
+                        • {vietata ? <>Volo <strong>vietato</strong> {quando}: si vola solo con un'esenzione</> : <><strong>Autorizzazione</strong> {quando}</>}
+                        {z.ente ? <> di <strong>{z.ente}</strong></> : ""} per «{z.nome}»
+                        {z.preavviso ? ` · chiedila con almeno ${durataLeggibile(z.preavviso)} di anticipo` : ""}
+                        {z.email ? <> · <a href={`mailto:${z.email}`} style={{ color: "#3d8bfd" }}>{z.email}</a></> : ""}
+                      </div>
+                    );
+                  })}
+                  <div style={{ fontSize: 11.5, marginTop: 6, color: permessiRegistrati > 0 ? "#4ade80" : "#ffd9a0" }}>
+                    {permessiRegistrati > 0 ? `✓ Hai ${permessiRegistrati === 1 ? "un permesso registrato" : `${permessiRegistrati} permessi registrati`} per questo luogo: controlla che sia valido per la data del volo.`
+                      : "⚠ Non hai ancora un permesso registrato per questo luogo. Quando lo ottieni, salvalo in «Permessi» così finisce nei documenti del volo."}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                    <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa" })} style={{ background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si chiede?</button>
+                    <button type="button" onClick={() => vaiA({ pagina: "permessi" })} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>📋 I miei permessi</button>
+                  </div>
+                </li>
+              );
+            })()}
           </>
         ) : (
           <li style={{ marginTop: 4, listStyle: "none", marginLeft: -18, background: "#3a2a12", border: "1px solid #f5b94266", borderRadius: 6, padding: "8px 10px" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#ffd9a0" }}>❓ Altezza massima: zona non controllata</div>
             <div style={{ fontSize: 12, color: "#ffd9a0", marginTop: 2 }}>{MOTIVI_ZONA_NON_CONTROLLATA[motivoZona] || "controlla la zona qui sopra o su D-Flight"}.</div>
             <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4 }}>Il massimo di 120 m vale solo fuori dalle zone D-Flight: vicino ad aeroporti, parchi e zone protette può essere 25 m o meno, oppure serve l'autorizzazione o è vietato.</div>
+            <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 3 }}>🛂 Per lo stesso motivo non so ancora <strong>se servono permessi</strong>: lo vedi appena la zona è controllata.</div>
           </li>
         )}
         {voce(null, fpv ? "In FPV serve un osservatore accanto a te che tenga sempre il drone in vista" : "Drone sempre in vista, senza binocoli")}
@@ -8002,6 +8038,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             zonaVerificata={!!(zonaStato ? zonaStato.controllata : zonaEsito)}
             motivoZona={zonaStato && zonaStato.motivo}
             zonaApprossimata={!!(zonaStato && zonaStato.approssimata)}
+            zoneDelPunto={zonaEsito && zonaEsito.zone}
+            permessiRegistrati={permessiZona.length}
             attestati={attestatiUtente}
             notte={!!(luce && oraPrevista && (() => {
               const [h, m] = oraPrevista.split(":").map(Number);
