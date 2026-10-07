@@ -1767,6 +1767,27 @@ function calendarioDaPiano(p, drone) {
     dettagli: [drone ? `Drone: ${drone.nome}` : "", "Prima di partire apri EyeDrones: meteo, zona, checklist e documenti per il controllo.", "https://app.eyedrones.it"].filter(Boolean).join("\n"),
   });
 }
+// navigatore verso il luogo del piano: coordinate della verifica zona o del luogo, altrimenti il nome scritto
+function destinazionePiano(p) {
+  const c = leggiCoordinate(p?.checklist_stato?.zona?.punto) || leggiCoordinate(p?.luogo_coordinate);
+  if (c) return { c, testo: `${c.lat.toFixed(6)},${c.lon.toFixed(6)}` };
+  const nome = String(p?.impianto_nome || "").trim();
+  return nome ? { c: null, testo: nome } : null;
+}
+function PulsantiNavigatore({ piano }) {
+  const d = destinazionePiano(piano);
+  if (!d) return null;
+  const maps = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d.testo)}`;
+  const waze = d.c ? `https://waze.com/ul?ll=${d.c.lat.toFixed(6)},${d.c.lon.toFixed(6)}&navigate=yes` : `https://waze.com/ul?q=${encodeURIComponent(d.testo)}&navigate=yes`;
+  const st = { display: "inline-flex", alignItems: "center", gap: 5, background: "#13202e", border: "1px solid #2a4562", color: "#8fc1ff", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, fontWeight: 600, textDecoration: "none" };
+  return (
+    <>
+      <a href={maps} target="_blank" rel="noreferrer" style={st} title={d.c ? "Porta al punto del volo" : "Cerca il luogo per nome"}>🧭 Google Maps</a>
+      <a href={waze} target="_blank" rel="noreferrer" style={st}>🚗 Waze</a>
+    </>
+  );
+}
+
 function PulsantiCalendario({ dati, compatto = false }) {
   if (!dati) return null;
   const st = { display: "inline-flex", alignItems: "center", gap: 5, background: compatto ? "none" : "#1f2530", color: compatto ? "#3d8bfd" : "#e7eaee", border: compatto ? "none" : "1px solid #333a45", borderRadius: 6, padding: compatto ? "2px 4px" : "8px 12px", fontSize: 12.5, textDecoration: compatto ? "underline" : "none" };
@@ -2187,8 +2208,9 @@ function AppShell({ session }) {
 // --- Pagina di presentazione (prima del login) -----------------------------------------------
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10c";
+const VERSIONE_NOVITA = "2026-10d";
 const NOVITA = [
+  { emoji: "🧭", testo: "Dal piano parti subito: Google Maps o Waze ti portano al luogo del volo", pagina: "pianificazione" },
   { emoji: "🔍", testo: "Ispezioni: foto da fare in ordine, semaforo per la termografia e frasi pronte per il report", pagina: "pianificazione" },
   { emoji: "🕹️", testo: "Manovre animate: vedi come muovere gli stick e come viene la ripresa", pagina: "guide" },
   { emoji: "✅", testo: "Il giorno del volo spunti le riprese fatte e hai l'ordine per il montaggio", pagina: "pianificazione" },
@@ -3014,6 +3036,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
           <button onClick={() => onApriPiano(p.id)} style={btn(true)}>Apri il piano</button>
           <button onClick={() => onDocumenti(p.id)} style={btn(false)}>🚔 Documenti controllo</button>
+          <PulsantiNavigatore piano={p} />
           <button onClick={() => onRegistra({
             data: p.data_prevista,
             ...(oraP ? { ora: oraP } : {}),
@@ -8117,6 +8140,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
                     drone_id: p.drone_id || "",
                     tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
                   })} style={{ background: "#241d16", border: "1px solid #ff8c42", color: "#ffb877", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, fontWeight: 600 }}>📷 Aggiungi foto/video</button>
+                  <PulsantiNavigatore piano={p} />
                   <button onClick={() => apriPiano(p)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Apri / Modifica</button>
                   <button onClick={() => eliminaPiano(p.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
                 </div>
