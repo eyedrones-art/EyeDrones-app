@@ -6666,6 +6666,113 @@ const REGOLE_CLASSE = {
   C4: { sottocategoria: "A3", attestato: "A1/A3", peso: "meno di 25 kg", regole: ["Nessuna persona non coinvolta nell'area di volo", "Almeno 150 m da aree residenziali, commerciali, industriali o ricreative"] },
 };
 
+// lo scopo del volo scritto come in una richiesta
+const SCOPO_RICHIESTA = {
+  video: "riprese video", foto: "riprese fotografiche", fpv: "riprese video FPV", fotovoltaico: "ispezione termografica di impianto fotovoltaico",
+  danni: "ispezione per la verifica di danni", edifici: "ispezione termografica di edificio", elettrico: "ispezione di impianto elettrico",
+  rilievo: "rilievo fotogrammetrico", agricoltura: "mappatura agricola", pulizia: "pulizia con drone",
+};
+
+// --- Richiesta di autorizzazione per una zona D-Flight: l'email già scritta con i dati del piano -----------------
+function RichiestaPermesso({ zona, dati, drone, attestati, sottocategoria }) {
+  const [aperta, setAperta] = useState(false);
+  const leggi = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
+  const [telefono, setTelefono] = useState(() => leggi("eyedrones_telefono_pilota", ""));
+  const oraFine = (() => {
+    const [h, m] = String(dati.ora || "").split(":").map(Number);
+    return Number.isFinite(h) ? `${String(Math.min(23, h + 2)).padStart(2, "0")}:${String(m || 0).padStart(2, "0")}` : "";
+  })();
+  const [orario, setOrario] = useState(dati.ora ? `dalle ${dati.ora} alle ${oraFine}` : "");
+  const [altezza, setAltezza] = useState("60");
+  const [raggio, setRaggio] = useState("100");
+  const [scopo, setScopo] = useState(SCOPO_RICHIESTA[dati.tipo] || "");
+  const [copiato, setCopiato] = useState(false);
+  const salvaTelefono = (v) => { setTelefono(v); try { localStorage.setItem("eyedrones_telefono_pilota", v); } catch { /* niente */ } };
+
+  const oggi = new Date();
+  const valido = (a) => !a.data_scadenza || new Date(a.data_scadenza) >= oggi;
+  const attestato = (attestati || []).filter(valido).find((a) => /\bA2\b|A1\s*\/?\s*A3|STS/i.test(a.tipo || ""));
+  const assicurazione = (attestati || []).filter(valido).find((a) => /assicura/i.test(a.tipo || ""));
+  const codiceOperatore = drone && drone.registrazione_dflight;
+  const classe = drone && drone.marcatura_classe;
+
+  const mancano = [
+    !dati.data && "la data del volo",
+    !orario.trim() && "l'orario",
+    !dati.punto && "il punto del volo (coordinate)",
+    !drone && "il drone (sceglilo nel piano)",
+    drone && !codiceOperatore && "il codice operatore D-Flight (aggiungilo in «I miei droni»)",
+    !attestato && "l'attestato del pilota (in «Attestati»)",
+    !telefono.trim() && "il tuo telefono",
+  ].filter(Boolean);
+
+  const riga = (etichetta, valore) => (valore ? `- ${etichetta}: ${valore}\n` : "");
+  const oggetto = `Richiesta autorizzazione volo UAS - ${zona.nome}${dati.data ? ` - ${formatData(dati.data)}` : ""}`;
+  const testo =
+    `Gentile ${zona.ente || "Ente"},\n\n` +
+    `con la presente chiedo l'autorizzazione a effettuare un volo con drone (UAS) nella zona geografica «${zona.nome}»${zona.limiti ? ` (zona ${zona.limiti})` : ""}.\n\n` +
+    `DATI DEL VOLO\n` +
+    riga("Data", dati.data ? formatData(dati.data) : "") +
+    riga("Orario", orario.trim()) +
+    riga("Luogo", dati.luogo) +
+    riga("Coordinate del punto di decollo", dati.punto) +
+    riga("Area di volo", raggio ? `cerchio di ${raggio} m di raggio intorno al punto` : "") +
+    riga("Altezza massima", altezza ? `${altezza} m dal suolo (AGL)` : "") +
+    riga("Scopo del volo", scopo.trim()) +
+    riga("Categoria", sottocategoria ? `Open ${sottocategoria}, drone sempre in vista (VLOS)` : "Open, drone sempre in vista (VLOS)") +
+    `\nDRONE\n` +
+    riga("Modello", drone ? [drone.modello || drone.nome, classe ? `classe ${classe}` : "", drone.matricola ? `matricola ${drone.matricola}` : ""].filter(Boolean).join(", ") : "") +
+    riga("Codice operatore D-Flight", codiceOperatore) +
+    `\nPILOTA\n` +
+    riga("Nome / operatore", dati.pilota) +
+    riga("Attestato", attestato ? `${attestato.tipo}${attestato.numero_riferimento ? ` n. ${attestato.numero_riferimento}` : ""}` : "") +
+    riga("Assicurazione RC", assicurazione ? `${assicurazione.tipo}${assicurazione.numero_riferimento ? ` n. ${assicurazione.numero_riferimento}` : ""}${assicurazione.data_scadenza ? `, valida fino al ${formatData(assicurazione.data_scadenza)}` : ""}` : "") +
+    riga("Telefono raggiungibile durante il volo", telefono.trim()) +
+    riga("Email", dati.email) +
+    `\nMi impegno a rispettare le prescrizioni che vorrete indicare (orari, quote, area, eventuale contatto prima del decollo).\n` +
+    `Resto a disposizione per qualsiasi chiarimento.\n\nCordiali saluti,\n${dati.pilota || ""}`;
+
+  const copia = async () => {
+    try { await navigator.clipboard.writeText(`${oggetto}\n\n${testo}`); setCopiato(true); setTimeout(() => setCopiato(false), 2500); }
+    catch { alert("Non riesco a copiare: tieni premuto sul testo per selezionarlo."); }
+  };
+  const campo = { background: "#12151a", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 5, padding: "5px 8px", fontSize: 12, width: "100%", boxSizing: "border-box" };
+  const etich = { fontSize: 10.5, color: "#8b95a3", display: "block", marginBottom: 2 };
+
+  if (!aperta) {
+    return <button type="button" onClick={() => setAperta(true)} style={{ marginTop: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 700 }}>✉️ Prepara la richiesta{zona.ente ? ` a ${zona.ente}` : ""}</button>;
+  }
+  return (
+    <div style={{ marginTop: 8, background: "#161a1f", border: "1px solid #333a45", borderRadius: 6, padding: 10 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#e7eaee" }}>✉️ Richiesta per «{zona.nome}»</div>
+      <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Controlla i dati: il testo si aggiorna mentre scrivi.</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 8 }}>
+        <label><span style={etich}>Orario</span><input value={orario} onChange={(e) => setOrario(e.target.value)} placeholder="dalle 10:00 alle 12:00" style={campo} /></label>
+        <label><span style={etich}>Il tuo telefono</span><input type="tel" value={telefono} onChange={(e) => salvaTelefono(e.target.value)} placeholder="333 1234567" style={campo} /></label>
+        <label><span style={etich}>Altezza massima (m)</span><input type="number" inputMode="numeric" value={altezza} onChange={(e) => setAltezza(e.target.value)} style={campo} /></label>
+        <label><span style={etich}>Raggio dell'area (m)</span><input type="number" inputMode="numeric" value={raggio} onChange={(e) => setRaggio(e.target.value)} style={campo} /></label>
+        <label style={{ gridColumn: "1 / -1" }}><span style={etich}>Scopo del volo</span><input value={scopo} onChange={(e) => setScopo(e.target.value)} placeholder="es. riprese video del matrimonio" style={campo} /></label>
+      </div>
+      {mancano.length > 0 && (
+        <div style={{ fontSize: 11.5, color: "#ffd9a0", background: "#3a2a12", border: "1px solid #f5b94266", borderRadius: 5, padding: "6px 8px", marginTop: 8 }}>
+          ⚠ Manca ancora: {mancano.join(", ")}. Puoi mandarla lo stesso, ma senza questi dati l'ente di solito la rimanda indietro.
+        </div>
+      )}
+      <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 11.5, color: "#c3cad4", background: "#12151a", borderRadius: 5, padding: 8, marginTop: 8, maxHeight: 260, overflow: "auto" }}>{`Oggetto: ${oggetto}\n\n${testo}`}</pre>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+        {zona.email && <a href={`mailto:${zona.email}?subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(testo)}`} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>📤 Apri la posta e invia</a>}
+        <button type="button" onClick={copia} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>{copiato ? "✓ Copiato" : "📋 Copia il testo"}</button>
+        <button type="button" onClick={() => setAperta(false)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12 }}>Chiudi</button>
+      </div>
+      <div style={{ fontSize: 11, color: "#8b95a3", marginTop: 6, lineHeight: 1.45 }}>
+        {zona.preavviso ? `⏰ Mandala almeno ${durataLeggibile(zona.preavviso)} prima del volo. ` : "⏰ Mandala con qualche giorno di anticipo. "}
+        {!zona.email && "Per questa zona il file non indica un'email: cerca il contatto nella scheda della zona su D-Flight e incolla lì il testo. "}
+        Se l'ente chiede di usare un suo modulo o il portale D-Flight, copia il testo e riporta gli stessi dati. Quando ricevi l'ok, salvalo in «Permessi».
+      </div>
+    </div>
+  );
+}
+
 // perché la zona non è stata controllata, detto semplice
 const MOTIVI_ZONA_NON_CONTROLLATA = {
   file: "manca il file delle zone di D-Flight: caricalo qui sopra (si fa una volta sola)",
@@ -6677,7 +6784,7 @@ const MOTIVI_ZONA_NON_CONTROLLATA = {
   carico: "sto caricando le zone…",
 };
 
-function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zonaApprossimata, zoneDelPunto, permessiRegistrati = 0, attestati, notte, fpv, tipo }) {
+function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zonaApprossimata, zoneDelPunto, permessiRegistrati = 0, datiRichiesta, attestati, notte, fpv, tipo }) {
   const classe = (String(drone?.marcatura_classe || "").toUpperCase().match(/C\s*([0-6])/) || [])[1];
   const chiave = classe != null ? `C${classe}` : null;
   const info = chiave && REGOLE_CLASSE[chiave];
@@ -6727,6 +6834,7 @@ function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zon
                         {z.ente ? <> di <strong>{z.ente}</strong></> : ""} per «{z.nome}»
                         {z.preavviso ? ` · chiedila con almeno ${durataLeggibile(z.preavviso)} di anticipo` : ""}
                         {z.email ? <> · <a href={`mailto:${z.email}`} style={{ color: "#3d8bfd" }}>{z.email}</a></> : ""}
+                        {!vietata && datiRichiesta && <div><RichiestaPermesso zona={z} dati={datiRichiesta} drone={drone} attestati={attestati} sottocategoria={info && info.sottocategoria} /></div>}
                       </div>
                     );
                   })}
@@ -8040,6 +8148,11 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             zonaApprossimata={!!(zonaStato && zonaStato.approssimata)}
             zoneDelPunto={zonaEsito && zonaEsito.zone}
             permessiRegistrati={permessiZona.length}
+            datiRichiesta={{
+              data: dataPrevista, ora: oraPrevista,
+              luogo: String(destinazione.zona || destinazione.nome || "").replace(/([a-zà-ù])(\d)/gi, "$1 $2").replace(/(\d)([a-zà-ù]{3,})/gi, "$1 $2").replace(/(^|\s)([a-zà-ù])/g, (m, a, b) => a + b.toUpperCase()), punto: zonaEsito && zonaEsito.punto,
+              tipo: tipoIspezione, pilota: azienda && azienda.nome !== "EyeDrones" ? azienda.nome : "", email: session?.user?.email || "",
+            }}
             attestati={attestatiUtente}
             notte={!!(luce && oraPrevista && (() => {
               const [h, m] = oraPrevista.split(":").map(Number);
