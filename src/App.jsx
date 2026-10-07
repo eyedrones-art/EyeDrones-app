@@ -6319,13 +6319,57 @@ async function cercaIndirizzoItalia(testo) {
   return null;
 }
 
+// copia del file zone nello spazio privato dell'account: se il telefono lo cancella, l'app lo riprende da sola
+const NOME_COPIA_ZONE = "zone-uas.json";
+async function salvaCopiaZone(dati) {
+  try {
+    const uid = await idUtenteCorrente();
+    if (!uid) return;
+    const blob = new Blob([JSON.stringify(dati)], { type: "application/json" });
+    await supabase.storage.from(BUCKET_RISERVATO).upload(`${uid}/${NOME_COPIA_ZONE}`, blob, { upsert: true, contentType: "application/json" });
+  } catch { /* la copia è solo una sicurezza in più */ }
+}
+async function riprendiCopiaZone() {
+  try {
+    const uid = await idUtenteCorrente();
+    if (!uid) return null;
+    const { data, error } = await supabase.storage.from(BUCKET_RISERVATO).download(`${uid}/${NOME_COPIA_ZONE}`);
+    if (error || !data) return null;
+    const dati = JSON.parse(await data.text());
+    if (!dati || !Array.isArray(dati.zone) || dati.zone.length === 0) return null;
+    await salvaZone(dati);
+    return dati;
+  } catch { return null; }
+}
+
 function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, onPuntoCercato, dataPrevista, oraPrevista, piano, onEsito }) {
   const [archivio, setArchivio] = useState(undefined); // undefined = sto leggendo, null = nessun file
   const [leggendoFile, setLeggendoFile] = useState(false);
   const [errore, setErrore] = useState(null);
   const [cercando, setCercando] = useState(false);
 
-  useEffect(() => { leggiZoneSalvate().then((d) => { setArchivio(d && Array.isArray(d.zone) ? d : null); if (d) { chiediSpazioPermanente(); try { localStorage.setItem("eyedrones_zone_caricate", d.caricato || ""); } catch { /* niente */ } } }); }, []);
+  const [ripreso, setRipreso] = useState(false);
+  useEffect(() => {
+    let annullato = false;
+    leggiZoneSalvate().then(async (d) => {
+      if (d && Array.isArray(d.zone)) {
+        if (annullato) return;
+        setArchivio(d); chiediSpazioPermanente();
+        try {
+          localStorage.setItem("eyedrones_zone_caricate", d.caricato || "");
+          // file caricato prima che esistesse la copia nell'account: la faccio adesso, una volta
+          if (localStorage.getItem("eyedrones_zone_copia") !== (d.caricato || "")) salvaCopiaZone(d).then(() => { try { localStorage.setItem("eyedrones_zone_copia", d.caricato || ""); } catch { /* niente */ } });
+        } catch { /* niente */ }
+        return;
+      }
+      // sul telefono non c'è: provo a riprendere la copia dal tuo account
+      const copia = await riprendiCopiaZone();
+      if (annullato) return;
+      setArchivio(copia || null);
+      if (copia) setRipreso(true);
+    });
+    return () => { annullato = true; };
+  }, []);
   const caricatoPrima = zoneCaricatePrima();
 
   const caricaFile = async (e) => {
@@ -6340,6 +6384,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
       const dati = { zone, nomeFile: file.name, caricato: new Date().toISOString() };
       await salvaZone(dati);
       setArchivio(dati);
+      salvaCopiaZone(dati).then(() => { try { localStorage.setItem("eyedrones_zone_copia", dati.caricato); } catch { /* niente */ } });
     } catch (err) {
       setErrore(err instanceof SyntaxError ? "Il file non è un JSON valido: scaricalo di nuovo da D-Flight." : (err.message || "Non sono riuscito a leggere il file."));
     }
@@ -6433,7 +6478,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         <span style={{ fontSize: 13, fontWeight: 700 }}>🛡️ Zona di volo<EtichettaPro /></span>
         {archivio && (
           <label style={{ fontSize: 11, color: giorniFile > 28 ? "#f5b942" : "#8b95a3", cursor: "pointer" }}>
-            File zone del {formatData(archivio.caricato.slice(0, 10))}{giorniFile > 28 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
+            {ripreso ? "☁️ Ripreso dal tuo account · " : ""}File zone del {formatData(archivio.caricato.slice(0, 10))}{giorniFile > 28 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
             <input type="file" onChange={caricaFile} style={{ display: "none" }} />
           </label>
         )}
