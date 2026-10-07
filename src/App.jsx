@@ -6404,6 +6404,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         {motivo && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Motivo: {motivo}</div>}
         {!vicina && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{z.messaggio}</div>}
         {!vicina && valoreReale(z.condizioni) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
+        {z.fuoriPeriodo && <div style={{ fontSize: 11.5, color: "#ffb877", marginTop: 3 }}>⚠ Secondo il file questa zona non vale il giorno del volo, ma le date del file potrebbero essere solo vecchie: per sicurezza la considero attiva. Aggiorna il file e controlla su D-Flight.</div>}
         {!vicina && z.validita && <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 2 }}>Attiva: {z.validita.map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}</div>}
         {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {d.consiglio}</div>}
         {!vicina && (z.restrizione === "REQ_AUTHORISATION" || z.restrizione === "PROHIBITED") && (
