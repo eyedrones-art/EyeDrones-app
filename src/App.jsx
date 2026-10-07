@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare } from "./Ispezioni";
-import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
+import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
@@ -6303,10 +6303,13 @@ const traduciMotivi = (m) => String(m || "").split(/\s*,\s*/).filter(Boolean).ma
 // cerca un indirizzo in Italia (via, numero, comune) con OpenStreetMap; se col numero civico non lo trova, riprova
 // senza numero (punto a metà della via). Restituisce { lat, lon, etichetta } oppure null
 async function cercaIndirizzoItalia(testo) {
-  const pulito = String(testo || "").trim();
+  const pulito = String(testo || "").trim().replace(/([a-zà-ù])(\d)/gi, "$1 $2").replace(/(\d)([a-zà-ù]{3,})/gi, "$1 $2").replace(/\s{2,}/g, " ");
   if (!pulito) return null;
   const senzaNumero = pulito.replace(/\b(n\.?|nr\.?|civico)\s*/gi, "").replace(/\b\d+\s*[a-z]?(\/\s*\d+)?\b/gi, "").replace(/\s+,/g, ",").replace(/\s{2,}/g, " ").trim();
-  for (const q of [...new Set([pulito, senzaNumero])]) {
+  // «via Roma 148 cafasse» senza virgola: provo anche «via Roma 148, cafasse» (l'ultima parola come comune)
+  const parole = pulito.split(" ");
+  const conVirgola = !pulito.includes(",") && parole.length >= 3 ? `${parole.slice(0, -1).join(" ")}, ${parole.at(-1)}` : null;
+  for (const q of [...new Set([pulito, conVirgola, senzaNumero].filter(Boolean))]) {
     try {
       const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(q)}`);
       const [primo] = await r.json();
@@ -6316,13 +6319,59 @@ async function cercaIndirizzoItalia(testo) {
   return null;
 }
 
+// copia del file zone nello spazio privato dell'account: se il telefono lo cancella, l'app lo riprende da sola
+const NOME_COPIA_ZONE = "zone-uas.json";
+async function salvaCopiaZone(dati) {
+  try {
+    const uid = await idUtenteCorrente();
+    if (!uid) return;
+    const blob = new Blob([JSON.stringify(dati)], { type: "application/json" });
+    await supabase.storage.from(BUCKET_RISERVATO).upload(`${uid}/${NOME_COPIA_ZONE}`, blob, { upsert: true, contentType: "application/json" });
+  } catch { /* la copia è solo una sicurezza in più */ }
+}
+async function riprendiCopiaZone() {
+  try {
+    const uid = await idUtenteCorrente();
+    if (!uid) return null;
+    const { data, error } = await supabase.storage.from(BUCKET_RISERVATO).download(`${uid}/${NOME_COPIA_ZONE}`);
+    if (error || !data) return null;
+    const dati = JSON.parse(await data.text());
+    if (!dati || !Array.isArray(dati.zone) || dati.zone.length === 0) return null;
+    if (!dati.caricato) dati.caricato = new Date().toISOString();
+    await salvaZone(dati);
+    return dati;
+  } catch { return null; }
+}
+
 function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, onPuntoCercato, dataPrevista, oraPrevista, piano, onEsito }) {
   const [archivio, setArchivio] = useState(undefined); // undefined = sto leggendo, null = nessun file
   const [leggendoFile, setLeggendoFile] = useState(false);
   const [errore, setErrore] = useState(null);
   const [cercando, setCercando] = useState(false);
 
-  useEffect(() => { leggiZoneSalvate().then((d) => setArchivio(d && Array.isArray(d.zone) ? d : null)); }, []);
+  const [ripreso, setRipreso] = useState(false);
+  useEffect(() => {
+    let annullato = false;
+    leggiZoneSalvate().then(async (d) => {
+      if (d && Array.isArray(d.zone)) {
+        if (annullato) return;
+        setArchivio(d); chiediSpazioPermanente();
+        try {
+          localStorage.setItem("eyedrones_zone_caricate", d.caricato || "");
+          // file caricato prima che esistesse la copia nell'account: la faccio adesso, una volta
+          if (localStorage.getItem("eyedrones_zone_copia") !== (d.caricato || "")) salvaCopiaZone(d).then(() => { try { localStorage.setItem("eyedrones_zone_copia", d.caricato || ""); } catch { /* niente */ } });
+        } catch { /* niente */ }
+        return;
+      }
+      // sul telefono non c'è: provo a riprendere la copia dal tuo account
+      const copia = await riprendiCopiaZone();
+      if (annullato) return;
+      setArchivio(copia || null);
+      if (copia) setRipreso(true);
+    });
+    return () => { annullato = true; };
+  }, []);
+  const caricatoPrima = zoneCaricatePrima();
 
   const caricaFile = async (e) => {
     const file = e.target.files?.[0];
@@ -6336,6 +6385,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
       const dati = { zone, nomeFile: file.name, caricato: new Date().toISOString() };
       await salvaZone(dati);
       setArchivio(dati);
+      salvaCopiaZone(dati).then(() => { try { localStorage.setItem("eyedrones_zone_copia", dati.caricato); } catch { /* niente */ } });
     } catch (err) {
       setErrore(err instanceof SyntaxError ? "Il file non è un JSON valido: scaricalo di nuovo da D-Flight." : (err.message || "Non sono riuscito a leggere il file."));
     }
@@ -6351,6 +6401,23 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     else setErrore("Indirizzo non trovato: prova a scrivere via e comune (es. Via Roma 4, Torino), oppure le coordinate.");
     setCercando(false);
   };
+
+  // appena smetti di scrivere il luogo lo cerco da solo (senza toccare «Trova l'indirizzo»)
+  useEffect(() => {
+    const t = (testoLuogo || "").trim();
+    if (coordinate || puntoCercato || t.length < 5) return undefined;
+    let annullato = false;
+    const timer = setTimeout(async () => {
+      setCercando(true); setErrore(null);
+      const trovato = await cercaIndirizzoItalia(t);
+      setCercando(false);
+      if (annullato) return;
+      if (trovato) onPuntoCercato(trovato);
+      else setErrore("Indirizzo non trovato: prova a scrivere via e comune (es. Via Roma 4, Torino), oppure le coordinate.");
+    }, 1300);
+    return () => { annullato = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testoLuogo, coordinate, puntoCercato]);
 
   const punto = coordinate
     ? { lat: coordinate.lat, lon: coordinate.lon, fonte: "coordinate" }
@@ -6429,7 +6496,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         <span style={{ fontSize: 13, fontWeight: 700 }}>🛡️ Zona di volo<EtichettaPro /></span>
         {archivio && (
           <label style={{ fontSize: 11, color: giorniFile > 28 ? "#f5b942" : "#8b95a3", cursor: "pointer" }}>
-            File zone del {formatData(archivio.caricato.slice(0, 10))}{giorniFile > 28 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
+            {ripreso ? "☁️ Ripreso dal tuo account · " : ""}File zone del {formatData(String(archivio.caricato || "").slice(0, 10))}{giorniFile > 28 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
             <input type="file" onChange={caricaFile} style={{ display: "none" }} />
           </label>
         )}
@@ -6441,6 +6508,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 0 0" }}>Carico le zone…</p>
       ) : !archivio ? (
         <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 6 }}>
+          {caricatoPrima && <div style={{ background: "#3a2a12", border: "1px solid #f5b94266", color: "#ffd9a0", borderRadius: 6, padding: "8px 10px", marginBottom: 8, fontWeight: 600 }}>⚠ Il file delle zone che avevi caricato il {formatData(String(caricatoPrima).slice(0, 10))} non c'è più su questo telefono (a volte il telefono libera spazio cancellando i dati dei siti, o hai cambiato browser). Finché non lo ricarichi, la zona non viene controllata.</div>}
           Scrivi il luogo e l'app ti dice in che zona geografica UAS cade: vietata, con autorizzazione, con condizioni, l'altezza massima e chi contattare. Usa il file ufficiale delle zone, che scarichi gratis dal tuo profilo D-Flight:
           <ol style={{ margin: "6px 0", paddingLeft: 18, color: "#aab3bf", fontSize: 12 }}>
             <li>apri <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={linkD}>D-Flight ↗</a> e accedi con le tue credenziali</li>
@@ -6461,7 +6529,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
                 {" · "}<a href={`https://www.google.com/maps?q=${punto.lat},${punto.lon}`} target="_blank" rel="noreferrer" style={{ color: "#3d8bfd" }}>controlla sulla mappa ↗</a>
               </span>
             ) : (
-              <span>Scrivi via e comune (o le coordinate) e tocca «Trova l'indirizzo», oppure «Controlla meteo».</span>
+              <span>{cercando ? "Cerco il luogo…" : "Scrivi via e comune (o le coordinate): lo cerco da solo appena smetti di scrivere."}</span>
             )}
             {!coordinate && testoLuogo && (
               <button type="button" onClick={cercaIndirizzo} disabled={cercando} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5 }}>
@@ -6516,7 +6584,7 @@ const REGOLE_CLASSE = {
   C4: { sottocategoria: "A3", attestato: "A1/A3", peso: "meno di 25 kg", regole: ["Nessuna persona non coinvolta nell'area di volo", "Almeno 150 m da aree residenziali, commerciali, industriali o ricreative"] },
 };
 
-function RegoleVolo({ drone, altezzaZona, attestati, notte, fpv, tipo }) {
+function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, attestati, notte, fpv, tipo }) {
   const classe = (String(drone?.marcatura_classe || "").toUpperCase().match(/C\s*([0-6])/) || [])[1];
   const chiave = classe != null ? `C${classe}` : null;
   const info = chiave && REGOLE_CLASSE[chiave];
@@ -6545,6 +6613,7 @@ function RegoleVolo({ drone, altezzaZona, attestati, notte, fpv, tipo }) {
       )}
       <ul style={{ margin: "6px 0 0 0", paddingLeft: 18, fontSize: 12 }}>
         {voce(null, <>Altezza massima <strong>{altezza} m dal suolo</strong>{altezzaZona != null && altezzaZona < 120 ? " (limite della zona senza autorizzazione)" : ""}</>)}
+        {!zonaVerificata && <li style={{ marginTop: 3, color: "#f5b942" }}>⚠ Zona non ancora verificata: i 120 m valgono solo fuori dalle zone D-Flight (vicino agli aeroporti il limite può essere 25 m o meno). Controlla la zona qui sopra o su D-Flight.</li>}
         {voce(null, fpv ? "In FPV serve un osservatore accanto a te che tenga sempre il drone in vista" : "Drone sempre in vista, senza binocoli")}
         {info && info.regole.map((t, i) => <React.Fragment key={i}>{voce(null, t)}</React.Fragment>)}
         {info && info.attestato === "A2" && voce(haA2 ? true : false, haA2 ? "Attestato A2 presente tra i tuoi documenti" : "Per volare in A2 serve l'attestato A2: non lo trovo tra i tuoi attestati")}
@@ -7537,7 +7606,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           setPuntoIndirizzo(trovato);
           datiMeteo = await recuperaMeteo({ lat: trovato.lat, lon: trovato.lon, nome: destinazione.nome });
         } else {
-          const comune = testo.includes(",") ? testo.split(",").pop().trim() : "";
+          const comune = testo.includes(",") ? testo.split(",").pop().trim() : (testo.trim().split(/\s+/).length > 1 ? testo.trim().split(/\s+/).pop() : "");
           datiMeteo = await recuperaMeteo(testo).catch((err) => (comune ? recuperaMeteo(comune) : Promise.reject(err)));
         }
       }
@@ -7828,6 +7897,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           <RegoleVolo
             drone={droneSelezionato}
             altezzaZona={zonaEsito && zonaEsito.altezzaLibera != null ? zonaEsito.altezzaLibera : null}
+            zonaVerificata={!!zonaEsito}
             attestati={attestatiUtente}
             notte={!!(luce && oraPrevista && (() => {
               const [h, m] = oraPrevista.split(":").map(Number);

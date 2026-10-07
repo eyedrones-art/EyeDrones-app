@@ -28,7 +28,16 @@ export async function leggiZoneSalvate() {
   }
 }
 
+// chiedo al browser di non cancellare da solo i dati salvati (su Android può farlo quando manca spazio)
+export async function chiediSpazioPermanente() {
+  try { if (navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); } catch (e) { /* non supportato */ }
+}
+const SEGNO_ZONE = "eyedrones_zone_caricate"; // data dell'ultimo caricamento, per accorgersi se il file sparisce
+export const zoneCaricatePrima = () => { try { return localStorage.getItem(SEGNO_ZONE); } catch (e) { return null; } };
+
 export async function salvaZone(dati) {
+  chiediSpazioPermanente();
+  try { localStorage.setItem(SEGNO_ZONE, dati.caricato || new Date().toISOString()); } catch (e) { /* solo comodità */ }
   try {
     const db = await apriDb();
     await new Promise((ok, ko) => {
