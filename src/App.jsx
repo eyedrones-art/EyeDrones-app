@@ -3006,21 +3006,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
           </div>
         )}
 
-        {(() => {
-          const daFare = (p.checklist_stato?.manovre || []).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean);
-          if (daFare.length === 0) return null;
-          return (
-            <details style={{ marginTop: 10, background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 6, padding: "8px 10px" }}>
-              <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#c4b5fd" }}>🎬 {p.checklist_stato?.lavoro ? `${p.checklist_stato.lavoro}: ` : "Da girare: "}{daFare.map((m) => m.nome.replace(/ \(.*\)$/, "")).join(" → ")}</summary>
-              {daFare.map((m) => (
-                <div key={m.id} style={{ fontSize: 12, lineHeight: 1.45, color: "#d6dde6", marginTop: 8 }}>
-                  <strong style={{ color: "#e7eaee" }}>{m.nome}</strong>: {m.come}
-                  <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
-                </div>
-              ))}
-            </details>
-          );
-        })()}
+        <DaGirare piano={p} />
 
         <ConsigliVolo tipo={p.tipo_ispezione} drone={drone} />
 
@@ -7185,6 +7171,50 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
         </>
       )}
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "10px 0 0 0" }}>Prova le manovre nuove in un posto aperto e senza persone, a quota sicura, prima di farle durante un lavoro.</p>
+    </details>
+  );
+}
+
+// il giorno del volo, in Home: le manovre scelte nel piano da spuntare sul posto, con l'animazione degli stick.
+// Le spunte vanno nel piano (checklist_stato.girate) e restano anche sul telefono, così valgono senza campo
+function DaGirare({ piano }) {
+  const daFare = (piano.checklist_stato?.manovre || []).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean);
+  const chiave = `eyedrones_girate_${piano.id}`;
+  const [girate, setGirate] = useState(() => {
+    try { const loc = JSON.parse(localStorage.getItem(chiave) || "null"); if (Array.isArray(loc)) return loc; } catch { /* niente */ }
+    return Array.isArray(piano.checklist_stato?.girate) ? piano.checklist_stato.girate : [];
+  });
+  const [inVisione, setInVisione] = useState(null);
+  if (daFare.length === 0) return null;
+  const cambia = (id) => {
+    const nuove = girate.includes(id) ? girate.filter((x) => x !== id) : [...girate, id];
+    setGirate(nuove);
+    try { localStorage.setItem(chiave, JSON.stringify(nuove)); } catch { /* solo comodità */ }
+    supabase.from("piani_volo").update({ checklist_stato: { ...(piano.checklist_stato || {}), girate: nuove } }).eq("id", piano.id).then(() => {}, () => {});
+  };
+  const fatte = daFare.filter((m) => girate.includes(m.id)).length;
+  const tutte = fatte === daFare.length;
+  const breve = (m) => m.nome.replace(/ \(.*\)$/, "");
+  return (
+    <details open style={{ marginTop: 10, background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 6, padding: "8px 10px" }}>
+      <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#c4b5fd" }}>
+        🎬 {piano.checklist_stato?.lavoro ? `${piano.checklist_stato.lavoro} · ` : "Da girare · "}<span style={{ color: tutte ? "#4ade80" : "#e7eaee" }}>{fatte} di {daFare.length} girate</span>
+      </summary>
+      {daFare.map((m, i) => (
+        <div key={m.id} style={{ marginTop: 8, paddingTop: 8, borderTop: i ? "1px solid #2e2540" : "none" }}>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer", fontSize: 13, fontWeight: 700, color: girate.includes(m.id) ? "#8b95a3" : "#e7eaee", textDecoration: girate.includes(m.id) ? "line-through" : "none" }}>
+            <input type="checkbox" checked={girate.includes(m.id)} onChange={() => cambia(m.id)} style={{ width: 18, height: 18 }} /> {i + 1}. {m.nome}
+          </label>
+          {!girate.includes(m.id) && (
+            <div style={{ fontSize: 12, lineHeight: 1.45, color: "#d6dde6", marginLeft: 26 }}>
+              <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
+              {haAnimazione(m.id) && <button type="button" onClick={() => setInVisione(inVisione === m.id ? null : m.id)} style={{ marginTop: 4, background: inVisione === m.id ? "#7c5cd6" : "#251e33", color: inVisione === m.id ? "#fff" : "#c4b5fd", border: "1px solid #3d2f5a", borderRadius: 12, padding: "3px 10px", fontSize: 11.5, fontWeight: 600 }}>{inVisione === m.id ? "✕ Chiudi" : "▶️ Guarda come si fa"}</button>}
+              {inVisione === m.id && <AnimazioneManovra id={m.id} />}
+            </div>
+          )}
+        </div>
+      ))}
+      {tutte && <div style={{ marginTop: 10, fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>✅ Tutto girato! In montaggio mettile in quest'ordine: {daFare.map(breve).join(" → ")}</div>}
     </details>
   );
 }
