@@ -2190,6 +2190,7 @@ const VERSIONE_NOVITA = "2026-10c";
 const NOVITA = [
   { emoji: "🕹️", testo: "Manovre animate: vedi come muovere gli stick e come viene la ripresa", pagina: "guide" },
   { emoji: "✅", testo: "Il giorno del volo spunti le riprese fatte e hai l'ordine per il montaggio", pagina: "pianificazione" },
+  { emoji: "🎨", testo: "Camera e colori: D-Log o normale, filtri ND, LUT e post-produzione consigliata", pagina: "guide" },
   { emoji: "👆", testo: "Entra con l'impronta o il volto (attivalo in Impostazioni)", pagina: "impostazioni" },
   { emoji: "📍", testo: "Posti belli: molti più luoghi nelle città (piazze, torri, chiese, parchi)", pagina: "posti" },
   { emoji: "🗺️", testo: "Su Android scegli se aprire l'app D-Flight o il sito", pagina: "pianificazione" },
