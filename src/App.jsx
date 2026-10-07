@@ -6311,9 +6311,14 @@ async function cercaIndirizzoItalia(testo) {
   const conVirgola = !pulito.includes(",") && parole.length >= 3 ? `${parole.slice(0, -1).join(" ")}, ${parole.at(-1)}` : null;
   for (const q of [...new Set([pulito, conVirgola, senzaNumero].filter(Boolean))]) {
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(q)}`);
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(q)}`);
       const [primo] = await r.json();
-      if (primo) return { lat: Number(primo.lat), lon: Number(primo.lon), etichetta: primo.display_name };
+      if (primo) {
+        // quanto è preciso il punto: il civico, solo la via (metà strada) o solo il paese (il centro)
+        const a = primo.address || {};
+        const precisione = a.house_number ? "civico" : a.road || a.pedestrian || a.footway || a.square ? "via" : "zona";
+        return { lat: Number(primo.lat), lon: Number(primo.lon), etichetta: primo.display_name, precisione };
+      }
     } catch (e) { /* provo la variante successiva */ }
   }
   return null;
