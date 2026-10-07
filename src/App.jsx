@@ -3,6 +3,7 @@ import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, 
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
+import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
@@ -7121,6 +7122,7 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
   const elenco = tipo === "fpv" ? MANOVRE_FPV : tipo === "foto" ? INQUADRATURE_FOTO : MANOVRE_VIDEO;
   const scalette = SCALETTE_PRONTE[tipo] || SCALETTE_PRONTE.video;
   const [scalettaSel, setScalettaSel] = useState(() => (scalette.find((x) => x.titolo === lavoro) || scalette[0]).id);
+  const [inVisione, setInVisione] = useState(null); // manovra con l'animazione aperta
   const titolo = tipo === "foto" ? "📸 Inquadrature per foto belle" : tipo === "fpv" ? "🎬 Manovre FPV" : "🎬 Manovre per video belli";
   const usaScaletta = () => {
     const sc = scalette.find((x) => x.id === scalettaSel);
@@ -7155,6 +7157,12 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
             <div>{m.come}</div>
             <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
             <div style={{ color: "#a8a2bd", fontSize: 11.5 }}>👉 {m.quando}</div>
+            {haAnimazione(m.id) && (
+              <button type="button" onClick={() => setInVisione(inVisione === m.id ? null : m.id)} style={{ marginTop: 4, background: inVisione === m.id ? "#7c5cd6" : "#251e33", color: inVisione === m.id ? "#fff" : "#c4b5fd", border: "1px solid #3d2f5a", borderRadius: 12, padding: "3px 10px", fontSize: 11.5, fontWeight: 600 }}>
+                {inVisione === m.id ? "✕ Chiudi" : "▶️ Guarda come si fa"}
+              </button>
+            )}
+            {inVisione === m.id && <AnimazioneManovra id={m.id} />}
           </div>
         ))}
       </div>
