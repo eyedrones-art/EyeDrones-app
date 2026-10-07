@@ -231,11 +231,13 @@ export function controllaPunto(zone, { lat, lon }, { raggio = 500, quando = null
   for (const z of zone || []) {
     const [x1, y1, x2, y2] = z.bbox;
     if (lon < x1 - mLon || lon > x2 + mLon || lat < y1 - mLat || lat > y2 + mLat) continue;
+    // se secondo il file la zona non vale il giorno del volo NON la tolgo: le date del file possono essere
+    // solo quelle di validità dei dati (il file è vecchio). La tengo, segnata, e chiedo di controllare
     const { valida, temporanea } = validaIl(z, quando);
-    if (!valida) continue;
+    const fuoriPeriodo = !valida;
     const d = distanzaZona(punto, z);
-    if (d === 0) dentro.push({ ...z, temporanea });
-    else if (d <= raggio) vicine.push({ ...z, temporanea, distanza: Math.round(d) });
+    if (d === 0) dentro.push({ ...z, temporanea, fuoriPeriodo });
+    else if (d <= raggio) vicine.push({ ...z, temporanea, fuoriPeriodo, distanza: Math.round(d) });
   }
   const peso = (z) => GRAVITA[z.restrizione] ?? 1;
   dentro.sort((a, b) => peso(b) - peso(a));
