@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare } from "./Ispezioni";
-import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
+import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
@@ -6325,7 +6325,8 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
   const [errore, setErrore] = useState(null);
   const [cercando, setCercando] = useState(false);
 
-  useEffect(() => { leggiZoneSalvate().then((d) => setArchivio(d && Array.isArray(d.zone) ? d : null)); }, []);
+  useEffect(() => { leggiZoneSalvate().then((d) => { setArchivio(d && Array.isArray(d.zone) ? d : null); if (d) { chiediSpazioPermanente(); try { localStorage.setItem("eyedrones_zone_caricate", d.caricato || ""); } catch { /* niente */ } } }); }, []);
+  const caricatoPrima = zoneCaricatePrima();
 
   const caricaFile = async (e) => {
     const file = e.target.files?.[0];
@@ -6444,6 +6445,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 0 0" }}>Carico le zone…</p>
       ) : !archivio ? (
         <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 6 }}>
+          {caricatoPrima && <div style={{ background: "#3a2a12", border: "1px solid #f5b94266", color: "#ffd9a0", borderRadius: 6, padding: "8px 10px", marginBottom: 8, fontWeight: 600 }}>⚠ Il file delle zone che avevi caricato il {formatData(String(caricatoPrima).slice(0, 10))} non c'è più su questo telefono (a volte il telefono libera spazio cancellando i dati dei siti, o hai cambiato browser). Finché non lo ricarichi, la zona non viene controllata.</div>}
           Scrivi il luogo e l'app ti dice in che zona geografica UAS cade: vietata, con autorizzazione, con condizioni, l'altezza massima e chi contattare. Usa il file ufficiale delle zone, che scarichi gratis dal tuo profilo D-Flight:
           <ol style={{ margin: "6px 0", paddingLeft: 18, color: "#aab3bf", fontSize: 12 }}>
             <li>apri <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={linkD}>D-Flight ↗</a> e accedi con le tue credenziali</li>
