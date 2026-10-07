@@ -31,6 +31,17 @@ const MANOVRE = {
   "foto-pano": { vista: "alto", nota: "automatico: il drone ruota e scatta", s: () => [0, 0], d: () => [0, 0], drone: (t) => ({ x: 240, y: 66, dir: -90 + 360 * t }), soggetti: [{ tipo: "paesaggio" }], scatti: 6 },
   "foto-hdr": { vista: "lato", nota: "automatico: 3 o 5 scatti", s: () => [0, 0], d: () => [0, 0], camera: () => -20, drone: () => ({ x: 214, y: 56 }), soggetti: [{ tipo: "casa", x: 288 }, { tipo: "sole" }], scatti: 3 },
   "foto-altezze": { vista: "lato", s: (t) => [0, [0.05, 0.38, 0.71].some((a) => t > a && t < a + 0.2) ? -0.6 : 0], d: () => [0, 0], camera: () => -25, drone: (t) => ({ x: 214, y: 98 - 22 * Math.min(1, Math.max(0, (t - 0.05) / 0.2)) - 22 * Math.min(1, Math.max(0, (t - 0.38) / 0.2)) - 22 * Math.min(1, Math.max(0, (t - 0.71) / 0.2)) }), soggetti: [{ tipo: "casa", x: 288 }], scattiA: [0.3, 0.63, 0.96] },
+  // ispezioni
+  "tet-lati": { vista: "alto", nota: "una foto per lato", s: () => [-0.4, 0], d: () => [0.5, 0], orbita: { cx: 240, cy: 66, r: 44, giro: 360 }, soggetti: [{ tipo: "casa-alto", x: 240, y: 66 }], scattiA: [0.12, 0.37, 0.62, 0.87] },
+  "tet-alto": { vista: "lato", nota: "camera tutta giù", s: () => [0, -0.5], d: () => [0, 0], camera: () => -90, drone: (t) => ({ x: 240, y: 70 - 44 * ease(t) }), soggetti: [{ tipo: "casa", x: 240 }], scattiA: [0.97] },
+  "tet-falde": { vista: "lato", nota: "camera a 45°", s: () => [0, 0], d: (t) => [0.4 * onda(t), 0], camera: () => -45, drone: (t) => ({ x: 214 + 14 * ease(t), y: 52 }), soggetti: [{ tipo: "casa", x: 272 }], scattiA: [0.3, 0.9] },
+  "tet-dettagli": { vista: "lato", nota: "avvicinati piano, poi fermo", s: () => [0, 0], d: (t) => [0, t < 0.7 ? -0.4 : 0], camera: () => -25, drone: (t) => ({ x: 186 + 62 * ease(Math.min(1, t / 0.7)), y: 58 + 8 * ease(Math.min(1, t / 0.7)) }), soggetti: [{ tipo: "comignolo", x: 286 }], scattiA: [0.82, 0.95] },
+  "tet-danni": { vista: "lato", nota: "foto larga, poi stretta", s: () => [0, 0], d: (t) => [0, t > 0.35 && t < 0.65 ? -0.35 : 0], camera: () => -40, drone: (t) => ({ x: 222 + 22 * ease(Math.min(1, Math.max(0, (t - 0.35) / 0.3))), y: 54 + 10 * ease(Math.min(1, Math.max(0, (t - 0.35) / 0.3))) }), soggetti: [{ tipo: "casa", x: 286 }], scattiA: [0.25, 0.85] },
+  "fv-insieme": { vista: "lato", nota: "camera tutta giù", s: () => [0, -0.5], d: () => [0, 0], camera: () => -90, drone: (t) => ({ x: 240, y: 80 - 50 * ease(t) }), soggetti: [{ tipo: "pannelli-lato", x: 240 }], scattiA: [0.97] },
+  "fv-passata": { vista: "alto", nota: "fila per fila, lento e costante", s: () => [0, 0], d: (t) => { const f = (t * 3) % 1; return f > 0.92 ? [0.5, 0] : [0, -0.4]; }, drone: (t) => { const r = Math.min(2, Math.floor(t * 3)), u = (t * 3) - r, va = r % 2 === 0; return { x: va ? 182 + 116 * u : 298 - 116 * u, y: 34 + r * 30, dir: va ? 0 : 180 }; }, soggetti: [{ tipo: "pannelli-alto" }] },
+  "fv-anomalie": { vista: "alto", nota: "termica + normale dallo stesso punto", s: () => [0, 0], d: (t) => [0, t < 0.4 ? -0.3 : 0], drone: (t) => ({ x: 200 + 52 * ease(Math.min(1, t / 0.4)), y: 64, dir: 0 }), soggetti: [{ tipo: "pannelli-alto", caldo: true }], scattiA: [0.6, 0.85] },
+  "ed-facciate": { vista: "alto", nota: "di fronte alla facciata", s: () => [0, 0], d: () => [0.5, 0], drone: (t) => ({ x: 188 + 104 * ease(t), y: 92, dir: -90 }), soggetti: [{ tipo: "facciata-alto" }], scattiA: [0.2, 0.5, 0.8] },
+  "ed-tetto": { vista: "lato", nota: "camera tutta giù", s: () => [0, -0.5], d: () => [0, 0], camera: () => -90, drone: (t) => ({ x: 240, y: 70 - 44 * ease(t) }), soggetti: [{ tipo: "casa", x: 240 }], scattiA: [0.97] },
 };
 
 export const haAnimazione = (id) => !!MANOVRE[id];
@@ -101,6 +112,10 @@ function Soggetto({ s, t, vista }) {
     case "case-fila": return <g>{[185, 225, 265, 300].map((x) => <rect key={x} x={x - 7} y={s.y - 6} width={14} height={12} fill={mattone} opacity={0.7} />)}<text x={168} y={s.y + 16} fontSize={7} fill="#8b95a3">lontano</text></g>;
     case "auto": { const y = 118 - 70 * t - 24; return <g><rect x={234 + 12 * Math.sin(2 * Math.PI * t)} y={y - 7} width={12} height={16} rx={3} fill="#ef4444" /></g>; }
     case "paesaggio": return <g>{[[190, 30], [290, 40], [200, 105], [295, 100]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={9} fill={verde} />)}<rect x={260} y={70} width={30} height={14} fill="#1e5a7a" /></g>;
+    case "comignolo": return <g><rect x={s.x - 14} y={SUOLO - 20} width={28} height={20} fill={mattone} /><polygon points={`${s.x - 18},${SUOLO - 20} ${s.x},${SUOLO - 36} ${s.x + 18},${SUOLO - 20}`} fill="#b45309" /><rect x={s.x - 9} y={SUOLO - 42} width={7} height={14} fill="#6b7280" /><circle cx={s.x - 5} cy={SUOLO - 29} r={3} fill="none" stroke="#ff8c42" strokeWidth={1.4} /></g>;
+    case "pannelli-lato": return <g>{[-30, -10, 10, 30].map((d) => <line key={d} x1={s.x + d - 8} y1={SUOLO - 2} x2={s.x + d + 6} y2={SUOLO - 9} stroke="#3b82f6" strokeWidth={4} />)}</g>;
+    case "pannelli-alto": return <g>{[22, 52, 82].map((y) => [0, 1, 2, 3, 4, 5].map((i) => <rect key={y + "-" + i} x={180 + i * 20} y={y} width={18} height={20} fill={s.caldo && y === 52 && i === 3 ? "#ef4444" : "#1d4ed8"} stroke="#93c5fd" strokeWidth={0.6} />))}</g>;
+    case "facciata-alto": return <g><rect x={176} y={22} width={128} height={30} fill="#8a5a44" /><text x={240} y={66} textAnchor="middle" fontSize={7} fill="#8b95a3">facciata</text></g>;
     default: return null;
   }
 }
@@ -120,7 +135,7 @@ export default function AnimazioneManovra({ id }) {
   const sv = inMovimento ? m.s(p) : [0, 0];
   const dv = inMovimento ? m.d(p) : [0, 0];
   let dr;
-  if (m.orbita) { const a = gradi(-90 + 300 * ease(p)); dr = { x: m.orbita.cx + m.orbita.r * Math.cos(a), y: m.orbita.cy + m.orbita.r * Math.sin(a) }; dr.dir = (Math.atan2(m.orbita.cy - dr.y, m.orbita.cx - dr.x) * 180) / Math.PI; }
+  if (m.orbita) { const a = gradi(-90 + (m.orbita.giro || 300) * ease(p)); dr = { x: m.orbita.cx + m.orbita.r * Math.cos(a), y: m.orbita.cy + m.orbita.r * Math.sin(a) }; dr.dir = (Math.atan2(m.orbita.cy - dr.y, m.orbita.cx - dr.x) * 180) / Math.PI; }
   else dr = m.drone(p);
   const camera = m.camera ? m.camera(p) : 0;
   const scatto = m.scattiA ? m.scattiA.some((a) => Math.abs(p - a) < 0.03) : m.scatti ? inMovimento && (p * m.scatti) % 1 < 0.08 : false;

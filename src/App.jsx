@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
+import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
@@ -2188,14 +2189,13 @@ function AppShell({ session }) {
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
 const VERSIONE_NOVITA = "2026-10c";
 const NOVITA = [
+  { emoji: "🔍", testo: "Ispezioni: foto da fare in ordine, semaforo per la termografia e frasi pronte per il report", pagina: "pianificazione" },
   { emoji: "🕹️", testo: "Manovre animate: vedi come muovere gli stick e come viene la ripresa", pagina: "guide" },
   { emoji: "✅", testo: "Il giorno del volo spunti le riprese fatte e hai l'ordine per il montaggio", pagina: "pianificazione" },
   { emoji: "🎨", testo: "Camera e colori: D-Log o normale, filtri ND, LUT e post-produzione consigliata", pagina: "guide" },
   { emoji: "👆", testo: "Entra con l'impronta o il volto (attivalo in Impostazioni)", pagina: "impostazioni" },
   { emoji: "📍", testo: "Posti belli: molti più luoghi nelle città (piazze, torri, chiese, parchi)", pagina: "posti" },
   { emoji: "🗺️", testo: "Su Android scegli se aprire l'app D-Flight o il sito", pagina: "pianificazione" },
-  { emoji: "📴", testo: "Documenti di controllo anche senza campo", pagina: "documenti-controllo" },
-  { emoji: "⏰", testo: "Pagamenti in ritardo con promemoria su WhatsApp, rubrica clienti", pagina: "preventivi" },
 ];
 function RiquadroNovita({ onVai }) {
   const [visto, setVisto] = useState(() => { try { return localStorage.getItem("eyedrones_novita_viste") === VERSIONE_NOVITA; } catch { return false; } });
@@ -7039,6 +7039,7 @@ function ConsigliVolo({ tipo, drone, apertoIniziale = false, inGuida = false }) 
           </ul>
         </>
       )}
+      <CosaConsegnare tipo={tipo} />
       {corsi.length > 0 && (
         <p style={{ fontSize: 12, margin: "10px 0 0 0" }}>🎓 Vuoi imparare meglio? {corsi.map((c, i) => <span key={c.nome}>{i > 0 && " · "}<a href={c.url} target="_blank" rel="noreferrer" style={{ color: "#4ade80" }}>{c.nome} ↗</a></span>)}</p>
       )}
@@ -7072,7 +7073,7 @@ const INQUADRATURE_FOTO = [
   { id: "foto-hdr", nome: "Scatto a forcella (HDR)", come: "Più foto a esposizioni diverse da unire dopo: cielo e ombre vengono bene insieme.", stick: "Nessuno: fermo in volo stazionario, scegli AEB (3 o 5 scatti) nel menu foto.", quando: "Sole forte con ombre, tramonti con controluce." },
   { id: "foto-altezze", nome: "Stessa scena, tre altezze", come: "Scatta lo stesso soggetto da bassa, media e alta quota: in montaggio scegli la migliore.", stick: "Solo sinistro su, fermandoti a ogni altezza per scattare.", quando: "Quando non sai quale inquadratura piacerà di più al cliente." },
 ];
-const TUTTE_MANOVRE = () => [...MANOVRE_VIDEO, ...MANOVRE_FPV, ...INQUADRATURE_FOTO];
+const TUTTE_MANOVRE = () => [...MANOVRE_VIDEO, ...MANOVRE_FPV, ...INQUADRATURE_FOTO, ...Object.values(INQUADRATURE_ISPEZIONE).flat()];
 const SCALETTE_PRONTE = {
   video: [
     { id: "immobiliare", titolo: "Immobiliare", manovre: ["rivelazione", "orbita", "dallalto", "allontanamento"] },
@@ -7106,11 +7107,12 @@ const SCALETTE_LAVORO = [
 function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "video", lavoro, onCambiaLavoro }) {
   const conScelta = Array.isArray(scelte) && onCambiaScelte;
   const cambia = (id) => onCambiaScelte(scelte.includes(id) ? scelte.filter((x) => x !== id) : [...scelte, id]);
-  const elenco = tipo === "fpv" ? MANOVRE_FPV : tipo === "foto" ? INQUADRATURE_FOTO : MANOVRE_VIDEO;
-  const scalette = SCALETTE_PRONTE[tipo] || SCALETTE_PRONTE.video;
+  const ispezione = TIPI_ISPEZIONE.includes(tipo);
+  const elenco = ispezione ? INQUADRATURE_ISPEZIONE[tipo] : tipo === "fpv" ? MANOVRE_FPV : tipo === "foto" ? INQUADRATURE_FOTO : MANOVRE_VIDEO;
+  const scalette = (ispezione ? SCALETTE_ISPEZIONE[tipo] : SCALETTE_PRONTE[tipo]) || SCALETTE_PRONTE.video;
   const [scalettaSel, setScalettaSel] = useState(() => (scalette.find((x) => x.titolo === lavoro) || scalette[0]).id);
   const [inVisione, setInVisione] = useState(null); // manovra con l'animazione aperta
-  const titolo = tipo === "foto" ? "📸 Inquadrature per foto belle" : tipo === "fpv" ? "🎬 Manovre FPV" : "🎬 Manovre per video belli";
+  const titolo = ispezione ? "🔍 Foto da fare per l'ispezione, in ordine" : tipo === "foto" ? "📸 Inquadrature per foto belle" : tipo === "fpv" ? "🎬 Manovre FPV" : "🎬 Manovre per video belli";
   const usaScaletta = () => {
     const sc = scalette.find((x) => x.id === scalettaSel);
     if (!sc) return;
@@ -7123,7 +7125,7 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
       <p style={{ fontSize: 11.5, color: "#a8a2bd", margin: "8px 0 0 0" }}>🕹️ Gli stick sono descritti nel «modo 2», quello standard dei radiocomandi DJI: sinistro = sali/scendi e ruota, destro = avanti/indietro e di lato.{conScelta ? " Spunta cosa vuoi fare: lo ritrovi in Home il giorno del volo." : ""}</p>
       {conScelta && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 10, background: "#251e33", borderRadius: 6, padding: "8px 10px" }}>
-          <span style={{ fontSize: 12, color: "#e7eaee", fontWeight: 600 }}>Che lavoro fai?</span>
+          <span style={{ fontSize: 12, color: "#e7eaee", fontWeight: 600 }}>{ispezione ? "Che ispezione fai?" : "Che lavoro fai?"}</span>
           <select value={scalettaSel} onChange={(e) => setScalettaSel(e.target.value)} style={{ background: "#1b2028", color: "#e7eaee", border: "1px solid #3d2f5a", borderRadius: 5, padding: "5px 8px", fontSize: 12 }}>
             {scalette.map((sc) => <option key={sc.id} value={sc.id}>{sc.titolo}</option>)}
           </select>
@@ -7153,7 +7155,7 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
           </div>
         ))}
       </div>
-      {tipo !== "foto" && (
+      {["video", "fpv"].includes(tipo) && (
         <>
           <p style={{ fontSize: 12, fontWeight: 700, color: "#c4b5fd", margin: "12px 0 4px 0" }}>Per farle venire bene</p>
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.55, color: "#d6dde6" }}>
@@ -7194,12 +7196,13 @@ function DaGirare({ piano }) {
     supabase.from("piani_volo").update({ checklist_stato: { ...(piano.checklist_stato || {}), girate: nuove } }).eq("id", piano.id).then(() => {}, () => {});
   };
   const fatte = daFare.filter((m) => girate.includes(m.id)).length;
+  const ispezione = TIPI_ISPEZIONE.includes(piano.tipo_ispezione);
   const tutte = fatte === daFare.length;
   const breve = (m) => m.nome.replace(/ \(.*\)$/, "");
   return (
     <details open style={{ marginTop: 10, background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 6, padding: "8px 10px" }}>
       <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#c4b5fd" }}>
-        🎬 {piano.checklist_stato?.lavoro ? `${piano.checklist_stato.lavoro} · ` : "Da girare · "}<span style={{ color: tutte ? "#4ade80" : "#e7eaee" }}>{fatte} di {daFare.length} girate</span>
+        {ispezione ? "🔍" : "🎬"} {piano.checklist_stato?.lavoro ? `${piano.checklist_stato.lavoro} · ` : ispezione ? "Foto da fare · " : "Da girare · "}<span style={{ color: tutte ? "#4ade80" : "#e7eaee" }}>{fatte} di {daFare.length} {ispezione ? "fatte" : "girate"}</span>
       </summary>
       {daFare.map((m, i) => (
         <div key={m.id} style={{ marginTop: 8, paddingTop: 8, borderTop: i ? "1px solid #2e2540" : "none" }}>
@@ -7216,7 +7219,7 @@ function DaGirare({ piano }) {
         </div>
       ))}
       {["video", "foto", "fpv"].includes(piano.tipo_ispezione) && <ImpostazioniCamera tipo={piano.tipo_ispezione === "foto" ? "foto" : "video"} />}
-      {tutte && <div style={{ marginTop: 10, fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>✅ Tutto girato! In montaggio mettile in quest'ordine: {daFare.map(breve).join(" → ")}</div>}
+      {tutte && <div style={{ marginTop: 10, fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{ispezione ? "✅ Tutte le foto fatte! Ora caricale nell'ispezione e prepara il report (le frasi pronte sono nei consigli qui sotto)." : `✅ Tutto girato! In montaggio mettile in quest'ordine: ${daFare.map(breve).join(" → ")}`}</div>}
     </details>
   );
 }
@@ -7828,6 +7831,9 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} scelte={manovreScelte} onCambiaScelte={setManovreScelte} lavoro={lavoroScelto} onCambiaLavoro={setLavoroScelto} />
             </>
           )}
+          {TIPI_ISPEZIONE.includes(tipoIspezione) && (
+            <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} scelte={manovreScelte} onCambiaScelte={setManovreScelte} lavoro={lavoroScelto} onCambiaLavoro={setLavoroScelto} />
+          )}
 
           <StrumentiLavoro key={tipoIspezione} tipo={tipoIspezione} />
 
@@ -7850,6 +7856,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
               </div>
             </div>
           )}
+          {giornoPrevisto && <SemaforoTermografia tipo={tipoIspezione} orari={meteo?.orari} data={dataPrevista} ora={oraPrevista} />}
           {giornoPrevisto && (() => {
             const hP = oraPrevista ? Number(oraPrevista.slice(0, 2)) : null;
             const tOra = hP != null ? (meteo?.orari || []).find((o) => o.data === dataPrevista && o.ora === hP)?.temperatura : null;
