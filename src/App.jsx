@@ -6730,6 +6730,7 @@ function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zon
                       </div>
                     );
                   })}
+                  <div style={{ fontSize: 11.5, marginTop: 6, color: "#c3cad4" }}>Come si chiede dipende dall'ente: per le zone degli aeroporti di solito si passa dal portale D-Flight, per parchi e altri enti dal contatto indicato nella zona. Controlla la procedura nella scheda della zona su D-Flight.</div>
                   <div style={{ fontSize: 11.5, marginTop: 6, color: permessiRegistrati > 0 ? "#4ade80" : "#ffd9a0" }}>
                     {permessiRegistrati > 0 ? `✓ Hai ${permessiRegistrati === 1 ? "un permesso registrato" : `${permessiRegistrati} permessi registrati`} per questo luogo: controlla che sia valido per la data del volo.`
                       : "⚠ Non hai ancora un permesso registrato per questo luogo. Quando lo ottieni, salvalo in «Permessi» così finisce nei documenti del volo."}
