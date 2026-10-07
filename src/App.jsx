@@ -9,6 +9,7 @@ import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaP
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
+const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
 const Impara = lazy(() => import("./Impara.jsx"));
 const Posti = lazy(() => import("./Posti.jsx"));
 const PostiVicini = lazy(() => import("./Posti.jsx").then((m) => ({ default: m.PostiVicini })));
@@ -2011,6 +2012,7 @@ function AppShell({ session }) {
     const ascolta = (e) => {
       const d = e.detail || {};
       if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
+      else if (d.pagina === "permessi") { setPage("permessi"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
     return () => window.removeEventListener("eyedrones-vai", ascolta);
@@ -6311,12 +6313,53 @@ async function cercaIndirizzoItalia(testo) {
   const conVirgola = !pulito.includes(",") && parole.length >= 3 ? `${parole.slice(0, -1).join(" ")}, ${parole.at(-1)}` : null;
   for (const q of [...new Set([pulito, conVirgola, senzaNumero].filter(Boolean))]) {
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(q)}`);
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&countrycodes=it&accept-language=it&q=${encodeURIComponent(q)}`);
       const [primo] = await r.json();
-      if (primo) return { lat: Number(primo.lat), lon: Number(primo.lon), etichetta: primo.display_name };
+      if (primo) {
+        // quanto è preciso il punto: il civico, solo la via (metà strada) o solo il paese (il centro)
+        const a = primo.address || {};
+        const precisione = a.house_number ? "civico" : a.road || a.pedestrian || a.footway || a.square ? "via" : "zona";
+        const trovato = { lat: Number(primo.lat), lon: Number(primo.lon), etichetta: primo.display_name, precisione };
+        // il civico non è sulla mappa: provo coi numeri vicini della stessa via
+        const numero = Number([...pulito.matchAll(/\b(\d{1,4})\s*[a-z]?\b/gi)].at(-1)?.[1]); // l'ultimo numero (via 4 Novembre 12 → 12)
+        if (precisione === "via" && numero > 0 && a.road) return (await civicoVicino(trovato, a.road, numero)) || trovato;
+        return trovato;
+      }
     } catch (e) { /* provo la variante successiva */ }
   }
   return null;
+}
+
+// il civico cercato non c'è su OpenStreetMap: prendo i numeri segnati della stessa via (stesso lato, pari o dispari)
+// e metto il punto a metà tra quello prima e quello dopo, oppure su quello più vicino
+async function civicoVicino(via, strada, numero) {
+  const nome = strada.replace(/["\\]/g, "");
+  const q = `[out:json][timeout:15];nwr(around:2500,${via.lat},${via.lon})["addr:street"="${nome}"]["addr:housenumber"];out center 400;`;
+  const server = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+  let elementi = null;
+  try {
+    elementi = await Promise.any(server.map(async (u) => {
+      const r = await fetch(u, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+      if (!r.ok) throw new Error("overpass");
+      return (await r.json()).elements || [];
+    }));
+  } catch { return null; }
+  const civici = elementi.map((e) => ({ n: parseInt(e.tags?.["addr:housenumber"], 10), lat: e.lat ?? e.center?.lat, lon: e.lon ?? e.center?.lon }))
+    .filter((c) => c.n > 0 && c.lat != null && c.lon != null);
+  if (civici.length === 0) return null;
+  const esatto = civici.find((c) => c.n === numero);
+  if (esatto) return { ...via, lat: esatto.lat, lon: esatto.lon, precisione: "civico" };
+  const stessoLato = civici.filter((c) => c.n % 2 === numero % 2);
+  const elenco = stessoLato.length > 0 ? stessoLato : civici;
+  const prima = elenco.filter((c) => c.n < numero).sort((x, y) => y.n - x.n)[0];
+  const dopo = elenco.filter((c) => c.n > numero).sort((x, y) => x.n - y.n)[0];
+  if (prima && dopo && dopo.n - prima.n <= 40) {
+    const f = (numero - prima.n) / (dopo.n - prima.n);
+    return { ...via, lat: prima.lat + (dopo.lat - prima.lat) * f, lon: prima.lon + (dopo.lon - prima.lon) * f, precisione: "vicino", nota: `Il ${numero} non è sulla mappa: ho messo il punto tra il ${prima.n} e il ${dopo.n}.` };
+  }
+  const vicino = [prima, dopo].filter(Boolean).sort((x, y) => Math.abs(x.n - numero) - Math.abs(y.n - numero))[0];
+  if (!vicino || Math.abs(vicino.n - numero) > 30) return null;
+  return { ...via, lat: vicino.lat, lon: vicino.lon, precisione: "vicino", nota: `Il ${numero} non è sulla mappa: ho usato il ${vicino.n}, il più vicino.` };
 }
 
 // copia del file zone nello spazio privato dell'account: se il telefono lo cancella, l'app lo riprende da sola
@@ -6343,7 +6386,7 @@ async function riprendiCopiaZone() {
   } catch { return null; }
 }
 
-function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, onPuntoCercato, dataPrevista, oraPrevista, piano, onEsito }) {
+function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, onPuntoCercato, dataPrevista, oraPrevista, piano, onEsito, onStato }) {
   const [archivio, setArchivio] = useState(undefined); // undefined = sto leggendo, null = nessun file
   const [leggendoFile, setLeggendoFile] = useState(false);
   const [errore, setErrore] = useState(null);
@@ -6423,9 +6466,12 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     ? { lat: coordinate.lat, lon: coordinate.lon, fonte: "coordinate" }
     : puntoCercato
       ? { ...puntoCercato, fonte: "indirizzo" }
-      : puntoIndicativo && puntoIndicativo.lat != null
+      : puntoIndicativo && puntoIndicativo.lat != null && !cercando // mentre cerco la via non uso il centro del paese
         ? { lat: puntoIndicativo.lat, lon: puntoIndicativo.lon, fonte: "indicativo" }
         : null;
+  // il punto trovato non è sul civico esatto: lo dico e chiedo di controllare il puntino
+  const approssimato = punto && (punto.fonte === "indicativo" || (punto.fonte === "indirizzo" && punto.precisione && !["civico", "mano"].includes(punto.precisione)));
+  const spostaPunto = React.useCallback((lat, lon) => onPuntoCercato({ lat, lon, etichetta: null, precisione: "mano" }), [onPuntoCercato]);
   const zone = archivio && archivio.zone;
   const quando = dataPrevista ? new Date(`${dataPrevista}T${oraPrevista || "12:00"}`) : null;
   const latP = punto && punto.lat, lonP = punto && punto.lon;
@@ -6435,14 +6481,30 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     [zone, latP, lonP, dataPrevista, oraPrevista]
   );
 
-  // riassunto salvato nel piano di volo e stampato nel PDF di controllo
+  // al riquadro delle regole dico se la zona è stata davvero controllata (se no, niente «120 m» che sembra un via libera)
+  const pro = sbloccatoPro(piano);
+  const motivoStato = !pro ? "pro" : archivio === undefined ? "carico" : !archivio ? "file" : !punto ? (cercando ? "cerco" : errore ? "indirizzo" : "luogo") : punto.fonte === "indicativo" ? "centro" : null;
   useEffect(() => {
-    if (!onEsito || !esito) return;
+    if (onStato) onStato({ controllata: !motivoStato && !!esito, motivo: motivoStato, approssimata: !!approssimato });
+  }, [motivoStato, !!esito, !!approssimato]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (onStato) onStato(null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // riassunto salvato nel piano di volo e stampato nel PDF di controllo
+  const avevaEsito = useRef(false);
+  useEffect(() => {
+    // il punto è cambiato e ora non c'è più un controllo valido: tolgo il vecchio risultato
+    if (!esito) { if (avevaEsito.current && onEsito) onEsito(null); avevaEsito.current = false; return; }
+    avevaEsito.current = true;
+    if (!onEsito) return;
     onEsito({
       verificata: new Date().toISOString(),
       fileDel: archivio.caricato,
       punto: `${latP.toFixed(5)}, ${lonP.toFixed(5)}`,
-      zone: esito.dentro.map((z) => ({ nome: z.nome, restrizione: z.restrizione, limiti: formattaLimiti(z.limiti), da: partenzaZona(z) })),
+      zone: esito.dentro.map((z) => {
+        // l'ente a cui chiedere il permesso (per il riquadro delle regole e il PDF)
+        const a = (z.autorita || []).find((x) => valoreReale(x.nome) || valoreReale(x.email)) || {};
+        return { nome: z.nome, restrizione: z.restrizione, limiti: formattaLimiti(z.limiti), da: partenzaZona(z), ente: valoreReale(a.nome) || null, email: valoreReale(a.email) || null, preavviso: valoreReale(a.preavviso) || null };
+      }),
       altezzaLibera: altezzaLibera(esito.dentro),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -6509,12 +6571,16 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
       ) : !archivio ? (
         <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 6 }}>
           {caricatoPrima && <div style={{ background: "#3a2a12", border: "1px solid #f5b94266", color: "#ffd9a0", borderRadius: 6, padding: "8px 10px", marginBottom: 8, fontWeight: 600 }}>⚠ Il file delle zone che avevi caricato il {formatData(String(caricatoPrima).slice(0, 10))} non c'è più su questo telefono (a volte il telefono libera spazio cancellando i dati dei siti, o hai cambiato browser). Finché non lo ricarichi, la zona non viene controllata.</div>}
-          Scrivi il luogo e l'app ti dice in che zona geografica UAS cade: vietata, con autorizzazione, con condizioni, l'altezza massima e chi contattare. Usa il file ufficiale delle zone, che scarichi gratis dal tuo profilo D-Flight:
-          <ol style={{ margin: "6px 0", paddingLeft: 18, color: "#aab3bf", fontSize: 12 }}>
-            <li>apri <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={linkD}>D-Flight ↗</a> e accedi con le tue credenziali</li>
-            <li>tocca il logo <strong>«d»</strong> in alto a sinistra: sotto «Dettagli account» tocca il <strong>dischetto 💾</strong> (Download UAS Zone Geo)</li>
-            <li>carica qui il file scaricato, dalla cartella Download (resta solo su questo dispositivo; aggiornalo una volta al mese)</li>
+          <div style={{ fontWeight: 700, color: "#e7eaee", fontSize: 13 }}>Per sapere se qui puoi volare serve il file delle zone di D-Flight</div>
+          <div style={{ color: "#aab3bf", fontSize: 12, marginTop: 2 }}>È gratis e si fa <strong>una volta sola</strong>: poi l'app ti dice da sola se la zona è vietata, se serve l'autorizzazione, fino a che altezza puoi salire e chi contattare.</div>
+          <ol style={{ margin: "8px 0", paddingLeft: 20, color: "#c3cad4", fontSize: 12.5, lineHeight: 1.5 }}>
+            <li>Tocca <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ ...linkD, fontSize: 12.5, fontWeight: 700 }}>🗺️ Apri D-Flight ↗</a> ed entra con le tue credenziali.</li>
+            <li>In alto a sinistra tocca il pulsante col logo <strong>«d»</strong>.</li>
+            <li>Sotto <strong>«Dettagli account»</strong> tocca il <strong>dischetto 💾</strong> (<em>Download UAS Zone Geo</em>). Il file si salva nella cartella <strong>Download</strong> del telefono.</li>
+            <li>Torna qui e tocca <strong>«📂 Carica il file zone di D-Flight»</strong> qui sotto, poi scegli il file dalla cartella Download.</li>
+            <li>Scrivi la via del volo: l'app ti dice subito la zona e l'altezza massima.</li>
           </ol>
+          <div style={{ color: "#8b95a3", fontSize: 11.5, marginBottom: 8 }}>Il file resta salvato anche nel tuo account, così non lo perdi se cambi telefono. Aggiornalo una volta al mese.</div>
           <label style={{ display: "inline-block", background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
             {leggendoFile ? "Sto leggendo il file…" : "📂 Carica il file zone di D-Flight"}
             <input type="file" onChange={caricaFile} disabled={leggendoFile} style={{ display: "none" }} />
@@ -6525,7 +6591,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 11.5, color: "#8b95a3" }}>
             {punto ? (
               <span>
-                📍 {punto.fonte === "coordinate" ? "Coordinate" : punto.fonte === "indirizzo" ? "Indirizzo trovato" : "Centro della località (indicativo)"}: {punto.lat.toFixed(5)}, {punto.lon.toFixed(5)}
+                📍 {punto.fonte === "coordinate" ? "Coordinate" : punto.precisione === "mano" ? "Punto sulla mappa" : punto.fonte === "indirizzo" ? "Indirizzo trovato" : "Centro della località (indicativo)"}: {punto.lat.toFixed(5)}, {punto.lon.toFixed(5)}
                 {" · "}<a href={`https://www.google.com/maps?q=${punto.lat},${punto.lon}`} target="_blank" rel="noreferrer" style={{ color: "#3d8bfd" }}>controlla sulla mappa ↗</a>
               </span>
             ) : (
@@ -6537,8 +6603,24 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
               </button>
             )}
           </div>
-          {punto && punto.fonte === "indicativo" && <p style={{ fontSize: 11, color: "#f5b942", margin: "4px 0 0 0" }}>Il punto è il centro del comune: per un controllo preciso scrivi la via e tocca «Trova l'indirizzo», oppure metti le coordinate.</p>}
           {punto && punto.etichetta && <p style={{ fontSize: 10.5, color: "#6b7480", margin: "2px 0 0 0" }}>{punto.etichetta}</p>}
+          {approssimato && (
+            <div style={{ background: "#3a2a12", border: "1px solid #f5b94266", color: "#ffd9a0", borderRadius: 6, padding: "8px 10px", marginTop: 6, fontSize: 12 }}>
+              ⚠ <strong>Posizione approssimativa.</strong>{" "}
+              {punto.fonte === "indicativo" ? "Il punto è il centro del paese, non il posto dove voli."
+                : punto.nota ? punto.nota
+                : punto.precisione === "via" ? "Ho trovato la via ma non il numero: il punto è a metà della via."
+                : "Ho trovato solo il paese o la località, non la via."}
+              {" "}Vicino al bordo di una zona può fare la differenza: <strong>trascina il puntino 📍 sulla mappa</strong> nel posto esatto (o tocca la mappa).
+            </div>
+          )}
+          {punto && punto.precisione === "mano" && <p style={{ fontSize: 11, color: "#4ade80", margin: "4px 0 0 0" }}>✓ Punto messo da te sulla mappa</p>}
+          {punto && (
+            <Suspense fallback={null}>
+              <MappaPunto punto={punto} zone={esito ? [...esito.dentro, ...esito.vicine] : null} onSposta={punto.fonte === "coordinate" ? null : spostaPunto} />
+            </Suspense>
+          )}
+          {punto && punto.fonte !== "coordinate" && <p style={{ fontSize: 10.5, color: "#6b7480", margin: "3px 0 0 0" }}>Trascina il puntino o tocca la mappa per spostarlo: la zona si ricontrolla subito.</p>}
 
           {esito && esito.dentro.length === 0 && (
             <div style={{ borderLeft: "3px solid #4ade80", background: "#4ade8012", borderRadius: 4, padding: "8px 10px", marginTop: 8, fontSize: 12.5 }}>
@@ -6584,7 +6666,18 @@ const REGOLE_CLASSE = {
   C4: { sottocategoria: "A3", attestato: "A1/A3", peso: "meno di 25 kg", regole: ["Nessuna persona non coinvolta nell'area di volo", "Almeno 150 m da aree residenziali, commerciali, industriali o ricreative"] },
 };
 
-function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, attestati, notte, fpv, tipo }) {
+// perché la zona non è stata controllata, detto semplice
+const MOTIVI_ZONA_NON_CONTROLLATA = {
+  file: "manca il file delle zone di D-Flight: caricalo qui sopra (si fa una volta sola)",
+  indirizzo: "non ho trovato l'indirizzo: scrivi via, numero e comune, oppure tocca 📍 o metti le coordinate",
+  cerco: "sto cercando l'indirizzo…",
+  luogo: "scrivi la via del volo oppure le coordinate",
+  centro: "ho solo il centro del paese: scrivi la via o sposta il puntino sulla mappa",
+  pro: "il controllo automatico della zona è nel piano Pro: controlla la zona su D-Flight",
+  carico: "sto caricando le zone…",
+};
+
+function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zonaApprossimata, zoneDelPunto, permessiRegistrati = 0, attestati, notte, fpv, tipo }) {
   const classe = (String(drone?.marcatura_classe || "").toUpperCase().match(/C\s*([0-6])/) || [])[1];
   const chiave = classe != null ? `C${classe}` : null;
   const info = chiave && REGOLE_CLASSE[chiave];
@@ -6612,8 +6705,52 @@ function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, attestati, nott
         <p style={{ fontSize: 12, color: "#c3cad4", margin: "8px 0 0 0" }}>📐 Nelle missioni automatiche il drone deve restare sempre in vista e devi poter riprendere il controllo in ogni momento.</p>
       )}
       <ul style={{ margin: "6px 0 0 0", paddingLeft: 18, fontSize: 12 }}>
-        {voce(null, <>Altezza massima <strong>{altezza} m dal suolo</strong>{altezzaZona != null && altezzaZona < 120 ? " (limite della zona senza autorizzazione)" : ""}</>)}
-        {!zonaVerificata && <li style={{ marginTop: 3, color: "#f5b942" }}>⚠ Zona non ancora verificata: i 120 m valgono solo fuori dalle zone D-Flight (vicino agli aeroporti il limite può essere 25 m o meno). Controlla la zona qui sopra o su D-Flight.</li>}
+        {zonaVerificata ? (
+          <>
+            {altezza > 0
+              ? voce(null, <>Altezza massima <strong>{altezza} m dal suolo</strong>{altezzaZona != null && altezzaZona < 120 ? " (limite della zona senza autorizzazione)" : ""}</>)
+              : voce(false, <>Qui <strong>senza autorizzazione non si può decollare</strong>: guarda la zona qui sopra</>)}
+            {zonaApprossimata && <li style={{ marginTop: 3, color: "#f5b942" }}>⚠ Posizione approssimativa: controlla che il puntino sulla mappa sia nel posto esatto.</li>}
+            {(() => {
+              // permessi da chiedere per le zone in cui cade il punto
+              const daChiedere = (zoneDelPunto || []).filter((z) => z.restrizione === "REQ_AUTHORISATION" || z.restrizione === "PROHIBITED");
+              if (daChiedere.length === 0) return voce(true, "Permessi della zona: non serve nessuna autorizzazione per questo punto");
+              return (
+                <li style={{ marginTop: 4, listStyle: "none", marginLeft: -18, background: "#2a1d14", border: "1px solid #ff8c4266", borderRadius: 6, padding: "8px 10px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#ffb877" }}>🛂 Permessi da chiedere</div>
+                  {daChiedere.map((z, i) => {
+                    const vietata = z.restrizione === "PROHIBITED";
+                    const quando = z.da > 0 ? `solo se sali oltre ${z.da} m` : "già da terra";
+                    return (
+                      <div key={i} style={{ fontSize: 12, color: "#e7eaee", marginTop: 4 }}>
+                        • {vietata ? <>Volo <strong>vietato</strong> {quando}: si vola solo con un'esenzione</> : <><strong>Autorizzazione</strong> {quando}</>}
+                        {z.ente ? <> di <strong>{z.ente}</strong></> : ""} per «{z.nome}»
+                        {z.preavviso ? ` · chiedila con almeno ${durataLeggibile(z.preavviso)} di anticipo` : ""}
+                        {z.email ? <> · <a href={`mailto:${z.email}`} style={{ color: "#3d8bfd" }}>{z.email}</a></> : ""}
+                      </div>
+                    );
+                  })}
+                  <div style={{ fontSize: 11.5, marginTop: 6, color: "#c3cad4" }}>Come si chiede dipende dall'ente: per le zone degli aeroporti di solito si passa dal portale D-Flight, per parchi e altri enti dal contatto indicato nella zona. Controlla la procedura nella scheda della zona su D-Flight.</div>
+                  <div style={{ fontSize: 11.5, marginTop: 6, color: permessiRegistrati > 0 ? "#4ade80" : "#ffd9a0" }}>
+                    {permessiRegistrati > 0 ? `✓ Hai ${permessiRegistrati === 1 ? "un permesso registrato" : `${permessiRegistrati} permessi registrati`} per questo luogo: controlla che sia valido per la data del volo.`
+                      : "⚠ Non hai ancora un permesso registrato per questo luogo. Quando lo ottieni, salvalo in «Permessi» così finisce nei documenti del volo."}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                    <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa" })} style={{ background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si chiede?</button>
+                    <button type="button" onClick={() => vaiA({ pagina: "permessi" })} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>📋 I miei permessi</button>
+                  </div>
+                </li>
+              );
+            })()}
+          </>
+        ) : (
+          <li style={{ marginTop: 4, listStyle: "none", marginLeft: -18, background: "#3a2a12", border: "1px solid #f5b94266", borderRadius: 6, padding: "8px 10px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#ffd9a0" }}>❓ Altezza massima: zona non controllata</div>
+            <div style={{ fontSize: 12, color: "#ffd9a0", marginTop: 2 }}>{MOTIVI_ZONA_NON_CONTROLLATA[motivoZona] || "controlla la zona qui sopra o su D-Flight"}.</div>
+            <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4 }}>Il massimo di 120 m vale solo fuori dalle zone D-Flight: vicino ad aeroporti, parchi e zone protette può essere 25 m o meno, oppure serve l'autorizzazione o è vietato.</div>
+            <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 3 }}>🛂 Per lo stesso motivo non so ancora <strong>se servono permessi</strong>: lo vedi appena la zona è controllata.</div>
+          </li>
+        )}
         {voce(null, fpv ? "In FPV serve un osservatore accanto a te che tenga sempre il drone in vista" : "Drone sempre in vista, senza binocoli")}
         {info && info.regole.map((t, i) => <React.Fragment key={i}>{voce(null, t)}</React.Fragment>)}
         {info && info.attestato === "A2" && voce(haA2 ? true : false, haA2 ? "Attestato A2 presente tra i tuoi documenti" : "Per volare in A2 serve l'attestato A2: non lo trovo tra i tuoi attestati")}
@@ -7506,6 +7643,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [oraSole, setOraSole] = useState("18:00");
   const [oraPrevista, setOraPrevista] = useState("");
   const [zonaEsito, setZonaEsito] = useState(null); // ultimo controllo della zona, salvato con il piano
+  const [zonaStato, setZonaStato] = useState(null); // il controllo della zona è avvenuto davvero? (e se no, perché)
   const [puntoIndirizzo, setPuntoIndirizzo] = useState(null); // via e numero trovati su OpenStreetMap
   const [stsDati, setStsDati] = useState(null); // calcolatore STS-01 (salvato nel piano)
   const [manovreScelte, setManovreScelte] = useState([]); // riprese da fare in questo volo (scaletta)
@@ -7886,6 +8024,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             oraPrevista={oraPrevista}
             piano={piano}
             onEsito={setZonaEsito}
+            onStato={setZonaStato}
           />
 
           <Suspense fallback={null}>
@@ -7897,7 +8036,11 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           <RegoleVolo
             drone={droneSelezionato}
             altezzaZona={zonaEsito && zonaEsito.altezzaLibera != null ? zonaEsito.altezzaLibera : null}
-            zonaVerificata={!!zonaEsito}
+            zonaVerificata={!!(zonaStato ? zonaStato.controllata : zonaEsito)}
+            motivoZona={zonaStato && zonaStato.motivo}
+            zonaApprossimata={!!(zonaStato && zonaStato.approssimata)}
+            zoneDelPunto={zonaEsito && zonaEsito.zone}
+            permessiRegistrati={permessiZona.length}
             attestati={attestatiUtente}
             notte={!!(luce && oraPrevista && (() => {
               const [h, m] = oraPrevista.split(":").map(Number);
