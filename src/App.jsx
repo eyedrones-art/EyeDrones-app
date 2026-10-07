@@ -6337,6 +6337,7 @@ async function riprendiCopiaZone() {
     if (error || !data) return null;
     const dati = JSON.parse(await data.text());
     if (!dati || !Array.isArray(dati.zone) || dati.zone.length === 0) return null;
+    if (!dati.caricato) dati.caricato = new Date().toISOString();
     await salvaZone(dati);
     return dati;
   } catch { return null; }
@@ -6400,6 +6401,23 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     else setErrore("Indirizzo non trovato: prova a scrivere via e comune (es. Via Roma 4, Torino), oppure le coordinate.");
     setCercando(false);
   };
+
+  // appena smetti di scrivere il luogo lo cerco da solo (senza toccare «Trova l'indirizzo»)
+  useEffect(() => {
+    const t = (testoLuogo || "").trim();
+    if (coordinate || puntoCercato || t.length < 5) return undefined;
+    let annullato = false;
+    const timer = setTimeout(async () => {
+      setCercando(true); setErrore(null);
+      const trovato = await cercaIndirizzoItalia(t);
+      setCercando(false);
+      if (annullato) return;
+      if (trovato) onPuntoCercato(trovato);
+      else setErrore("Indirizzo non trovato: prova a scrivere via e comune (es. Via Roma 4, Torino), oppure le coordinate.");
+    }, 1300);
+    return () => { annullato = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testoLuogo, coordinate, puntoCercato]);
 
   const punto = coordinate
     ? { lat: coordinate.lat, lon: coordinate.lon, fonte: "coordinate" }
@@ -6478,7 +6496,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         <span style={{ fontSize: 13, fontWeight: 700 }}>🛡️ Zona di volo<EtichettaPro /></span>
         {archivio && (
           <label style={{ fontSize: 11, color: giorniFile > 28 ? "#f5b942" : "#8b95a3", cursor: "pointer" }}>
-            {ripreso ? "☁️ Ripreso dal tuo account · " : ""}File zone del {formatData(archivio.caricato.slice(0, 10))}{giorniFile > 28 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
+            {ripreso ? "☁️ Ripreso dal tuo account · " : ""}File zone del {formatData(String(archivio.caricato || "").slice(0, 10))}{giorniFile > 28 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
             <input type="file" onChange={caricaFile} style={{ display: "none" }} />
           </label>
         )}
@@ -6511,7 +6529,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
                 {" · "}<a href={`https://www.google.com/maps?q=${punto.lat},${punto.lon}`} target="_blank" rel="noreferrer" style={{ color: "#3d8bfd" }}>controlla sulla mappa ↗</a>
               </span>
             ) : (
-              <span>Scrivi via e comune (o le coordinate) e tocca «Trova l'indirizzo», oppure «Controlla meteo».</span>
+              <span>{cercando ? "Cerco il luogo…" : "Scrivi via e comune (o le coordinate): lo cerco da solo appena smetti di scrivere."}</span>
             )}
             {!coordinate && testoLuogo && (
               <button type="button" onClick={cercaIndirizzo} disabled={cercando} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5 }}>
