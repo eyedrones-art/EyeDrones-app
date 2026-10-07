@@ -6519,7 +6519,7 @@ const REGOLE_CLASSE = {
   C4: { sottocategoria: "A3", attestato: "A1/A3", peso: "meno di 25 kg", regole: ["Nessuna persona non coinvolta nell'area di volo", "Almeno 150 m da aree residenziali, commerciali, industriali o ricreative"] },
 };
 
-function RegoleVolo({ drone, altezzaZona, attestati, notte, fpv, tipo }) {
+function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, attestati, notte, fpv, tipo }) {
   const classe = (String(drone?.marcatura_classe || "").toUpperCase().match(/C\s*([0-6])/) || [])[1];
   const chiave = classe != null ? `C${classe}` : null;
   const info = chiave && REGOLE_CLASSE[chiave];
@@ -6548,6 +6548,7 @@ function RegoleVolo({ drone, altezzaZona, attestati, notte, fpv, tipo }) {
       )}
       <ul style={{ margin: "6px 0 0 0", paddingLeft: 18, fontSize: 12 }}>
         {voce(null, <>Altezza massima <strong>{altezza} m dal suolo</strong>{altezzaZona != null && altezzaZona < 120 ? " (limite della zona senza autorizzazione)" : ""}</>)}
+        {!zonaVerificata && <li style={{ marginTop: 3, color: "#f5b942" }}>⚠ Zona non ancora verificata: i 120 m valgono solo fuori dalle zone D-Flight (vicino agli aeroporti il limite può essere 25 m o meno). Controlla la zona qui sopra o su D-Flight.</li>}
         {voce(null, fpv ? "In FPV serve un osservatore accanto a te che tenga sempre il drone in vista" : "Drone sempre in vista, senza binocoli")}
         {info && info.regole.map((t, i) => <React.Fragment key={i}>{voce(null, t)}</React.Fragment>)}
         {info && info.attestato === "A2" && voce(haA2 ? true : false, haA2 ? "Attestato A2 presente tra i tuoi documenti" : "Per volare in A2 serve l'attestato A2: non lo trovo tra i tuoi attestati")}
@@ -7831,6 +7832,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           <RegoleVolo
             drone={droneSelezionato}
             altezzaZona={zonaEsito && zonaEsito.altezzaLibera != null ? zonaEsito.altezzaLibera : null}
+            zonaVerificata={!!zonaEsito}
             attestati={attestatiUtente}
             notte={!!(luce && oraPrevista && (() => {
               const [h, m] = oraPrevista.split(":").map(Number);
