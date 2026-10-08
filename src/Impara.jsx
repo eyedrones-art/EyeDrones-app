@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { ESAMI, LEZIONI, GUIDA_ZONA_ROSSA, DOMANDE, SIGLE_ZONE, CONTATTI_ZONE } from "./impara";
 import Notizie from "./Notizie.jsx";
+import Manuale from "./Manuale.jsx";
 
 // Sezione «Impara»: lezioni A1/A3 e A2, quiz con spiegazioni e simulazione d'esame, guida zona rossa, consigli di volo.
 const SCHEDE = [
   { key: "notizie", label: "📰 Notizie" },
+  { key: "manuale", label: "🎬 Foto e video" },
   { key: "a1a3", label: "📘 A1/A3" },
   { key: "a2", label: "📗 A2" },
   { key: "quiz", label: "📝 Quiz" },
@@ -239,7 +241,7 @@ function ZonaRossa() {
   );
 }
 
-export default function Impara({ schedaIniziale = "a1a3", consigli }) {
+export default function Impara({ schedaIniziale = "a1a3", consigli, colore }) {
   const [scheda, setScheda] = useState(SCHEDE.some((s) => s.key === schedaIniziale) ? schedaIniziale : "a1a3");
   const [esameQuiz, setEsameQuiz] = useState("a1a3");
   useEffect(() => { if (SCHEDE.some((s) => s.key === schedaIniziale)) setScheda(schedaIniziale); }, [schedaIniziale]);
@@ -258,6 +260,7 @@ export default function Impara({ schedaIniziale = "a1a3", consigli }) {
       {corpo === "zona-rossa" && <ZonaRossa />}
       {corpo === "consigli" && <div style={{ margin: "0 -32px" }}>{consigli}</div>}
       {corpo === "notizie" && <Notizie />}
+      {corpo === "manuale" && <Manuale colore={colore} />}
     </div>
   );
 }
