@@ -204,7 +204,7 @@ function SigleZone() {
   );
 }
 
-function ZonaRossa() {
+export function ZonaRossa() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <p style={{ fontSize: 13, color: "#c3cad4", margin: 0 }}>Hai trovato una zona rossa sulla mappa D-Flight o nella verifica zona di EyeDrones? Ecco cosa fare, passo per passo.</p>
