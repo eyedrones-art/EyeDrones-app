@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
-import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare } from "./Ispezioni";
+import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
@@ -2282,8 +2282,9 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 }
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10e";
+const VERSIONE_NOVITA = "2026-10f";
 const NOVITA = [
+  { emoji: "🌡️", testo: "Ispezioni: come impostare la termocamera, cosa portare e i consigli per ogni lavoro", pagina: "guide" },
   { emoji: "📰", testo: "Nuovo: le notizie dal mondo droni, a cura di DronEzine", vai: { pagina: "impara", scheda: "notizie" } },
   { emoji: "📍", testo: "Zona di volo: punto sulla mappa da spostare col dito e permessi da chiedere", pagina: "pianificazione" },
   { emoji: "🧭", testo: "Dal piano parti subito: Google Maps o Waze ti portano al luogo del volo", pagina: "pianificazione" },
@@ -3130,6 +3131,8 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
         )}
 
         <DaGirare piano={p} />
+        {/* senza foto scelte nel piano il riquadro qui sopra non c'è: le impostazioni della camera le mostro lo stesso */}
+        {TIPI_ISPEZIONE.includes(p.tipo_ispezione) && !(p.checklist_stato?.manovre || []).length && <ImpostazioniIspezione tipo={p.tipo_ispezione} />}
 
         <ConsigliVolo tipo={p.tipo_ispezione} drone={drone} />
 
@@ -7543,6 +7546,7 @@ function DaGirare({ piano }) {
         </div>
       ))}
       {["video", "foto", "fpv"].includes(piano.tipo_ispezione) && <ImpostazioniCamera tipo={piano.tipo_ispezione === "foto" ? "foto" : "video"} />}
+      {TIPI_ISPEZIONE.includes(piano.tipo_ispezione) && <ImpostazioniIspezione tipo={piano.tipo_ispezione} />}
       {tutte && <div style={{ marginTop: 10, fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{ispezione ? "✅ Tutte le foto fatte! Ora caricale nell'ispezione e prepara il report (le frasi pronte sono nei consigli qui sotto)." : `✅ Tutto girato! In montaggio mettile in quest'ordine: ${daFare.map(breve).join(" → ")}`}</div>}
     </details>
   );
@@ -7682,6 +7686,7 @@ function GuideVolo({ droni = [], incorporata = false }) {
               <ManovreVideo tipo="foto" />
             </>
           )}
+          {g.titolo === "Ispezioni" && ["fotovoltaico", "edifici", "elettrico", "danni"].map((t) => <ImpostazioniIspezione key={"cam-" + t} tipo={t} conNome />)}
         </div>
       ))}
     </div>
@@ -8146,6 +8151,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           />
 
           <ConsigliVolo key={"consigli-" + tipoIspezione} tipo={tipoIspezione} drone={droneSelezionato} />
+          {TIPI_ISPEZIONE.includes(tipoIspezione) && <ImpostazioniIspezione key={"camisp-" + tipoIspezione} tipo={tipoIspezione} />}
           {["video", "foto", "fpv"].includes(tipoIspezione) && (
             <>
               <ImpostazioniCamera key={"cam-" + tipoIspezione + (oraPrevista || "")} tipo={tipoIspezione} lucePrevista={(() => {

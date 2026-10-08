@@ -4,12 +4,12 @@ import Notizie from "./Notizie.jsx";
 
 // Sezione «Impara»: lezioni A1/A3 e A2, quiz con spiegazioni e simulazione d'esame, guida zona rossa, consigli di volo.
 const SCHEDE = [
+  { key: "notizie", label: "📰 Notizie" },
   { key: "a1a3", label: "📘 A1/A3" },
   { key: "a2", label: "📗 A2" },
   { key: "quiz", label: "📝 Quiz" },
   { key: "zona-rossa", label: "🔴 Zona rossa" },
   { key: "consigli", label: "💡 Consigli di volo" },
-  { key: "notizie", label: "📰 Notizie" },
 ];
 const CHIAVE_ERRORI = "eyedrones_quiz_errori";
 const leggiErrori = () => { try { return JSON.parse(localStorage.getItem(CHIAVE_ERRORI) || "[]"); } catch { return []; } };

@@ -167,3 +167,124 @@ export function CosaConsegnare({ tipo }) {
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------------------------
+// Come impostare la camera, cosa portare e consigli, per ogni tipo di ispezione (come «Come impostare la camera»
+// per video e foto). Valori indicativi: dipendono dalla termocamera e dal drone.
+const CAMERA_ISPEZIONE = {
+  fotovoltaico: {
+    camera: [
+      ["Modalità", "Foto termica radiometrica (R-JPEG) insieme alla foto normale"],
+      ["Palette", "Ironbow o White hot: le celle calde saltano subito all'occhio"],
+      ["Scala", "Bloccata e uguale per tutte le foto (per esempio da 20 a 70 °C): con la scala automatica ogni foto ha colori diversi e non si confrontano"],
+      ["Emissività", "Circa 0,85 (vetro del modulo, lato anteriore)"],
+      ["Temp. riflessa", "Quella dell'aria, oppure misurata su un foglio di alluminio stropicciato"],
+      ["Angolo", "Non perpendicolare: inclina di 10–30° per non riprendere il riflesso del sole o del drone"],
+      ["Altezza", "Di solito 15–30 m sopra i pannelli, abbastanza vicino da distinguere le singole celle (circa 3 cm per pixel): controlla il GSD del tuo drone"],
+      ["Velocità", "Lenta, 2–3 m/s, e foto da fermo sopra ogni anomalia"],
+    ],
+    portare: [
+      "Batterie cariche: i passaggi lenti consumano molto",
+      "Solarimetro, oppure la lettura dell'irraggiamento dall'inverter (almeno 600 W/m²)",
+      "La planimetria dell'impianto con stringhe e numerazione dei moduli",
+      "Termometro per la temperatura dell'aria",
+      "Scheda di memoria vuota e veloce",
+      "Il contatto di chi gestisce l'impianto e l'ok del proprietario",
+    ],
+    consigli: [
+      "L'impianto deve essere in produzione: inverter acceso, niente manutenzioni in corso.",
+      "Annota irraggiamento, temperatura e ora all'inizio e alla fine del volo: servono nel report.",
+      "Per ogni anomalia fai anche la foto normale: il cliente deve capire dov'è il modulo.",
+      "Sporco, foglie ed escrementi fanno macchie calde: guarda la foto normale prima di chiamarli difetti.",
+    ],
+  },
+  edifici: {
+    camera: [
+      ["Modalità", "Foto termica radiometrica (R-JPEG) insieme alla foto normale"],
+      ["Palette", "Ironbow o Rainbow ad alto contrasto"],
+      ["Scala", "Bloccata per tutta la facciata (per esempio da −5 a 20 °C, dipende dalla stagione)"],
+      ["Emissività", "0,90–0,95 per intonaco, mattone e tegole. Vetri e metalli riflettono: lì la temperatura non è affidabile"],
+      ["Temp. riflessa", "Quella dell'aria, oppure misurata su un foglio di alluminio stropicciato"],
+      ["Angolo", "Il più possibile di fronte alla facciata, ma non dritto davanti alle finestre"],
+      ["Distanza", "5–15 m dalla facciata, più una foto larga di riferimento per ogni lato"],
+    ],
+    portare: [
+      "Batterie cariche",
+      "Termometro per dentro e fuori: servono almeno 10 °C di differenza",
+      "Luce verde lampeggiante del drone accesa, se voli dopo il tramonto",
+      "L'elenco dei punti sospetti (macchie, muffa, stanze fredde) chiesto al cliente",
+      "Scheda di memoria vuota",
+    ],
+    consigli: [
+      "Chiedi al cliente di tenere il riscaldamento acceso da diverse ore e le finestre chiuse.",
+      "Niente sole sulle facciate da alcune ore: meglio la sera tardi o prima dell'alba.",
+      "Superfici bagnate falsano tutto: evita le ore dopo la pioggia.",
+      "Fai prima il giro dei 4 lati in largo, poi i dettagli: nel report si capisce subito dove sei.",
+    ],
+  },
+  elettrico: {
+    camera: [
+      ["Modalità", "Foto termica radiometrica (R-JPEG) insieme alla foto normale con zoom"],
+      ["Palette", "White hot o Ironbow"],
+      ["Scala", "Automatica per cercare i punti caldi, poi bloccala per le foto del report"],
+      ["Emissività", "Circa 0,95 su isolatori e parti verniciate. I metalli lucidi riflettono: misura su connessioni e parti non lucide"],
+      ["Distanza", "Resta lontano dai conduttori e usa lo zoom invece di avvicinarti: le linee disturbano la bussola"],
+      ["Angolo", "Evita di avere il sole o il cielo riflesso sulle parti metalliche"],
+    ],
+    portare: [
+      "Le autorizzazioni del gestore della linea o dell'impianto",
+      "Il carico della linea in quel momento: con poco carico i difetti non si scaldano (di solito si consiglia almeno il 40%)",
+      "Batterie cariche e scheda di memoria vuota",
+      "Il contatto di un referente sul posto",
+    ],
+    consigli: [
+      "Confronta lo stesso componente sulle tre fasi: conta la differenza di temperatura, più del valore da solo.",
+      "Annota il carico e l'ora per ogni foto: senza quei dati la misura vale poco.",
+      "Mantieni sempre la distanza di sicurezza indicata dal gestore.",
+    ],
+  },
+  danni: {
+    camera: [
+      ["Modalità", "Foto, in RAW (DNG) + JPG"],
+      ["ISO", "100–200"],
+      ["Tempo", "Almeno 1/500 s se scatti mentre il drone si muove"],
+      ["Messa a fuoco", "Tocca sul tetto prima di ogni scatto"],
+      ["Bilanciamento", "Automatico va bene"],
+      ["Distanza", "10–20 m per le foto d'insieme, 3–5 m per i dettagli (attento a fili e antenne)"],
+      ["Zoom", "Se il drone ce l'ha, usalo per i dettagli invece di avvicinarti"],
+    ],
+    portare: [
+      "Batterie cariche e scheda di memoria vuota",
+      "L'ok del proprietario e, se serve, dei vicini",
+      "Gli appunti di dove entra l'acqua dentro casa: ti dicono dove guardare sul tetto",
+    ],
+    consigli: [
+      "Il cielo coperto è ottimo: niente ombre dure e niente riflessi.",
+      "Fai sempre prima le 4 foto dei lati e il tetto intero, poi i dettagli.",
+      "Per ogni danno: una foto larga per capire dov'è e un primo piano con un riferimento (comignolo, grondaia).",
+    ],
+  },
+};
+
+const NOMI_ISPEZIONE = { fotovoltaico: "Fotovoltaico", edifici: "Termografia edifici", elettrico: "Impianti elettrici", danni: "Tetti e danni" };
+export function ImpostazioniIspezione({ tipo, conNome }) {
+  const d = CAMERA_ISPEZIONE[tipo];
+  if (!d) return null;
+  const titolo = { color: "#8fc1ff", fontSize: 12.5, fontWeight: 700, margin: "12px 0 4px 0" };
+  return (
+    <details style={{ background: "#141c26", border: "1px solid #2a4562", borderRadius: 8, padding: "10px 14px", margin: "14px 0" }}>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#8fc1ff" }}>📷 {conNome ? `${NOMI_ISPEZIONE[tipo]}: camera, cosa portare e consigli` : "Come impostare la camera, cosa portare e consigli"}</summary>
+      <div style={titolo}>{tipo === "danni" ? "📷 Camera" : "🌡️ Termocamera"}</div>
+      {d.camera.map(([k, v]) => (
+        <div key={k} style={{ display: "flex", gap: 8, fontSize: 12.5, padding: "4px 0", borderBottom: "1px solid #24303d" }}>
+          <span style={{ width: 110, flexShrink: 0, color: "#8fb3d9" }}>{k}</span><span style={{ color: "#e7eaee" }}>{v}</span>
+        </div>
+      ))}
+      <div style={titolo}>🎒 Cosa portare</div>
+      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "#e7eaee", lineHeight: 1.5 }}>{d.portare.map((x) => <li key={x}>{x}</li>)}</ul>
+      <div style={titolo}>💡 Consigli</div>
+      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5 }}>{d.consigli.map((x) => <li key={x}>{x}</li>)}</ul>
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Valori indicativi: cambiano con la termocamera e il drone. Controlla sempre il manuale.</p>
+    </details>
+  );
+}
