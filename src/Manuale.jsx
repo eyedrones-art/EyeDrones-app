@@ -54,7 +54,7 @@ const SEZIONI = [
         <Lista voci={[
           "Apri con la ripresa più bella: i primi 2–3 secondi decidono se la gente continua a guardare.",
           "Poi racconta: dal largo al vicino (luogo → edificio → dettagli), oppure segui l'ordine delle riprese del piano.",
-          "Chiudi con una ripresa larga che si allontana (dronie) o con il logo del cliente.",
+          "Chiudi con un allontanamento: il drone indietreggia e sale, con la camera sempre sul soggetto (in inglese «dronie»). Oppure chiudi con il logo del cliente.",
           "Taglia a ritmo di musica: cambia ripresa sui colpi forti.",
           "Ogni ripresa 3–6 secondi: le riprese dal drone sono lente, più lunghe annoiano.",
           "Transizioni semplici: il taglio netto quasi sempre va meglio degli effetti.",
@@ -81,7 +81,7 @@ const SEZIONI = [
       <>
         <Lista voci={[
           "Hai girato normale? Bastano piccoli ritocchi: bianco, esposizione e un po' di contrasto.",
-          "Hai girato in D-Log o D-Log M? Il video è grigio apposta: va «sviluppato» con la LUT ufficiale del tuo drone, poi si ritocca.",
+          "Hai girato in D-Log o D-Log M? Il video è grigio apposta: va «sviluppato» con la LUT ufficiale del tuo drone (una specie di filtro che rimette i colori giusti, si scarica gratis dal sito del produttore), poi si ritocca.",
           "Correggi prima esposizione e bianco, poi la LUT, poi il «look» (contrasto, saturazione).",
           "Usa le stesse correzioni su tutte le clip dello stesso momento: copia e incolla la correzione.",
         ]} />
@@ -136,7 +136,7 @@ const SEZIONI = [
       <>
         <Lista voci={[
           "Raddrizza l'orizzonte e ritaglia: è l'errore che si nota di più nelle foto da drone.",
-          "Esposizione, poi ombre più chiare e luci più scure, così recuperi cielo e dettagli (meglio se hai scattato in RAW).",
+          "Esposizione, poi ombre più chiare e luci più scure, così recuperi cielo e dettagli (meglio se hai scattato in RAW, il formato DNG che tiene molti più dettagli del JPG).",
           "Bilanciamento del bianco: caldo per tramonti e case, neutro per ispezioni e immobili.",
           "Un po' di vividezza (non saturazione), poca nitidezza.",
           "Riduzione del rumore se hai scattato di sera.",
