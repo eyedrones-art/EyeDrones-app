@@ -2142,10 +2142,13 @@ function AppShell({ session }) {
         .menu-telefono { display: none; }
         .avviso-caricamento { bottom: 24px; }
         .home-azioni { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
-        .home-azione { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 1px solid; border-radius: 12px; padding: 14px 16px; color: #e7eaee; min-height: 72px; }
-        .home-azione-emoji { font-size: 26px; flex: none; }
+        .home-azione { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #1b2028; border: 1px solid #2b313d; border-radius: 14px; padding: 14px 16px; color: #e7eaee; min-height: 74px; transition: border-color .15s, transform .15s, background .15s; }
+        .home-azione:hover { border-color: #ff8c4288; background: #1f252e; transform: translateY(-1px); }
+        .home-azione-emoji { font-size: 22px; flex: none; width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; }
         .home-azione-titolo { display: block; font-size: 14.5px; font-weight: 700; }
-        .home-azione-testo { display: block; font-size: 12px; margin-top: 2px; }
+        .home-azione-testo { display: block; font-size: 12px; margin-top: 2px; color: #8b95a3; }
+        .home-testata { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid #2b313d; padding: 26px 28px; margin-bottom: 18px; min-height: 170px; background-size: cover; background-position: center; display: flex; align-items: flex-end; }
+        .home-striscia { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
         .home-azione .corto { display: none; }
         .home-due { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
         @media (max-width: 680px) {
@@ -2158,6 +2161,8 @@ function AppShell({ session }) {
           .home-azione .lungo, .home-azione-testo { display: none !important; }
           .home-azione .corto { display: inline; }
           .home-azione-titolo { font-size: 12.5px; }
+          .home-testata { padding: 18px 16px; min-height: 150px; border-radius: 14px; }
+          .home-testata h1 { font-size: 24px !important; }
           .menu-telefono { display: contents; }
           .mt-topbar { position: sticky; top: 0; z-index: 800; display: flex; align-items: center; gap: 8px; padding: 10px 16px; padding-top: calc(10px + env(safe-area-inset-top)); background: rgba(18, 21, 26, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #262b33; }
           .mt-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; display: flex; background: rgba(18, 21, 26, 0.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid #262b33; padding-bottom: env(safe-area-inset-bottom); }
@@ -2196,7 +2201,7 @@ function AppShell({ session }) {
               : <>Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.</>}
           </div>
         )}
-        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} nomeSaluto={azienda.nomeImpostato ? azienda.nome : ""} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
@@ -3120,17 +3125,16 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   if (passato) {
     return (
       <section style={{ marginBottom: 18 }}>
-        <div style={{ background: "#1b2028", border: "1px solid #f5b94266", borderRadius: 12, padding: 16 }}>
-          <div style={{ fontSize: 11.5, color: "#f5b942", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>✈️ Volo di oggi</div>
-          <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4 }}>{oraP} · {p.impianto_nome}</div>
-          <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2, marginBottom: 10 }}>{ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione}</div>
-            <div style={{ background: "#241d16", border: "1px solid #f5b94266", borderRadius: 8, padding: "10px 12px" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#f5b942" }}>⏰ Il volo era previsto alle {oraP}: l'ora è passata</div>
-            <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 3 }}>L'hai fatto? Registralo. Se l'hai rimandato, apri il piano e cambia data e ora: meteo{termografia ? ", sole" : ""} e luce si ricalcolano.</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-              <button type="button" onClick={segnaFatto} style={btn(true)}>✅ Fatto: registralo</button>
-              <button type="button" onClick={() => onApriPiano(p.id)} style={btn(false)}>🗓️ Sposta data e ora</button>
-            </div>
+        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 14, padding: 16, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 22, width: 44, height: 44, borderRadius: 12, background: "#4ade8022", display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}>✈️</span>
+          <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+            <div style={{ fontSize: 11.5, color: "#8b95a3", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>Volo di oggi · {oraP}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>{p.impianto_nome}{(ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione) && <span style={{ fontSize: 12.5, color: "#8b95a3", fontWeight: 500 }}> · {ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione}</span>}</div>
+            <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 3 }}>Com'è andato? Registralo con un tocco, oppure sposta data e ora se l'hai rimandato.</div>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button type="button" onClick={segnaFatto} style={btn(true)}>✅ Fatto: registralo</button>
+            <button type="button" onClick={() => onApriPiano(p.id)} style={btn(false)}>🗓️ Sposta</button>
           </div>
         </div>
         {elencoAltri}
@@ -3249,17 +3253,104 @@ function VoloAdesso() {
     );
   };
   return (
-    <button type="button" onClick={premi} disabled={cerco} className="home-azione" style={{ background: "#1f1a14", borderColor: "#6a4320" }}>
-      <span className="home-azione-emoji">📍</span>
+    <button type="button" onClick={premi} disabled={cerco} className="home-azione">
+      <span className="home-azione-emoji" style={{ background: "#ff8c4226" }}>📍</span>
       <span>
         <span className="home-azione-titolo">{cerco ? "Cerco la posizione…" : <><span className="lungo">Sei sul posto? Vola adesso</span><span className="corto">Sono sul posto</span></>}</span>
-        <span className="home-azione-testo" style={{ color: "#d8b894" }}>Meteo, zona, regole e camera, qui e ora</span>
+        <span className="home-azione-testo">Meteo, zona, regole e camera, qui e ora</span>
       </span>
     </button>
   );
 }
 
-function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [] }) {
+
+// «Oggi si vola?»: meteo di dove sei adesso. Chiede la posizione solo se il permesso c'è già o se lo tocchi
+const CHIAVE_METEO_QUI = "eyedrones_meteo_qui";
+function SiVolaQui() {
+  const [m, setM] = useState(() => { try { const c = JSON.parse(sessionStorage.getItem(CHIAVE_METEO_QUI) || "null"); return c && Date.now() - c.quando < 30 * 60000 ? c : null; } catch { return null; } });
+  const [stato, setStato] = useState(m ? "ok" : "fermo");
+  const cerca = () => {
+    if (!navigator.geolocation) { setStato("errore"); return; }
+    setStato("cerco");
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        const { latitude: la, longitude: lo } = pos.coords;
+        const [r, g] = await Promise.all([
+          fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation,weather_code&timezone=auto`).then((x) => x.json()),
+          fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=10&lat=${la}&lon=${lo}&accept-language=it`).then((x) => x.json()).catch(() => null),
+        ]);
+        const c = r.current || {};
+        const a = g && g.address;
+        const nuovo = { quando: Date.now(), luogo: a ? a.city || a.town || a.village || a.municipality || "" : "", t: c.temperature_2m, v: c.wind_speed_10m, raff: c.wind_gusts_10m, pioggia: c.precipitation, codice: c.weather_code };
+        setM(nuovo); setStato("ok");
+        try { sessionStorage.setItem(CHIAVE_METEO_QUI, JSON.stringify(nuovo)); } catch { /* niente */ }
+      } catch { setStato("errore"); }
+    }, () => setStato("errore"), { timeout: 12000, maximumAge: 10 * 60000 });
+  };
+  useEffect(() => {
+    if (m) return;
+    try { navigator.permissions?.query({ name: "geolocation" }).then((p) => { if (p.state === "granted") cerca(); }, () => {}); } catch { /* non supportato */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const vetro = { display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(14,17,22,.62)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 12, padding: "10px 14px", color: "#e7eaee", textAlign: "left" };
+  if (stato !== "ok" || !m) {
+    return (
+      <button type="button" onClick={cerca} disabled={stato === "cerco"} style={vetro}>
+        <span style={{ fontSize: 22 }}>🌤️</span>
+        <span><span style={{ display: "block", fontSize: 14, fontWeight: 700 }}>{stato === "cerco" ? "Guardo il meteo…" : "Oggi si vola?"}</span>
+          <span style={{ display: "block", fontSize: 12, color: "#c3cad4" }}>{stato === "errore" ? "Posizione non disponibile: riprova" : "Tocca per vedere vento e pioggia dove sei"}</span></span>
+      </button>
+    );
+  }
+  const piove = (m.pioggia || 0) > 0.2 || [61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(m.codice);
+  const ventoso = (m.raff || 0) > 38 || (m.v || 0) > 28;
+  const quasi = (m.raff || 0) > 28 || (m.v || 0) > 20;
+  const [emoji, titolo, colore] = piove ? ["🌧️", "Piove: meglio aspettare", "#ff8c42"] : ventoso ? ["💨", "Troppo vento per volare tranquilli", "#ff8c42"] : quasi ? ["🌬️", "Si vola, ma c'è vento", "#f5b942"] : ["✅", "Oggi si vola bene", "#4ade80"];
+  return (
+    <button type="button" onClick={() => vaiA({ pagina: "pianificazione", luogo: { nome: "La mia posizione", adesso: true } })} style={vetro} title="Apri il meteo completo in Pianifica">
+      <span style={{ fontSize: 24 }}>{emoji}</span>
+      <span>
+        <span style={{ display: "block", fontSize: 14.5, fontWeight: 700, color: colore }}>{titolo}</span>
+        <span style={{ display: "block", fontSize: 12, color: "#c3cad4" }}>{[m.luogo, m.t != null ? `${Math.round(m.t)}°` : null, m.v != null ? `vento ${Math.round(m.v)} km/h` : null, m.raff != null ? `raffiche ${Math.round(m.raff)}` : null].filter(Boolean).join(" · ")}</span>
+      </span>
+    </button>
+  );
+}
+
+// le ultime foto e video caricati: in Home fanno da vetrina
+function StrisciaLavori({ media, onApri }) {
+  if (!media || media.length < 2) return null;
+  return (
+    <section style={{ marginBottom: 24 }}>
+      <TitoloSezione emoji="🎞️" titolo="I tuoi ultimi lavori" azione={<button type="button" onClick={onApri} style={{ background: "none", border: "none", color: "#3d8bfd", fontSize: 12.5, padding: 0 }}>Galleria →</button>} />
+      <div className="home-striscia">
+        {media.slice(0, 10).map((x) => (
+          <button key={x.id} type="button" onClick={onApri} aria-label={x.nome || "Apri la galleria"} style={{ flex: "none", width: 150, height: 96, padding: 0, border: "1px solid #2b313d", borderRadius: 10, overflow: "hidden", background: "#0e1116", position: "relative" }}>
+            {x.tipo === "video"
+              ? <video src={`${x.url}#t=0.5`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              : <img src={x.url} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+            {x.tipo === "video" && <span style={{ position: "absolute", left: 6, bottom: 6, background: "rgba(0,0,0,.6)", color: "#fff", fontSize: 11, borderRadius: 6, padding: "2px 6px" }}>▶ video</span>}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// disegno del drone per la testata, quando non c'è ancora una foto da mettere dietro
+const DRONE_TESTATA = (
+  <svg viewBox="0 0 320 200" aria-hidden="true" style={{ position: "absolute", right: -10, top: "50%", transform: "translateY(-50%)", width: "min(48%, 360px)", opacity: 0.32, pointerEvents: "none" }}>
+    <g fill="none" stroke="#ff9d5c" strokeWidth="3" strokeLinecap="round">
+      <path d="M100 70 L150 95 M220 70 L170 95 M100 150 L150 115 M220 150 L170 115" />
+      <rect x="140" y="88" width="40" height="34" rx="10" />
+      <ellipse cx="90" cy="64" rx="42" ry="7" /><ellipse cx="230" cy="64" rx="42" ry="7" />
+      <ellipse cx="90" cy="156" rx="42" ry="7" /><ellipse cx="230" cy="156" rx="42" ry="7" />
+      <circle cx="160" cy="132" r="7" />
+    </g>
+  </svg>
+);
+
+function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [], nomeSaluto }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
 
@@ -3281,26 +3372,34 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
   const batterieAttive = (batterie || []).filter((b) => !b.ritirata).length;
   const urgenti = voci.filter((v) => v.stato && v.stato.livello !== "ok");
   const [tutteScadenze, setTutteScadenze] = useState(false);
+  const [media, setMedia] = useState([]);
+  useEffect(() => {
+    if (!usaRiprese) return;
+    supabase.from("voli_media").select("id, tipo, url, nome, created_at").in("tipo", ["foto", "video"]).order("created_at", { ascending: false }).limit(12)
+      .then(({ data }) => setMedia((data || []).filter(mediaSicuro)), () => {});
+  }, [usaRiprese]);
+  const fotoTestata = media.find((x) => x.tipo === "foto");
 
-  const bloccoScadenze = (
-    <section style={{ marginBottom: 28 }}>
-      <TitoloSezione emoji="🪪" titolo="Scadenze e avvisi" />
-      {urgenti.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {(tutteScadenze ? urgenti : urgenti.slice(0, 3)).map((v) => (
-            <button key={v.id} onClick={() => onNav(v.vai)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#1b2028", border: `1px solid ${v.stato.colore}55`, borderRadius: 8, padding: "10px 14px", color: "#e7eaee", fontSize: 13 }}>
+  // le scadenze da sistemare: un solo riquadro, si apre se lo tocchi
+  const bloccoScadenze = urgenti.length > 0 && (
+    <section style={{ marginBottom: 22 }}>
+      <button type="button" onClick={() => setTutteScadenze(!tutteScadenze)} aria-expanded={tutteScadenze} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "#1b2028", border: `1px solid ${urgenti.some((v) => v.stato.livello === "scaduto") ? "#ff6b6b66" : "#f5b94266"}`, borderRadius: 12, padding: "12px 16px", color: "#e7eaee" }}>
+        <span style={{ fontSize: 22 }}>⚠️</span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "block", fontSize: 14, fontWeight: 700 }}>{urgenti.length === 1 ? "1 cosa da sistemare" : `${urgenti.length} cose da sistemare`}</span>
+          <span style={{ display: "block", fontSize: 12, color: "#8b95a3", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: tutteScadenze ? "normal" : "nowrap" }}>{urgenti.map((v) => v.nome.split(" — ")[0]).filter((x, i, a) => a.indexOf(x) === i).join(" · ")}</span>
+        </span>
+        <span style={{ color: "#8b95a3", fontSize: 18, transform: tutteScadenze ? "rotate(90deg)" : "none", transition: "transform .2s" }}>›</span>
+      </button>
+      {tutteScadenze && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+          {urgenti.map((v) => (
+            <button key={v.id} onClick={() => onNav(v.vai)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#161a1f", border: `1px solid ${v.stato.colore}44`, borderRadius: 8, padding: "10px 14px", color: "#e7eaee", fontSize: 13 }}>
               <span>{v.nome}</span>
-              <span style={{ color: v.stato.colore, fontWeight: 600, fontSize: 12 }}>{v.stato.testo}</span>
+              <span style={{ color: v.stato.colore, fontWeight: 600, fontSize: 12 }}>{v.stato.testo} ›</span>
             </button>
           ))}
-          {urgenti.length > 3 && <button type="button" onClick={() => setTutteScadenze(!tutteScadenze)} style={{ background: "none", border: "none", color: "#3d8bfd", fontSize: 12.5, padding: "2px 0", textAlign: "left" }}>{tutteScadenze ? "Mostra meno" : `Mostra tutti (${urgenti.length})`}</button>}
         </div>
-      ) : voci.length > 0 || batterieAttive > 0 ? (
-        <div style={{ background: "#16221b", border: "1px solid #24422f", borderRadius: 8, padding: "10px 14px", color: "#4ade80", fontSize: 12.5 }}>
-          ✓ Tutto in regola: nessun attestato, manutenzione o batteria da controllare.
-        </div>
-      ) : (
-        <EmptyState text="Aggiungi i tuoi attestati, droni e batterie per tenere d'occhio scadenze e manutenzioni." />
       )}
     </section>
   );
@@ -3322,15 +3421,21 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
     usaIspezioni && { valore: numIspezioni, etichetta: numIspezioni === 1 ? "ispezione" : "ispezioni" },
     usaRiprese && { valore: voli.length, etichetta: voli.length === 1 ? "volo" : "voli" },
     usaRiprese && minutiVoli > 0 && { valore: formattaDurata(minutiVoli), etichetta: "in volo", colore: "#ff8c42" },
-  ].filter(Boolean);
+  ].filter((n) => n && n.valore !== 0 && n.valore !== "0");
 
   return (
     <div className="home" style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
-        <div style={{ marginBottom: 18 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{saluto}</h1>
-          <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "4px 0 0 0", textTransform: "none" }}>{oggi.charAt(0).toUpperCase() + oggi.slice(1)}{sottotitolo ? ` · ${sottotitolo}` : ""}</p>
-        </div>
+        <section className="home-testata" style={{ backgroundImage: fotoTestata ? `linear-gradient(90deg, rgba(11,13,17,.94) 0%, rgba(11,13,17,.72) 45%, rgba(11,13,17,.25) 100%), url("${fotoTestata.url}")` : "radial-gradient(120% 140% at 100% 0%, #3a2414 0%, #1a1620 45%, #12151a 100%)" }}>
+          {!fotoTestata && DRONE_TESTATA}
+          <div style={{ position: "relative" }}>
+            <div style={{ fontSize: 12.5, color: "#ffb877", fontWeight: 600, letterSpacing: ".02em" }}>{oggi.charAt(0).toUpperCase() + oggi.slice(1)}</div>
+            <h1 style={{ fontSize: 30, fontWeight: 800, margin: "2px 0 0 0", lineHeight: 1.15 }}>{saluto}{nomeSaluto ? `, ${nomeSaluto}` : ""}</h1>
+            {sottotitolo && <p style={{ color: "#c3cad4", fontSize: 13, margin: "4px 0 14px 0" }}>{sottotitolo}</p>}
+            {!sottotitolo && <div style={{ height: 14 }} />}
+            <SiVolaQui />
+          </div>
+        </section>
 
         {moduli === null && (
           <div style={{ background: "linear-gradient(135deg, #241d16, #1b2028)", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginBottom: 22 }}>
@@ -3351,14 +3456,14 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
         {/* azioni rapide */}
         <div className="home-azioni">
           <VoloAdesso />
-          <button type="button" onClick={() => onNav("pianificazione")} className="home-azione" style={{ background: "#1a1d2e", borderColor: "#3d3a7a" }}>
-            <span className="home-azione-emoji">🗓️</span>
-            <span><span className="home-azione-titolo"><span className="lungo">Pianifica un volo</span><span className="corto">Pianifica</span></span><span className="home-azione-testo" style={{ color: "#a9a6d6" }}>Meteo, zona, scene e sopralluogo</span></span>
+          <button type="button" onClick={() => onNav("pianificazione")} className="home-azione">
+            <span className="home-azione-emoji" style={{ background: "#7c5cd626" }}>🗓️</span>
+            <span><span className="home-azione-titolo"><span className="lungo">Pianifica un volo</span><span className="corto">Pianifica</span></span><span className="home-azione-testo">Meteo, zona, scene e sopralluogo</span></span>
           </button>
           {onControllo && (
-            <button type="button" onClick={onControllo} className="home-azione" style={{ background: "#13233d", borderColor: "#2f5aa8" }}>
-              <span className="home-azione-emoji">👮</span>
-              <span><span className="home-azione-titolo"><span className="lungo">Controllo? Documenti</span><span className="corto">Controllo</span></span><span className="home-azione-testo" style={{ color: "#9fb4d6" }}>A schermo pieno, anche senza campo</span></span>
+            <button type="button" onClick={onControllo} className="home-azione">
+              <span className="home-azione-emoji" style={{ background: "#3d8bfd26" }}>👮</span>
+              <span><span className="home-azione-titolo"><span className="lungo">Controllo? Documenti</span><span className="corto">Controllo</span></span><span className="home-azione-testo">A schermo pieno, anche senza campo</span></span>
             </button>
           )}
         </div>
@@ -3368,13 +3473,13 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           <span>Prima di ogni volo: <strong>scheda SD nel drone, ed è vuota</strong> · batterie cariche · eliche integre</span>
         </div>
 
-        {urgenti.length > 0 && bloccoScadenze}
+        {bloccoScadenze}
 
         <div className="home-due">
           <div style={{ minWidth: 0 }}>
             <Suspense fallback={null}><UltimaNotizia onTutte={() => vaiA({ pagina: "impara", scheda: "notizie" })} /></Suspense>
           </div>
-          <div style={{ ...scheda, minWidth: 0, marginBottom: 22 }}>
+          {(numeri.length > 0 || loading) && <div style={{ ...scheda, minWidth: 0, marginBottom: 22 }}>
             <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 10 }}>📊 In numeri</div>
             {loading ? <LoadingBlock /> : (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 22px" }}>
@@ -3388,8 +3493,10 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
             )}
             {urgenti.length === 0 && (voci.length > 0 || batterieAttive > 0) && <div style={{ marginTop: 12, fontSize: 12, color: "#4ade80" }}>✓ Tutto in regola: attestati, manutenzioni e batterie</div>}
             {urgenti.length === 0 && voci.length === 0 && batterieAttive === 0 && <button type="button" onClick={() => onNav("attestati")} style={{ marginTop: 12, background: "none", border: "none", padding: 0, fontSize: 12, color: "#3d8bfd", textAlign: "left" }}>Aggiungi attestati, droni e batterie per tenere d'occhio le scadenze →</button>}
-          </div>
+          </div>}
         </div>
+
+        <StrisciaLavori media={media} onApri={() => onNav("registro-voli")} />
 
         {(usaIspezioni || usaRiprese) && (
           <section style={{ marginBottom: 28 }}>
