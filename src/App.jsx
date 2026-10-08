@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
-import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare } from "./Ispezioni";
+import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
@@ -2013,10 +2013,17 @@ function AppShell({ session }) {
     const ascolta = (e) => {
       const d = e.detail || {};
       if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
-      else if (d.pagina === "permessi") { setPage("permessi"); window.scrollTo(0, 0); }
+      else if (d.pagina === "permessi" || d.pagina === "nuova") { setPage(d.pagina); window.scrollTo(0, 0); }
+      else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
     return () => window.removeEventListener("eyedrones-vai", ascolta);
+  }, []);
+  // frasi per il report scelte sul posto: le salvo anche nell'account, così le ritrovi sul computer
+  useEffect(() => {
+    const salva = (e) => { supabase.auth.updateUser({ data: { frasi_report: e.detail || null } }).then(() => {}, () => {}); };
+    window.addEventListener("eyedrones-frasi-report", salva);
+    return () => window.removeEventListener("eyedrones-frasi-report", salva);
   }, []);
   const caricaClienti = async () => {
     const { data, error } = await supabase.from("clienti").select("*").order("nome", { ascending: true });
@@ -2210,9 +2217,81 @@ function AppShell({ session }) {
 
 // --- Pagina di presentazione (prima del login) -----------------------------------------------
 
+// «Primi passi» in Home: le 6 cose che fanno funzionare l'app, si spuntano da sole man mano che le fai
+const CHIAVE_PRIMI_PASSI = "eyedrones_primi_passi_chiuso";
+function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
+  const [chiuso, setChiuso] = useState(() => { try { return localStorage.getItem(CHIAVE_PRIMI_PASSI) === "si"; } catch { return false; } });
+  const [haPiano, setHaPiano] = useState(null);
+  useEffect(() => {
+    if (chiuso) return undefined;
+    let annullato = false;
+    supabase.from("piani_volo").select("id").limit(1)
+      .then(({ data, error }) => { if (!annullato) setHaPiano(!error && Array.isArray(data) && data.length > 0); })
+      .catch(() => { if (!annullato) setHaPiano(false); });
+    return () => { annullato = true; };
+  }, [chiuso]);
+  if (chiuso) return null;
+
+  const oggi = new Date();
+  const validi = (attestati || []).filter((a) => !a.data_scadenza || new Date(a.data_scadenza) >= oggi);
+  const haAttestato = validi.some((a) => /A1|A2|A3|STS/i.test(a.tipo || ""));
+  const haAssicurazione = validi.some((a) => /assicura/i.test(a.tipo || ""));
+  const zoneCaricate = (() => { try { return !!localStorage.getItem("eyedrones_zone_caricate"); } catch { return false; } })();
+  const passi = [
+    { fatto: true, titolo: "Crea il tuo account" },
+    { fatto: (droni || []).length > 0, titolo: "Aggiungi il tuo drone", perche: "così l'app sa le regole della sua classe e fin dove puoi volare", pagina: "droni" },
+    { fatto: haAttestato && haAssicurazione, titolo: "Carica attestato e assicurazione", perche: haAttestato && !haAssicurazione ? "manca l'assicurazione: in Italia è obbligatoria" : !haAttestato && haAssicurazione ? "manca l'attestato del pilota" : "se ti fermano per un controllo li mostri con un tocco, anche senza campo", pagina: "attestati" },
+    { fatto: zoneCaricate, titolo: "Carica il file zone di D-Flight", perche: "si fa una volta sola: poi scrivi la via e sai subito dove puoi volare", pagina: "pianificazione" },
+    { fatto: !!haPiano || (voli || []).length > 0, titolo: "Prepara il tuo primo volo", perche: "meteo, luce, zona, regole e le riprese da fare, tutto in una pagina", pagina: "pianificazione" },
+    { fatto: (preventivi || []).length > 0, titolo: "Fai il tuo primo preventivo", perche: "in PDF, con i pacchetti pronti e il prezzo consigliato", pagina: "preventivi" },
+  ];
+  const fatti = passi.filter((x) => x.fatto).length;
+  const tutti = fatti === passi.length;
+  const prossimo = passi.find((x) => !x.fatto);
+  const chiudi = () => { try { localStorage.setItem(CHIAVE_PRIMI_PASSI, "si"); } catch { /* niente */ } setChiuso(true); };
+  if (haPiano === null) return null; // aspetto di sapere se c'è già un piano, così non spunto a scatti
+
+  return (
+    <div style={{ position: "relative", background: "linear-gradient(135deg, #16202c, #1b2028)", border: "1px solid #2b4a6a", borderRadius: 12, padding: "14px 16px", marginBottom: 18, maxWidth: 720 }}>
+      <button type="button" onClick={chiudi} aria-label="Chiudi i primi passi" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
+      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#7fb0ff", paddingRight: 32 }}>{tutti ? "🎉 Tutto pronto!" : `🚀 Primi passi con EyeDrones · ${fatti} di ${passi.length}`}</div>
+      <div style={{ height: 6, background: "#262b33", borderRadius: 3, margin: "8px 0 10px 0", overflow: "hidden" }}>
+        <div style={{ width: `${Math.round((fatti / passi.length) * 100)}%`, height: "100%", background: tutti ? "#4ade80" : "#3d8bfd", transition: "width .4s" }} />
+      </div>
+      {tutti ? (
+        <div style={{ fontSize: 13, color: "#c3cad4" }}>
+          Hai fatto tutto: l'app è pronta per i tuoi voli. Se ti serve una mano, in <strong>Impara</strong> trovi regole, manovre e consigli.
+          <div><button type="button" onClick={chiudi} style={{ marginTop: 10, background: "#4ade80", color: "#12151a", border: "none", borderRadius: 6, padding: "8px 16px", minHeight: 40, fontSize: 13, fontWeight: 700 }}>Perfetto, chiudi</button></div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {passi.map((x) => {
+            const attivo = x === prossimo;
+            const riga = (
+              <>
+                <span style={{ width: 22, height: 22, flex: "none", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, background: x.fatto ? "#4ade80" : "transparent", color: x.fatto ? "#12151a" : "#8b95a3", border: x.fatto ? "none" : `1.5px solid ${attivo ? "#3d8bfd" : "#4a505a"}` }}>{x.fatto ? "✓" : ""}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 13.5, fontWeight: attivo ? 700 : 500, color: x.fatto ? "#6b7480" : "#e7eaee", textDecoration: x.fatto ? "line-through" : "none" }}>{x.titolo}</span>
+                  {attivo && x.perche && <span style={{ display: "block", fontSize: 12, color: "#aab3bf", marginTop: 2, lineHeight: 1.4 }}>{x.perche}</span>}
+                </span>
+                {!x.fatto && <span style={{ color: attivo ? "#3d8bfd" : "#6b7480", fontSize: attivo ? 12.5 : 14, fontWeight: 600, whiteSpace: "nowrap" }}>{attivo ? "Inizia ›" : "›"}</span>}
+              </>
+            );
+            const stile = { display: "flex", gap: 10, alignItems: attivo ? "flex-start" : "center", textAlign: "left", padding: attivo ? "8px 10px" : "6px 10px", margin: "0 -10px", borderRadius: 8, background: attivo ? "#3d8bfd14" : "none", border: "none", color: "#e7eaee", minHeight: 40 };
+            return x.fatto || !x.pagina
+              ? <div key={x.titolo} style={stile}>{riga}</div>
+              : <button key={x.titolo} type="button" onClick={() => onNav(x.pagina)} style={stile}>{riga}</button>;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10e";
+const VERSIONE_NOVITA = "2026-10f";
 const NOVITA = [
+  { emoji: "🌡️", testo: "Ispezioni: come impostare la termocamera, cosa portare e i consigli per ogni lavoro", pagina: "guide" },
   { emoji: "📰", testo: "Nuovo: le notizie dal mondo droni, a cura di DronEzine", vai: { pagina: "impara", scheda: "notizie" } },
   { emoji: "📍", testo: "Zona di volo: punto sulla mappa da spostare col dito e permessi da chiedere", pagina: "pianificazione" },
   { emoji: "🧭", testo: "Dal piano parti subito: Google Maps o Waze ti portano al luogo del volo", pagina: "pianificazione" },
@@ -2911,7 +2990,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
 
   useEffect(() => {
     supabase.from("piani_volo").select("*").gte("data_prevista", oggi).lte("data_prevista", fra14).order("data_prevista", { ascending: true }).limit(6)
-      .then(({ data }) => setPiani((data || []).sort((a, b) => `${a.data_prevista} ${a.ora_prevista || "99"}`.localeCompare(`${b.data_prevista} ${b.ora_prevista || "99"}`))));
+      .then(({ data }) => setPiani((data || []).filter((x) => !x.checklist_stato?.fatto).sort((a, b) => `${a.data_prevista} ${a.ora_prevista || "99"}`.localeCompare(`${b.data_prevista} ${b.ora_prevista || "99"}`))));
   }, []);
 
   const p = piani && piani[0] && (piani[0].data_prevista === oggi || piani[0].data_prevista === domani) ? piani[0] : null;
@@ -2963,6 +3042,32 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   const luce = meteo && !meteo.errore && meteo.lat != null ? calcolaLuce(p.data_prevista, meteo.lat, meteo.lon) : null;
   const oraLuogo = (d) => formattaOraLuogo(d, meteo?.fusoOrario);
   const riprese = ["video", "foto", "fpv"].includes(p.tipo_ispezione);
+  const termografia = ["fotovoltaico", "edifici"].includes(p.tipo_ispezione);
+  // volo di oggi con l'ora già passata da più di un'ora: non ha senso dire «condizioni buone alle 10:30» alle 19
+  const adesso = new Date();
+  const passato = p.data_prevista === oggi && hOra != null && adesso.getHours() * 60 + adesso.getMinutes() > (hOra + 1) * 60 + Number(oraP.slice(3, 5) || 0);
+  // «Fatto»: lo segno nel piano, così dalla Home sparisce, e apro il registro già compilato
+  const segnaFatto = () => {
+    supabase.from("piani_volo").update({ checklist_stato: { ...(p.checklist_stato || {}), fatto: true } }).eq("id", p.id).then(() => {}, () => {});
+    setPiani((l) => (l || []).filter((x) => x.id !== p.id));
+    onRegistra(datiRegistro());
+  };
+  // riprese o foto spuntate sul posto: le porto nelle note del volo, così a casa sai l'ordine per il montaggio o il report
+  const fatteSulPosto = (() => {
+    const girate = (() => { try { const l = JSON.parse(localStorage.getItem(`eyedrones_girate_${p.id}`) || "null"); if (Array.isArray(l)) return l; } catch { /* niente */ } return p.checklist_stato?.girate || []; })();
+    const nomi = (p.checklist_stato?.manovre || []).filter((id) => girate.includes(id)).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean).map((m) => m.nome.replace(/ \(.*\)$/, ""));
+    if (nomi.length === 0) return "";
+    return TIPI_ISPEZIONE.includes(p.tipo_ispezione) ? `Foto fatte: ${nomi.join(", ")}` : `Ordine per il montaggio: ${nomi.join(" → ")}`;
+  })();
+  const datiRegistro = () => ({
+    ...(fatteSulPosto ? { note: fatteSulPosto } : {}),
+    data: p.data_prevista,
+    ...(oraP ? { ora: oraP } : {}),
+    luogo: p.impianto_nome || "",
+    drone_id: p.drone_id || "",
+    tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
+    ...(punto ? { coordinate_gps: `${punto.lat.toFixed(5)}, ${punto.lon.toFixed(5)}` } : {}),
+  });
 
   const voci = p.checklist_stato?.voci || [];
   const spuntate = voci.filter((_, i) => (p.checklist_stato?.spuntati || {})[i]).length;
@@ -2980,6 +3085,28 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
     : libera > 0 ? ["#f5b942", `Libero fino a ${libera} m · sopra serve autorizzazione`] : ["#ff8c42", "Serve autorizzazione già da terra"];
   const btn = (primario) => ({ background: primario ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#1f2530", color: primario ? "#161a1f" : "#e7eaee", border: primario ? "none" : "1px solid #333a45", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 });
 
+  // ora passata: scheda piccola, solo «l'hai fatto?», senza meteo e consigli che ormai non servono
+  if (passato) {
+    return (
+      <section style={{ marginBottom: 28, maxWidth: 720 }}>
+        <div style={{ background: "#1b2028", border: "1px solid #f5b94266", borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 11.5, color: "#f5b942", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>✈️ Volo di oggi</div>
+          <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4 }}>{oraP} · {p.impianto_nome}</div>
+          <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2, marginBottom: 10 }}>{ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione}</div>
+            <div style={{ background: "#241d16", border: "1px solid #f5b94266", borderRadius: 8, padding: "10px 12px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#f5b942" }}>⏰ Il volo era previsto alle {oraP}: l'ora è passata</div>
+            <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 3 }}>L'hai fatto? Registralo. Se l'hai rimandato, apri il piano e cambia data e ora: meteo{termografia ? ", sole" : ""} e luce si ricalcolano.</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+              <button type="button" onClick={segnaFatto} style={btn(true)}>✅ Fatto: registralo</button>
+              <button type="button" onClick={() => onApriPiano(p.id)} style={btn(false)}>🗓️ Sposta data e ora</button>
+            </div>
+          </div>
+        </div>
+        {elencoAltri}
+      </section>
+    );
+  }
+
   return (
     <section style={{ marginBottom: 28, maxWidth: 720 }}>
       <div style={{ background: "linear-gradient(135deg, #1d2633, #1b2028)", border: "1px solid #3d8bfd66", borderRadius: 12, padding: 16 }}>
@@ -2994,7 +3121,9 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
               <>
                 {allOra && (
                   <div style={{ fontSize: 13, fontWeight: 700, color: COLORE_SEMAFORO[valutaOra(allOra, limite)], marginBottom: 6 }}>
-                    {{ verde: "✓ Condizioni buone", giallo: "⚠ Condizioni al limite", rosso: "✗ Condizioni sfavorevoli", grigio: "Meteo incompleto" }[valutaOra(allOra, limite)]} alle {oraP}: vento {Math.round(allOra.vento)} km/h, raffiche {Math.round(allOra.raffiche)}, pioggia {allOra.probPioggia ?? "—"}%
+                    {(termografia
+                      ? { verde: "✓ Vento e pioggia ok", giallo: "⚠ Vento al limite", rosso: "✗ Vento o pioggia sfavorevoli", grigio: "Meteo incompleto" }
+                      : { verde: "✓ Condizioni buone", giallo: "⚠ Condizioni al limite", rosso: "✗ Condizioni sfavorevoli", grigio: "Meteo incompleto" })[valutaOra(allOra, limite)]} alle {oraP}: vento {Math.round(allOra.vento)} km/h, raffiche {Math.round(allOra.raffiche)}, pioggia {allOra.probPioggia ?? "—"}%
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
@@ -3010,6 +3139,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
                     );
                   })}
                 </div>
+                {termografia && <SemaforoTermografia tipo={p.tipo_ispezione} orari={meteo.orari} data={p.data_prevista} ora={oraP} />}
                 {luce && (
                   <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 6 }}>
                     🌅 {oraLuogo(luce.alba)} · 🌇 {oraLuogo(luce.tramonto)}{riprese && luce.oraOroSera[0] ? <span style={{ color: "#f5b942" }}> · ✨ ora d'oro {oraLuogo(luce.oraOroSera[0])}–{oraLuogo(luce.oraOroSera[1])}</span> : null}
@@ -3035,6 +3165,8 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
         )}
 
         <DaGirare piano={p} />
+        {/* senza foto scelte nel piano il riquadro qui sopra non c'è: le impostazioni della camera le mostro lo stesso */}
+        {TIPI_ISPEZIONE.includes(p.tipo_ispezione) && !(p.checklist_stato?.manovre || []).length && <ImpostazioniIspezione tipo={p.tipo_ispezione} />}
 
         <ConsigliVolo tipo={p.tipo_ispezione} drone={drone} />
 
@@ -3042,19 +3174,36 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
           <button onClick={() => onApriPiano(p.id)} style={btn(true)}>Apri il piano</button>
           <button onClick={() => onDocumenti(p.id)} style={btn(false)}>🚔 Documenti controllo</button>
           <PulsantiNavigatore piano={p} />
-          <button onClick={() => onRegistra({
-            data: p.data_prevista,
-            ...(oraP ? { ora: oraP } : {}),
-            luogo: p.impianto_nome || "",
-            drone_id: p.drone_id || "",
-            tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
-            ...(punto ? { coordinate_gps: `${punto.lat.toFixed(5)}, ${punto.lon.toFixed(5)}` } : {}),
-          })} style={btn(false)}>📒 Registra il volo</button>
+          <button onClick={() => onRegistra(datiRegistro())} style={btn(false)}>📒 Registra il volo</button>
         </div>
         <div style={{ marginTop: 8 }}><PulsantiCalendario dati={calendarioDaPiano(p, drone)} compatto /></div>
       </div>
       {elencoAltri}
     </section>
+  );
+}
+
+// «Sono già sul posto»: niente piano preparato prima, apro Pianifica sulla posizione GPS con data e ora di adesso
+function VoloAdesso() {
+  const [cerco, setCerco] = useState(false);
+  const vai = (luogo) => vaiA({ pagina: "pianificazione", luogo: { nome: luogo ? "La mia posizione" : "", adesso: true, ...(luogo || {}) } });
+  const premi = () => {
+    if (!navigator.geolocation) { vai(null); return; }
+    setCerco(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setCerco(false); vai({ lat: pos.coords.latitude, lon: pos.coords.longitude }); },
+      () => { setCerco(false); vai(null); },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  };
+  return (
+    <button type="button" onClick={premi} disabled={cerco} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 720, textAlign: "left", background: "#1f1a14", border: "1px solid #6a4320", borderRadius: 10, padding: "12px 16px", marginBottom: 18, color: "#e7eaee" }}>
+      <span style={{ fontSize: 26 }}>📍</span>
+      <span>
+        <span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>{cerco ? "Cerco la tua posizione…" : "Sei già sul posto? Vola adesso"}</span>
+        <span style={{ display: "block", fontSize: 12, color: "#d8b894" }}>Senza preparare niente: meteo, zona, regole, foto da fare e impostazioni della camera, qui e ora.</span>
+      </span>
+    </button>
   );
 }
 
@@ -3125,6 +3274,8 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
         </button>
       )}
 
+      <VoloAdesso />
+
       {moduli === null && (
         <div style={{ background: "linear-gradient(135deg, #241d16, #1b2028)", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginBottom: 28, maxWidth: 720 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px 0" }}>Come usi il drone?</h3>
@@ -3134,6 +3285,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
       )}
 
       <InvitoImpronta />
+      <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
       <RiquadroNovita onVai={onNav} />
 
       {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
@@ -3742,6 +3894,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
             )}
             <label style={{ fontSize: 11.5, color: "#6b7480" }}>Note</label>
             <textarea rows={3} value={campiModificabili.note} onChange={(e) => { setCampiModificabili({ ...campiModificabili, note: e.target.value }); setCampiSalvatiOk(false); }} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", resize: "vertical", fontFamily: "inherit" }} />
+            <FrasiReport chiaro tipo={ispezione.tipo_ispezione || "fotovoltaico"} valori={{ data: ispezione.data ? formatData(ispezione.data) : "", ora: campiModificabili.ora, irraggiamento: campiModificabili.irraggiamento }} onAggiungi={(t) => { setCampiModificabili((c) => ({ ...c, note: (c.note ? c.note + "\n" : "") + t })); setCampiSalvatiOk(false); }} />
             <button onClick={salvaCampiBase} disabled={salvandoCampi} style={{ marginTop: 4, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 0", borderRadius: 6, fontWeight: 600, fontSize: 12.5 }}>
               {salvandoCampi ? "Salvataggio..." : "Salva questi dati"}
             </button>
@@ -7454,6 +7607,7 @@ function DaGirare({ piano }) {
         </div>
       ))}
       {["video", "foto", "fpv"].includes(piano.tipo_ispezione) && <ImpostazioniCamera tipo={piano.tipo_ispezione === "foto" ? "foto" : "video"} />}
+      {TIPI_ISPEZIONE.includes(piano.tipo_ispezione) && <ImpostazioniIspezione tipo={piano.tipo_ispezione} />}
       {tutte && <div style={{ marginTop: 10, fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{ispezione ? "✅ Tutte le foto fatte! Ora caricale nell'ispezione e prepara il report (le frasi pronte sono nei consigli qui sotto)." : `✅ Tutto girato! In montaggio mettile in quest'ordine: ${daFare.map(breve).join(" → ")}`}</div>}
     </details>
   );
@@ -7593,6 +7747,7 @@ function GuideVolo({ droni = [], incorporata = false }) {
               <ManovreVideo tipo="foto" />
             </>
           )}
+          {g.titolo === "Ispezioni" && ["fotovoltaico", "edifici", "elettrico", "danni"].map((t) => <ImpostazioniIspezione key={"cam-" + t} tipo={t} conNome />)}
         </div>
       ))}
     </div>
@@ -7671,12 +7826,17 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [luogoLibero, setLuogoLibero] = useState("");
   const [coordinateLibere, setCoordinateLibere] = useState("");
   // arrivo da «Posti»: preparo un piano nuovo in quel luogo
+  // e da «Volo adesso» in Home: la posizione GPS, con data e ora di adesso
   useEffect(() => {
     if (!luogoIniziale) return;
     setImpiantoSel(null); setModoLibero(true);
     setLuogoLibero(luogoIniziale.nome || "");
-    setCoordinateLibere(`${luogoIniziale.lat.toFixed(5)}, ${luogoIniziale.lon.toFixed(5)}`);
-    setTipoIspezione("video");
+    setCoordinateLibere(luogoIniziale.lat != null ? `${luogoIniziale.lat.toFixed(5)}, ${luogoIniziale.lon.toFixed(5)}` : "");
+    if (luogoIniziale.adesso) {
+      const ora = new Date();
+      setDataPrevista(dataLocale());
+      scegliOraPrevista(`${String(ora.getHours()).padStart(2, "0")}:${String(ora.getMinutes()).padStart(2, "0")}`);
+    } else setTipoIspezione("video");
     if (onLuogoUsato) onLuogoUsato();
   }, [luogoIniziale]);
   const [gpsInCorso, setGpsInCorso] = useState(false);
@@ -8057,6 +8217,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           />
 
           <ConsigliVolo key={"consigli-" + tipoIspezione} tipo={tipoIspezione} drone={droneSelezionato} />
+          {TIPI_ISPEZIONE.includes(tipoIspezione) && <ImpostazioniIspezione key={"camisp-" + tipoIspezione} tipo={tipoIspezione} />}
           {["video", "foto", "fpv"].includes(tipoIspezione) && (
             <>
               <ImpostazioniCamera key={"cam-" + tipoIspezione + (oraPrevista || "")} tipo={tipoIspezione} lucePrevista={(() => {
@@ -12661,10 +12822,27 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [step, setStep] = useState(1);
   const [dataIspezione, setDataIspezione] = useState(() => new Date().toISOString().slice(0, 10));
   const [impiantoSel, setImpiantoSel] = useState(null);
-  const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
+  const [tipoIspezione, setTipoIspezione] = useState(() => { const d = leggiFrasiReport(); return d && TIPI_ISPEZIONE.includes(d.tipo) ? d.tipo : "fotovoltaico"; });
   const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
   const [irraggiamento, setIrraggiamento] = useState("");
-  const [note, setNote] = useState("");
+  // frasi scelte sul posto (Home o piano, anche da un altro telefono): le metto già nelle note, con data e ora di quando eri lì
+  const testoFrasi = (d) => d.frasi.map((f) => compilaFrase(f, { data: d.data, ora: d.ora })).join("\n");
+  const [frasiScelte, setFrasiScelte] = useState(() => leggiFrasiReport());
+  const [note, setNote] = useState(() => { const d = leggiFrasiReport(); return d ? testoFrasi(d) : ""; });
+  const noteToccate = useRef(false);
+  useEffect(() => {
+    if (frasiScelte) return;
+    let annullato = false;
+    supabase.auth.getUser().then(({ data }) => {
+      const d = data?.user?.user_metadata?.frasi_report;
+      if (annullato || !d || !Array.isArray(d.frasi) || d.frasi.length === 0 || noteToccate.current) return;
+      setFrasiScelte(d);
+      setNote(testoFrasi(d));
+      if (TIPI_ISPEZIONE.includes(d.tipo)) setTipoIspezione(d.tipo);
+    }, () => {});
+    return () => { annullato = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [didascalieFoto, setDidascalieFoto] = useState({}); // { [id locale foto]: testo }
   const [prossimoControllo, setProssimoControllo] = useState("");
   const [operatore, setOperatore] = useState("");
@@ -12781,6 +12959,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         if (e2) throw e2;
       }
       await supabase.from("report_log").insert({});
+      svuotaFrasiReport(); // le frasi scelte sul posto ora sono nel report
       setSalvataggio("saved");
       onSaved && onSaved();
     } catch (err) {
@@ -13194,7 +13373,9 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               )}
               <div style={{ marginTop: 16, maxWidth: 480 }}>
                 <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Note / commenti (opzionale)</label>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Osservazioni aggiuntive sull'ispezione..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", width: "100%" }} />
+                {frasiScelte && <div style={{ fontSize: 12, color: "#a6e3a1", marginBottom: 6 }}>📝 Ho già scritto {frasiScelte.frasi.length === 1 ? "la frase scelta" : `le ${frasiScelte.frasi.length} frasi scelte`} sul posto{frasiScelte.data ? ` (${frasiScelte.data}${frasiScelte.ora ? ` alle ${frasiScelte.ora}` : ""})` : ""}: cambia le parti rimaste tra [ ].</div>}
+                <textarea value={note} onChange={(e) => { noteToccate.current = true; setNote(e.target.value); }} placeholder="Osservazioni aggiuntive sull'ispezione..." rows={frasiScelte ? 6 : 3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", width: "100%" }} />
+                <FrasiReport tipo={tipoIspezione} valori={{ data: formatData(dataIspezione), ora, irraggiamento }} onAggiungi={(t) => setNote((n) => (n ? n + "\n" : "") + t)} />
               </div>
               {tipoIspezione !== "danni" && (
                 <div style={{ marginTop: 12, maxWidth: 240 }}>
