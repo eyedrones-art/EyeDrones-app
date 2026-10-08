@@ -3337,15 +3337,45 @@ function StrisciaLavori({ media, onApri }) {
   );
 }
 
-// disegno del drone per la testata, quando non c'è ancora una foto da mettere dietro
+// immagine della testata: drone in volo al tramonto, nei colori dell'app (arancio e viola su fondo scuro)
 const DRONE_TESTATA = (
-  <svg viewBox="0 0 320 200" aria-hidden="true" style={{ position: "absolute", right: -10, top: "50%", transform: "translateY(-50%)", width: "min(48%, 360px)", opacity: 0.32, pointerEvents: "none" }}>
-    <g fill="none" stroke="#ff9d5c" strokeWidth="3" strokeLinecap="round">
-      <path d="M100 70 L150 95 M220 70 L170 95 M100 150 L150 115 M220 150 L170 115" />
-      <rect x="140" y="88" width="40" height="34" rx="10" />
-      <ellipse cx="90" cy="64" rx="42" ry="7" /><ellipse cx="230" cy="64" rx="42" ry="7" />
-      <ellipse cx="90" cy="156" rx="42" ry="7" /><ellipse cx="230" cy="156" rx="42" ry="7" />
-      <circle cx="160" cy="132" r="7" />
+  <svg viewBox="0 0 1200 400" preserveAspectRatio="xMaxYMax slice" aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+    <defs>
+      <linearGradient id="t-cielo" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#141226" /><stop offset=".45" stopColor="#3b2350" /><stop offset=".72" stopColor="#b8506a" /><stop offset=".9" stopColor="#ff9d5c" />
+      </linearGradient>
+      <radialGradient id="t-sole" cx=".72" cy=".72" r=".4"><stop offset="0" stopColor="#ffd29a" stopOpacity=".95" /><stop offset=".25" stopColor="#ff9d5c" stopOpacity=".55" /><stop offset="1" stopColor="#ff9d5c" stopOpacity="0" /></radialGradient>
+      <linearGradient id="t-lago" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ff9d5c" stopOpacity=".55" /><stop offset="1" stopColor="#1a1426" stopOpacity="1" /></linearGradient>
+      <radialGradient id="t-luce" r=".5"><stop offset="0" stopColor="#fff" stopOpacity=".9" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></radialGradient>
+    </defs>
+    <rect width="1200" height="400" fill="url(#t-cielo)" />
+    <rect width="1200" height="400" fill="url(#t-sole)" />
+    <g fill="#fff" opacity=".55">
+      <circle cx="610" cy="190" r="1.2" /><circle cx="760" cy="205" r="1" /><circle cx="880" cy="185" r="1.4" /><circle cx="1150" cy="200" r="1.2" /><circle cx="700" cy="235" r=".9" /><circle cx="1180" cy="250" r=".8" /><circle cx="520" cy="215" r="1" />
+    </g>
+    <circle cx="865" cy="282" r="30" fill="#ffd8a8" opacity=".95" />
+    <path d="M0 330 L120 290 L230 315 L360 262 L480 300 L600 250 L720 292 L830 258 L960 300 L1080 266 L1200 296 L1200 400 L0 400 Z" fill="#5a2f5c" />
+    <path d="M0 350 L150 318 L300 342 L450 306 L620 340 L760 312 L900 345 L1050 316 L1200 340 L1200 400 L0 400 Z" fill="#2c1b38" />
+    <rect y="352" width="1200" height="48" fill="url(#t-lago)" />
+    <g stroke="#ffd8a8" strokeOpacity=".5" strokeWidth="2" strokeLinecap="round"><path d="M835 362 h60 M845 372 h40 M855 381 h22" /></g>
+    <path d="M600 318 C 700 300, 780 240, 985 226" fill="none" stroke="#ffb877" strokeWidth="2.5" strokeDasharray="2 10" strokeLinecap="round" opacity=".85" />
+    <g transform="translate(1050 220) rotate(-6) scale(.9)">
+      <g stroke="#0d0b14" strokeWidth="7" strokeLinecap="round"><path d="M-14 -4 L-62 -26 M14 -4 L62 -26 M-14 8 L-58 28 M14 8 L58 28" /></g>
+      <g fill="#0d0b14">
+        <rect x="-26" y="-14" width="52" height="30" rx="12" />
+        <rect x="-8" y="16" width="16" height="10" rx="3" />
+        <circle cx="0" cy="31" r="8" />
+        <rect x="-70" y="-33" width="16" height="9" rx="3" /><rect x="54" y="-33" width="16" height="9" rx="3" />
+        <rect x="-66" y="22" width="16" height="9" rx="3" /><rect x="50" y="22" width="16" height="9" rx="3" />
+      </g>
+      <circle cx="0" cy="31" r="3.5" fill="#7c5cd6" />
+      <g fill="none" stroke="#e7d9ff" strokeOpacity=".35" strokeWidth="2.5">
+        <ellipse cx="-62" cy="-33" rx="38" ry="5" /><ellipse cx="62" cy="-33" rx="38" ry="5" />
+        <ellipse cx="-58" cy="21" rx="36" ry="4.5" /><ellipse cx="58" cy="21" rx="36" ry="4.5" />
+      </g>
+      <circle cx="-62" cy="-24" r="10" fill="url(#t-luce)" /><circle cx="-62" cy="-24" r="2.6" fill="#ff5a5a" />
+      <circle cx="62" cy="-24" r="10" fill="url(#t-luce)" /><circle cx="62" cy="-24" r="2.6" fill="#4ade80" />
+      <circle cx="-58" cy="30" r="2.2" fill="#ff9d5c" /><circle cx="58" cy="30" r="2.2" fill="#ff9d5c" />
     </g>
   </svg>
 );
@@ -3378,7 +3408,6 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
     supabase.from("voli_media").select("id, tipo, url, nome, created_at").in("tipo", ["foto", "video"]).order("created_at", { ascending: false }).limit(12)
       .then(({ data }) => setMedia((data || []).filter(mediaSicuro)), () => {});
   }, [usaRiprese]);
-  const fotoTestata = media.find((x) => x.tipo === "foto");
 
   // le scadenze da sistemare: un solo riquadro, si apre se lo tocchi
   const bloccoScadenze = urgenti.length > 0 && (
@@ -3426,8 +3455,9 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
   return (
     <div className="home" style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
-        <section className="home-testata" style={{ backgroundImage: fotoTestata ? `linear-gradient(90deg, rgba(11,13,17,.94) 0%, rgba(11,13,17,.72) 45%, rgba(11,13,17,.25) 100%), url("${fotoTestata.url}")` : "radial-gradient(120% 140% at 100% 0%, #3a2414 0%, #1a1620 45%, #12151a 100%)" }}>
-          {!fotoTestata && DRONE_TESTATA}
+        <section className="home-testata">
+          {DRONE_TESTATA}
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(12,11,20,.92) 0%, rgba(12,11,20,.7) 38%, rgba(12,11,20,0) 70%)" }} />
           <div style={{ position: "relative" }}>
             <div style={{ fontSize: 12.5, color: "#ffb877", fontWeight: 600, letterSpacing: ".02em" }}>{oggi.charAt(0).toUpperCase() + oggi.slice(1)}</div>
             <h1 style={{ fontSize: 30, fontWeight: 800, margin: "2px 0 0 0", lineHeight: 1.15 }}>{saluto}{nomeSaluto ? `, ${nomeSaluto}` : ""}</h1>
