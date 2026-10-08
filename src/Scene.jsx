@@ -46,6 +46,41 @@ export function FotoScena({ foto, visibile, alta = 120, onApri }) {
   );
 }
 
+// punto GPS salvato dentro una foto JPG (dati EXIF), per le foto prese dalla galleria. null se non c'è
+export async function leggiGpsFoto(file) {
+  try {
+    const buf = await file.slice(0, 256 * 1024).arrayBuffer();
+    const v = new DataView(buf);
+    if (v.getUint16(0) !== 0xffd8) return null;
+    let o = 2;
+    while (o + 4 < v.byteLength) {
+      const marker = v.getUint16(o), lung = v.getUint16(o + 2);
+      if (marker === 0xffe1 && v.getUint32(o + 4) === 0x45786966) { // «Exif»
+        const t = o + 10, le = v.getUint16(t) === 0x4949;
+        const u16 = (x) => v.getUint16(x, le), u32 = (x) => v.getUint32(x, le);
+        const voci = (ifd) => { const n = u16(t + ifd); return [...Array(n)].map((_, i) => { const e = t + ifd + 2 + i * 12; return { tag: u16(e), tipo: u16(e + 2), n: u32(e + 4), val: e + 8 }; }); };
+        const gpsIfd = voci(u32(t + 4)).find((e) => e.tag === 0x8825);
+        if (!gpsIfd) return null;
+        const g = voci(u32(gpsIfd.val));
+        const rif = (tag) => { const e = g.find((x) => x.tag === tag); return e ? String.fromCharCode(v.getUint8(e.val)) : null; };
+        const gradi = (tag) => {
+          const e = g.find((x) => x.tag === tag); if (!e) return null;
+          const d = t + u32(e.val); const r = (k) => u32(d + k * 8) / (u32(d + k * 8 + 4) || 1);
+          return r(0) + r(1) / 60 + r(2) / 3600;
+        };
+        let lat = gradi(2), lon = gradi(4);
+        if (lat == null || lon == null || (lat === 0 && lon === 0)) return null;
+        if (rif(1) === "S") lat = -lat;
+        if (rif(3) === "W") lon = -lon;
+        return { lat, lon };
+      }
+      if ((marker & 0xff00) !== 0xff00) return null;
+      o += 2 + lung;
+    }
+  } catch { /* foto senza dati leggibili */ }
+  return null;
+}
+
 // minuti da "HH:MM"
 const minutiDa = (h) => { const m = /^(\d{1,2}):(\d{2})/.exec(h || ""); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
 const hhmm = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
@@ -100,11 +135,12 @@ export default function PianoScene({ tipo, scene, onCambia, libreria, scalette, 
     if (onLavoro) onLavoro(sc.titolo);
     setScaletta("");
   };
-  const fotoQui = async (s, file) => {
+  const fotoQui = async (s, file, daGalleria) => {
     if (!file || !servizi) return;
     setCaricando(s.id);
-    // il punto GPS lo prendo mentre la foto si carica (sul posto è quello giusto)
-    const gps = new Promise((ok) => {
+    // scattata adesso: il punto GPS è dove sei (lo leggo mentre la foto si carica);
+    // dalla galleria: il punto salvato dentro la foto (letto prima che venga rimpicciolita)
+    const gps = daGalleria ? leggiGpsFoto(file) : new Promise((ok) => {
       if (!navigator.geolocation) { ok(null); return; }
       navigator.geolocation.getCurrentPosition((p) => ok({ lat: p.coords.latitude, lon: p.coords.longitude }), () => ok(null), { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
     });
@@ -112,6 +148,7 @@ export default function PianoScene({ tipo, scene, onCambia, libreria, scalette, 
       const [url, pos] = await Promise.all([servizi.carica(file), gps]);
       if (!url) throw new Error("caricamento");
       onCambia(scene.map((x) => (x.id === s.id ? { ...x, foto: { url, ...(pos || {}), quando: new Date().toISOString() } } : x)));
+      if (daGalleria && !pos) alert("Foto aggiunta. Questa foto non ha il punto GPS salvato dentro (succede se la posizione era spenta nella fotocamera o se l'app che l'ha passata l'ha tolto).");
     } catch (e) {
       alert(e && e.message && e.message !== "caricamento" ? e.message : "Non sono riuscito a caricare la foto: riprova quando c'è campo.");
     }
@@ -185,6 +222,10 @@ export default function PianoScene({ tipo, scene, onCambia, libreria, scalette, 
                         <label style={{ ...piccolo, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 12px", fontSize: 12, cursor: "pointer" }}>
                           {caricando === s.id ? "Carico…" : s.foto ? "📷 Rifai la foto" : "📷 Foto qui (con GPS)"}
                           <input type="file" accept="image/*" capture="environment" disabled={caricando === s.id} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; fotoQui(s, f); }} style={{ display: "none" }} />
+                        </label>
+                        <label style={{ ...piccolo, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 12px", fontSize: 12, cursor: "pointer" }}>
+                          🖼️ Dalla galleria
+                          <input type="file" accept="image/*" disabled={caricando === s.id} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; fotoQui(s, f, true); }} style={{ display: "none" }} />
                         </label>
                         {s.foto && <button type="button" onClick={() => cambiaScena(s.id, "foto", null)} style={{ ...piccolo, padding: "0 10px", fontSize: 12 }}>Togli la foto</button>}
                       </div>
