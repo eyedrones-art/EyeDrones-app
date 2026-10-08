@@ -6,7 +6,7 @@ import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo } from "./Riprese.jsx";
 import { DopoIlVolo } from "./Manuale.jsx";
-import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni } from "./Scene.jsx";
+import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
@@ -169,7 +169,7 @@ const RISORSE_CONSIGLIATE = [
 const CHECKLIST_DEFAULT = [
   "Batteria drone carica",
   "Batteria radiocomando/schermo carica",
-  "Schede di memoria libere e funzionanti",
+  "Scheda SD nel drone, vuota e funzionante (i file vecchi copiati, poi formattata dal drone)",
   "Eliche/rotori controllati visivamente",
   "GPS agganciato correttamente",
   "Area di volo verificata su D-Flight",
@@ -2298,7 +2298,8 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
 const VERSIONE_NOVITA = "2026-10j";
 const NOVITA = [
-  { emoji: "✏️", testo: "Disegna sulla foto della scena: percorso del drone, punti di ripresa, pericoli e soggetto. Li vedi anche in Home e nel PDF", pagina: "pianificazione" },
+  { emoji: "▶️", testo: "Modalità riprese: sul posto una scena alla volta, a tutto schermo, con la foto grande e il promemoria della scheda SD", pagina: "dashboard" },
+  { emoji: "✏️", testo: "Disegna sulla foto della scena (fino a 3 foto per scena): percorso del drone, punti di ripresa, pericoli e soggetto. Li vedi anche in Home e nel PDF", pagina: "pianificazione" },
   { emoji: "📋", testo: "Sopralluogo: foto con GPS su ogni scena, punti di decollo e ostacoli sulla mappa, orari della giornata e il PDF da mandare", pagina: "pianificazione" },
   { emoji: "🎬", testo: "Piano delle scene: prepari ogni ripresa con manovra, luce, durata e note, e sai quante batterie portare", pagina: "pianificazione" },
   { emoji: "🎨", testo: "Manuale: come usare le LUT e com'è un colore giusto, con esempi", vai: { pagina: "impara", scheda: "manuale" } },
@@ -6468,6 +6469,7 @@ const CHECKLIST_SPECIFICHE = {
 };
 
 const CHECKLIST_FPV = [
+  "Scheda SD nel drone o nella camera (GoPro), vuota e funzionante",
   "Visore carico e acceso, immagine nitida",
   "Antenne di drone e visore avvitate e integre",
   "Eliche montate bene, senza crepe",
@@ -7007,7 +7009,8 @@ async function costruisciPDFPiano({ azienda, luogo, data, ora, tipo, drone, scen
     for (let i = 0; i < scene.length; i++) {
       const sc = scene[i];
       const m = (libreria || []).find((x) => x.id === sc.manovra);
-      const foto = sc.foto && sc.foto.url ? await fotoPerPdf(sc.foto.url, sc.foto.segni) : null;
+      const tutteFoto = fotoDellaScena(sc);
+      const foto = tutteFoto[0] ? await fotoPerPdf(tutteFoto[0].url, tutteFoto[0].segni) : null;
       const hFoto = foto ? Math.min(40, (55 * foto.h) / foto.w) : 0;
       spazio(Math.max(hFoto, 14) + 4);
       const y0 = y;
@@ -7023,6 +7026,14 @@ async function costruisciPDFPiano({ azienda, luogo, data, ora, tipo, drone, scen
         doc.textWithLink(`Punto: ${Number(sc.foto.lat).toFixed(5)}, ${Number(sc.foto.lon).toFixed(5)} (apri la mappa)`, 15, y, { url: `https://www.google.com/maps?q=${sc.foto.lat},${sc.foto.lon}` }); y += 4.5;
       }
       if (foto) { try { doc.addImage(foto.dati, "JPEG", 140, y0 - 4, 55, hFoto, undefined, "FAST"); } catch (e) { /* foto saltata */ } y = Math.max(y, y0 - 4 + hFoto + 2); }
+      // le altre foto della scena, in fila sotto
+      const altre = (await Promise.all(tutteFoto.slice(1).map((f) => fotoPerPdf(f.url, f.segni)))).filter(Boolean);
+      if (altre.length) {
+        const hAltre = Math.max(...altre.map((f) => Math.min(40, (55 * f.h) / f.w)));
+        spazio(hAltre + 2);
+        altre.forEach((f, k) => { try { doc.addImage(f.dati, "JPEG", 15 + k * 60, y, 55, Math.min(40, (55 * f.h) / f.w), undefined, "FAST"); } catch (e) { /* foto saltata */ } });
+        y += hAltre + 2;
+      }
       y += 3;
     }
   }
@@ -7700,7 +7711,7 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
 function DaGirare({ piano }) {
   const scenePiano = Array.isArray(piano.checklist_stato?.scene) ? piano.checklist_stato.scene : null;
   const daFare = scenePiano
-    ? scenePiano.map((s) => { const m = TUTTE_MANOVRE().find((x) => x.id === s.manovra); return { id: s.id, nome: s.titolo || (m ? m.nome : "Scena"), stick: m?.stick, anim: m?.id, det: dettagliScena(s, piano.tipo_ispezione), note: s.note, foto: s.foto }; })
+    ? scenePiano.map((s) => { const m = TUTTE_MANOVRE().find((x) => x.id === s.manovra); return { id: s.id, nome: s.titolo || (m ? m.nome : "Scena"), stick: m?.stick, anim: m?.id, det: dettagliScena(s, piano.tipo_ispezione), note: s.note, foto: fotoDellaScena(s) }; })
     : (piano.checklist_stato?.manovre || []).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean);
   const chiave = `eyedrones_girate_${piano.id}`;
   const [girate, setGirate] = useState(() => {
@@ -7708,6 +7719,7 @@ function DaGirare({ piano }) {
     return Array.isArray(piano.checklist_stato?.girate) ? piano.checklist_stato.girate : [];
   });
   const [inVisione, setInVisione] = useState(null);
+  const [modalita, setModalita] = useState(false);
   if (daFare.length === 0) return null;
   const cambia = (id) => {
     const nuove = girate.includes(id) ? girate.filter((x) => x !== id) : [...girate, id];
@@ -7724,6 +7736,9 @@ function DaGirare({ piano }) {
       <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#c4b5fd" }}>
         {ispezione ? "🔍" : "🎬"} {piano.checklist_stato?.lavoro ? `${piano.checklist_stato.lavoro} · ` : ispezione ? "Foto da fare · " : "Da girare · "}<span style={{ color: tutte ? "#4ade80" : "#e7eaee" }}>{fatte} di {daFare.length} {ispezione ? "fatte" : "girate"}</span>
       </summary>
+      <button type="button" onClick={() => setModalita(true)} style={{ display: "block", width: "100%", marginTop: 8, background: "#7c5cd6", color: "#fff", border: "none", borderRadius: 8, padding: "10px 12px", fontSize: 14, fontWeight: 800, minHeight: 48 }}>▶️ Modalità riprese<span style={{ display: "block", fontSize: 11.5, fontWeight: 500, opacity: 0.9 }}>Una {ispezione ? "foto" : "scena"} alla volta, a tutto schermo, con la foto grande</span></button>
+      {fatte === 0 && <div style={{ marginTop: 8, fontSize: 12.5, color: "#ffe2a8", background: "#2a1f0c", border: "1px solid #f5b94266", borderRadius: 6, padding: "6px 10px" }}>💾 Prima di partire: <strong>scheda SD nel drone, ed è vuota?</strong></div>}
+      {modalita && <ModalitaRiprese voci={daFare.map((m) => (Array.isArray(m.foto) ? m : { ...m, foto: [] }))} girate={girate} onSegna={cambia} onChiudi={() => setModalita(false)} visibile={indirizzoVisibile} ispezione={ispezione} fpv={piano.tipo_ispezione === "fpv"} />}
       {daFare.map((m, i) => (
         <div key={m.id} style={{ marginTop: 8, paddingTop: 8, borderTop: i ? "1px solid #2e2540" : "none" }}>
           <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer", fontSize: 13, fontWeight: 700, color: girate.includes(m.id) ? "#8b95a3" : "#e7eaee", textDecoration: girate.includes(m.id) ? "line-through" : "none" }}>
@@ -7733,7 +7748,7 @@ function DaGirare({ piano }) {
             <div style={{ fontSize: 12, lineHeight: 1.45, color: "#d6dde6", marginLeft: 26 }}>
               {m.det && <div style={{ color: "#e7eaee" }}>🎯 {m.det}</div>}
               {m.note && <div style={{ color: "#d6dde6" }}>📝 {m.note}</div>}
-              {m.foto && <FotoScena foto={m.foto} visibile={indirizzoVisibile} alta={150} />}
+              {Array.isArray(m.foto) && m.foto[0] && <FotoScena foto={m.foto[0]} tutte={m.foto} visibile={indirizzoVisibile} alta={150} />}
               {m.stick && <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>}
               {haAnimazione(m.anim ?? m.id) && <button type="button" onClick={() => setInVisione(inVisione === m.id ? null : m.id)} style={{ marginTop: 4, background: inVisione === m.id ? "#7c5cd6" : "#251e33", color: inVisione === m.id ? "#fff" : "#c4b5fd", border: "1px solid #3d2f5a", borderRadius: 12, padding: "3px 10px", fontSize: 11.5, fontWeight: 600 }}>{inVisione === m.id ? "✕ Chiudi" : "▶️ Guarda come si fa"}</button>}
               {inVisione === m.id && <AnimazioneManovra id={m.anim ?? m.id} />}
