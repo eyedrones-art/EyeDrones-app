@@ -326,14 +326,52 @@ export function partenzaZona(z) {
   return String(l.rifDa || "").toUpperCase() === "AMSL" ? 0 : l.da; // quota sul mare: non so convertirla senza il terreno
 }
 
-// altezza massima senza autorizzazione nel punto: 120 m (regola Open), ridotta dalle zone vietate o con autorizzazione
+// altezza massima scritta a parole nel messaggio o nelle condizioni della zona
+// (es. «max 45 m AGL», «altezza massima 45 metri», «volo consentito fino a 150 ft»). null se non c'è
+export function altezzaDaTesto(z) {
+  const t = [z && z.messaggio, z && z.condizioni].map((x) => valoreReale(x)).filter(Boolean).join(" ");
+  if (!t) return null;
+  const valori = [];
+  const prendi = (n, u) => {
+    const v = Number(String(n).replace(",", "."));
+    if (!(v > 0)) return;
+    const m = /^(ft|feet|piedi)/i.test(u) ? Math.round(v * 0.3048) : Math.round(v);
+    if (m >= 5 && m < 120) valori.push(m);
+  };
+  const UNITA = "(m\\b|mt\\b|metri|meters|ft\\b|feet|piedi)";
+  const conParola = new RegExp(`(?:max(?:imum|\\.)?|massim[ao]|non oltre|non superiore|fino a|altezza|height|quota|limite|limit)[^0-9\\n]{0,25}(\\d{1,3}(?:[.,]\\d+)?)\\s*${UNITA}`, "gi");
+  const conRif = new RegExp(`(\\d{1,3}(?:[.,]\\d+)?)\\s*${UNITA}\\s*(?:agl|dal suolo|sul suolo|above ground)`, "gi");
+  for (const r of [conParola, conRif]) for (const x of t.matchAll(r)) prendi(x[1], x[2]);
+  return valori.length ? Math.min(...valori) : null;
+}
+
+// altezza massima senza autorizzazione nel punto: 120 m (regola Open), ridotta da:
+// - zone vietate o con autorizzazione (sotto la loro partenza si vola libero)
+// - zone «con condizioni» che partono sopra il suolo (es. da 45 m: sopra valgono le condizioni)
+// - un'altezza massima scritta nel messaggio o nelle condizioni della zona (es. «max 45 m»)
 export function altezzaLibera(dentro) {
   let max = 120;
   for (const z of dentro || []) {
-    if (z.restrizione !== "PROHIBITED" && z.restrizione !== "REQ_AUTHORISATION") continue;
-    max = Math.min(max, partenzaZona(z));
+    if (z.restrizione === "NO_RESTRICTION") continue;
+    const parte = partenzaZona(z);
+    if (z.restrizione === "PROHIBITED" || z.restrizione === "REQ_AUTHORISATION") max = Math.min(max, parte);
+    else if (parte > 0) max = Math.min(max, parte);
+    const scritta = altezzaDaTesto(z);
+    if (scritta != null) max = Math.min(max, scritta);
   }
   return max;
+}
+
+// zone con limiti a pochi metri dal punto: se l'area di volo ci entra, valgono anche quelle
+export function limiteVicino(vicine, entro = 150) {
+  let peggiore = null;
+  for (const z of vicine || []) {
+    if (z.distanza > entro || z.restrizione === "NO_RESTRICTION") continue;
+    const h = altezzaLibera([z]);
+    if (h >= 120) continue;
+    if (!peggiore || h < peggiore.altezza) peggiore = { altezza: h, distanza: z.distanza, nome: z.nome, restrizione: z.restrizione };
+  }
+  return peggiore;
 }
 
 // D-Flight riempie i campi vuoti con "N.A." o "-": li tratto come vuoti
