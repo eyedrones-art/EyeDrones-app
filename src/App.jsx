@@ -9,7 +9,7 @@ import { DopoIlVolo } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
-import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
+import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
@@ -3116,9 +3116,11 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   ].filter(Boolean);
 
   const libera = zona && zona.altezzaLibera;
-  const testoZona = !zona ? null : !zona.zone || zona.zone.length === 0 ? ["#4ade80", "Nessuna zona UAS: fino a 120 m"]
+  const vicinoZona = zona && zona.vicino && zona.vicino.altezza < (libera ?? 120) ? zona.vicino : null;
+  const testoZona = !zona ? null : vicinoZona ? ["#f5b942", `A ${vicinoZona.distanza} m c'è una zona ${vicinoZona.altezza > 0 ? `con limite di ${vicinoZona.altezza} m` : "con autorizzazione"}: se ci entri, ${vicinoZona.altezza > 0 ? `resta sotto i ${vicinoZona.altezza} m` : "serve il permesso"}`]
+    : !zona.zone || zona.zone.length === 0 ? ["#4ade80", "Nessuna zona UAS: fino a 120 m"]
     : libera >= 120 ? ["#4ade80", "Fino a 120 m con le condizioni della zona"]
-    : libera > 0 ? ["#f5b942", `Libero fino a ${libera} m · sopra serve autorizzazione`] : ["#ff8c42", "Serve autorizzazione già da terra"];
+    : libera > 0 ? ["#f5b942", `Massimo ${libera} m senza autorizzazione`] : ["#ff8c42", "Serve autorizzazione già da terra"];
   const btn = (primario) => ({ background: primario ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#1f2530", color: primario ? "#161a1f" : "#e7eaee", border: primario ? "none" : "1px solid #333a45", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 });
 
   // ora passata: scheda piccola, solo «l'hai fatto?», senza meteo e consigli che ormai non servono
@@ -6886,6 +6888,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         return { nome: z.nome, restrizione: z.restrizione, limiti: formattaLimiti(z.limiti), da: partenzaZona(z), ente: valoreReale(a.nome) || null, email: valoreReale(a.email) || null, preavviso: valoreReale(a.preavviso) || null };
       }),
       altezzaLibera: altezzaLibera(esito.dentro),
+      vicino: limiteVicino(esito.vicine, 150),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [esito]);
@@ -6896,11 +6899,15 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
 
   const schedaZona = (z, vicina) => {
     const base = descriviRestrizione(z.restrizione);
-    const parte = (z.restrizione === "PROHIBITED" || z.restrizione === "REQ_AUTHORISATION") ? partenzaZona(z) : 0;
+    const parte = z.restrizione === "NO_RESTRICTION" ? 0 : partenzaZona(z);
+    const scritta = z.restrizione === "NO_RESTRICTION" ? null : altezzaDaTesto(z);
+    const sopra = z.restrizione === "PROHIBITED" ? "vietato" : z.restrizione === "REQ_AUTHORISATION" ? "serve autorizzazione" : "con le condizioni della zona";
     // la zona comincia sopra il suolo: fino a quell'altezza si vola con le regole normali
     const d = parte > 0
-      ? { ...base, colore: "#f5b942", etichetta: `Libero fino a ${parte} m · sopra ${z.restrizione === "PROHIBITED" ? "vietato" : "serve autorizzazione"}`, consiglio: `Fino a ${parte} m dal suolo puoi volare senza autorizzazione, con le regole della tua categoria. Per salire oltre i ${parte} m ${z.restrizione === "PROHIBITED" ? "non si può" : "chiedi l'autorizzazione all'ente indicato (spesso tramite D-Flight)"}.` }
-      : base;
+      ? { ...base, colore: "#f5b942", etichetta: `Libero fino a ${parte} m · sopra ${sopra}`, consiglio: `Fino a ${parte} m dal suolo puoi volare senza autorizzazione, con le regole della tua categoria. Per salire oltre i ${parte} m ${z.restrizione === "PROHIBITED" ? "non si può" : z.restrizione === "REQ_AUTHORISATION" ? "chiedi l'autorizzazione all'ente indicato (spesso tramite D-Flight)" : "rispetta le condizioni scritte qui sotto o chiedi all'ente indicato"}.` }
+      : scritta != null && z.restrizione !== "PROHIBITED"
+        ? { ...base, colore: "#f5b942", etichetta: `Massimo ${scritta} m · ${base.etichetta.toLowerCase()}`, consiglio: `Secondo il messaggio della zona qui si vola al massimo a ${scritta} m dal suolo. ${base.consiglio}` }
+        : base;
     const limiti = formattaLimiti(z.limiti);
     const autorita = (z.autorita || []).map((a) => ({ ...a, nome: valoreReale(a.nome), servizio: valoreReale(a.servizio), email: valoreReale(a.email), telefono: valoreReale(a.telefono), sito: valoreReale(a.sito), preavviso: valoreReale(a.preavviso) }))
       .filter((a) => a.nome || a.email || a.telefono || a.sito);
@@ -7015,6 +7022,17 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
               : max > 0 ? ["#f5b942", `Senza autorizzazione qui puoi volare fino a ${max} m dal suolo`]
               : vietata ? ["#ff4d4d", "Qui il volo è vietato già da terra"] : ["#ff8c42", "Qui serve l'autorizzazione già da terra"];
             return <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: col + "1f", border: `1px solid ${col}66`, color: col, fontSize: 13, fontWeight: 700 }}>↕️ {txt}</div>;
+          })()}
+          {esito && (() => {
+            // una zona più bassa a pochi metri: se l'area di volo ci entra, vale il limite più basso
+            const v = limiteVicino(esito.vicine, approssimato ? 300 : 150);
+            if (!v || v.altezza >= altezzaLibera(esito.dentro)) return null;
+            return (
+              <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, background: "#f5b9421f", border: "1px solid #f5b94266", color: "#ffd9a0", fontSize: 12.5 }}>
+                <strong style={{ color: "#f5b942" }}>⚠ A {v.distanza} m c'è una zona {v.altezza > 0 ? `con limite di ${v.altezza} m` : "dove serve l'autorizzazione già da terra"}</strong> ({v.nome}).
+                {" "}Se l'area di volo ci entra, anche di poco, {v.altezza > 0 ? `resta sotto i ${v.altezza} m` : "serve l'autorizzazione"}. {approssimato ? "La posizione è approssimativa: sposta il puntino nel punto esatto." : "Controlla l'area disegnata su D-Flight."}
+              </div>
+            );
           })()}
           {esito && esito.dentro.map((z) => schedaZona(z, false))}
           {esito && esito.vicine.length > 0 && (
