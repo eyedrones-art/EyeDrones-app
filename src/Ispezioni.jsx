@@ -161,24 +161,94 @@ export async function copiaTesto(testo) {
   return false;
 }
 
+// frasi scelte sul posto (dalla Home o dal piano): finiscono da sole nelle Note della prossima «Nuova ispezione».
+// Si scelgono col telefono sul posto e il report spesso si fa a casa sul computer: per questo, oltre alla copia sul
+// telefono, App le salva anche nell'account (evento «eyedrones-frasi-report»), con data e ora di quando eri lì
+const CHIAVE_FRASI = "eyedrones_frasi_report";
+export function leggiFrasiReport() {
+  try { const d = JSON.parse(localStorage.getItem(CHIAVE_FRASI) || "null"); return d && Array.isArray(d.frasi) ? d : null; } catch { return null; }
+}
+function salvaFrasiReport(tipo, frasi) {
+  const prima = leggiFrasiReport();
+  const adesso = new Date();
+  // data e ora sono quelle della prima frase scelta, cioè di quando eri sul posto
+  const quando = prima && prima.tipo === tipo && prima.data
+    ? { data: prima.data, ora: prima.ora }
+    : { data: adesso.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }), ora: adesso.toTimeString().slice(0, 5) };
+  const d = frasi.length ? { tipo, frasi, ...quando } : null;
+  try { if (d) localStorage.setItem(CHIAVE_FRASI, JSON.stringify(d)); else localStorage.removeItem(CHIAVE_FRASI); } catch { /* niente */ }
+  window.dispatchEvent(new CustomEvent("eyedrones-frasi-report", { detail: d }));
+}
+export function svuotaFrasiReport() {
+  try { localStorage.removeItem(CHIAVE_FRASI); } catch { /* niente */ }
+  window.dispatchEvent(new CustomEvent("eyedrones-frasi-report", { detail: null }));
+}
+
+// riempie da sola le parti tra [ ] che l'app conosce già (data, ora, irraggiamento, indirizzo)
+export function compilaFrase(f, valori = {}) {
+  let t = f;
+  if (valori.data) t = (/^(8|11)\b/.test(valori.data) ? t.replace("il [data]", "l'[data]") : t).replace("[data]", valori.data); // «l'8 ottobre», «l'11 maggio»
+  if (valori.ora) t = t.replace("[ora]", valori.ora);
+  if (valori.irraggiamento) t = t.replace("[W/m²]", `${valori.irraggiamento} W/m²`);
+  if (valori.indirizzo) t = t.replace("[indirizzo]", valori.indirizzo);
+  return t;
+}
+
+// elenco di frasi da toccare dentro il report: ognuna si aggiunge alle Note già compilata
+export function FrasiReport({ tipo, valori, onAggiungi, chiaro }) {
+  const [aggiunta, setAggiunta] = useState(null);
+  const c = CONSEGNA[tipo];
+  if (!c) return null;
+  const aggiungi = (f) => { onAggiungi(compilaFrase(f, valori)); setAggiunta(f); setTimeout(() => setAggiunta(null), 1800); };
+  return (
+    <details style={{ marginTop: 6 }}>
+      <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: chiaro ? "#2e7d32" : "#a6e3a1" }}>📋 Aggiungi una frase pronta</summary>
+      <div style={{ fontSize: 11.5, color: chiaro ? "#555" : "#8b95a3", margin: "4px 0 6px 0" }}>Tocca: si scrive nelle note con data, ora e irraggiamento già messi. Poi cambia le parti rimaste tra [ ].</div>
+      {c.frasi.map((f) => (
+        <button key={f} type="button" onClick={() => aggiungi(f)} style={{ display: "block", width: "100%", textAlign: "left", background: aggiunta === f ? (chiaro ? "#e3f4e4" : "#1d3a2a") : (chiaro ? "#fff" : "#161a1f"), color: chiaro ? "#1a1a1a" : "#e7eaee", border: `1px solid ${aggiunta === f ? "#4ade80" : chiaro ? "#ddd" : "#2b313d"}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, lineHeight: 1.45, marginBottom: 5, cursor: "pointer" }}>
+          {aggiunta === f ? "✓ Aggiunta! " : "➕ "}{compilaFrase(f, valori)}
+        </button>
+      ))}
+    </details>
+  );
+}
+
 export function CosaConsegnare({ tipo }) {
   const [copiata, setCopiata] = useState(null);
+  const [scelte, setScelte] = useState(() => { const d = leggiFrasiReport(); return d && d.tipo === tipo ? d.frasi : []; });
   const c = CONSEGNA[tipo];
   if (!c) return null;
   const copia = async (f) => {
     if (await copiaTesto(f)) { setCopiata(f); setTimeout(() => setCopiata(null), 2500); }
+  };
+  const cambia = (f) => {
+    const nuove = scelte.includes(f) ? scelte.filter((x) => x !== f) : [...scelte, f];
+    setScelte(nuove);
+    salvaFrasiReport(tipo, nuove);
   };
   return (
     <div style={{ marginTop: 12, background: "#121a12", border: "1px solid #2c4a2a", borderRadius: 6, padding: "8px 10px" }}>
       <div style={{ fontSize: 12.5, fontWeight: 700, color: "#a6e3a1" }}>📄 Cosa consegnare al cliente</div>
       <div style={{ fontSize: 12, color: "#c3cad4", margin: "6px 0 2px 0", fontWeight: 600 }}>Foto da mettere nel report</div>
       <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.5, color: "#d6dde6" }}>{c.foto.map((f) => <li key={f}>{f}</li>)}</ul>
-      <div style={{ fontSize: 12, color: "#c3cad4", margin: "8px 0 4px 0", fontWeight: 600 }}>Frasi pronte (tocca per copiarle, poi cambia le parti tra [ ])</div>
-      {c.frasi.map((f) => (
-        <button key={f} type="button" onClick={() => copia(f)} style={{ display: "block", width: "100%", textAlign: "left", background: copiata === f ? "#1d3a2a" : "#161a1f", color: "#e7eaee", border: `1px solid ${copiata === f ? "#4ade80" : "#2b313d"}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, lineHeight: 1.45, marginBottom: 5, cursor: "pointer" }}>
-          {copiata === f ? "✓ Copiata! Incollala nel report: " : "📋 "}{f}
-        </button>
-      ))}
+      <div style={{ fontSize: 12, color: "#c3cad4", margin: "8px 0 4px 0", fontWeight: 600 }}>Frasi pronte: tocca quelle che servono e vanno da sole nel report</div>
+      {c.frasi.map((f) => {
+        const dentro = scelte.includes(f);
+        return (
+          <div key={f} style={{ display: "flex", gap: 5, marginBottom: 5 }}>
+            <button type="button" onClick={() => cambia(f)} aria-pressed={dentro} style={{ flex: 1, textAlign: "left", background: dentro ? "#1d3a2a" : "#161a1f", color: "#e7eaee", border: `1px solid ${dentro ? "#4ade80" : "#2b313d"}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, lineHeight: 1.45, cursor: "pointer" }}>
+              <span style={{ color: dentro ? "#4ade80" : "#8b95a3", fontWeight: 700 }}>{dentro ? "✓ Nel report · " : "➕ "}</span>{f}
+            </button>
+            <button type="button" onClick={() => copia(f)} aria-label="Copia la frase" title="Copia" style={{ flex: "none", width: 40, background: copiata === f ? "#1d3a2a" : "#161a1f", color: copiata === f ? "#4ade80" : "#8b95a3", border: "1px solid #2b313d", borderRadius: 6, fontSize: 13 }}>{copiata === f ? "✓" : "📋"}</button>
+          </div>
+        );
+      })}
+      {scelte.length > 0 && (
+        <div style={{ fontSize: 12, color: "#a6e3a1", background: "#1d3a2a55", border: "1px solid #4ade8044", borderRadius: 6, padding: "6px 8px", marginTop: 4 }}>
+          📝 {scelte.length === 1 ? "1 frase pronta" : `${scelte.length} frasi pronte`} per il report: le trovi già scritte nelle Note quando fai la <strong>Nuova ispezione</strong>, anche dal computer.{" "}
+          <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail: { pagina: "nuova" } }))} style={{ background: "none", border: "none", color: "#4ade80", fontWeight: 700, padding: 0, fontSize: 12, textDecoration: "underline" }}>Vai al report ›</button>
+        </div>
+      )}
       <div style={{ fontSize: 10.5, color: "#6b7480", marginTop: 4 }}>Scrivi solo quello che hai visto davvero: il report descrive le immagini, la diagnosi la fa un tecnico abilitato.</div>
     </div>
   );

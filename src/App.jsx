@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
-import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione } from "./Ispezioni";
+import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
@@ -2013,11 +2013,17 @@ function AppShell({ session }) {
     const ascolta = (e) => {
       const d = e.detail || {};
       if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
-      else if (d.pagina === "permessi") { setPage("permessi"); window.scrollTo(0, 0); }
+      else if (d.pagina === "permessi" || d.pagina === "nuova") { setPage(d.pagina); window.scrollTo(0, 0); }
       else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
     return () => window.removeEventListener("eyedrones-vai", ascolta);
+  }, []);
+  // frasi per il report scelte sul posto: le salvo anche nell'account, così le ritrovi sul computer
+  useEffect(() => {
+    const salva = (e) => { supabase.auth.updateUser({ data: { frasi_report: e.detail || null } }).then(() => {}, () => {}); };
+    window.addEventListener("eyedrones-frasi-report", salva);
+    return () => window.removeEventListener("eyedrones-frasi-report", salva);
   }, []);
   const caricaClienti = async () => {
     const { data, error } = await supabase.from("clienti").select("*").order("nome", { ascending: true });
@@ -3046,7 +3052,15 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
     setPiani((l) => (l || []).filter((x) => x.id !== p.id));
     onRegistra(datiRegistro());
   };
+  // riprese o foto spuntate sul posto: le porto nelle note del volo, così a casa sai l'ordine per il montaggio o il report
+  const fatteSulPosto = (() => {
+    const girate = (() => { try { const l = JSON.parse(localStorage.getItem(`eyedrones_girate_${p.id}`) || "null"); if (Array.isArray(l)) return l; } catch { /* niente */ } return p.checklist_stato?.girate || []; })();
+    const nomi = (p.checklist_stato?.manovre || []).filter((id) => girate.includes(id)).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean).map((m) => m.nome.replace(/ \(.*\)$/, ""));
+    if (nomi.length === 0) return "";
+    return TIPI_ISPEZIONE.includes(p.tipo_ispezione) ? `Foto fatte: ${nomi.join(", ")}` : `Ordine per il montaggio: ${nomi.join(" → ")}`;
+  })();
   const datiRegistro = () => ({
+    ...(fatteSulPosto ? { note: fatteSulPosto } : {}),
     data: p.data_prevista,
     ...(oraP ? { ora: oraP } : {}),
     luogo: p.impianto_nome || "",
@@ -3880,6 +3894,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
             )}
             <label style={{ fontSize: 11.5, color: "#6b7480" }}>Note</label>
             <textarea rows={3} value={campiModificabili.note} onChange={(e) => { setCampiModificabili({ ...campiModificabili, note: e.target.value }); setCampiSalvatiOk(false); }} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", resize: "vertical", fontFamily: "inherit" }} />
+            <FrasiReport chiaro tipo={ispezione.tipo_ispezione || "fotovoltaico"} valori={{ data: ispezione.data ? formatData(ispezione.data) : "", ora: campiModificabili.ora, irraggiamento: campiModificabili.irraggiamento }} onAggiungi={(t) => { setCampiModificabili((c) => ({ ...c, note: (c.note ? c.note + "\n" : "") + t })); setCampiSalvatiOk(false); }} />
             <button onClick={salvaCampiBase} disabled={salvandoCampi} style={{ marginTop: 4, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 0", borderRadius: 6, fontWeight: 600, fontSize: 12.5 }}>
               {salvandoCampi ? "Salvataggio..." : "Salva questi dati"}
             </button>
@@ -12807,10 +12822,27 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
   const [step, setStep] = useState(1);
   const [dataIspezione, setDataIspezione] = useState(() => new Date().toISOString().slice(0, 10));
   const [impiantoSel, setImpiantoSel] = useState(null);
-  const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
+  const [tipoIspezione, setTipoIspezione] = useState(() => { const d = leggiFrasiReport(); return d && TIPI_ISPEZIONE.includes(d.tipo) ? d.tipo : "fotovoltaico"; });
   const [ora, setOra] = useState(() => new Date().toTimeString().slice(0, 5));
   const [irraggiamento, setIrraggiamento] = useState("");
-  const [note, setNote] = useState("");
+  // frasi scelte sul posto (Home o piano, anche da un altro telefono): le metto già nelle note, con data e ora di quando eri lì
+  const testoFrasi = (d) => d.frasi.map((f) => compilaFrase(f, { data: d.data, ora: d.ora })).join("\n");
+  const [frasiScelte, setFrasiScelte] = useState(() => leggiFrasiReport());
+  const [note, setNote] = useState(() => { const d = leggiFrasiReport(); return d ? testoFrasi(d) : ""; });
+  const noteToccate = useRef(false);
+  useEffect(() => {
+    if (frasiScelte) return;
+    let annullato = false;
+    supabase.auth.getUser().then(({ data }) => {
+      const d = data?.user?.user_metadata?.frasi_report;
+      if (annullato || !d || !Array.isArray(d.frasi) || d.frasi.length === 0 || noteToccate.current) return;
+      setFrasiScelte(d);
+      setNote(testoFrasi(d));
+      if (TIPI_ISPEZIONE.includes(d.tipo)) setTipoIspezione(d.tipo);
+    }, () => {});
+    return () => { annullato = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [didascalieFoto, setDidascalieFoto] = useState({}); // { [id locale foto]: testo }
   const [prossimoControllo, setProssimoControllo] = useState("");
   const [operatore, setOperatore] = useState("");
@@ -12927,6 +12959,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         if (e2) throw e2;
       }
       await supabase.from("report_log").insert({});
+      svuotaFrasiReport(); // le frasi scelte sul posto ora sono nel report
       setSalvataggio("saved");
       onSaved && onSaved();
     } catch (err) {
@@ -13340,7 +13373,9 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               )}
               <div style={{ marginTop: 16, maxWidth: 480 }}>
                 <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Note / commenti (opzionale)</label>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Osservazioni aggiuntive sull'ispezione..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", width: "100%" }} />
+                {frasiScelte && <div style={{ fontSize: 12, color: "#a6e3a1", marginBottom: 6 }}>📝 Ho già scritto {frasiScelte.frasi.length === 1 ? "la frase scelta" : `le ${frasiScelte.frasi.length} frasi scelte`} sul posto{frasiScelte.data ? ` (${frasiScelte.data}${frasiScelte.ora ? ` alle ${frasiScelte.ora}` : ""})` : ""}: cambia le parti rimaste tra [ ].</div>}
+                <textarea value={note} onChange={(e) => { noteToccate.current = true; setNote(e.target.value); }} placeholder="Osservazioni aggiuntive sull'ispezione..." rows={frasiScelte ? 6 : 3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", width: "100%" }} />
+                <FrasiReport tipo={tipoIspezione} valori={{ data: formatData(dataIspezione), ora, irraggiamento }} onAggiungi={(t) => setNote((n) => (n ? n + "\n" : "") + t)} />
               </div>
               {tipoIspezione !== "danni" && (
                 <div style={{ marginTop: 12, maxWidth: 240 }}>
