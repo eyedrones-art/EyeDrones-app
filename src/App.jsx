@@ -4,6 +4,8 @@ import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
+import { VentoInQuota, PrevisioneCielo } from "./Riprese.jsx";
+import { DopoIlVolo } from "./Manuale.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
@@ -365,7 +367,7 @@ async function recuperaMeteo(zona) {
     if (!geoData.results || geoData.results.length === 0) throw new Error("Località non trovata: controlla il nome, oppure scrivi le coordinate (es. 45.0703, 7.6869).");
     ({ latitude, longitude, name } = geoData.results[0]);
   }
-  const meteoRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation,cloud_cover,weather_code&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,precipitation_probability_max&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation_probability,precipitation,cloud_cover,visibility&forecast_days=16&timezone=auto`);
+  const meteoRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation,cloud_cover,weather_code&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,precipitation_probability_max&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation_probability,precipitation,cloud_cover,visibility,wind_speed_80m,wind_speed_120m,cloud_cover_low,cloud_cover_mid,cloud_cover_high&forecast_days=16&timezone=auto`);
   const meteoData = await meteoRes.json();
 
   // per ogni giorno, indico se le condizioni sembrano adatte al volo (vento e pioggia entro soglie ragionevoli)
@@ -389,6 +391,9 @@ async function recuperaMeteo(zona) {
     data: t.slice(0, 10), ora: Number(t.slice(11, 13)),
     temperatura: h.temperature_2m?.[i], vento: h.wind_speed_10m?.[i], raffiche: h.wind_gusts_10m?.[i],
     probPioggia: h.precipitation_probability?.[i], pioggia: h.precipitation?.[i], nuvole: h.cloud_cover?.[i], visibilita: h.visibility?.[i],
+    // vento in quota (a 120 m spesso è il doppio che a terra) e nuvole per strati (per prevedere i colori del tramonto)
+    vento80: h.wind_speed_80m?.[i], vento120: h.wind_speed_120m?.[i],
+    nuvoleBasse: h.cloud_cover_low?.[i], nuvoleMedie: h.cloud_cover_mid?.[i], nuvoleAlte: h.cloud_cover_high?.[i],
   }));
 
   return { nomeLocalita: name, ...meteoData.current, prossimiGiorni, orari, lat: latitude, lon: longitude, fusoOrario: meteoData.timezone };
@@ -2187,7 +2192,7 @@ function AppShell({ session }) {
         {page === "suggerimenti" && <Suggerimenti session={session} paginaPrecedente={paginaPrecedente} />}
         {(page === "impara" || page === "guide") && (
           <Suspense fallback={<LoadingBlock />}>
-            <Impara schedaIniziale={page === "guide" ? "consigli" : schedaImpara} consigli={<GuideVolo droni={droni} incorporata />} />
+            <Impara key={page + schedaImpara} schedaIniziale={page === "guide" ? "consigli" : schedaImpara} consigli={<GuideVolo droni={droni} incorporata />} colore={<ColoreVideo />} />
           </Suspense>
         )}
         {page === "collaboratori" && (
@@ -2289,8 +2294,11 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 }
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10f";
+const VERSIONE_NOVITA = "2026-10g";
 const NOVITA = [
+  { emoji: "🎬", testo: "Manuale foto e video: montaggio, musica, colore, esportazione e consegna", vai: { pagina: "impara", scheda: "manuale" } },
+  { emoji: "🏠", testo: "«Dopo il volo»: la lista per il lavoro a casa, dentro ogni volo del registro", pagina: "registro-voli" },
+  { emoji: "💨", testo: "Vento in quota a 80 e 120 m, e «il tramonto sarà bello?»", pagina: "pianificazione" },
   { emoji: "🌡️", testo: "Ispezioni: come impostare la termocamera, cosa portare e i consigli per ogni lavoro", pagina: "guide" },
   { emoji: "📰", testo: "Nuovo: le notizie dal mondo droni, a cura di DronEzine", vai: { pagina: "impara", scheda: "notizie" } },
   { emoji: "📍", testo: "Zona di volo: punto sulla mappa da spostare col dito e permessi da chiedere", pagina: "pianificazione" },
@@ -3139,6 +3147,8 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
                     );
                   })}
                 </div>
+                <VentoInQuota compatto orari={meteo.orari} data={p.data_prevista} ora={oraP} limite={limite} />
+                {riprese && luce && <PrevisioneCielo compatto orari={meteo.orari} data={p.data_prevista} albaMin={minutiDelGiorno(luce.alba, meteo.fusoOrario)} tramontoMin={minutiDelGiorno(luce.tramonto, meteo.fusoOrario)} />}
                 {termografia && <SemaforoTermografia tipo={p.tipo_ispezione} orari={meteo.orari} data={p.data_prevista} ora={oraP} />}
                 {luce && (
                   <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 6 }}>
@@ -8322,6 +8332,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             );
           })()}
 
+          {meteo && <VentoInQuota orari={meteo.orari} data={dataPrevista} ora={oraPrevista} limite={limiteVento} />}
+
           {luce && (
             <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #f5b94255", borderRadius: 6, padding: 12 }}>
               <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Luce del {formatData(dataPrevista)} · orari del luogo del volo</p>
@@ -8333,6 +8345,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
                 <div style={{ color: "#7fa8ff" }}>🔵 Ora blu {fasciaLuce(luce.oraBluMattina)}</div>
                 <div style={{ color: "#7fa8ff" }}>🔵 Ora blu {fasciaLuce(luce.oraBluSera)}</div>
               </div>
+              {["video", "foto", "fpv"].includes(tipoIspezione) && meteo && <PrevisioneCielo orari={meteo.orari} data={dataPrevista} albaMin={minutiDelGiorno(luce.alba, meteo.fusoOrario)} tramontoMin={minutiDelGiorno(luce.tramonto, meteo.fusoOrario)} />}
               {sole && (
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid #262b33", flexWrap: "wrap" }}>
                   <svg width="54" height="54" viewBox="-30 -30 60 60" aria-hidden="true" style={{ flexShrink: 0 }}>
@@ -12487,6 +12500,13 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         ) : null}
                         {v.dettagli && CAMPI_DETTAGLI[v.tipo_attivita] && CAMPI_DETTAGLI[v.tipo_attivita].filter(([k]) => v.dettagli[k]).map(([k, etichetta]) => <React.Fragment key={k}>{riga(etichetta.replace(/\s*\(.*\)$/, ""), `${v.dettagli[k]}${/\((ha|m²|cm|cm\/px|m)\)$/.test(etichetta) ? " " + etichetta.match(/\(([^)]+)\)$/)[1] : ""}`)}</React.Fragment>)}
                         {v.note ? <div style={{ fontSize: 12.5, whiteSpace: "pre-wrap" }}><span style={{ color: "#8b95a3" }}>Note: </span>{v.note}</div> : null}
+                        {["video", "foto", "fpv"].includes(v.tipo_attivita) && (
+                          <DopoIlVolo
+                            volo={v}
+                            onSalva={(dettagli) => { v.dettagli = dettagli; supabase.from("voli").update({ dettagli }).eq("id", v.id).then(() => {}, () => {}); }}
+                            onConsegna={() => document.getElementById(`volo-${v.id}-condividi`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                          />
+                        )}
 
                         {mediaVolo.length > 0 && (
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 8, marginTop: 6 }}>
