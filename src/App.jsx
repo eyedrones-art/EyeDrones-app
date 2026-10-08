@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo } from "./Riprese.jsx";
-import { DopoIlVolo } from "./Manuale.jsx";
+import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
@@ -15,6 +15,7 @@ import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaP
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
 const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
 const Impara = lazy(() => import("./Impara.jsx"));
+const GuidaZonaRossa = lazy(() => import("./Impara.jsx").then((m) => ({ default: m.ZonaRossa })));
 const Posti = lazy(() => import("./Posti.jsx"));
 const UltimaNotizia = lazy(() => import("./Notizie.jsx").then((m) => ({ default: m.UltimaNotizia })));
 const PostiVicini = lazy(() => import("./Posti.jsx").then((m) => ({ default: m.PostiVicini })));
@@ -1875,9 +1876,30 @@ function AppShell({ session }) {
   const [paginaPrecedente, setPaginaPrecedente] = useState(null); // da dove si apre «Suggerimenti», per capire dove c'è un problema
   const setPage = (p) => {
     if (p === "suggerimenti") setPaginaPrecedente((prec) => (page !== "suggerimenti" ? page : prec));
+    // ogni pagina entra nella cronologia: la freccia «indietro» del telefono torna alla pagina di prima invece di uscire
+    if (p !== page) { try { window.history.pushState({ pagina: p }, ""); } catch (e) { /* niente */ } }
     setPageInterna(p);
     try { sessionStorage.setItem("eyedrones_pagina", p); } catch (e) { /* senza memoria di sessione pazienza */ }
   };
+  // guida aperta sopra la pagina (es. «Come si fa a volare qui?» dalla verifica zona): non si perde quello che stavi facendo
+  const [guidaSopra, setGuidaSopra] = useState(null);
+  const guidaAperta = useRef(false);
+  guidaAperta.current = !!guidaSopra;
+  const chiudiGuida = () => { if (guidaAperta.current) window.history.back(); };
+  useEffect(() => {
+    try { window.history.replaceState({ ...(window.history.state || {}), pagina: page }, ""); } catch (e) { /* niente */ }
+    const indietro = (e) => {
+      if (guidaAperta.current) { setGuidaSopra(null); return; }
+      const p = e.state && e.state.pagina;
+      if (p && PAGINE_RIPRISTINABILI.concat(["nuova"]).includes(p)) {
+        setPageInterna(p);
+        try { sessionStorage.setItem("eyedrones_pagina", p); } catch (err) { /* niente */ }
+      }
+    };
+    window.addEventListener("popstate", indietro);
+    return () => window.removeEventListener("popstate", indietro);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // avviso quando la pagina è stata riaperta mentre si sceglieva un file
   const [paginaRiaperta, setPaginaRiaperta] = useState(() => {
     const t = Number(leggiSessione("eyedrones_scelta_file") || 0);
@@ -2019,7 +2041,8 @@ function AppShell({ session }) {
   useEffect(() => {
     const ascolta = (e) => {
       const d = e.detail || {};
-      if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
+      if (d.pagina === "impara" && d.sopra && d.scheda === "zona-rossa") { try { window.history.pushState({ ...(window.history.state || {}), guida: true }, ""); } catch (err) { /* niente */ } setGuidaSopra(d.scheda); }
+      else if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
       else if (d.pagina === "permessi" || d.pagina === "nuova") { setPage(d.pagina); window.scrollTo(0, 0); }
       else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
     };
@@ -2201,6 +2224,18 @@ function AppShell({ session }) {
               : <>Impossibile leggere il database: {dbError}. Controlla di aver eseguito lo script SQL su Supabase.</>}
           </div>
         )}
+        {guidaSopra && (
+          <div role="dialog" aria-label="Guida zona rossa" style={{ position: "fixed", inset: 0, zIndex: 2500, background: "#0f1216", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: "calc(10px + env(safe-area-inset-top))", borderBottom: "1px solid #262b33", background: "#12151a" }}>
+              <button type="button" onClick={chiudiGuida} style={{ background: "#1f2530", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "8px 14px", fontSize: 14, fontWeight: 700, minHeight: 44 }}>← Torna al piano</button>
+              <span style={{ fontSize: 14.5, fontWeight: 700, color: "#ffb877" }}>🔴 Zona rossa: cosa serve</span>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 24px", maxWidth: 820, width: "100%", boxSizing: "border-box", margin: "0 auto" }}>
+              <Suspense fallback={<p style={{ color: "#8b95a3" }}>Carico la guida…</p>}><GuidaZonaRossa /></Suspense>
+              <button type="button" onClick={chiudiGuida} style={{ display: "block", width: "100%", marginTop: 16, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 10, padding: "12px", fontSize: 15, fontWeight: 800, minHeight: 50 }}>← Torna al piano (non si perde niente)</button>
+            </div>
+          </div>
+        )}
         {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} nomeSaluto={azienda.nomeImpostato ? azienda.nome : ""} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
@@ -2225,7 +2260,7 @@ function AppShell({ session }) {
           <Suspense fallback={<LoadingBlock />}>
             <Posti supabase={supabase} cercaIndirizzo={cercaIndirizzoItalia} voli={voliDashboard} inputStyle={inputStyle}
               onPianifica={(l) => { setLuogoDaPianificare(l); setPage("pianificazione"); window.scrollTo(0, 0); }}
-              onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa" })} />
+              onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} />
           </Suspense>
         )}
         {page === "clienti" && <Clienti clienti={clienti} preventivi={preventivi} onCambiati={caricaClienti} onApriPreventivi={() => setPage("preventivi")} />}
@@ -2322,7 +2357,7 @@ const NOVITA = [
   { emoji: "📋", testo: "Sopralluogo: foto con GPS su ogni scena, punti di decollo e ostacoli sulla mappa, orari della giornata e il PDF da mandare", pagina: "pianificazione" },
   { emoji: "🎬", testo: "Piano delle scene: prepari ogni ripresa con manovra, luce, durata e note, e sai quante batterie portare", pagina: "pianificazione" },
   { emoji: "🎨", testo: "Manuale: come usare le LUT e com'è un colore giusto, con esempi", vai: { pagina: "impara", scheda: "manuale" } },
-  { emoji: "🎬", testo: "Manuale foto e video: montaggio, musica, colore, esportazione e consegna", vai: { pagina: "impara", scheda: "manuale" } },
+  { emoji: "🎬", testo: "Manuale di post-produzione (in Impara): montaggio, musica, colore, esportazione e consegna", vai: { pagina: "impara", scheda: "manuale" } },
   { emoji: "🏠", testo: "«Dopo il volo»: la lista per il lavoro a casa, dentro ogni volo del registro", pagina: "registro-voli" },
   { emoji: "💨", testo: "Vento in quota a 80 e 120 m, e «il tramonto sarà bello?»", pagina: "pianificazione" },
   { emoji: "🌡️", testo: "Ispezioni: come impostare la termocamera, cosa portare e i consigli per ogni lavoro", pagina: "guide" },
@@ -6924,7 +6959,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         {!vicina && z.validita && <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 2 }}>Attiva: {z.validita.map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}</div>}
         {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {d.consiglio}</div>}
         {!vicina && (z.restrizione === "REQ_AUTHORISATION" || z.restrizione === "PROHIBITED") && (
-          <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa" })} style={{ marginTop: 6, background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si fa a volare qui?</button>
+          <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} style={{ marginTop: 6, background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si fa a volare qui?</button>
         )}
         {!vicina && autorita.map((a, i) => (
           <div key={i} style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 3 }}>
@@ -7134,7 +7169,7 @@ function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zon
                       : "⚠ Non hai ancora un permesso registrato per questo luogo. Quando lo ottieni, salvalo in «Permessi» così finisce nei documenti del volo."}
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-                    <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa" })} style={{ background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si chiede?</button>
+                    <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} style={{ background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si chiede?</button>
                     <button type="button" onClick={() => vaiA({ pagina: "permessi" })} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>📋 I miei permessi</button>
                   </div>
                 </li>
@@ -8216,8 +8251,57 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     const pi = pianiSalvati.find((x) => x.id === pianoIniziale);
     if (pi) { apriPiano(pi); onPianoAperto && onPianoAperto(); }
   }, [pianoIniziale, pianiSalvati]);
-  // se cambia il luogo, l'indirizzo trovato prima non vale più
-  useEffect(() => { setPuntoIndirizzo(null); }, [luogoLibero, impiantoSel]);
+  // se cambia il luogo, l'indirizzo trovato prima non vale più (tranne quando riprendo la bozza)
+  const tieniPunto = useRef(false);
+  useEffect(() => { if (tieniPunto.current) { tieniPunto.current = false; return; } setPuntoIndirizzo(null); }, [luogoLibero, impiantoSel]);
+
+  // --- bozza automatica: se esci, ricarichi o il telefono chiude la pagina, il piano che stavi preparando non si perde ---
+  const CHIAVE_BOZZA = "eyedrones_bozza_piano";
+  const [bozzaRipresa, setBozzaRipresa] = useState(false);
+  const bozzaPronta = useRef(false);
+  const firmaSalvata = useRef(null);
+  const datiBozza = {
+    editingId, impiantoId: impiantoSel ? impiantoSel.id : null, modoLibero, luogoLibero, coordinateLibere, tipoIspezione, dataPrevista, oraPrevista,
+    droneSelId, scene, sopralluogo, manovreScelte, lavoroScelto, checklistSpuntati, checklistFpvSpuntati, zonaEsito, stsDati, puntoIndirizzo,
+  };
+  const firmaBozza = JSON.stringify(datiBozza);
+  useEffect(() => {
+    if (pianoIniziale || luogoIniziale) { bozzaPronta.current = true; return; }
+    try {
+      const b = JSON.parse(localStorage.getItem(CHIAVE_BOZZA) || "null");
+      if (b && b.dati && Date.now() - b.quando < 3 * 86400000) {
+        const d = b.dati;
+        const imp = d.impiantoId ? impianti.find((i) => i.id === d.impiantoId) : null;
+        tieniPunto.current = true;
+        setEditingId(d.editingId || null);
+        setImpiantoSel(imp || null); setModoLibero(!imp && !!d.modoLibero);
+        setLuogoLibero(d.luogoLibero || ""); setCoordinateLibere(d.coordinateLibere || "");
+        if (d.tipoIspezione) setTipoIspezione(d.tipoIspezione);
+        if (d.dataPrevista) setDataPrevista(d.dataPrevista);
+        setOraPrevista(d.oraPrevista || ""); if (d.oraPrevista) setOraSole(d.oraPrevista);
+        setDroneSelId(d.droneSelId || "");
+        setScene(Array.isArray(d.scene) ? d.scene : []);
+        setSopralluogo({ ...SOPRALLUOGO_VUOTO, ...(d.sopralluogo || {}) });
+        setManovreScelte(Array.isArray(d.manovreScelte) ? d.manovreScelte : []);
+        setLavoroScelto(d.lavoroScelto || "");
+        setChecklistSpuntati(d.checklistSpuntati || {}); setChecklistFpvSpuntati(d.checklistFpvSpuntati || {});
+        setZonaEsito(d.zonaEsito || null); setStsDati(d.stsDati || null);
+        setPuntoIndirizzo(d.puntoIndirizzo || null);
+        setBozzaRipresa(true);
+      }
+    } catch { /* bozza illeggibile: si parte da capo */ }
+    bozzaPronta.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!bozzaPronta.current) return;
+    const vuota = !editingId && !impiantoSel && !luogoLibero.trim() && !coordinateLibere.trim() && scene.length === 0 && !sopralluogoUsato(sopralluogo);
+    try {
+      if (vuota || firmaBozza === firmaSalvata.current) localStorage.removeItem(CHIAVE_BOZZA);
+      else localStorage.setItem(CHIAVE_BOZZA, JSON.stringify({ quando: Date.now(), dati: datiBozza }));
+    } catch { /* memoria piena: pazienza */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmaBozza]);
 
   const droneSelezionato = droniUtente.find((d) => d.id === droneSelId) || null;
   const coordinateValide = modoLibero ? leggiCoordinate(coordinateLibere) : null;
@@ -8401,6 +8485,9 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
       await caricaTutto();
       const eraModifica = !!editingId;
       setEditingId(null);
+      firmaSalvata.current = JSON.stringify({ ...datiBozza, editingId: null });
+      try { localStorage.removeItem(CHIAVE_BOZZA); } catch { /* niente */ }
+      setBozzaRipresa(false);
       alert(eraModifica ? "Piano di volo aggiornato." : "Piano di volo salvato.");
     } catch (err) {
       alert("Non sono riuscito a salvare il piano: " + (err?.message || err));
@@ -8444,6 +8531,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   };
 
   const annullaModifica = () => {
+    try { localStorage.removeItem(CHIAVE_BOZZA); } catch { /* niente */ }
+    setBozzaRipresa(false);
     setEditingId(null);
     setImpiantoSel(null);
     setModoLibero(false);
@@ -8473,6 +8562,13 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      {bozzaRipresa && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#16221b", border: "1px solid #2c5a3a", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#c9f2d6" }}>
+          <span style={{ flex: "1 1 240px" }}>📝 <strong>Ho ripreso il piano che stavi preparando</strong>, così com'era. Ricordati di salvarlo quando hai finito.</span>
+          <button type="button" onClick={() => setBozzaRipresa(false)} style={{ background: "#1f2530", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Ok</button>
+          <button type="button" onClick={() => { if (window.confirm("Ricomincio da capo? Quello che avevi scritto in questo piano si cancella.")) annullaModifica(); }} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Ricomincia da capo</button>
+        </div>
+      )}
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Pianificazione volo</h1>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0", maxWidth: 560 }}>
         Prepara un volo con giorni di anticipo: scegli dove (un tuo impianto oppure un posto qualsiasi), il drone e la data; controlla meteo e attività solare e spunta la checklist. Vale per ispezioni, video, foto e FPV.
@@ -8585,7 +8681,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           <Suspense fallback={null}>
             <PostiVicini supabase={supabase} tipo={tipoIspezione}
               punto={coordinateValide || puntoIndirizzo || leggiCoordinate(zonaEsito?.punto) || (meteo && meteo.lat != null ? { lat: meteo.lat, lon: meteo.lon } : null)}
-              onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa" })} />
+              onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} />
           </Suspense>
 
           <RegoleVolo
@@ -12777,6 +12873,14 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             <button onClick={() => setVista("galleria")} style={chip(vista === "galleria", "#ff8c42")}>🖼️ Galleria ({media.length})</button>
             <button onClick={() => setVista("mappa")} style={chip(vista === "mappa", "#ff8c42")}>🗺️ Mappa</button>
           </div>
+          {vista === "galleria" && (
+            <button type="button" onClick={() => apriManuale("backup")} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 10, padding: "10px 14px", marginBottom: 12, color: "#e7eaee" }}>
+              <span style={{ fontSize: 22 }}>🎞️</span>
+              <span><span style={{ display: "block", fontSize: 13.5, fontWeight: 700 }}>Manuale di post-produzione</span>
+                <span style={{ display: "block", fontSize: 12, color: "#a8a2bd" }}>Copia di sicurezza, montaggio, musica, colori e LUT, esportazione e consegna</span></span>
+              <span style={{ marginLeft: "auto", color: "#c4b5fd" }}>›</span>
+            </button>
+          )}
 
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
             <button onClick={() => setFiltroTipo("tutti")} style={chip(filtroTipo === "tutti", "#e7eaee")}>Tutti</button>

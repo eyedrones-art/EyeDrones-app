@@ -6,7 +6,7 @@ import Manuale from "./Manuale.jsx";
 // Sezione «Impara»: lezioni A1/A3 e A2, quiz con spiegazioni e simulazione d'esame, guida zona rossa, consigli di volo.
 const SCHEDE = [
   { key: "notizie", label: "📰 Notizie" },
-  { key: "manuale", label: "🎬 Foto e video" },
+  { key: "manuale", label: "🎞️ Post-produzione" },
   { key: "a1a3", label: "📘 A1/A3" },
   { key: "a2", label: "📗 A2" },
   { key: "quiz", label: "📝 Quiz" },
@@ -204,7 +204,7 @@ function SigleZone() {
   );
 }
 
-function ZonaRossa() {
+export function ZonaRossa() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <p style={{ fontSize: 13, color: "#c3cad4", margin: 0 }}>Hai trovato una zona rossa sulla mappa D-Flight o nella verifica zona di EyeDrones? Ecco cosa fare, passo per passo.</p>
