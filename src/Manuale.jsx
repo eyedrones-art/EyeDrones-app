@@ -24,6 +24,79 @@ function Tabella({ righe, intestazione }) {
   );
 }
 
+
+// --- Esempi visivi del colore: lo stesso paesaggio con gli errori più comuni ---------------------
+// Un disegno (non una ripresa vera) colorato con filtri, così si vede subito la differenza
+function Paesaggio() {
+  return (
+    <svg viewBox="0 0 300 190" width="100%" style={{ display: "block" }} aria-hidden="true">
+      <defs>
+        <linearGradient id="mn-cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#3b82f6" /><stop offset="1" stopColor="#fbcf8f" /></linearGradient>
+        <linearGradient id="mn-lago" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1e6fa8" /><stop offset="1" stopColor="#0e3b5c" /></linearGradient>
+      </defs>
+      <rect width="300" height="190" fill="url(#mn-cielo)" />
+      <ellipse cx="80" cy="40" rx="38" ry="9" fill="#ffffff" opacity=".85" />
+      <circle cx="232" cy="58" r="17" fill="#fde68a" />
+      <path d="M0 112 L56 72 L106 102 L156 62 L212 98 L300 68 L300 190 L0 190Z" fill="#3f6d3a" />
+      <path d="M0 128 Q74 112 150 125 T300 122 L300 190 L0 190Z" fill="#4d8b3f" />
+      <path d="M20 152 Q150 136 280 154 L280 176 Q150 168 20 176Z" fill="url(#mn-lago)" />
+      <rect x="186" y="110" width="30" height="24" fill="#f3efe8" />
+      <polygon points="182,111 201,96 220,111" fill="#b91c1c" />
+      <rect x="196" y="121" width="8" height="13" fill="#7c4a2d" />
+    </svg>
+  );
+}
+const ESEMPI_COLORE = [
+  { titolo: "Giusto", ok: true, filtro: "none", testo: "Bianchi bianchi (casa, nuvole), erba verde naturale, cielo azzurro con i dettagli, neri profondi ma non chiusi." },
+  { titolo: "D-Log appena girato", ok: null, filtro: "saturate(.35) contrast(.6) brightness(1.12)", testo: "Grigio e piatto: è normale, non è un errore. Serve la LUT per «svilupparlo»." },
+  { titolo: "Troppo saturo", ok: false, filtro: "saturate(2.3) contrast(1.15)", testo: "Erba fosforescente e cielo finto. Si vede subito che è ritoccato: usa la vividezza, non la saturazione." },
+  { titolo: "Troppo caldo", ok: false, filtro: "sepia(.55) saturate(1.5) hue-rotate(-12deg)", testo: "Tutto arancione: il bianco della casa diventa giallo. Abbassa la temperatura finché i bianchi tornano bianchi." },
+  { titolo: "Troppo freddo", ok: false, filtro: "hue-rotate(18deg) saturate(.9) brightness(.97)", sovrapposto: "rgba(70,130,255,.28)", testo: "Tutto azzurro e triste. Alza la temperatura (più verso il giallo)." },
+  { titolo: "Cielo bruciato", ok: false, filtro: "brightness(1.55) contrast(.85)", testo: "Il cielo è bianco, senza dettagli: non si recupera. Già quando giri: esposizione −0,7 e guarda l'istogramma." },
+  { titolo: "Neri chiusi", ok: false, filtro: "contrast(1.7) brightness(.78)", testo: "Troppo contrasto: le ombre diventano macchie nere senza dettagli. Togli contrasto o schiarisci le ombre." },
+  { titolo: "Clip diverse tra loro", ok: false, mezzo: true, testo: "Una ripresa calda e la successiva fredda: nel montaggio «salta». Stesso bianco e stessa correzione per tutte le clip." },
+];
+function Esempio({ e }) {
+  const colore = e.ok === true ? "#4ade80" : e.ok === false ? "#ff6b6b" : "#f5b942";
+  return (
+    <figure style={{ margin: 0, background: "#161a1f", border: `1px solid ${colore}55`, borderRadius: 8, overflow: "hidden" }}>
+      <div style={{ position: "relative" }}>
+        {e.mezzo ? (
+          <div style={{ display: "flex" }}>
+            <div style={{ width: "50%", overflow: "hidden", filter: "sepia(.45) saturate(1.4) hue-rotate(-10deg)" }}><div style={{ width: "200%" }}><Paesaggio /></div></div>
+            <div style={{ width: "50%", overflow: "hidden", position: "relative" }}><div style={{ width: "200%", marginLeft: "-100%", filter: "hue-rotate(18deg)" }}><Paesaggio /></div><div style={{ position: "absolute", inset: 0, background: "rgba(70,130,255,.25)" }} /></div>
+          </div>
+        ) : (
+          <div style={{ filter: e.filtro }}><Paesaggio /></div>
+        )}
+        {e.sovrapposto && <div style={{ position: "absolute", inset: 0, background: e.sovrapposto }} />}
+        <span style={{ position: "absolute", left: 6, top: 6, background: "rgba(0,0,0,.65)", color: colore, fontSize: 11.5, fontWeight: 700, padding: "2px 7px", borderRadius: 5 }}>{e.ok === true ? "✅ " : e.ok === false ? "❌ " : "ℹ️ "}{e.titolo}</span>
+      </div>
+      <figcaption style={{ fontSize: 11.5, color: "#c3cad4", padding: "6px 8px", lineHeight: 1.4 }}>{e.testo}</figcaption>
+    </figure>
+  );
+}
+
+// prima/dopo: trascina per vedere il D-Log diventare colore con la LUT
+function PrimaDopo() {
+  const [x, setX] = useState(50);
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: "1px solid #333a45" }}>
+        <div style={{ filter: "saturate(.35) contrast(.6) brightness(1.12)" }}><Paesaggio /></div>
+        <div style={{ position: "absolute", inset: 0, clipPath: `inset(0 0 0 ${x}%)` }}><Paesaggio /></div>
+        <div style={{ position: "absolute", top: 0, bottom: 0, left: `${x}%`, width: 3, marginLeft: -1, background: "#fff", boxShadow: "0 0 8px #000" }} />
+        <span style={{ position: "absolute", left: 6, bottom: 6, background: "rgba(0,0,0,.6)", color: "#fff", fontSize: 11.5, fontWeight: 700, padding: "2px 7px", borderRadius: 5 }}>D-Log</span>
+        <span style={{ position: "absolute", right: 6, bottom: 6, background: "rgba(255,140,66,.9)", color: "#12151c", fontSize: 11.5, fontWeight: 800, padding: "2px 7px", borderRadius: 5 }}>Con la LUT ✨</span>
+      </div>
+      <label style={{ display: "block", fontSize: 11.5, color: "#8b95a3", marginTop: 6 }}>
+        Trascina per confrontare
+        <input type="range" min="0" max="100" value={x} onChange={(e) => setX(Number(e.target.value))} style={{ width: "100%", marginTop: 4 }} />
+      </label>
+    </div>
+  );
+}
+
 const SEZIONI = [
   {
     id: "backup", titolo: "📦 1. Appena torni: la copia di sicurezza",
@@ -85,6 +158,31 @@ const SEZIONI = [
           "Correggi prima esposizione e bianco, poi la LUT, poi il «look» (contrasto, saturazione).",
           "Usa le stesse correzioni su tutte le clip dello stesso momento: copia e incolla la correzione.",
         ]} />
+        <PrimaDopo />
+        <Sotto>Come usare la LUT, passo per passo</Sotto>
+        <Lista voci={[
+          "Scarica la LUT ufficiale del tuo drone dal sito del produttore (per i DJI: «D-Log M to Rec.709» o «D-Log to Rec.709»). È gratis.",
+          "Prima della LUT sistema esposizione e bianco: la LUT funziona bene solo se il video di partenza è esposto giusto.",
+          "Applica la LUT. Se il risultato è troppo forte, abbassane l'intensità al 70–90%.",
+          "Solo dopo, se vuoi, aggiungi un «look» creativo (cinema, caldo, freddo), ma piano: 20–40% di intensità.",
+          "Mai una LUT creativa direttamente sul D-Log senza quella ufficiale: i colori diventano strani e la pelle arancione.",
+          "Alla fine guarda il video anche sul telefono: è lì che lo vedrà quasi tutta la gente.",
+        ]} />
+        <Sotto>Le regole dei fotografi per un colore giusto</Sotto>
+        <Lista voci={[
+          "Istogramma: la «montagnetta» non deve toccare i bordi. Se tocca a destra il cielo è bruciato, se tocca a sinistra le ombre sono chiuse.",
+          "I bianchi devono essere bianchi: guarda nuvole, muri chiari e strade. Se sono gialli o azzurri, sistema il bilanciamento del bianco.",
+          "Il verde dell'erba e degli alberi deve sembrare vero, mai fosforescente. Il cielo azzurro, non viola.",
+          "La pelle delle persone non deve essere mai arancione o grigia: è la prima cosa che si nota in un matrimonio.",
+          "Neri profondi ma con i dettagli: né grigi (piatto) né macchie nere (troppo contrasto).",
+          "Tutte le clip dello stesso momento devono avere lo stesso colore.",
+          "Il tramonto può essere caldo, un'ispezione o un immobile no: lì servono colori veri e neutri.",
+        ]} />
+        <Sotto>Riconosci gli errori a colpo d'occhio</Sotto>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 8, marginTop: 8 }}>
+          {ESEMPI_COLORE.map((e) => <Esempio key={e.titolo} e={e} />)}
+        </div>
+        <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Il paesaggio è un disegno, non una ripresa vera: serve solo a far vedere la differenza.</p>
         {colore && <div style={{ marginTop: 10 }}>{colore}</div>}
       </>
     ),

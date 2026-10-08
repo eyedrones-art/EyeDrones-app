@@ -6,6 +6,8 @@ import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo } from "./Riprese.jsx";
 import { DopoIlVolo } from "./Manuale.jsx";
+import PianoScene, { scenaVuota, dettagliScena, FotoScena } from "./Scene.jsx";
+import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
@@ -2294,8 +2296,11 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 }
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10g";
+const VERSIONE_NOVITA = "2026-10i";
 const NOVITA = [
+  { emoji: "📋", testo: "Sopralluogo: foto con GPS su ogni scena, punti di decollo e ostacoli sulla mappa, orari della giornata e il PDF da mandare", pagina: "pianificazione" },
+  { emoji: "🎬", testo: "Piano delle scene: prepari ogni ripresa con manovra, luce, durata e note, e sai quante batterie portare", pagina: "pianificazione" },
+  { emoji: "🎨", testo: "Manuale: come usare le LUT e com'è un colore giusto, con esempi", vai: { pagina: "impara", scheda: "manuale" } },
   { emoji: "🎬", testo: "Manuale foto e video: montaggio, musica, colore, esportazione e consegna", vai: { pagina: "impara", scheda: "manuale" } },
   { emoji: "🏠", testo: "«Dopo il volo»: la lista per il lavoro a casa, dentro ogni volo del registro", pagina: "registro-voli" },
   { emoji: "💨", testo: "Vento in quota a 80 e 120 m, e «il tramonto sarà bello?»", pagina: "pianificazione" },
@@ -3063,7 +3068,9 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   // riprese o foto spuntate sul posto: le porto nelle note del volo, così a casa sai l'ordine per il montaggio o il report
   const fatteSulPosto = (() => {
     const girate = (() => { try { const l = JSON.parse(localStorage.getItem(`eyedrones_girate_${p.id}`) || "null"); if (Array.isArray(l)) return l; } catch { /* niente */ } return p.checklist_stato?.girate || []; })();
-    const nomi = (p.checklist_stato?.manovre || []).filter((id) => girate.includes(id)).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean).map((m) => m.nome.replace(/ \(.*\)$/, ""));
+    const nomi = Array.isArray(p.checklist_stato?.scene)
+      ? p.checklist_stato.scene.filter((s) => girate.includes(s.id)).map((s) => s.titolo || (TUTTE_MANOVRE().find((m) => m.id === s.manovra) || {}).nome || "Scena")
+      : (p.checklist_stato?.manovre || []).filter((id) => girate.includes(id)).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean).map((m) => m.nome.replace(/ \(.*\)$/, ""));
     if (nomi.length === 0) return "";
     return TIPI_ISPEZIONE.includes(p.tipo_ispezione) ? `Foto fatte: ${nomi.join(", ")}` : `Ordine per il montaggio: ${nomi.join(" → ")}`;
   })();
@@ -3174,6 +3181,25 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
           </div>
         )}
 
+        {p.checklist_stato?.sopralluogo && (() => {
+          const so = p.checklist_stato.sopralluogo;
+          const voci = vociSopralluogo(p.tipo_ispezione);
+          const mancano = voci.filter((v) => !(so.voci || {})[v.id]);
+          return (
+            <details style={{ marginTop: 10, background: "#141c26", border: "1px solid #2a4562", borderRadius: 6, padding: "8px 10px" }}>
+              <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#7fb0ff" }}>📋 Dal sopralluogo{mancano.length ? ` · ${mancano.length} cose da controllare` : " · tutto controllato"}</summary>
+              {(so.orari || []).length > 0 && <div style={{ fontSize: 12, color: "#e7eaee", marginTop: 6 }}>🕐 {so.orari.map((o) => `${o.ora} ${o.evento}`).join(" · ")}</div>}
+              {(so.punti || []).map((pt) => (
+                <div key={pt.id} style={{ fontSize: 12, color: "#d6dde6", marginTop: 4 }}>
+                  {(TIPI_PUNTO[pt.tipo] || TIPI_PUNTO.altro).emoji} {pt.nota || (TIPI_PUNTO[pt.tipo] || TIPI_PUNTO.altro).nome}{" "}
+                  <a href={`https://www.google.com/maps?q=${pt.lat},${pt.lon}`} target="_blank" rel="noreferrer" style={{ color: "#7fb0ff" }}>↗</a>
+                </div>
+              ))}
+              {so.note && <div style={{ fontSize: 12, color: "#d6dde6", marginTop: 6, whiteSpace: "pre-wrap" }}>📝 {so.note}</div>}
+              {mancano.length > 0 && <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 6 }}>Ancora da controllare: {mancano.map((v) => v.testo.split(":")[0].split(" (")[0]).join(" · ")}</div>}
+            </details>
+          );
+        })()}
         <DaGirare piano={p} />
         {/* senza foto scelte nel piano il riquadro qui sopra non c'è: le impostazioni della camera le mostro lo stesso */}
         {TIPI_ISPEZIONE.includes(p.tipo_ispezione) && !(p.checklist_stato?.manovre || []).length && <ImpostazioniIspezione tipo={p.tipo_ispezione} />}
@@ -6932,6 +6958,96 @@ function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zon
   );
 }
 
+// il sopralluogo si salva nel piano solo se c'è dentro qualcosa
+const sopralluogoUsato = (d) => !!d && (Object.values(d.voci || {}).some(Boolean) || (d.note || "").trim() || (d.punti || []).length || (d.orari || []).length);
+
+// --- «Manda il piano»: PDF con scene, foto, orari e sopralluogo, da mandare al cliente o a chi vola con te ----------
+// immagine pronta per il PDF: piccola (lato lungo 700 px) e in JPG
+async function fotoPerPdf(url) {
+  try {
+    const href = await indirizzoVisibile(url);
+    const blob = await (await fetch(href)).blob();
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = URL.createObjectURL(blob); });
+    const scala = Math.min(1, 700 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * scala); c.height = Math.round(img.naturalHeight * scala);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(img.src);
+    return { dati: c.toDataURL("image/jpeg", 0.8), w: c.width, h: c.height };
+  } catch { return null; }
+}
+
+async function costruisciPDFPiano({ azienda, luogo, data, ora, tipo, drone, scene, sopralluogo, libreria }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const grigio = [110, 120, 130];
+  // i caratteri standard del PDF non hanno le frecce: le tolgo
+  const pulito = (t) => String(t || "").replace(/→/g, "-").replace(/[^\x20-\x7E -ÿ–—’“”…€\n]/g, "").replace(/[ \t]{2,}/g, " ").trim();
+  let y = 18;
+  const spazio = (h) => { if (y + h > 282) { doc.addPage(); y = 18; } };
+  const titolo = (t) => { spazio(14); y += 3; doc.setFontSize(12.5); doc.setTextColor(20, 20, 20); doc.text(pulito(t), 15, y); y += 2; doc.setDrawColor(230, 230, 230); doc.line(15, y, 195, y); y += 6; };
+  const testo = (t, { x = 15, w = 180, size = 10, colore = [40, 40, 40] } = {}) => {
+    doc.setFontSize(size); doc.setTextColor(...colore);
+    doc.splitTextToSize(pulito(t), w).forEach((r) => { spazio(5.2); doc.text(r, x, y); y += size * 0.47; });
+  };
+
+  if (azienda?.logo) { try { doc.addImage(azienda.logo, "PNG", 15, 10, 24, 15, undefined, "FAST"); y = 32; } catch (e) { /* senza logo */ } }
+  doc.setFontSize(18); doc.setTextColor(20, 20, 20); doc.text(pulito(`Piano delle riprese · ${luogo || ""}`), 15, y); y += 7;
+  doc.setFontSize(10); doc.setTextColor(...grigio);
+  doc.text(pulito([data ? formatData(data) : "", ora ? `ore ${ora}` : "", ETICHETTE_TIPO_PIANO[tipo] || tipo, drone ? drone.nome : "", azienda?.nome && azienda.nome !== "EyeDrones" ? azienda.nome : ""].filter(Boolean).join(" · ")), 15, y); y += 6;
+
+  const orari = [...(sopralluogo?.orari || []).map((o) => ({ ora: o.ora, t: o.evento })), ...(scene || []).filter((x) => x.ora).map((x) => ({ ora: x.ora, t: `Scena: ${x.titolo || "senza nome"}` }))]
+    .sort((a, b) => a.ora.localeCompare(b.ora));
+  if (orari.length) { titolo("Orari della giornata"); orari.forEach((o) => testo(`${o.ora}   ${o.t}`)); }
+
+  if ((scene || []).length) {
+    titolo(`Scene (${scene.length})`);
+    for (let i = 0; i < scene.length; i++) {
+      const sc = scene[i];
+      const m = (libreria || []).find((x) => x.id === sc.manovra);
+      const foto = sc.foto && sc.foto.url ? await fotoPerPdf(sc.foto.url) : null;
+      const hFoto = foto ? Math.min(40, (55 * foto.h) / foto.w) : 0;
+      spazio(Math.max(hFoto, 14) + 4);
+      const y0 = y;
+      const larg = foto ? 120 : 180;
+      testo(`${i + 1}. ${sc.titolo || (m ? m.nome : "Scena")}`, { size: 11.5, colore: [20, 20, 20], w: larg });
+      if (m && sc.titolo && sc.titolo !== m.nome.replace(/ \(.*\)$/, "")) testo(`Manovra: ${m.nome}`, { size: 9.5, colore: grigio, w: larg });
+      const det = dettagliScena(sc, tipo).replace(/🕐 /, "ore ");
+      if (det) testo(det, { size: 9.5, colore: [60, 60, 60], w: larg });
+      if (sc.note) testo(sc.note, { size: 9.5, w: larg });
+      if (m && m.stick) testo(`Stick: ${m.stick}`, { size: 8.5, colore: grigio, w: larg });
+      if (sc.foto && sc.foto.lat != null) {
+        doc.setFontSize(8.5); doc.setTextColor(40, 100, 200);
+        doc.textWithLink(`Punto: ${Number(sc.foto.lat).toFixed(5)}, ${Number(sc.foto.lon).toFixed(5)} (apri la mappa)`, 15, y, { url: `https://www.google.com/maps?q=${sc.foto.lat},${sc.foto.lon}` }); y += 4.5;
+      }
+      if (foto) { try { doc.addImage(foto.dati, "JPEG", 140, y0 - 4, 55, hFoto, undefined, "FAST"); } catch (e) { /* foto saltata */ } y = Math.max(y, y0 - 4 + hFoto + 2); }
+      y += 3;
+    }
+  }
+
+  if (sopralluogo) {
+    const voci = vociSopralluogo(tipo);
+    const hanno = voci.some((v) => (sopralluogo.voci || {})[v.id]) || (sopralluogo.punti || []).length || (sopralluogo.note || "").trim();
+    if (hanno) {
+      titolo("Sopralluogo");
+      voci.forEach((v) => testo(`${(sopralluogo.voci || {})[v.id] ? "[x]" : "[  ]"} ${v.testo}`, { size: 9.5, colore: (sopralluogo.voci || {})[v.id] ? [40, 40, 40] : [170, 90, 20] }));
+      if ((sopralluogo.punti || []).length) {
+        y += 2; testo("Punti sul posto:", { size: 10, colore: [20, 20, 20] });
+        sopralluogo.punti.forEach((pt) => {
+          spazio(5);
+          doc.setFontSize(9.5); doc.setTextColor(40, 40, 40);
+          const nome = (TIPI_PUNTO[pt.tipo] || TIPI_PUNTO.altro).nome;
+          doc.textWithLink(pulito(`${nome}: ${pt.nota || "-"} (${Number(pt.lat).toFixed(5)}, ${Number(pt.lon).toFixed(5)})`), 18, y, { url: `https://www.google.com/maps?q=${pt.lat},${pt.lon}` }); y += 4.8;
+        });
+      }
+      if ((sopralluogo.note || "").trim()) { y += 2; testo("Note:", { size: 10, colore: [20, 20, 20] }); testo(sopralluogo.note, { size: 9.5 }); }
+    }
+  }
+
+  const pagine = doc.getNumberOfPages();
+  for (let i = 1; i <= pagine; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(...grigio); doc.text(`Preparato con EyeDrones · app.eyedrones.it · pagina ${i} di ${pagine}`, 15, 290); }
+  return doc;
+}
+
 // --- Calcolatore STS-01: area di volo, contingenza e buffer per il rischio a terra -------------------------------
 // Buffer: tabella STS-01 del Reg. (UE) 2019/947, Appendice 1 (drone non vincolato). Contingenza: stima con il metodo
 // SORA (GPS + tempo di reazione 1 s + frenata a 45°), mai sotto i 10 m richiesti dallo scenario.
@@ -7579,7 +7695,10 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
 // il giorno del volo, in Home: le manovre scelte nel piano da spuntare sul posto, con l'animazione degli stick.
 // Le spunte vanno nel piano (checklist_stato.girate) e restano anche sul telefono, così valgono senza campo
 function DaGirare({ piano }) {
-  const daFare = (piano.checklist_stato?.manovre || []).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean);
+  const scenePiano = Array.isArray(piano.checklist_stato?.scene) ? piano.checklist_stato.scene : null;
+  const daFare = scenePiano
+    ? scenePiano.map((s) => { const m = TUTTE_MANOVRE().find((x) => x.id === s.manovra); return { id: s.id, nome: s.titolo || (m ? m.nome : "Scena"), stick: m?.stick, anim: m?.id, det: dettagliScena(s, piano.tipo_ispezione), note: s.note, foto: s.foto }; })
+    : (piano.checklist_stato?.manovre || []).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean);
   const chiave = `eyedrones_girate_${piano.id}`;
   const [girate, setGirate] = useState(() => {
     try { const loc = JSON.parse(localStorage.getItem(chiave) || "null"); if (Array.isArray(loc)) return loc; } catch { /* niente */ }
@@ -7609,9 +7728,12 @@ function DaGirare({ piano }) {
           </label>
           {!girate.includes(m.id) && (
             <div style={{ fontSize: 12, lineHeight: 1.45, color: "#d6dde6", marginLeft: 26 }}>
-              <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
-              {haAnimazione(m.id) && <button type="button" onClick={() => setInVisione(inVisione === m.id ? null : m.id)} style={{ marginTop: 4, background: inVisione === m.id ? "#7c5cd6" : "#251e33", color: inVisione === m.id ? "#fff" : "#c4b5fd", border: "1px solid #3d2f5a", borderRadius: 12, padding: "3px 10px", fontSize: 11.5, fontWeight: 600 }}>{inVisione === m.id ? "✕ Chiudi" : "▶️ Guarda come si fa"}</button>}
-              {inVisione === m.id && <AnimazioneManovra id={m.id} />}
+              {m.det && <div style={{ color: "#e7eaee" }}>🎯 {m.det}</div>}
+              {m.note && <div style={{ color: "#d6dde6" }}>📝 {m.note}</div>}
+              {m.foto && <FotoScena foto={m.foto} visibile={indirizzoVisibile} alta={150} />}
+              {m.stick && <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>}
+              {haAnimazione(m.anim ?? m.id) && <button type="button" onClick={() => setInVisione(inVisione === m.id ? null : m.id)} style={{ marginTop: 4, background: inVisione === m.id ? "#7c5cd6" : "#251e33", color: inVisione === m.id ? "#fff" : "#c4b5fd", border: "1px solid #3d2f5a", borderRadius: 12, padding: "3px 10px", fontSize: 11.5, fontWeight: 600 }}>{inVisione === m.id ? "✕ Chiudi" : "▶️ Guarda come si fa"}</button>}
+              {inVisione === m.id && <AnimazioneManovra id={m.anim ?? m.id} />}
             </div>
           )}
         </div>
@@ -7818,6 +7940,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [stsDati, setStsDati] = useState(null); // calcolatore STS-01 (salvato nel piano)
   const [manovreScelte, setManovreScelte] = useState([]); // riprese da fare in questo volo (scaletta)
   const [lavoroScelto, setLavoroScelto] = useState(""); // nome della scaletta pronta usata (es. Matrimonio)
+  const [scene, setScene] = useState([]); // piano delle scene per video, foto e FPV (checklist_stato.scene)
+  const [sopralluogo, setSopralluogo] = useState(SOPRALLUOGO_VUOTO); // lista, punti, orari e note (checklist_stato.sopralluogo)
   // scegliendo l'ora del volo, anche la direzione del sole si calcola per quell'ora
   const scegliOraPrevista = (ora) => { setOraPrevista(ora); if (ora) setOraSole(ora); };
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
@@ -7940,6 +8064,15 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const luce = meteo && meteo.lat != null && dataPrevista ? calcolaLuce(dataPrevista, meteo.lat, meteo.lon) : null;
   const istanteSoleScelto = luce ? dataDaOraLuogo(dataPrevista, oraSole, meteo.fusoOrario) : null;
   const sole = istanteSoleScelto ? posizioneSole(istanteSoleScelto, meteo.lat, meteo.lon) : null;
+  // per il piano delle scene: foto del sopralluogo nello spazio riservato, e finestre di luce per gli avvisi
+  const serviziFoto = React.useMemo(() => ({
+    carica: async (file) => { const blob = await ridimensionaImmagine(file, 1800); return caricaDocumento(`scena-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`, blob, { contentType: "image/jpeg" }); },
+    visibile: indirizzoVisibile,
+  }), []);
+  const finestreLuce = luce ? (() => {
+    const f = meteo?.fusoOrario, mm = (x) => minutiDelGiorno(x, f);
+    return { oro: [luce.oraOroMattina, luce.oraOroSera].map(([a, b]) => [mm(a), mm(b)]), blu: [luce.oraBluMattina, luce.oraBluSera].map(([a, b]) => [mm(a), mm(b)]), alba: mm(luce.alba), tramonto: mm(luce.tramonto) };
+  })() : null;
   const luna = dataPrevista ? faseLuna(dataDaOraLuogo(dataPrevista, "22:00", meteo?.fusoOrario || "Europe/Rome")) : null;
   const oraLuce = (d) => formattaOraLuogo(d, meteo?.fusoOrario);
   const fasciaLuce = ([da, a]) => (da && a ? `${oraLuce(da)} – ${oraLuce(a)}` : "—");
@@ -7989,6 +8122,23 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setGenerandoPdfControllo(false);
   };
 
+  // PDF del piano, da mandare con WhatsApp/email (se il telefono lo permette) o da scaricare
+  const [preparoPdf, setPreparoPdf] = useState(false);
+  const mandaPiano = async () => {
+    setPreparoPdf(true);
+    try {
+      const doc = await costruisciPDFPiano({ azienda, luogo: destinazione?.nome || luogoLibero, data: dataPrevista, ora: oraPrevista, tipo: tipoIspezione, drone: droneSelezionato, scene: ["video", "foto", "fpv"].includes(tipoIspezione) ? scene : [], sopralluogo, libreria: TUTTE_MANOVRE() });
+      const nome = `Piano-${(destinazione?.nome || "riprese").replace(/[^\w]+/g, "-").slice(0, 40)}-${dataPrevista || ""}.pdf`;
+      const file = new File([doc.output("blob")], nome, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: `Piano delle riprese · ${destinazione?.nome || ""}` }); } catch (e) { if (e?.name !== "AbortError") doc.save(nome); }
+      } else doc.save(nome);
+    } catch (e) {
+      alert("Non sono riuscito a preparare il PDF: " + (e?.message || "riprova"));
+    }
+    setPreparoPdf(false);
+  };
+
   const salvaPiano = async () => {
     if (!destinazione) return;
     setSalvandoPiano(true);
@@ -8012,7 +8162,10 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
         ora_prevista: oraPrevista || null,
         drone_id: droneSelId || null,
         dflight_screenshot_url: dflightUrl,
-        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}), ...(manovreScelte.length > 0 ? { manovre: manovreScelte, ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {}) },
+        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}), ...(["video", "foto", "fpv"].includes(tipoIspezione)
+          ? (scene.length > 0 ? { scene, manovre: scene.map((x) => x.manovra).filter(Boolean), ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {})
+          : (manovreScelte.length > 0 ? { manovre: manovreScelte, ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {})),
+          ...(sopralluogoUsato(sopralluogo) ? { sopralluogo } : {}) },
       };
       // le coordinate si salvano solo per un luogo scelto a mano
       if (!impiantoSel) payload.luogo_coordinate = coordinateValide ? `${coordinateValide.lat}, ${coordinateValide.lon}` : null;
@@ -8051,6 +8204,12 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setStsDati(p.checklist_stato?.sts || null);
     setManovreScelte(Array.isArray(p.checklist_stato?.manovre) ? p.checklist_stato.manovre : []);
     setLavoroScelto(p.checklist_stato?.lavoro || "");
+    setSopralluogo({ ...SOPRALLUOGO_VUOTO, ...(p.checklist_stato?.sopralluogo || {}) });
+    // piani salvati prima del piano delle scene: le manovre scelte diventano scene
+    setScene(Array.isArray(p.checklist_stato?.scene) ? p.checklist_stato.scene
+      : ["video", "foto", "fpv"].includes(p.tipo_ispezione) && Array.isArray(p.checklist_stato?.manovre)
+        ? p.checklist_stato.manovre.map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean).map((m) => scenaVuota(p.tipo_ispezione, m))
+        : []);
     if (p.ora_prevista) setOraSole(String(p.ora_prevista).slice(0, 5));
     setDroneSelId(p.drone_id || "");
     setDflightShot(p.dflight_screenshot_url ? { dataUrl: p.dflight_screenshot_url, remota: true } : null);
@@ -8077,6 +8236,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setStsDati(null);
     setManovreScelte([]);
     setLavoroScelto("");
+    setScene([]);
+    setSopralluogo(SOPRALLUOGO_VUOTO);
     setDflightShot(null);
     setMeteo(null);
     setMeteoSpaziale(null);
@@ -8241,12 +8402,22 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
                 if (oro) return "oro";
                 return undefined;
               })()} />
-              <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} scelte={manovreScelte} onCambiaScelte={setManovreScelte} lavoro={lavoroScelto} onCambiaLavoro={setLavoroScelto} />
+              <PianoScene key={"scene-" + tipoIspezione} tipo={tipoIspezione} scene={scene} onCambia={setScene} libreria={{ video: MANOVRE_VIDEO, fpv: MANOVRE_FPV, foto: INQUADRATURE_FOTO }} scalette={SCALETTE_PRONTE[tipoIspezione] || SCALETTE_PRONTE.video} onLavoro={setLavoroScelto} servizi={serviziFoto} finestre={finestreLuce} />
+              <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} />
             </>
           )}
           {TIPI_ISPEZIONE.includes(tipoIspezione) && (
             <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} scelte={manovreScelte} onCambiaScelte={setManovreScelte} lavoro={lavoroScelto} onCambiaLavoro={setLavoroScelto} />
           )}
+          <Sopralluogo
+            tipo={tipoIspezione}
+            dati={sopralluogo}
+            onCambia={setSopralluogo}
+            scene={["video", "foto", "fpv"].includes(tipoIspezione) ? scene : []}
+            mostraOrari={["video", "foto", "fpv"].includes(tipoIspezione)}
+            centro={coordinateValide || puntoIndirizzo || leggiCoordinate(zonaEsito?.punto) || (meteo && meteo.lat != null ? { lat: meteo.lat, lon: meteo.lon } : null)}
+            sole={sole ? { ...sole, ora: oraSole } : null}
+          />
 
           <StrumentiLavoro key={tipoIspezione} tipo={tipoIspezione} />
 
@@ -8478,6 +8649,11 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             )}
           </div>
 
+          {(scene.length > 0 || sopralluogoUsato(sopralluogo)) && (
+            <button type="button" onClick={mandaPiano} disabled={preparoPdf} style={{ marginTop: 18, width: "100%", background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", padding: "10px 0", borderRadius: 6, fontWeight: 700, fontSize: 13.5, minHeight: 44 }}>
+              {preparoPdf ? "Preparo il PDF…" : "📤 Manda il piano (PDF con scene, foto e sopralluogo)"}
+            </button>
+          )}
           <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
             <button type="button" onClick={salvaPiano} disabled={salvandoPiano} style={{ flex: 1, background: "#4ade80", color: "#0a1a0f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 700, fontSize: 13.5 }}>
               {salvandoPiano ? "Salvataggio..." : editingId ? "💾 Aggiorna piano di volo" : "💾 Salva questo piano di volo"}
