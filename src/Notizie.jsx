@@ -49,10 +49,11 @@ const quando = (iso) => {
   return d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
 };
 
-function Marchio({ piccolo }) {
+// logo di DronEzine (blu e rosso): sullo sfondo scuro dell'app va su una targhetta bianca, colori originali
+function Marchio({ altezza = 22 }) {
   return (
-    <a href={conUtm(SITO)} target="_blank" rel="noreferrer" style={{ color: "#e7eaee", textDecoration: "none", fontWeight: 800, fontSize: piccolo ? 13 : 15, letterSpacing: ".02em" }}>
-      DronEzine
+    <a href={conUtm(SITO)} target="_blank" rel="noreferrer" aria-label="DronEzine, la prima rivista italiana sui droni" style={{ display: "inline-flex", alignItems: "center", background: "#ffffff", borderRadius: 6, padding: "4px 8px", lineHeight: 0, verticalAlign: "middle" }}>
+      <img src="/partner/dronezine-logo.png" alt="DronEzine" style={{ height: altezza, width: "auto", display: "block" }} />
     </a>
   );
 }
@@ -65,7 +66,7 @@ export function UltimaNotizia({ onTutte }) {
   return (
     <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: "12px 14px", marginBottom: 18, maxWidth: 720 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "#8b95a3" }}>
-        <span>📰 Ultima notizia da <Marchio piccolo /></span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>📰 Ultima notizia da <Marchio altezza={18} /></span>
         {onTutte && <button type="button" onClick={onTutte} style={{ background: "none", border: "none", color: "#3d8bfd", fontSize: 12, padding: "6px 0", minHeight: 32 }}>Tutte ›</button>}
       </div>
       <a href={conUtm(a.link)} target="_blank" rel="noreferrer" style={{ display: "flex", gap: 12, alignItems: "center", textDecoration: "none", color: "#e7eaee" }}>
@@ -84,9 +85,12 @@ export default function Notizie() {
   const articoli = useNotizie();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "12px 14px" }}>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>📰 Notizie dal mondo droni</div>
-        <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2 }}>a cura di <Marchio />, la rivista italiana dedicata ai droni. Gli articoli si aprono sul loro sito.</div>
+      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>📰 Notizie dal mondo droni</div>
+          <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2 }}>a cura di DronEzine, la prima rivista italiana sui droni. Gli articoli si aprono sul loro sito.</div>
+        </div>
+        <Marchio altezza={34} />
       </div>
       {articoli === null && <p style={{ fontSize: 12.5, color: "#8b95a3", margin: 0 }}>Carico le notizie…</p>}
       {articoli && articoli.length === 0 && (
