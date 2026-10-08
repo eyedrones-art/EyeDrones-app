@@ -2141,9 +2141,23 @@ function AppShell({ session }) {
         .spin { animation: spin 1s linear infinite; }
         .menu-telefono { display: none; }
         .avviso-caricamento { bottom: 24px; }
+        .home-azioni { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .home-azione { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 1px solid; border-radius: 12px; padding: 14px 16px; color: #e7eaee; min-height: 72px; }
+        .home-azione-emoji { font-size: 26px; flex: none; }
+        .home-azione-titolo { display: block; font-size: 14.5px; font-weight: 700; }
+        .home-azione-testo { display: block; font-size: 12px; margin-top: 2px; }
+        .home-azione .corto { display: none; }
+        .home-due { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
         @media (max-width: 680px) {
           .app-shell { flex-direction: column; }
           .sidebar { display: none !important; }
+          .home { padding: 16px !important; }
+          .home-due { grid-template-columns: 1fr; }
+          .home-azioni { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+          .home-azione { flex-direction: column; justify-content: center; text-align: center; gap: 4px; padding: 10px 6px; min-height: 84px; }
+          .home-azione .lungo, .home-azione-testo { display: none !important; }
+          .home-azione .corto { display: inline; }
+          .home-azione-titolo { font-size: 12.5px; }
           .menu-telefono { display: contents; }
           .mt-topbar { position: sticky; top: 0; z-index: 800; display: flex; align-items: center; gap: 8px; padding: 10px 16px; padding-top: calc(10px + env(safe-area-inset-top)); background: rgba(18, 21, 26, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #262b33; }
           .mt-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; display: flex; background: rgba(18, 21, 26, 0.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid #262b33; padding-bottom: env(safe-area-inset-bottom); }
@@ -3046,7 +3060,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
       ))}
     </div>
   );
-  if (!p) return <section style={{ marginBottom: 28, maxWidth: 720 }}>{elencoAltri}</section>;
+  if (!p) return <section style={{ marginBottom: 18 }}>{elencoAltri}</section>;
 
   const drone = (droni || []).find((d) => d.id === p.drone_id) || null;
   const limite = Number(drone?.vento_max_kmh) > 0 ? Number(drone.vento_max_kmh) : 30;
@@ -3105,7 +3119,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   // ora passata: scheda piccola, solo «l'hai fatto?», senza meteo e consigli che ormai non servono
   if (passato) {
     return (
-      <section style={{ marginBottom: 28, maxWidth: 720 }}>
+      <section style={{ marginBottom: 18 }}>
         <div style={{ background: "#1b2028", border: "1px solid #f5b94266", borderRadius: 12, padding: 16 }}>
           <div style={{ fontSize: 11.5, color: "#f5b942", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>✈️ Volo di oggi</div>
           <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4 }}>{oraP} · {p.impianto_nome}</div>
@@ -3125,7 +3139,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   }
 
   return (
-    <section style={{ marginBottom: 28, maxWidth: 720 }}>
+    <section style={{ marginBottom: 18 }}>
       <div style={{ background: "linear-gradient(135deg, #1d2633, #1b2028)", border: "1px solid #3d8bfd66", borderRadius: 12, padding: 16 }}>
         <div style={{ fontSize: 11.5, color: "#7fb0ff", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>✈️ Il tuo prossimo volo</div>
         <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>{giorno(p.data_prevista)}{oraP ? ` alle ${oraP}` : ""} · {p.impianto_nome}</div>
@@ -3235,11 +3249,11 @@ function VoloAdesso() {
     );
   };
   return (
-    <button type="button" onClick={premi} disabled={cerco} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 720, textAlign: "left", background: "#1f1a14", border: "1px solid #6a4320", borderRadius: 10, padding: "12px 16px", marginBottom: 18, color: "#e7eaee" }}>
-      <span style={{ fontSize: 26 }}>📍</span>
+    <button type="button" onClick={premi} disabled={cerco} className="home-azione" style={{ background: "#1f1a14", borderColor: "#6a4320" }}>
+      <span className="home-azione-emoji">📍</span>
       <span>
-        <span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>{cerco ? "Cerco la tua posizione…" : "Sei già sul posto? Vola adesso"}</span>
-        <span style={{ display: "block", fontSize: 12, color: "#d8b894" }}>Senza preparare niente: meteo, zona, regole, foto da fare e impostazioni della camera, qui e ora.</span>
+        <span className="home-azione-titolo">{cerco ? "Cerco la posizione…" : <><span className="lungo">Sei sul posto? Vola adesso</span><span className="corto">Sono sul posto</span></>}</span>
+        <span className="home-azione-testo" style={{ color: "#d8b894" }}>Meteo, zona, regole e camera, qui e ora</span>
       </span>
     </button>
   );
@@ -3266,18 +3280,20 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
   ];
   const batterieAttive = (batterie || []).filter((b) => !b.ritirata).length;
   const urgenti = voci.filter((v) => v.stato && v.stato.livello !== "ok");
+  const [tutteScadenze, setTutteScadenze] = useState(false);
 
   const bloccoScadenze = (
     <section style={{ marginBottom: 28 }}>
       <TitoloSezione emoji="🪪" titolo="Scadenze e avvisi" />
       {urgenti.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {urgenti.map((v) => (
+          {(tutteScadenze ? urgenti : urgenti.slice(0, 3)).map((v) => (
             <button key={v.id} onClick={() => onNav(v.vai)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#1b2028", border: `1px solid ${v.stato.colore}55`, borderRadius: 8, padding: "10px 14px", color: "#e7eaee", fontSize: 13 }}>
               <span>{v.nome}</span>
               <span style={{ color: v.stato.colore, fontWeight: 600, fontSize: 12 }}>{v.stato.testo}</span>
             </button>
           ))}
+          {urgenti.length > 3 && <button type="button" onClick={() => setTutteScadenze(!tutteScadenze)} style={{ background: "none", border: "none", color: "#3d8bfd", fontSize: 12.5, padding: "2px 0", textAlign: "left" }}>{tutteScadenze ? "Mostra meno" : `Mostra tutti (${urgenti.length})`}</button>}
         </div>
       ) : voci.length > 0 || batterieAttive > 0 ? (
         <div style={{ background: "#16221b", border: "1px solid #24422f", borderRadius: 8, padding: "10px 14px", color: "#4ade80", fontSize: 12.5 }}>
@@ -3295,113 +3311,143 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
   ].filter(Boolean).join(" · ");
   const btnPrimario = { display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 };
 
+  const ora = new Date();
+  const saluto = ora.getHours() < 13 ? "Buongiorno" : ora.getHours() < 18 ? "Buon pomeriggio" : "Buonasera";
+  const oggi = ora.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+  const btnPiccolo = { display: "inline-flex", alignItems: "center", gap: 5, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "6px 10px", borderRadius: 6, fontWeight: 600, fontSize: 12 };
+  const scheda = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: "14px 16px" };
+  const numeri = [
+    usaIspezioni && { valore: impianti.length, etichetta: impianti.length === 1 ? "impianto" : "impianti" },
+    usaIspezioni && { valore: totAnomalie, etichetta: totAnomalie === 1 ? "anomalia aperta" : "anomalie aperte", colore: totAnomalie ? "#ff8c42" : undefined },
+    usaIspezioni && { valore: numIspezioni, etichetta: numIspezioni === 1 ? "ispezione" : "ispezioni" },
+    usaRiprese && { valore: voli.length, etichetta: voli.length === 1 ? "volo" : "voli" },
+    usaRiprese && minutiVoli > 0 && { valore: formattaDurata(minutiVoli), etichetta: "in volo", colore: "#ff8c42" },
+  ].filter(Boolean);
+
   return (
-    <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Panoramica</h1>
-        <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "4px 0 0 0" }}>{sottotitolo}</p>
-      </div>
-
-      {onControllo && (
-        <button type="button" onClick={onControllo} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 720, textAlign: "left", background: "#13233d", border: "1px solid #2f5aa8", borderRadius: 10, padding: "12px 16px", marginBottom: 18, color: "#e7eaee" }}>
-          <span style={{ fontSize: 26 }}>👮</span>
-          <span>
-            <span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>Controllo? Mostra i documenti</span>
-            <span style={{ display: "block", fontSize: 12, color: "#9fb4d6" }}>Attestati, assicurazione, drone e zona a schermo pieno, con un tocco. Funziona anche senza campo.</span>
-          </span>
-        </button>
-      )}
-
-      <VoloAdesso />
-
-      {moduli === null && (
-        <div style={{ background: "linear-gradient(135deg, #241d16, #1b2028)", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginBottom: 28, maxWidth: 720 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px 0" }}>Come usi il drone?</h3>
-          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0" }}>Scegli cosa ti serve: mostreremo solo le sezioni giuste nel menu e in questa pagina. Puoi cambiare idea quando vuoi da Impostazioni.</p>
-          <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Conferma" />
+    <div className="home" style={{ padding: "28px 32px", overflow: "auto" }}>
+      <div style={{ maxWidth: 1000 }}>
+        <div style={{ marginBottom: 18 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{saluto}</h1>
+          <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "4px 0 0 0", textTransform: "none" }}>{oggi.charAt(0).toUpperCase() + oggi.slice(1)}{sottotitolo ? ` · ${sottotitolo}` : ""}</p>
         </div>
-      )}
 
-      <InvitoImpronta />
-      <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
-      <RiquadroNovita onVai={onNav} />
+        {moduli === null && (
+          <div style={{ background: "linear-gradient(135deg, #241d16, #1b2028)", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginBottom: 22 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px 0" }}>Come usi il drone?</h3>
+            <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0" }}>Scegli cosa ti serve: mostreremo solo le sezioni giuste nel menu e in questa pagina. Puoi cambiare idea quando vuoi da Impostazioni.</p>
+            <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Conferma" />
+          </div>
+        )}
 
-      {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
+        <InvitoImpronta />
+        <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
+        <RiquadroNovita onVai={onNav} />
+        {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
 
-      {onApriPiano && <ProssimoVolo droni={droni} batterie={batterie} onApriPiano={onApriPiano} onDocumenti={onDocumentiPiano} onRegistra={onRegistraDaPiano} />}
+        {/* la missione del giorno (o il prossimo volo) */}
+        {onApriPiano && <ProssimoVolo droni={droni} batterie={batterie} onApriPiano={onApriPiano} onDocumenti={onDocumentiPiano} onRegistra={onRegistraDaPiano} />}
 
-      {urgenti.length > 0 && bloccoScadenze}
+        {/* azioni rapide */}
+        <div className="home-azioni">
+          <VoloAdesso />
+          <button type="button" onClick={() => onNav("pianificazione")} className="home-azione" style={{ background: "#1a1d2e", borderColor: "#3d3a7a" }}>
+            <span className="home-azione-emoji">🗓️</span>
+            <span><span className="home-azione-titolo"><span className="lungo">Pianifica un volo</span><span className="corto">Pianifica</span></span><span className="home-azione-testo" style={{ color: "#a9a6d6" }}>Meteo, zona, scene e sopralluogo</span></span>
+          </button>
+          {onControllo && (
+            <button type="button" onClick={onControllo} className="home-azione" style={{ background: "#13233d", borderColor: "#2f5aa8" }}>
+              <span className="home-azione-emoji">👮</span>
+              <span><span className="home-azione-titolo"><span className="lungo">Controllo? Documenti</span><span className="corto">Controllo</span></span><span className="home-azione-testo" style={{ color: "#9fb4d6" }}>A schermo pieno, anche senza campo</span></span>
+            </button>
+          )}
+        </div>
+        {/* sempre: la scheda SD è la cosa che si dimentica più spesso */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, background: "#211a0c", border: "1px solid #f5b94255", borderRadius: 8, padding: "8px 12px", margin: "10px 0 22px", fontSize: 12.5, color: "#ffe2a8" }}>
+          <span style={{ fontSize: 16 }}>💾</span>
+          <span>Prima di ogni volo: <strong>scheda SD nel drone, ed è vuota</strong> · batterie cariche · eliche integre</span>
+        </div>
 
-      <Suspense fallback={null}><UltimaNotizia onTutte={() => vaiA({ pagina: "impara", scheda: "notizie" })} /></Suspense>
+        {urgenti.length > 0 && bloccoScadenze}
 
-      {usaIspezioni && (
-        <section style={{ marginBottom: 28 }}>
-          <TitoloSezione emoji="🔍" titolo="Ispezioni" azione={<button onClick={onNuova} style={btnPrimario}><Plus size={14} /> Nuova ispezione</button>} />
-          {loading ? (
-            <LoadingBlock />
-          ) : (
-            <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 18 }}>
-                <StatCard label="Potenza monitorata" value={`${(totKwp / 1000).toFixed(2)} MWp`} sub={`su ${impianti.length} ${impianti.length === 1 ? "impianto" : "impianti"}`} />
-                <StatCard label="Anomalie aperte" value={totAnomalie} sub={`su ${impianti.filter((i) => i.anomalie > 0).length} ${impianti.filter((i) => i.anomalie > 0).length === 1 ? "impianto" : "impianti"}`} accent="#ff8c42" />
-                <StatCard label="Ispezioni totali" value={numIspezioni} sub="registrate a sistema" />
+        <div className="home-due">
+          <div style={{ minWidth: 0 }}>
+            <Suspense fallback={null}><UltimaNotizia onTutte={() => vaiA({ pagina: "impara", scheda: "notizie" })} /></Suspense>
+          </div>
+          <div style={{ ...scheda, minWidth: 0, marginBottom: 22 }}>
+            <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 10 }}>📊 In numeri</div>
+            {loading ? <LoadingBlock /> : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px 22px" }}>
+                {numeri.map((n) => (
+                  <div key={n.etichetta}>
+                    <div className="mono" style={{ fontSize: 22, fontWeight: 600, color: n.colore || "#fff", lineHeight: 1.1 }}>{n.valore}</div>
+                    <div style={{ fontSize: 11.5, color: "#8b95a3" }}>{n.etichetta}</div>
+                  </div>
+                ))}
               </div>
-              {impianti.length === 0 ? (
-                <EmptyState text="Nessun impianto ancora. Vai su 'Impianti' per aggiungerne uno." />
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {impianti.map((imp) => (
-                    <ImpiantoRow key={imp.id} imp={imp} onClick={() => onOpenImpianto(imp)} />
-                  ))}
+            )}
+            {urgenti.length === 0 && (voci.length > 0 || batterieAttive > 0) && <div style={{ marginTop: 12, fontSize: 12, color: "#4ade80" }}>✓ Tutto in regola: attestati, manutenzioni e batterie</div>}
+            {urgenti.length === 0 && voci.length === 0 && batterieAttive === 0 && <button type="button" onClick={() => onNav("attestati")} style={{ marginTop: 12, background: "none", border: "none", padding: 0, fontSize: 12, color: "#3d8bfd", textAlign: "left" }}>Aggiungi attestati, droni e batterie per tenere d'occhio le scadenze →</button>}
+          </div>
+        </div>
+
+        {(usaIspezioni || usaRiprese) && (
+          <section style={{ marginBottom: 28 }}>
+            <TitoloSezione emoji="🕑" titolo="Ultime attività" azione={
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {usaIspezioni && <button onClick={onNuova} style={btnPiccolo}><Plus size={13} /> Ispezione</button>}
+                {usaRiprese && <button onClick={onNuovoVolo} style={btnPiccolo}><Plus size={13} /> Volo</button>}
+                {usaRiprese && (
+                  <label style={{ ...btnPiccolo, cursor: "pointer" }}>
+                    <Camera size={13} /> Foto o video
+                    <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple onChange={(e) => { const files = Array.from(e.target.files || []); e.target.value = ""; if (files.length > 0) onAggiungiFile(files); }} style={{ display: "none" }} />
+                  </label>
+                )}
+              </div>
+            } />
+            <div className="home-due">
+              {usaIspezioni && (
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 6px 2px" }}>🔍 Impianti</div>
+                  {loading ? <LoadingBlock /> : impianti.length === 0 ? (
+                    <EmptyState text="Nessun impianto ancora. Vai su «Impianti» per aggiungerne uno." />
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {impianti.slice(0, 3).map((imp) => <ImpiantoRow key={imp.id} imp={imp} onClick={() => onOpenImpianto(imp)} />)}
+                      {impianti.length > 3 && <button onClick={() => onNav("impianti")} style={{ background: "none", border: "none", color: "#3d8bfd", fontSize: 12.5, padding: 0, textAlign: "left" }}>Tutti gli impianti ({impianti.length}) →</button>}
+                    </div>
+                  )}
                 </div>
               )}
-            </>
-          )}
-        </section>
-      )}
-
-      {usaRiprese && (
-        <section style={{ marginBottom: 28 }}>
-          <TitoloSezione emoji="🎬" titolo="Voli e riprese" azione={
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <label style={{ ...btnPrimario, cursor: "pointer" }}>
-                <Camera size={14} /> Aggiungi foto o video
-                <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple onChange={(e) => { const files = Array.from(e.target.files || []); e.target.value = ""; if (files.length > 0) onAggiungiFile(files); }} style={{ display: "none" }} />
-              </label>
-              <button onClick={onNuovoVolo} style={{ ...btnPrimario, background: "#262b33", color: "#e7eaee", border: "1px solid #333a45" }}><Plus size={14} /> Nuovo volo</button>
-            </div>
-          } />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 14 }}>
-            <StatCard label="Voli registrati" value={voli.length} sub="nel tuo registro" />
-            <StatCard label="Tempo di volo" value={formattaDurata(minutiVoli)} sub="dove la durata è indicata" accent="#ff8c42" />
-            {voliAnno !== voli.length && <StatCard label={`Voli nel ${annoCorrente}`} value={voliAnno} sub="da inizio anno" />}
-          </div>
-          {ultimiVoli.length === 0 ? (
-            <EmptyState text="Nessun volo ancora. Tocca «Aggiungi foto o video» per iniziare: creiamo noi il volo di oggi con quello che scegli." />
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {ultimiVoli.map((v) => {
-                const tipo = TIPI_ATTIVITA_VOLO.find((t) => t.key === v.tipo_attivita) || TIPI_ATTIVITA_VOLO[TIPI_ATTIVITA_VOLO.length - 1];
-                const dettaglio = [v.luogo, v.drone_nome, v.durata_minuti ? formattaDurata(v.durata_minuti) : null].filter(Boolean).join(" · ");
-                return (
-                  <button key={v.id} onClick={() => onNav("registro-voli")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "10px 14px", color: "#e7eaee" }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{formatData(v.data)}</div>
-                      <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>{dettaglio || "—"}</div>
+              {usaRiprese && (
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 6px 2px" }}>🎬 Ultimi voli</div>
+                  {ultimiVoli.length === 0 ? (
+                    <EmptyState text="Nessun volo ancora. Tocca «Foto o video»: creiamo noi il volo di oggi con quello che scegli." />
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {ultimiVoli.slice(0, 3).map((v) => {
+                        const tipo = TIPI_ATTIVITA_VOLO.find((t) => t.key === v.tipo_attivita) || TIPI_ATTIVITA_VOLO[TIPI_ATTIVITA_VOLO.length - 1];
+                        const dettaglio = [v.luogo, v.drone_nome, v.durata_minuti ? formattaDurata(v.durata_minuti) : null].filter(Boolean).join(" · ");
+                        return (
+                          <button key={v.id} onClick={() => onNav("registro-voli")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, textAlign: "left", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "9px 14px", color: "#e7eaee" }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{formatData(v.data)}</div>
+                              <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dettaglio || "—"}</div>
+                            </div>
+                            <span style={{ flex: "none", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: tipo.colore + "22", color: tipo.colore }}>{tipo.emoji} {tipo.label}</span>
+                          </button>
+                        );
+                      })}
+                      <button onClick={() => onNav("registro-voli")} style={{ background: "none", border: "none", color: "#3d8bfd", fontSize: 12.5, padding: 0, textAlign: "left" }}>Registro voli e galleria →</button>
                     </div>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: tipo.colore + "22", color: tipo.colore }}>{tipo.emoji} {tipo.label}</span>
-                  </button>
-                );
-              })}
+                  )}
+                </div>
+              )}
             </div>
-          )}
-          <button onClick={() => onNav("registro-voli")} style={{ marginTop: 10, background: "none", border: "none", color: "#3d8bfd", fontSize: 12.5, padding: 0 }}>
-            Apri il registro voli e la galleria →
-          </button>
-        </section>
-      )}
-
-      {urgenti.length === 0 && bloccoScadenze}
+          </section>
+        )}
+      </div>
     </div>
   );
 }
