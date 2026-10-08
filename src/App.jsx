@@ -2210,6 +2210,77 @@ function AppShell({ session }) {
 
 // --- Pagina di presentazione (prima del login) -----------------------------------------------
 
+// «Primi passi» in Home: le 6 cose che fanno funzionare l'app, si spuntano da sole man mano che le fai
+const CHIAVE_PRIMI_PASSI = "eyedrones_primi_passi_chiuso";
+function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
+  const [chiuso, setChiuso] = useState(() => { try { return localStorage.getItem(CHIAVE_PRIMI_PASSI) === "si"; } catch { return false; } });
+  const [haPiano, setHaPiano] = useState(null);
+  useEffect(() => {
+    if (chiuso) return undefined;
+    let annullato = false;
+    supabase.from("piani_volo").select("id").limit(1)
+      .then(({ data, error }) => { if (!annullato) setHaPiano(!error && Array.isArray(data) && data.length > 0); })
+      .catch(() => { if (!annullato) setHaPiano(false); });
+    return () => { annullato = true; };
+  }, [chiuso]);
+  if (chiuso) return null;
+
+  const oggi = new Date();
+  const validi = (attestati || []).filter((a) => !a.data_scadenza || new Date(a.data_scadenza) >= oggi);
+  const haAttestato = validi.some((a) => /A1|A2|A3|STS/i.test(a.tipo || ""));
+  const haAssicurazione = validi.some((a) => /assicura/i.test(a.tipo || ""));
+  const zoneCaricate = (() => { try { return !!localStorage.getItem("eyedrones_zone_caricate"); } catch { return false; } })();
+  const passi = [
+    { fatto: true, titolo: "Crea il tuo account" },
+    { fatto: (droni || []).length > 0, titolo: "Aggiungi il tuo drone", perche: "così l'app sa le regole della sua classe e fin dove puoi volare", pagina: "droni" },
+    { fatto: haAttestato && haAssicurazione, titolo: "Carica attestato e assicurazione", perche: haAttestato && !haAssicurazione ? "manca l'assicurazione: in Italia è obbligatoria" : !haAttestato && haAssicurazione ? "manca l'attestato del pilota" : "se ti fermano per un controllo li mostri con un tocco, anche senza campo", pagina: "attestati" },
+    { fatto: zoneCaricate, titolo: "Carica il file zone di D-Flight", perche: "si fa una volta sola: poi scrivi la via e sai subito dove puoi volare", pagina: "pianificazione" },
+    { fatto: !!haPiano || (voli || []).length > 0, titolo: "Prepara il tuo primo volo", perche: "meteo, luce, zona, regole e le riprese da fare, tutto in una pagina", pagina: "pianificazione" },
+    { fatto: (preventivi || []).length > 0, titolo: "Fai il tuo primo preventivo", perche: "in PDF, con i pacchetti pronti e il prezzo consigliato", pagina: "preventivi" },
+  ];
+  const fatti = passi.filter((x) => x.fatto).length;
+  const tutti = fatti === passi.length;
+  const prossimo = passi.find((x) => !x.fatto);
+  const chiudi = () => { try { localStorage.setItem(CHIAVE_PRIMI_PASSI, "si"); } catch { /* niente */ } setChiuso(true); };
+  if (haPiano === null) return null; // aspetto di sapere se c'è già un piano, così non spunto a scatti
+
+  return (
+    <div style={{ position: "relative", background: "linear-gradient(135deg, #16202c, #1b2028)", border: "1px solid #2b4a6a", borderRadius: 12, padding: "14px 16px", marginBottom: 18, maxWidth: 720 }}>
+      <button type="button" onClick={chiudi} aria-label="Chiudi i primi passi" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
+      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#7fb0ff", paddingRight: 32 }}>{tutti ? "🎉 Tutto pronto!" : `🚀 Primi passi con EyeDrones · ${fatti} di ${passi.length}`}</div>
+      <div style={{ height: 6, background: "#262b33", borderRadius: 3, margin: "8px 0 10px 0", overflow: "hidden" }}>
+        <div style={{ width: `${Math.round((fatti / passi.length) * 100)}%`, height: "100%", background: tutti ? "#4ade80" : "#3d8bfd", transition: "width .4s" }} />
+      </div>
+      {tutti ? (
+        <div style={{ fontSize: 13, color: "#c3cad4" }}>
+          Hai fatto tutto: l'app è pronta per i tuoi voli. Se ti serve una mano, in <strong>Impara</strong> trovi regole, manovre e consigli.
+          <div><button type="button" onClick={chiudi} style={{ marginTop: 10, background: "#4ade80", color: "#12151a", border: "none", borderRadius: 6, padding: "8px 16px", minHeight: 40, fontSize: 13, fontWeight: 700 }}>Perfetto, chiudi</button></div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {passi.map((x) => {
+            const attivo = x === prossimo;
+            const riga = (
+              <>
+                <span style={{ width: 22, height: 22, flex: "none", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, background: x.fatto ? "#4ade80" : "transparent", color: x.fatto ? "#12151a" : "#8b95a3", border: x.fatto ? "none" : `1.5px solid ${attivo ? "#3d8bfd" : "#4a505a"}` }}>{x.fatto ? "✓" : ""}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 13.5, fontWeight: attivo ? 700 : 500, color: x.fatto ? "#6b7480" : "#e7eaee", textDecoration: x.fatto ? "line-through" : "none" }}>{x.titolo}</span>
+                  {attivo && x.perche && <span style={{ display: "block", fontSize: 12, color: "#aab3bf", marginTop: 2, lineHeight: 1.4 }}>{x.perche}</span>}
+                </span>
+                {!x.fatto && <span style={{ color: attivo ? "#3d8bfd" : "#6b7480", fontSize: attivo ? 12.5 : 14, fontWeight: 600, whiteSpace: "nowrap" }}>{attivo ? "Inizia ›" : "›"}</span>}
+              </>
+            );
+            const stile = { display: "flex", gap: 10, alignItems: attivo ? "flex-start" : "center", textAlign: "left", padding: attivo ? "8px 10px" : "6px 10px", margin: "0 -10px", borderRadius: 8, background: attivo ? "#3d8bfd14" : "none", border: "none", color: "#e7eaee", minHeight: 40 };
+            return x.fatto || !x.pagina
+              ? <div key={x.titolo} style={stile}>{riga}</div>
+              : <button key={x.titolo} type="button" onClick={() => onNav(x.pagina)} style={stile}>{riga}</button>;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
 const VERSIONE_NOVITA = "2026-10e";
 const NOVITA = [
@@ -3134,6 +3205,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
       )}
 
       <InvitoImpronta />
+      <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
       <RiquadroNovita onVai={onNav} />
 
       {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
