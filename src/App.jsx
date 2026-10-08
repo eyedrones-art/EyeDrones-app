@@ -6,7 +6,7 @@ import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo } from "./Riprese.jsx";
 import { DopoIlVolo } from "./Manuale.jsx";
-import PianoScene, { scenaVuota, dettagliScena, FotoScena } from "./Scene.jsx";
+import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
@@ -2296,8 +2296,9 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 }
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10i";
+const VERSIONE_NOVITA = "2026-10j";
 const NOVITA = [
+  { emoji: "✏️", testo: "Disegna sulla foto della scena: percorso del drone, punti di ripresa, pericoli e soggetto. Li vedi anche in Home e nel PDF", pagina: "pianificazione" },
   { emoji: "📋", testo: "Sopralluogo: foto con GPS su ogni scena, punti di decollo e ostacoli sulla mappa, orari della giornata e il PDF da mandare", pagina: "pianificazione" },
   { emoji: "🎬", testo: "Piano delle scene: prepari ogni ripresa con manovra, luce, durata e note, e sai quante batterie portare", pagina: "pianificazione" },
   { emoji: "🎨", testo: "Manuale: come usare le LUT e com'è un colore giusto, con esempi", vai: { pagina: "impara", scheda: "manuale" } },
@@ -6963,7 +6964,7 @@ const sopralluogoUsato = (d) => !!d && (Object.values(d.voci || {}).some(Boolean
 
 // --- «Manda il piano»: PDF con scene, foto, orari e sopralluogo, da mandare al cliente o a chi vola con te ----------
 // immagine pronta per il PDF: piccola (lato lungo 700 px) e in JPG
-async function fotoPerPdf(url) {
+async function fotoPerPdf(url, segni) {
   try {
     const href = await indirizzoVisibile(url);
     const blob = await (await fetch(href)).blob();
@@ -6971,7 +6972,9 @@ async function fotoPerPdf(url) {
     const scala = Math.min(1, 700 / Math.max(img.naturalWidth, img.naturalHeight));
     const c = document.createElement("canvas");
     c.width = Math.round(img.naturalWidth * scala); c.height = Math.round(img.naturalHeight * scala);
-    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    disegnaSegni(ctx, segni, c.width, c.height);
     URL.revokeObjectURL(img.src);
     return { dati: c.toDataURL("image/jpeg", 0.8), w: c.width, h: c.height };
   } catch { return null; }
@@ -7004,7 +7007,7 @@ async function costruisciPDFPiano({ azienda, luogo, data, ora, tipo, drone, scen
     for (let i = 0; i < scene.length; i++) {
       const sc = scene[i];
       const m = (libreria || []).find((x) => x.id === sc.manovra);
-      const foto = sc.foto && sc.foto.url ? await fotoPerPdf(sc.foto.url) : null;
+      const foto = sc.foto && sc.foto.url ? await fotoPerPdf(sc.foto.url, sc.foto.segni) : null;
       const hFoto = foto ? Math.min(40, (55 * foto.h) / foto.w) : 0;
       spazio(Math.max(hFoto, 14) + 4);
       const y0 = y;

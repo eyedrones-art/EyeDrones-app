@@ -25,8 +25,170 @@ export function scenaVuota(tipo, manovra = null) {
 }
 
 // foto di riferimento: l'indirizzo vero arriva da «visibile» (lo spazio riservato dà link temporanei)
-export function FotoScena({ foto, visibile, alta = 120, onApri }) {
+// --- Disegni sopra la foto: percorso del drone, punti numerati, pericoli, soggetto e scritte -------------
+// Coordinate da 0 a 1 rispetto alla foto, così valgono a ogni grandezza. La foto originale resta pulita.
+export const STRUMENTI_SEGNI = {
+  freccia: { nome: "Percorso", emoji: "➜", colore: "#ff8c42" },
+  punto: { nome: "Punto", emoji: "①", colore: "#a78bfa" },
+  pericolo: { nome: "Pericolo", emoji: "⚠️", colore: "#ff4d4d" },
+  soggetto: { nome: "Soggetto", emoji: "🎯", colore: "#4ade80" },
+  testo: { nome: "Scritta", emoji: "✍️", colore: "#ffffff" },
+};
+
+export function SegniSvg({ segni, aspetto, scala = 1 }) {
+  if (!segni || !segni.length || !aspetto) return null;
+  const W = 1000, H = 1000 / aspetto, k = scala;
+  const xy = (x, y) => [x * W, y * H];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} aria-hidden="true">
+      <defs>
+        <marker id="freccia-punta" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ff8c42" stroke="#fff" strokeWidth="1" /></marker>
+      </defs>
+      {segni.map((g, i) => {
+        if (g.t === "freccia" && g.p && g.p.length > 1) {
+          const d = g.p.map(([x, y], j) => `${j ? "L" : "M"}${(x * W).toFixed(1)} ${(y * H).toFixed(1)}`).join(" ");
+          return (
+            <g key={i}>
+              <path d={d} fill="none" stroke="#fff" strokeWidth={16 * k} strokeLinecap="round" strokeLinejoin="round" opacity=".9" />
+              <path d={d} fill="none" stroke="#ff8c42" strokeWidth={9 * k} strokeLinecap="round" strokeLinejoin="round" markerEnd="url(#freccia-punta)" />
+            </g>
+          );
+        }
+        const [x, y] = xy(g.x, g.y);
+        const r = 30 * k;
+        if (g.t === "punto") return <g key={i}><circle cx={x} cy={y} r={r} fill="#7c5cd6" stroke="#fff" strokeWidth={5 * k} /><text x={x} y={y + 12 * k} textAnchor="middle" fontSize={34 * k} fontWeight="800" fill="#fff" fontFamily="Arial, sans-serif">{g.n}</text></g>;
+        if (g.t === "pericolo") return <g key={i}><path d={`M${x} ${y - r * 1.15} L${x + r * 1.1} ${y + r * 0.8} L${x - r * 1.1} ${y + r * 0.8} Z`} fill="#ff4d4d" stroke="#fff" strokeWidth={5 * k} strokeLinejoin="round" /><text x={x} y={y + 16 * k} textAnchor="middle" fontSize={36 * k} fontWeight="900" fill="#fff" fontFamily="Arial, sans-serif">!</text></g>;
+        if (g.t === "soggetto") return <g key={i}><circle cx={x} cy={y} r={r * 1.2} fill="none" stroke="#fff" strokeWidth={10 * k} /><circle cx={x} cy={y} r={r * 1.2} fill="none" stroke="#4ade80" strokeWidth={6 * k} /><circle cx={x} cy={y} r={r * 0.35} fill="#4ade80" stroke="#fff" strokeWidth={3 * k} /></g>;
+        if (g.t === "testo") {
+          const lung = Math.max(2, String(g.s || "").length);
+          const w = Math.min(W * 0.9, lung * 17 * k + 30 * k);
+          return <g key={i}><rect x={x - w / 2} y={y - 26 * k} width={w} height={44 * k} rx={10 * k} fill="rgba(0,0,0,.72)" /><text x={x} y={y + 6 * k} textAnchor="middle" fontSize={28 * k} fontWeight="700" fill="#fff" fontFamily="Arial, sans-serif">{g.s}</text></g>;
+        }
+        return null;
+      })}
+    </svg>
+  );
+}
+
+// gli stessi segni disegnati su un canvas (per il PDF): coordinate come SegniSvg, larghezza 1000
+export function disegnaSegni(ctx, segni, w, h) {
+  if (!segni || !segni.length) return;
+  const f = w / 1000, k = f;
+  ctx.save();
+  ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.textAlign = "center";
+  const scritta = (t, x, y, size, peso) => { ctx.font = `${peso} ${size}px Arial, sans-serif`; ctx.fillStyle = "#fff"; ctx.fillText(t, x, y); };
+  segni.forEach((g) => {
+    if (g.t === "freccia" && g.p && g.p.length > 1) {
+      const pts = g.p.map(([x, y]) => [x * w, y * h]);
+      const linea = (colore, spess) => { ctx.beginPath(); pts.forEach(([x, y], j) => (j ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.strokeStyle = colore; ctx.lineWidth = spess; ctx.stroke(); };
+      linea("rgba(255,255,255,.9)", 16 * k); linea("#ff8c42", 9 * k);
+      // punta nella direzione dell'ultimo tratto
+      const [x2, y2] = pts[pts.length - 1];
+      let [x1, y1] = pts[pts.length - 2];
+      for (let j = pts.length - 2; j >= 0 && Math.hypot(x2 - pts[j][0], y2 - pts[j][1]) < 15 * k; j--) [x1, y1] = pts[j];
+      const a = Math.atan2(y2 - y1, x2 - x1), L = 36 * k;
+      ctx.beginPath();
+      ctx.moveTo(x2 + Math.cos(a) * L * 0.4, y2 + Math.sin(a) * L * 0.4);
+      ctx.lineTo(x2 + Math.cos(a + 2.4) * L, y2 + Math.sin(a + 2.4) * L);
+      ctx.lineTo(x2 + Math.cos(a - 2.4) * L, y2 + Math.sin(a - 2.4) * L);
+      ctx.closePath(); ctx.fillStyle = "#ff8c42"; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 3 * k; ctx.stroke();
+      return;
+    }
+    const x = g.x * w, y = g.y * h, r = 30 * k;
+    ctx.strokeStyle = "#fff";
+    if (g.t === "punto") {
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fillStyle = "#7c5cd6"; ctx.fill(); ctx.lineWidth = 5 * k; ctx.stroke();
+      scritta(String(g.n), x, y + 12 * k, 34 * k, 800);
+    } else if (g.t === "pericolo") {
+      ctx.beginPath(); ctx.moveTo(x, y - r * 1.15); ctx.lineTo(x + r * 1.1, y + r * 0.8); ctx.lineTo(x - r * 1.1, y + r * 0.8); ctx.closePath();
+      ctx.fillStyle = "#ff4d4d"; ctx.fill(); ctx.lineWidth = 5 * k; ctx.stroke();
+      scritta("!", x, y + 16 * k, 36 * k, 900);
+    } else if (g.t === "soggetto") {
+      ctx.beginPath(); ctx.arc(x, y, r * 1.2, 0, 7); ctx.lineWidth = 10 * k; ctx.stroke(); ctx.strokeStyle = "#4ade80"; ctx.lineWidth = 6 * k; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, r * 0.35, 0, 7); ctx.fillStyle = "#4ade80"; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 3 * k; ctx.stroke();
+    } else if (g.t === "testo") {
+      const lung = Math.max(2, String(g.s || "").length);
+      const bw = Math.min(w * 0.9, lung * 17 * k + 30 * k);
+      ctx.fillStyle = "rgba(0,0,0,.72)";
+      ctx.beginPath(); (ctx.roundRect ? ctx.roundRect(x - bw / 2, y - 26 * k, bw, 44 * k, 10 * k) : ctx.rect(x - bw / 2, y - 26 * k, bw, 44 * k)); ctx.fill();
+      scritta(String(g.s || ""), x, y + 6 * k, 28 * k, 700);
+    }
+  });
+  ctx.restore();
+}
+
+// a schermo intero: si disegna col dito sopra la foto
+export function EditorSegni({ href, segniIniziali, onSalva, onChiudi }) {
+  const [segni, setSegni] = useState(segniIniziali || []);
+  const [strumento, setStrumento] = useState("freccia");
+  const [aspetto, setAspetto] = useState(null);
+  const [traccia, setTraccia] = useState(null); // freccia in corso
+  const area = React.useRef(null);
+  const pos = (e) => { const b = area.current.getBoundingClientRect(); return [Math.min(1, Math.max(0, (e.clientX - b.left) / b.width)), Math.min(1, Math.max(0, (e.clientY - b.top) / b.height))]; };
+  const giu = (e) => {
+    e.preventDefault();
+    if (strumento === "freccia") { area.current.setPointerCapture?.(e.pointerId); setTraccia([pos(e)]); }
+  };
+  const muovi = (e) => {
+    if (!traccia) return;
+    const p = pos(e), u = traccia[traccia.length - 1];
+    if (Math.hypot(p[0] - u[0], p[1] - u[1]) > 0.012) setTraccia([...traccia, p]);
+  };
+  const su = (e) => {
+    if (strumento === "freccia") {
+      if (traccia && traccia.length > 1) {
+        // tengo un punto ogni tanto, così la linea è morbida e leggera
+        const p = traccia.filter((_, i) => i % 2 === 0 || i === traccia.length - 1).map(([x, y]) => [Number(x.toFixed(4)), Number(y.toFixed(4))]);
+        setSegni([...segni, { t: "freccia", p }]);
+      }
+      setTraccia(null);
+      return;
+    }
+    const [x, y] = pos(e);
+    if (strumento === "testo") {
+      const s = (window.prompt("Cosa scrivo sulla foto? (breve)", "") || "").trim().slice(0, 40);
+      if (s) setSegni([...segni, { t: "testo", x, y, s }]);
+      return;
+    }
+    const n = strumento === "punto" ? segni.filter((g) => g.t === "punto").length + 1 : undefined;
+    setSegni([...segni, { t: strumento, x, y, ...(n ? { n } : {}) }]);
+  };
+  const tutti = traccia ? [...segni, { t: "freccia", p: traccia }] : segni;
+  const bottone = (attivo) => ({ background: attivo ? "#7c5cd6" : "#1b2028", color: "#fff", border: `1px solid ${attivo ? "#a78bfa" : "#333a45"}`, borderRadius: 10, padding: "6px 10px", minWidth: 56, minHeight: 48, fontSize: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 });
+  return (
+    <div role="dialog" aria-label="Disegna sulla foto" style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#0b0d11", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #262b33" }}>
+        <button type="button" onClick={onChiudi} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 8, padding: "8px 12px", fontSize: 13, minHeight: 40 }}>Annulla</button>
+        <span style={{ flex: 1, textAlign: "center", fontSize: 13.5, fontWeight: 700, color: "#e7eaee" }}>✏️ Disegna la ripresa</span>
+        <button type="button" onClick={() => onSalva(segni)} style={{ background: "#4ade80", border: "none", color: "#0a1a0f", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 800, minHeight: 40 }}>✓ Salva</button>
+      </div>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 10, overflow: "hidden" }}>
+        <div ref={area} onPointerDown={giu} onPointerMove={muovi} onPointerUp={su} style={{ position: "relative", touchAction: "none", maxWidth: "100%", maxHeight: "100%", aspectRatio: aspetto || "auto", width: aspetto ? `min(100%, calc((100vh - 190px) * ${aspetto}))` : "100%", cursor: "crosshair" }}>
+          <img src={href} alt="Foto da disegnare" onLoad={(e) => setAspetto(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)} draggable={false} style={{ display: "block", width: "100%", height: "auto", userSelect: "none", borderRadius: 6 }} />
+          <SegniSvg segni={tutti} aspetto={aspetto} />
+        </div>
+      </div>
+      <div style={{ padding: "8px 10px 14px", borderTop: "1px solid #262b33" }}>
+        <div style={{ fontSize: 11.5, color: "#8b95a3", textAlign: "center", marginBottom: 8 }}>
+          {strumento === "freccia" ? "Trascina il dito per disegnare il percorso del drone" : strumento === "testo" ? "Tocca dove mettere la scritta" : `Tocca la foto per mettere: ${STRUMENTI_SEGNI[strumento].nome.toLowerCase()}`}
+        </div>
+        <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
+          {Object.entries(STRUMENTI_SEGNI).map(([k, t]) => (
+            <button key={k} type="button" onClick={() => setStrumento(k)} aria-pressed={strumento === k} style={bottone(strumento === k)}><span style={{ fontSize: 18, color: t.colore }}>{t.emoji}</span>{t.nome}</button>
+          ))}
+          <button type="button" onClick={() => setSegni(segni.slice(0, -1))} disabled={!segni.length} style={{ ...bottone(false), opacity: segni.length ? 1 : 0.4 }}><span style={{ fontSize: 18 }}>↶</span>Indietro</button>
+          <button type="button" onClick={() => { if (window.confirm("Cancello tutti i disegni?")) setSegni([]); }} disabled={!segni.length} style={{ ...bottone(false), opacity: segni.length ? 1 : 0.4 }}><span style={{ fontSize: 18 }}>🗑️</span>Tutto</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// foto di riferimento: l'indirizzo vero arriva da «visibile» (lo spazio riservato dà link temporanei)
+export function FotoScena({ foto, visibile, alta = 120, onApri, onDisegna }) {
   const [href, setHref] = useState(null);
+  const [aspetto, setAspetto] = useState(null);
+  const [editor, setEditor] = useState(false);
   useEffect(() => {
     let vivo = true;
     if (!foto || !foto.url) { setHref(null); return undefined; }
@@ -34,14 +196,23 @@ export function FotoScena({ foto, visibile, alta = 120, onApri }) {
     return () => { vivo = false; };
   }, [foto && foto.url]);
   if (!foto || !foto.url) return null;
+  const segni = foto.segni || [];
   return (
     <div style={{ marginTop: 6 }}>
-      {href
-        ? <img src={href} alt="Foto di riferimento della scena" onClick={onApri} style={{ display: "block", width: "100%", maxHeight: alta, objectFit: "cover", borderRadius: 6, background: "#000", cursor: onApri ? "pointer" : "default" }} />
-        : <div style={{ height: 60, borderRadius: 6, background: "#251e33", color: "#a8a2bd", fontSize: 11.5, display: "flex", alignItems: "center", justifyContent: "center" }}>Carico la foto…</div>}
-      {foto.lat != null && (
-        <a href={`https://www.google.com/maps?q=${foto.lat},${foto.lon}`} target="_blank" rel="noreferrer" style={{ display: "inline-block", fontSize: 11, color: "#7fb0ff", marginTop: 3 }}>📍 Punto della foto ({Number(foto.lat).toFixed(5)}, {Number(foto.lon).toFixed(5)}) ↗</a>
-      )}
+      {href ? (
+        // foto intera (non ritagliata), così i disegni restano al loro posto
+        <div style={{ position: "relative", width: "100%", maxWidth: aspetto ? alta * aspetto : "100%", cursor: onApri ? "pointer" : "default" }} onClick={onApri}>
+          <img src={href} alt="Foto di riferimento della scena" onLoad={(e) => setAspetto(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)} style={{ display: "block", width: "100%", height: "auto", borderRadius: 6, background: "#000" }} />
+          <SegniSvg segni={segni} aspetto={aspetto} />
+        </div>
+      ) : <div style={{ height: 60, borderRadius: 6, background: "#251e33", color: "#a8a2bd", fontSize: 11.5, display: "flex", alignItems: "center", justifyContent: "center" }}>Carico la foto…</div>}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 3 }}>
+        {foto.lat != null && (
+          <a href={`https://www.google.com/maps?q=${foto.lat},${foto.lon}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#7fb0ff" }}>📍 Punto della foto ({Number(foto.lat).toFixed(5)}, {Number(foto.lon).toFixed(5)}) ↗</a>
+        )}
+        {onDisegna && href && <button type="button" onClick={() => setEditor(true)} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 12, fontWeight: 700, minHeight: 36 }}>✏️ {segni.length ? "Modifica il disegno" : "Disegna la ripresa sulla foto"}</button>}
+      </div>
+      {editor && <EditorSegni href={href} segniIniziali={segni} onChiudi={() => setEditor(false)} onSalva={(nuovi) => { setEditor(false); onDisegna(nuovi); }} />}
     </div>
   );
 }
@@ -192,7 +363,7 @@ export default function PianoScene({ tipo, scene, onCambia, libreria, scalette, 
                 <button type="button" onClick={() => setAperta(ap ? null : s.id)} style={{ flex: 1, minWidth: 0, textAlign: "left", background: "none", border: "none", color: "#e7eaee", padding: "4px 0" }}>
                   <span style={{ display: "block", fontSize: 13.5, fontWeight: 700 }}>{s.titolo || (m ? m.nome : "Scena senza nome")}</span>
                   {avvisoLuce(s, finestre) && <span style={{ display: "block", fontSize: 11.5, color: "#f5b942" }}>⚠ {avvisoLuce(s, finestre)}</span>}
-                  {s.foto && <span style={{ display: "block", fontSize: 11, color: "#4ade80" }}>📷 Foto del sopralluogo{s.foto.lat != null ? " con GPS" : ""}</span>}
+                  {s.foto && <span style={{ display: "block", fontSize: 11, color: "#4ade80" }}>📷 Foto del sopralluogo{s.foto.lat != null ? " con GPS" : ""}{(s.foto.segni || []).length ? " · ✏️ con il disegno" : ""}</span>}
                   <span style={{ display: "block", fontSize: 11.5, color: "#a8a2bd" }}>{[m && s.titolo && s.titolo !== m.nome.replace(/ \(.*\)$/, "") ? m.nome.replace(/ \(.*\)$/, "") : null, det].filter(Boolean).join(" · ") || "Tocca per scegliere manovra, luce e durata"}</span>
                 </button>
                 <button type="button" onClick={() => sposta(i, -1)} disabled={i === 0} aria-label="Sposta su" style={{ ...piccolo, opacity: i === 0 ? 0.35 : 1 }}>↑</button>
@@ -217,7 +388,7 @@ export default function PianoScene({ tipo, scene, onCambia, libreria, scalette, 
                   {servizi && (
                     <div style={{ gridColumn: "1 / -1" }}>
                       <span style={etich}>Foto di riferimento (fatta al sopralluogo)</span>
-                      <FotoScena foto={s.foto} visibile={servizi.visibile} alta={180} />
+                      <FotoScena foto={s.foto} visibile={servizi.visibile} alta={220} onDisegna={(segni) => cambiaScena(s.id, "foto", { ...s.foto, segni })} />
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                         <label style={{ ...piccolo, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 12px", fontSize: 12, cursor: "pointer" }}>
                           {caricando === s.id ? "Carico…" : s.foto ? "📷 Rifai la foto" : "📷 Foto qui (con GPS)"}
