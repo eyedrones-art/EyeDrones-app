@@ -33,8 +33,15 @@ function useNotizie() {
   const [articoli, setArticoli] = useState(() => leggiCopia()?.articoli || null);
   useEffect(() => {
     let annullato = false;
-    caricaNotizie().then((a) => { if (!annullato) setArticoli(a); });
-    return () => { annullato = true; };
+    // sul telefono la prima richiesta può fallire (rete lenta o appena riaperta): riprovo un paio di volte
+    let tentativi = 0, timer = null;
+    const prova = () => caricaNotizie().then((a) => {
+      if (annullato) return;
+      if (a.length > 0 || tentativi >= 2) { setArticoli((prima) => (a.length > 0 ? a : prima && prima.length ? prima : a)); return; }
+      tentativi += 1; timer = setTimeout(prova, 4000 * tentativi);
+    });
+    prova();
+    return () => { annullato = true; clearTimeout(timer); };
   }, []);
   return articoli;
 }
@@ -62,7 +69,21 @@ function Marchio({ altezza = 22 }) {
 export function UltimaNotizia({ onTutte }) {
   const articoli = useNotizie();
   const a = articoli && articoli[0];
-  if (!a) return null;
+  // il riquadro di DronEzine c'è sempre: se le notizie non arrivano, porta al loro sito
+  if (!a) {
+    return (
+      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: "12px 14px", marginBottom: 18, maxWidth: 720 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "#8b95a3" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>📰 Notizie da <Marchio altezza={18} /></span>
+          {onTutte && <button type="button" onClick={onTutte} style={{ background: "none", border: "none", color: "#3d8bfd", fontSize: 12, padding: "6px 0", minHeight: 32 }}>Tutte ›</button>}
+        </div>
+        <a href={conUtm(SITO)} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none", color: "#e7eaee" }}>
+          <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, lineHeight: 1.35 }}>{articoli === null ? "Carico le ultime notizie…" : "Le ultime notizie dal mondo droni"}</span>
+          <span style={{ display: "block", fontSize: 11.5, color: "#6b7480", marginTop: 3 }}>la prima rivista italiana sui droni · leggi su DronEzine ↗</span>
+        </a>
+      </div>
+    );
+  }
   return (
     <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: "12px 14px", marginBottom: 18, maxWidth: 720 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "#8b95a3" }}>
