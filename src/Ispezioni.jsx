@@ -145,12 +145,28 @@ const CONSEGNA = {
   },
 };
 
+// copia un testo: prima gli appunti del browser, poi il vecchio metodo, e se il browser blocca tutto
+// una finestrella con il testo da copiare a mano. Restituisce true se è stato copiato davvero
+export async function copiaTesto(testo) {
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(testo); return true; } } catch { /* provo l'altro modo */ }
+  try {
+    const t = document.createElement("textarea");
+    t.value = testo; t.setAttribute("readonly", ""); t.style.position = "fixed"; t.style.top = "-1000px"; t.style.opacity = "0";
+    document.body.appendChild(t); t.select(); t.setSelectionRange(0, testo.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(t);
+    if (ok) return true;
+  } catch { /* ultima possibilità qui sotto */ }
+  window.prompt("Copia il testo (tieni premuto o Ctrl+C):", testo);
+  return false;
+}
+
 export function CosaConsegnare({ tipo }) {
   const [copiata, setCopiata] = useState(null);
   const c = CONSEGNA[tipo];
   if (!c) return null;
   const copia = async (f) => {
-    try { await navigator.clipboard.writeText(f); setCopiata(f); setTimeout(() => setCopiata(null), 1800); } catch { /* copia non disponibile */ }
+    if (await copiaTesto(f)) { setCopiata(f); setTimeout(() => setCopiata(null), 2500); }
   };
   return (
     <div style={{ marginTop: 12, background: "#121a12", border: "1px solid #2c4a2a", borderRadius: 6, padding: "8px 10px" }}>
@@ -160,7 +176,7 @@ export function CosaConsegnare({ tipo }) {
       <div style={{ fontSize: 12, color: "#c3cad4", margin: "8px 0 4px 0", fontWeight: 600 }}>Frasi pronte (tocca per copiarle, poi cambia le parti tra [ ])</div>
       {c.frasi.map((f) => (
         <button key={f} type="button" onClick={() => copia(f)} style={{ display: "block", width: "100%", textAlign: "left", background: copiata === f ? "#1d3a2a" : "#161a1f", color: "#e7eaee", border: `1px solid ${copiata === f ? "#4ade80" : "#2b313d"}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, lineHeight: 1.45, marginBottom: 5, cursor: "pointer" }}>
-          {copiata === f ? "✓ Copiata! " : "📋 "}{f}
+          {copiata === f ? "✓ Copiata! Incollala nel report: " : "📋 "}{f}
         </button>
       ))}
       <div style={{ fontSize: 10.5, color: "#6b7480", marginTop: 4 }}>Scrivi solo quello che hai visto davvero: il report descrive le immagini, la diagnosi la fa un tecnico abilitato.</div>

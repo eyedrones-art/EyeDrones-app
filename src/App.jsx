@@ -2014,6 +2014,7 @@ function AppShell({ session }) {
       const d = e.detail || {};
       if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
       else if (d.pagina === "permessi") { setPage("permessi"); window.scrollTo(0, 0); }
+      else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
     return () => window.removeEventListener("eyedrones-vai", ascolta);
@@ -2983,7 +2984,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
 
   useEffect(() => {
     supabase.from("piani_volo").select("*").gte("data_prevista", oggi).lte("data_prevista", fra14).order("data_prevista", { ascending: true }).limit(6)
-      .then(({ data }) => setPiani((data || []).sort((a, b) => `${a.data_prevista} ${a.ora_prevista || "99"}`.localeCompare(`${b.data_prevista} ${b.ora_prevista || "99"}`))));
+      .then(({ data }) => setPiani((data || []).filter((x) => !x.checklist_stato?.fatto).sort((a, b) => `${a.data_prevista} ${a.ora_prevista || "99"}`.localeCompare(`${b.data_prevista} ${b.ora_prevista || "99"}`))));
   }, []);
 
   const p = piani && piani[0] && (piani[0].data_prevista === oggi || piani[0].data_prevista === domani) ? piani[0] : null;
@@ -3039,6 +3040,12 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   // volo di oggi con l'ora già passata da più di un'ora: non ha senso dire «condizioni buone alle 10:30» alle 19
   const adesso = new Date();
   const passato = p.data_prevista === oggi && hOra != null && adesso.getHours() * 60 + adesso.getMinutes() > (hOra + 1) * 60 + Number(oraP.slice(3, 5) || 0);
+  // «Fatto»: lo segno nel piano, così dalla Home sparisce, e apro il registro già compilato
+  const segnaFatto = () => {
+    supabase.from("piani_volo").update({ checklist_stato: { ...(p.checklist_stato || {}), fatto: true } }).eq("id", p.id).then(() => {}, () => {});
+    setPiani((l) => (l || []).filter((x) => x.id !== p.id));
+    onRegistra(datiRegistro());
+  };
   const datiRegistro = () => ({
     data: p.data_prevista,
     ...(oraP ? { ora: oraP } : {}),
@@ -3064,6 +3071,28 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
     : libera > 0 ? ["#f5b942", `Libero fino a ${libera} m · sopra serve autorizzazione`] : ["#ff8c42", "Serve autorizzazione già da terra"];
   const btn = (primario) => ({ background: primario ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#1f2530", color: primario ? "#161a1f" : "#e7eaee", border: primario ? "none" : "1px solid #333a45", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 });
 
+  // ora passata: scheda piccola, solo «l'hai fatto?», senza meteo e consigli che ormai non servono
+  if (passato) {
+    return (
+      <section style={{ marginBottom: 28, maxWidth: 720 }}>
+        <div style={{ background: "#1b2028", border: "1px solid #f5b94266", borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 11.5, color: "#f5b942", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>✈️ Volo di oggi</div>
+          <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4 }}>{oraP} · {p.impianto_nome}</div>
+          <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2, marginBottom: 10 }}>{ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione}</div>
+            <div style={{ background: "#241d16", border: "1px solid #f5b94266", borderRadius: 8, padding: "10px 12px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#f5b942" }}>⏰ Il volo era previsto alle {oraP}: l'ora è passata</div>
+            <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 3 }}>L'hai fatto? Registralo. Se l'hai rimandato, apri il piano e cambia data e ora: meteo{termografia ? ", sole" : ""} e luce si ricalcolano.</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+              <button type="button" onClick={segnaFatto} style={btn(true)}>✅ Fatto: registralo</button>
+              <button type="button" onClick={() => onApriPiano(p.id)} style={btn(false)}>🗓️ Sposta data e ora</button>
+            </div>
+          </div>
+        </div>
+        {elencoAltri}
+      </section>
+    );
+  }
+
   return (
     <section style={{ marginBottom: 28, maxWidth: 720 }}>
       <div style={{ background: "linear-gradient(135deg, #1d2633, #1b2028)", border: "1px solid #3d8bfd66", borderRadius: 12, padding: 16 }}>
@@ -3072,16 +3101,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
         <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2 }}>{[ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione, drone ? `${drone.nome}${drone.marcatura_classe ? ` (${drone.marcatura_classe})` : ""}` : null].filter(Boolean).join(" · ")}</div>
 
         <div style={{ marginTop: 12 }}>
-          {passato ? (
-            <div style={{ background: "#241d16", border: "1px solid #f5b94266", borderRadius: 8, padding: "10px 12px" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#f5b942" }}>⏰ Il volo era previsto alle {oraP}: l'ora è passata</div>
-              <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 3 }}>L'hai fatto? Registralo. Se l'hai rimandato, apri il piano e cambia data e ora: meteo{termografia ? ", sole" : ""} e luce si ricalcolano.</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                <button type="button" onClick={() => onRegistra(datiRegistro())} style={btn(true)}>✅ Fatto: registralo</button>
-                <button type="button" onClick={() => onApriPiano(p.id)} style={btn(false)}>🗓️ Sposta data e ora</button>
-              </div>
-            </div>
-          ) : meteo === null ? <p style={{ fontSize: 12, color: "#8b95a3", margin: 0 }}>Carico il meteo…</p>
+          {meteo === null ? <p style={{ fontSize: 12, color: "#8b95a3", margin: 0 }}>Carico il meteo…</p>
             : meteo.errore || ore.length === 0 ? <p style={{ fontSize: 12, color: "#8b95a3", margin: 0 }}>Meteo non disponibile per questo luogo: aprilo da «Apri il piano».</p>
             : (
               <>
@@ -3146,6 +3166,30 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
       </div>
       {elencoAltri}
     </section>
+  );
+}
+
+// «Sono già sul posto»: niente piano preparato prima, apro Pianifica sulla posizione GPS con data e ora di adesso
+function VoloAdesso() {
+  const [cerco, setCerco] = useState(false);
+  const vai = (luogo) => vaiA({ pagina: "pianificazione", luogo: { nome: luogo ? "La mia posizione" : "", adesso: true, ...(luogo || {}) } });
+  const premi = () => {
+    if (!navigator.geolocation) { vai(null); return; }
+    setCerco(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setCerco(false); vai({ lat: pos.coords.latitude, lon: pos.coords.longitude }); },
+      () => { setCerco(false); vai(null); },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  };
+  return (
+    <button type="button" onClick={premi} disabled={cerco} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 720, textAlign: "left", background: "#1f1a14", border: "1px solid #6a4320", borderRadius: 10, padding: "12px 16px", marginBottom: 18, color: "#e7eaee" }}>
+      <span style={{ fontSize: 26 }}>📍</span>
+      <span>
+        <span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>{cerco ? "Cerco la tua posizione…" : "Sei già sul posto? Vola adesso"}</span>
+        <span style={{ display: "block", fontSize: 12, color: "#d8b894" }}>Senza preparare niente: meteo, zona, regole, foto da fare e impostazioni della camera, qui e ora.</span>
+      </span>
+    </button>
   );
 }
 
@@ -3215,6 +3259,8 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           </span>
         </button>
       )}
+
+      <VoloAdesso />
 
       {moduli === null && (
         <div style={{ background: "linear-gradient(135deg, #241d16, #1b2028)", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginBottom: 28, maxWidth: 720 }}>
@@ -7765,12 +7811,17 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [luogoLibero, setLuogoLibero] = useState("");
   const [coordinateLibere, setCoordinateLibere] = useState("");
   // arrivo da «Posti»: preparo un piano nuovo in quel luogo
+  // e da «Volo adesso» in Home: la posizione GPS, con data e ora di adesso
   useEffect(() => {
     if (!luogoIniziale) return;
     setImpiantoSel(null); setModoLibero(true);
     setLuogoLibero(luogoIniziale.nome || "");
-    setCoordinateLibere(`${luogoIniziale.lat.toFixed(5)}, ${luogoIniziale.lon.toFixed(5)}`);
-    setTipoIspezione("video");
+    setCoordinateLibere(luogoIniziale.lat != null ? `${luogoIniziale.lat.toFixed(5)}, ${luogoIniziale.lon.toFixed(5)}` : "");
+    if (luogoIniziale.adesso) {
+      const ora = new Date();
+      setDataPrevista(dataLocale());
+      scegliOraPrevista(`${String(ora.getHours()).padStart(2, "0")}:${String(ora.getMinutes()).padStart(2, "0")}`);
+    } else setTipoIspezione("video");
     if (onLuogoUsato) onLuogoUsato();
   }, [luogoIniziale]);
   const [gpsInCorso, setGpsInCorso] = useState(false);
