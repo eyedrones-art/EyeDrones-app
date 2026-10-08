@@ -6,7 +6,7 @@ import Manuale from "./Manuale.jsx";
 // Sezione «Impara»: lezioni A1/A3 e A2, quiz con spiegazioni e simulazione d'esame, guida zona rossa, consigli di volo.
 const SCHEDE = [
   { key: "notizie", label: "📰 Notizie" },
-  { key: "manuale", label: "🎬 Foto e video" },
+  { key: "manuale", label: "🎞️ Post-produzione" },
   { key: "a1a3", label: "📘 A1/A3" },
   { key: "a2", label: "📗 A2" },
   { key: "quiz", label: "📝 Quiz" },

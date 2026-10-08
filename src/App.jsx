@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo } from "./Riprese.jsx";
-import { DopoIlVolo } from "./Manuale.jsx";
+import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
@@ -2357,7 +2357,7 @@ const NOVITA = [
   { emoji: "📋", testo: "Sopralluogo: foto con GPS su ogni scena, punti di decollo e ostacoli sulla mappa, orari della giornata e il PDF da mandare", pagina: "pianificazione" },
   { emoji: "🎬", testo: "Piano delle scene: prepari ogni ripresa con manovra, luce, durata e note, e sai quante batterie portare", pagina: "pianificazione" },
   { emoji: "🎨", testo: "Manuale: come usare le LUT e com'è un colore giusto, con esempi", vai: { pagina: "impara", scheda: "manuale" } },
-  { emoji: "🎬", testo: "Manuale foto e video: montaggio, musica, colore, esportazione e consegna", vai: { pagina: "impara", scheda: "manuale" } },
+  { emoji: "🎬", testo: "Manuale di post-produzione (in Impara): montaggio, musica, colore, esportazione e consegna", vai: { pagina: "impara", scheda: "manuale" } },
   { emoji: "🏠", testo: "«Dopo il volo»: la lista per il lavoro a casa, dentro ogni volo del registro", pagina: "registro-voli" },
   { emoji: "💨", testo: "Vento in quota a 80 e 120 m, e «il tramonto sarà bello?»", pagina: "pianificazione" },
   { emoji: "🌡️", testo: "Ispezioni: come impostare la termocamera, cosa portare e i consigli per ogni lavoro", pagina: "guide" },
@@ -12873,6 +12873,14 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             <button onClick={() => setVista("galleria")} style={chip(vista === "galleria", "#ff8c42")}>🖼️ Galleria ({media.length})</button>
             <button onClick={() => setVista("mappa")} style={chip(vista === "mappa", "#ff8c42")}>🗺️ Mappa</button>
           </div>
+          {vista === "galleria" && (
+            <button type="button" onClick={() => apriManuale("backup")} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "#1c1726", border: "1px solid #3d2f5a", borderRadius: 10, padding: "10px 14px", marginBottom: 12, color: "#e7eaee" }}>
+              <span style={{ fontSize: 22 }}>🎞️</span>
+              <span><span style={{ display: "block", fontSize: 13.5, fontWeight: 700 }}>Manuale di post-produzione</span>
+                <span style={{ display: "block", fontSize: 12, color: "#a8a2bd" }}>Copia di sicurezza, montaggio, musica, colori e LUT, esportazione e consegna</span></span>
+              <span style={{ marginLeft: "auto", color: "#c4b5fd" }}>›</span>
+            </button>
+          )}
 
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
             <button onClick={() => setFiltroTipo("tutti")} style={chip(filtroTipo === "tutti", "#e7eaee")}>Tutti</button>

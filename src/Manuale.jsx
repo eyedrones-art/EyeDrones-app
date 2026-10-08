@@ -297,7 +297,7 @@ export default function Manuale({ colore }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ ...stCard, background: "linear-gradient(135deg, #241d16, #1b2028)", borderColor: "#4a2f16" }}>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>🎬 Manuale foto e video</div>
+        <div style={{ fontSize: 15, fontWeight: 700 }}>🎞️ Manuale di post-produzione</div>
         <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 3 }}>Dal volo alla consegna: copia di sicurezza, montaggio, musica, colore, esportazione e consegna al cliente. Più le impostazioni per le riprese speciali e i problemi più comuni.</div>
       </div>
       {SEZIONI.map((s) => (
