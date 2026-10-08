@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ESAMI, LEZIONI, GUIDA_ZONA_ROSSA, DOMANDE, SIGLE_ZONE, CONTATTI_ZONE } from "./impara";
+import Notizie from "./Notizie.jsx";
 
 // Sezione «Impara»: lezioni A1/A3 e A2, quiz con spiegazioni e simulazione d'esame, guida zona rossa, consigli di volo.
 const SCHEDE = [
@@ -8,6 +9,7 @@ const SCHEDE = [
   { key: "quiz", label: "📝 Quiz" },
   { key: "zona-rossa", label: "🔴 Zona rossa" },
   { key: "consigli", label: "💡 Consigli di volo" },
+  { key: "notizie", label: "📰 Notizie" },
 ];
 const CHIAVE_ERRORI = "eyedrones_quiz_errori";
 const leggiErrori = () => { try { return JSON.parse(localStorage.getItem(CHIAVE_ERRORI) || "[]"); } catch { return []; } };
@@ -255,6 +257,7 @@ export default function Impara({ schedaIniziale = "a1a3", consigli }) {
       {corpo === "quiz" && <Quiz key={esameQuiz} esameIniziale={esameQuiz} />}
       {corpo === "zona-rossa" && <ZonaRossa />}
       {corpo === "consigli" && <div style={{ margin: "0 -32px" }}>{consigli}</div>}
+      {corpo === "notizie" && <Notizie />}
     </div>
   );
 }

@@ -12,6 +12,7 @@ const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
 const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
 const Impara = lazy(() => import("./Impara.jsx"));
 const Posti = lazy(() => import("./Posti.jsx"));
+const UltimaNotizia = lazy(() => import("./Notizie.jsx").then((m) => ({ default: m.UltimaNotizia })));
 const PostiVicini = lazy(() => import("./Posti.jsx").then((m) => ({ default: m.PostiVicini })));
 const Collaboratori = lazy(() => import("./Collaboratori.jsx"));
 const PaginaPrivacy = lazy(() => import("./Legali.jsx").then((m) => ({ default: m.Privacy })));
@@ -2210,8 +2211,10 @@ function AppShell({ session }) {
 // --- Pagina di presentazione (prima del login) -----------------------------------------------
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10d";
+const VERSIONE_NOVITA = "2026-10e";
 const NOVITA = [
+  { emoji: "📰", testo: "Nuovo: le notizie dal mondo droni, a cura di DronEzine", vai: { pagina: "impara", scheda: "notizie" } },
+  { emoji: "📍", testo: "Zona di volo: punto sulla mappa da spostare col dito e permessi da chiedere", pagina: "pianificazione" },
   { emoji: "🧭", testo: "Dal piano parti subito: Google Maps o Waze ti portano al luogo del volo", pagina: "pianificazione" },
   { emoji: "🔍", testo: "Ispezioni: foto da fare in ordine, semaforo per la termografia e frasi pronte per il report", pagina: "pianificazione" },
   { emoji: "🕹️", testo: "Manovre animate: vedi come muovere gli stick e come viene la ripresa", pagina: "guide" },
@@ -2231,7 +2234,7 @@ function RiquadroNovita({ onVai }) {
       <div style={{ fontSize: 14.5, fontWeight: 700, color: "#c4b5fd", marginBottom: 8 }}>✨ Novità di ottobre</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {NOVITA.map((n) => (
-          <button key={n.testo} type="button" onClick={() => { chiudi(); onVai(n.pagina); }} style={{ display: "flex", gap: 8, alignItems: "center", textAlign: "left", background: "none", border: "none", color: "#e7eaee", padding: "4px 0", fontSize: 13 }}>
+          <button key={n.testo} type="button" onClick={() => { chiudi(); if (n.vai) vaiA(n.vai); else onVai(n.pagina); }} style={{ display: "flex", gap: 8, alignItems: "center", textAlign: "left", background: "none", border: "none", color: "#e7eaee", padding: "4px 0", fontSize: 13 }}>
             <span>{n.emoji}</span><span style={{ flex: 1 }}>{n.testo}</span><span style={{ color: "#6b7480" }}>›</span>
           </button>
         ))}
@@ -3138,6 +3141,8 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
       {onApriPiano && <ProssimoVolo droni={droni} batterie={batterie} onApriPiano={onApriPiano} onDocumenti={onDocumentiPiano} onRegistra={onRegistraDaPiano} />}
 
       {urgenti.length > 0 && bloccoScadenze}
+
+      <Suspense fallback={null}><UltimaNotizia onTutte={() => vaiA({ pagina: "impara", scheda: "notizie" })} /></Suspense>
 
       {usaIspezioni && (
         <section style={{ marginBottom: 28 }}>
