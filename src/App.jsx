@@ -3034,6 +3034,18 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   const luce = meteo && !meteo.errore && meteo.lat != null ? calcolaLuce(p.data_prevista, meteo.lat, meteo.lon) : null;
   const oraLuogo = (d) => formattaOraLuogo(d, meteo?.fusoOrario);
   const riprese = ["video", "foto", "fpv"].includes(p.tipo_ispezione);
+  const termografia = ["fotovoltaico", "edifici"].includes(p.tipo_ispezione);
+  // volo di oggi con l'ora già passata da più di un'ora: non ha senso dire «condizioni buone alle 10:30» alle 19
+  const adesso = new Date();
+  const passato = p.data_prevista === oggi && hOra != null && adesso.getHours() * 60 + adesso.getMinutes() > (hOra + 1) * 60 + Number(oraP.slice(3, 5) || 0);
+  const datiRegistro = () => ({
+    data: p.data_prevista,
+    ...(oraP ? { ora: oraP } : {}),
+    luogo: p.impianto_nome || "",
+    drone_id: p.drone_id || "",
+    tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
+    ...(punto ? { coordinate_gps: `${punto.lat.toFixed(5)}, ${punto.lon.toFixed(5)}` } : {}),
+  });
 
   const voci = p.checklist_stato?.voci || [];
   const spuntate = voci.filter((_, i) => (p.checklist_stato?.spuntati || {})[i]).length;
@@ -3059,13 +3071,24 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
         <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2 }}>{[ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione, drone ? `${drone.nome}${drone.marcatura_classe ? ` (${drone.marcatura_classe})` : ""}` : null].filter(Boolean).join(" · ")}</div>
 
         <div style={{ marginTop: 12 }}>
-          {meteo === null ? <p style={{ fontSize: 12, color: "#8b95a3", margin: 0 }}>Carico il meteo…</p>
+          {passato ? (
+            <div style={{ background: "#241d16", border: "1px solid #f5b94266", borderRadius: 8, padding: "10px 12px" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#f5b942" }}>⏰ Il volo era previsto alle {oraP}: l'ora è passata</div>
+              <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 3 }}>L'hai fatto? Registralo. Se l'hai rimandato, apri il piano e cambia data e ora: meteo{termografia ? ", sole" : ""} e luce si ricalcolano.</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                <button type="button" onClick={() => onRegistra(datiRegistro())} style={btn(true)}>✅ Fatto: registralo</button>
+                <button type="button" onClick={() => onApriPiano(p.id)} style={btn(false)}>🗓️ Sposta data e ora</button>
+              </div>
+            </div>
+          ) : meteo === null ? <p style={{ fontSize: 12, color: "#8b95a3", margin: 0 }}>Carico il meteo…</p>
             : meteo.errore || ore.length === 0 ? <p style={{ fontSize: 12, color: "#8b95a3", margin: 0 }}>Meteo non disponibile per questo luogo: aprilo da «Apri il piano».</p>
             : (
               <>
                 {allOra && (
                   <div style={{ fontSize: 13, fontWeight: 700, color: COLORE_SEMAFORO[valutaOra(allOra, limite)], marginBottom: 6 }}>
-                    {{ verde: "✓ Condizioni buone", giallo: "⚠ Condizioni al limite", rosso: "✗ Condizioni sfavorevoli", grigio: "Meteo incompleto" }[valutaOra(allOra, limite)]} alle {oraP}: vento {Math.round(allOra.vento)} km/h, raffiche {Math.round(allOra.raffiche)}, pioggia {allOra.probPioggia ?? "—"}%
+                    {(termografia
+                      ? { verde: "✓ Vento e pioggia ok", giallo: "⚠ Vento al limite", rosso: "✗ Vento o pioggia sfavorevoli", grigio: "Meteo incompleto" }
+                      : { verde: "✓ Condizioni buone", giallo: "⚠ Condizioni al limite", rosso: "✗ Condizioni sfavorevoli", grigio: "Meteo incompleto" })[valutaOra(allOra, limite)]} alle {oraP}: vento {Math.round(allOra.vento)} km/h, raffiche {Math.round(allOra.raffiche)}, pioggia {allOra.probPioggia ?? "—"}%
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
@@ -3081,6 +3104,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
                     );
                   })}
                 </div>
+                {termografia && <SemaforoTermografia tipo={p.tipo_ispezione} orari={meteo.orari} data={p.data_prevista} ora={oraP} />}
                 {luce && (
                   <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 6 }}>
                     🌅 {oraLuogo(luce.alba)} · 🌇 {oraLuogo(luce.tramonto)}{riprese && luce.oraOroSera[0] ? <span style={{ color: "#f5b942" }}> · ✨ ora d'oro {oraLuogo(luce.oraOroSera[0])}–{oraLuogo(luce.oraOroSera[1])}</span> : null}
@@ -3113,14 +3137,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
           <button onClick={() => onApriPiano(p.id)} style={btn(true)}>Apri il piano</button>
           <button onClick={() => onDocumenti(p.id)} style={btn(false)}>🚔 Documenti controllo</button>
           <PulsantiNavigatore piano={p} />
-          <button onClick={() => onRegistra({
-            data: p.data_prevista,
-            ...(oraP ? { ora: oraP } : {}),
-            luogo: p.impianto_nome || "",
-            drone_id: p.drone_id || "",
-            tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
-            ...(punto ? { coordinate_gps: `${punto.lat.toFixed(5)}, ${punto.lon.toFixed(5)}` } : {}),
-          })} style={btn(false)}>📒 Registra il volo</button>
+          <button onClick={() => onRegistra(datiRegistro())} style={btn(false)}>📒 Registra il volo</button>
         </div>
         <div style={{ marginTop: 8 }}><PulsantiCalendario dati={calendarioDaPiano(p, drone)} compatto /></div>
       </div>
