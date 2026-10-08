@@ -6,6 +6,7 @@ import { installaSegnalazioneErrori } from "./segnalaErrori";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo } from "./Riprese.jsx";
 import { DopoIlVolo } from "./Manuale.jsx";
+import PianoScene, { scenaVuota, dettagliScena } from "./Scene.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
@@ -2294,8 +2295,10 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 }
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10g";
+const VERSIONE_NOVITA = "2026-10h";
 const NOVITA = [
+  { emoji: "🎬", testo: "Piano delle scene: prepari ogni ripresa con manovra, luce, durata e note, e sai quante batterie portare", pagina: "pianificazione" },
+  { emoji: "🎨", testo: "Manuale: come usare le LUT e com'è un colore giusto, con esempi", vai: { pagina: "impara", scheda: "manuale" } },
   { emoji: "🎬", testo: "Manuale foto e video: montaggio, musica, colore, esportazione e consegna", vai: { pagina: "impara", scheda: "manuale" } },
   { emoji: "🏠", testo: "«Dopo il volo»: la lista per il lavoro a casa, dentro ogni volo del registro", pagina: "registro-voli" },
   { emoji: "💨", testo: "Vento in quota a 80 e 120 m, e «il tramonto sarà bello?»", pagina: "pianificazione" },
@@ -3063,7 +3066,9 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   // riprese o foto spuntate sul posto: le porto nelle note del volo, così a casa sai l'ordine per il montaggio o il report
   const fatteSulPosto = (() => {
     const girate = (() => { try { const l = JSON.parse(localStorage.getItem(`eyedrones_girate_${p.id}`) || "null"); if (Array.isArray(l)) return l; } catch { /* niente */ } return p.checklist_stato?.girate || []; })();
-    const nomi = (p.checklist_stato?.manovre || []).filter((id) => girate.includes(id)).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean).map((m) => m.nome.replace(/ \(.*\)$/, ""));
+    const nomi = Array.isArray(p.checklist_stato?.scene)
+      ? p.checklist_stato.scene.filter((s) => girate.includes(s.id)).map((s) => s.titolo || (TUTTE_MANOVRE().find((m) => m.id === s.manovra) || {}).nome || "Scena")
+      : (p.checklist_stato?.manovre || []).filter((id) => girate.includes(id)).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean).map((m) => m.nome.replace(/ \(.*\)$/, ""));
     if (nomi.length === 0) return "";
     return TIPI_ISPEZIONE.includes(p.tipo_ispezione) ? `Foto fatte: ${nomi.join(", ")}` : `Ordine per il montaggio: ${nomi.join(" → ")}`;
   })();
@@ -7579,7 +7584,10 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
 // il giorno del volo, in Home: le manovre scelte nel piano da spuntare sul posto, con l'animazione degli stick.
 // Le spunte vanno nel piano (checklist_stato.girate) e restano anche sul telefono, così valgono senza campo
 function DaGirare({ piano }) {
-  const daFare = (piano.checklist_stato?.manovre || []).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean);
+  const scenePiano = Array.isArray(piano.checklist_stato?.scene) ? piano.checklist_stato.scene : null;
+  const daFare = scenePiano
+    ? scenePiano.map((s) => { const m = TUTTE_MANOVRE().find((x) => x.id === s.manovra); return { id: s.id, nome: s.titolo || (m ? m.nome : "Scena"), stick: m?.stick, anim: m?.id, det: dettagliScena(s, piano.tipo_ispezione), note: s.note }; })
+    : (piano.checklist_stato?.manovre || []).map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean);
   const chiave = `eyedrones_girate_${piano.id}`;
   const [girate, setGirate] = useState(() => {
     try { const loc = JSON.parse(localStorage.getItem(chiave) || "null"); if (Array.isArray(loc)) return loc; } catch { /* niente */ }
@@ -7609,9 +7617,11 @@ function DaGirare({ piano }) {
           </label>
           {!girate.includes(m.id) && (
             <div style={{ fontSize: 12, lineHeight: 1.45, color: "#d6dde6", marginLeft: 26 }}>
-              <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>
-              {haAnimazione(m.id) && <button type="button" onClick={() => setInVisione(inVisione === m.id ? null : m.id)} style={{ marginTop: 4, background: inVisione === m.id ? "#7c5cd6" : "#251e33", color: inVisione === m.id ? "#fff" : "#c4b5fd", border: "1px solid #3d2f5a", borderRadius: 12, padding: "3px 10px", fontSize: 11.5, fontWeight: 600 }}>{inVisione === m.id ? "✕ Chiudi" : "▶️ Guarda come si fa"}</button>}
-              {inVisione === m.id && <AnimazioneManovra id={m.id} />}
+              {m.det && <div style={{ color: "#e7eaee" }}>🎯 {m.det}</div>}
+              {m.note && <div style={{ color: "#d6dde6" }}>📝 {m.note}</div>}
+              {m.stick && <div style={{ color: "#c4b5fd" }}>🕹️ {m.stick}</div>}
+              {haAnimazione(m.anim ?? m.id) && <button type="button" onClick={() => setInVisione(inVisione === m.id ? null : m.id)} style={{ marginTop: 4, background: inVisione === m.id ? "#7c5cd6" : "#251e33", color: inVisione === m.id ? "#fff" : "#c4b5fd", border: "1px solid #3d2f5a", borderRadius: 12, padding: "3px 10px", fontSize: 11.5, fontWeight: 600 }}>{inVisione === m.id ? "✕ Chiudi" : "▶️ Guarda come si fa"}</button>}
+              {inVisione === m.id && <AnimazioneManovra id={m.anim ?? m.id} />}
             </div>
           )}
         </div>
@@ -7818,6 +7828,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   const [stsDati, setStsDati] = useState(null); // calcolatore STS-01 (salvato nel piano)
   const [manovreScelte, setManovreScelte] = useState([]); // riprese da fare in questo volo (scaletta)
   const [lavoroScelto, setLavoroScelto] = useState(""); // nome della scaletta pronta usata (es. Matrimonio)
+  const [scene, setScene] = useState([]); // piano delle scene per video, foto e FPV (checklist_stato.scene)
   // scegliendo l'ora del volo, anche la direzione del sole si calcola per quell'ora
   const scegliOraPrevista = (ora) => { setOraPrevista(ora); if (ora) setOraSole(ora); };
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
@@ -8012,7 +8023,9 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
         ora_prevista: oraPrevista || null,
         drone_id: droneSelId || null,
         dflight_screenshot_url: dflightUrl,
-        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}), ...(manovreScelte.length > 0 ? { manovre: manovreScelte, ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {}) },
+        checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}), ...(["video", "foto", "fpv"].includes(tipoIspezione)
+          ? (scene.length > 0 ? { scene, manovre: scene.map((x) => x.manovra).filter(Boolean), ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {})
+          : (manovreScelte.length > 0 ? { manovre: manovreScelte, ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {})) },
       };
       // le coordinate si salvano solo per un luogo scelto a mano
       if (!impiantoSel) payload.luogo_coordinate = coordinateValide ? `${coordinateValide.lat}, ${coordinateValide.lon}` : null;
@@ -8051,6 +8064,11 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setStsDati(p.checklist_stato?.sts || null);
     setManovreScelte(Array.isArray(p.checklist_stato?.manovre) ? p.checklist_stato.manovre : []);
     setLavoroScelto(p.checklist_stato?.lavoro || "");
+    // piani salvati prima del piano delle scene: le manovre scelte diventano scene
+    setScene(Array.isArray(p.checklist_stato?.scene) ? p.checklist_stato.scene
+      : ["video", "foto", "fpv"].includes(p.tipo_ispezione) && Array.isArray(p.checklist_stato?.manovre)
+        ? p.checklist_stato.manovre.map((id) => TUTTE_MANOVRE().find((m) => m.id === id)).filter(Boolean).map((m) => scenaVuota(p.tipo_ispezione, m))
+        : []);
     if (p.ora_prevista) setOraSole(String(p.ora_prevista).slice(0, 5));
     setDroneSelId(p.drone_id || "");
     setDflightShot(p.dflight_screenshot_url ? { dataUrl: p.dflight_screenshot_url, remota: true } : null);
@@ -8077,6 +8095,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
     setStsDati(null);
     setManovreScelte([]);
     setLavoroScelto("");
+    setScene([]);
     setDflightShot(null);
     setMeteo(null);
     setMeteoSpaziale(null);
@@ -8241,7 +8260,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
                 if (oro) return "oro";
                 return undefined;
               })()} />
-              <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} scelte={manovreScelte} onCambiaScelte={setManovreScelte} lavoro={lavoroScelto} onCambiaLavoro={setLavoroScelto} />
+              <PianoScene key={"scene-" + tipoIspezione} tipo={tipoIspezione} scene={scene} onCambia={setScene} libreria={{ video: MANOVRE_VIDEO, fpv: MANOVRE_FPV, foto: INQUADRATURE_FOTO }} scalette={SCALETTE_PRONTE[tipoIspezione] || SCALETTE_PRONTE.video} onLavoro={setLavoroScelto} />
+              <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} />
             </>
           )}
           {TIPI_ISPEZIONE.includes(tipoIspezione) && (
