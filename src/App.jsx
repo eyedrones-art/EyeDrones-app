@@ -2171,6 +2171,24 @@ function AppShell({ session }) {
         .home-azione-titolo { display: block; font-size: 14.5px; font-weight: 700; }
         .home-azione-testo { display: block; font-size: 12px; margin-top: 2px; color: #8b95a3; }
         .home-testata { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid #2b313d; padding: 26px 28px; margin-bottom: 18px; min-height: 170px; background-size: cover; background-position: center; display: flex; align-items: flex-end; }
+        /* animazioni leggere della Home: il drone della testata e un'entrata morbida (solo opacità, niente spostamenti) */
+        @keyframes ed-vola { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-7px) rotate(-1.2deg); } }
+        @keyframes ed-elica { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(.45); } }
+        @keyframes ed-luce { 0%, 62%, 100% { opacity: 1; } 72% { opacity: .12; } }
+        @keyframes ed-scia { to { stroke-dashoffset: -24; } }
+        @keyframes ed-stelle { 0%, 100% { opacity: .55; } 50% { opacity: .25; } }
+        @keyframes ed-entra { from { opacity: 0; } to { opacity: 1; } }
+        .ed-vola { animation: ed-vola 4.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+        .ed-elica { animation: ed-elica .16s linear infinite; transform-box: fill-box; transform-origin: center; }
+        .ed-elica-b { animation-delay: -.08s; }
+        .ed-luce { animation: ed-luce 1.8s ease-in-out infinite; }
+        .ed-luce-b { animation-delay: -.9s; }
+        .ed-scia { animation: ed-scia 1.5s linear infinite; }
+        .ed-stelle { animation: ed-stelle 5s ease-in-out infinite; }
+        .home > div > * { animation: ed-entra .45s ease-out both; }
+        .home > div > *:nth-child(2) { animation-delay: .06s; } .home > div > *:nth-child(3) { animation-delay: .12s; }
+        .home > div > *:nth-child(4) { animation-delay: .18s; } .home > div > *:nth-child(n+5) { animation-delay: .24s; }
+        @media (prefers-reduced-motion: reduce) { .ed-vola, .ed-elica, .ed-luce, .ed-scia, .ed-stelle, .home > div > * { animation: none !important; } }
         .home-striscia { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
         .home-azione .corto { display: none; }
         .home-due { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
@@ -3387,7 +3405,7 @@ const DRONE_TESTATA = (
     </defs>
     <rect width="1200" height="400" fill="url(#t-cielo)" />
     <rect width="1200" height="400" fill="url(#t-sole)" />
-    <g fill="#fff" opacity=".55">
+    <g fill="#fff" opacity=".55" className="ed-stelle">
       <circle cx="610" cy="190" r="1.2" /><circle cx="760" cy="205" r="1" /><circle cx="880" cy="185" r="1.4" /><circle cx="1150" cy="200" r="1.2" /><circle cx="700" cy="235" r=".9" /><circle cx="1180" cy="250" r=".8" /><circle cx="520" cy="215" r="1" />
     </g>
     <circle cx="865" cy="282" r="30" fill="#ffd8a8" opacity=".95" />
@@ -3395,8 +3413,8 @@ const DRONE_TESTATA = (
     <path d="M0 350 L150 318 L300 342 L450 306 L620 340 L760 312 L900 345 L1050 316 L1200 340 L1200 400 L0 400 Z" fill="#2c1b38" />
     <rect y="352" width="1200" height="48" fill="url(#t-lago)" />
     <g stroke="#ffd8a8" strokeOpacity=".5" strokeWidth="2" strokeLinecap="round"><path d="M835 362 h60 M845 372 h40 M855 381 h22" /></g>
-    <path d="M600 318 C 700 300, 780 240, 985 226" fill="none" stroke="#ffb877" strokeWidth="2.5" strokeDasharray="2 10" strokeLinecap="round" opacity=".85" />
-    <g transform="translate(1050 220) rotate(-6) scale(.9)">
+    <path className="ed-scia" d="M600 318 C 700 300, 780 240, 985 226" fill="none" stroke="#ffb877" strokeWidth="2.5" strokeDasharray="2 10" strokeLinecap="round" opacity=".85" />
+    <g transform="translate(1050 220) rotate(-6) scale(.9)"><g className="ed-vola">
       <g stroke="#0d0b14" strokeWidth="7" strokeLinecap="round"><path d="M-14 -4 L-62 -26 M14 -4 L62 -26 M-14 8 L-58 28 M14 8 L58 28" /></g>
       <g fill="#0d0b14">
         <rect x="-26" y="-14" width="52" height="30" rx="12" />
@@ -3407,13 +3425,13 @@ const DRONE_TESTATA = (
       </g>
       <circle cx="0" cy="31" r="3.5" fill="#7c5cd6" />
       <g fill="none" stroke="#e7d9ff" strokeOpacity=".35" strokeWidth="2.5">
-        <ellipse cx="-62" cy="-33" rx="38" ry="5" /><ellipse cx="62" cy="-33" rx="38" ry="5" />
-        <ellipse cx="-58" cy="21" rx="36" ry="4.5" /><ellipse cx="58" cy="21" rx="36" ry="4.5" />
+        <ellipse className="ed-elica" cx="-62" cy="-33" rx="38" ry="5" /><ellipse className="ed-elica ed-elica-b" cx="62" cy="-33" rx="38" ry="5" />
+        <ellipse className="ed-elica ed-elica-b" cx="-58" cy="21" rx="36" ry="4.5" /><ellipse className="ed-elica" cx="58" cy="21" rx="36" ry="4.5" />
       </g>
-      <circle cx="-62" cy="-24" r="10" fill="url(#t-luce)" /><circle cx="-62" cy="-24" r="2.6" fill="#ff5a5a" />
-      <circle cx="62" cy="-24" r="10" fill="url(#t-luce)" /><circle cx="62" cy="-24" r="2.6" fill="#4ade80" />
+      <g className="ed-luce"><circle cx="-62" cy="-24" r="10" fill="url(#t-luce)" /><circle cx="-62" cy="-24" r="2.6" fill="#ff5a5a" /></g>
+      <g className="ed-luce ed-luce-b"><circle cx="62" cy="-24" r="10" fill="url(#t-luce)" /><circle cx="62" cy="-24" r="2.6" fill="#4ade80" /></g>
       <circle cx="-58" cy="30" r="2.2" fill="#ff9d5c" /><circle cx="58" cy="30" r="2.2" fill="#ff9d5c" />
-    </g>
+    </g></g>
   </svg>
 );
 
