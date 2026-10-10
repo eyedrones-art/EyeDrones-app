@@ -3,13 +3,15 @@ import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, 
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
+import { datiCalendarioPiano, dataLocaleDa, PulsantiCalendario } from "./calendario.jsx";
+import { AvvisaFineNotam, NotamFiniti } from "./avvisiNotam.jsx";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo } from "./Riprese.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
-import { leggiZoneSalvate, salvaZone, motivoZona, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
+import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
@@ -1721,53 +1723,6 @@ function avvisoBatterieTemperatura(t) {
 }
 
 // --- Aggiungi al calendario -----------------------------------------------------------------------------
-function datiCalendarioPiano({ data, ora, titolo, luogo, dettagli }) {
-  if (!data) return null;
-  const d = data.replace(/-/g, "");
-  let inizio, fine, tuttoIlGiorno = false;
-  if (ora) {
-    const [h, m] = ora.split(":").map(Number);
-    const fineMin = h * 60 + m + 60;
-    inizio = `${d}T${String(h).padStart(2, "0")}${String(m).padStart(2, "0")}00`;
-    const giornoFine = fineMin >= 1440 ? dataLocaleDa(data, 1).replace(/-/g, "") : d;
-    const fm = fineMin % 1440;
-    fine = `${giornoFine}T${String(Math.floor(fm / 60)).padStart(2, "0")}${String(fm % 60).padStart(2, "0")}00`;
-  } else {
-    tuttoIlGiorno = true;
-    inizio = d;
-    fine = dataLocaleDa(data, 1).replace(/-/g, "");
-  }
-  return { inizio, fine, tuttoIlGiorno, titolo, luogo: luogo || "", dettagli: dettagli || "" };
-}
-function dataLocaleDa(data, giorni) {
-  const [y, m, g] = data.split("-").map(Number);
-  const x = new Date(y, m - 1, g + giorni);
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
-}
-function linkGoogleCalendar(c) {
-  const q = new URLSearchParams({ action: "TEMPLATE", text: c.titolo, dates: `${c.inizio}/${c.fine}`, details: c.dettagli, location: c.luogo });
-  return `https://calendar.google.com/calendar/render?${q.toString()}`;
-}
-function scaricaIcs(c) {
-  const esc = (t) => String(t || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
-  const dt = (k, v) => (c.tuttoIlGiorno ? `${k};VALUE=DATE:${v}` : `${k}:${v}`);
-  const ics = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//EyeDrones//Piano di volo//IT", "CALSCALE:GREGORIAN",
-    "BEGIN:VEVENT",
-    `UID:${Date.now()}-${Math.random().toString(36).slice(2)}@app.eyedrones.it`,
-    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z")}`,
-    dt("DTSTART", c.inizio), dt("DTEND", c.fine),
-    `SUMMARY:${esc(c.titolo)}`, `LOCATION:${esc(c.luogo)}`, `DESCRIPTION:${esc(c.dettagli)}`,
-    "BEGIN:VALARM", "TRIGGER:-P1D", "ACTION:DISPLAY", `DESCRIPTION:${esc("Domani: " + c.titolo)}`, "END:VALARM",
-    ...(c.tuttoIlGiorno ? [] : ["BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", `DESCRIPTION:${esc("Tra un'ora: " + c.titolo)}`, "END:VALARM"]),
-    "END:VEVENT", "END:VCALENDAR",
-  ].join("\r\n");
-  const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url; a.download = "volo-eyedrones.ics";
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
 function calendarioDaPiano(p, drone) {
   const ora = p.ora_prevista ? String(p.ora_prevista).slice(0, 5) : "";
   const tipo = ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione || "Volo";
@@ -1796,19 +1751,6 @@ function PulsantiNavigatore({ piano }) {
       <a href={maps} target="_blank" rel="noreferrer" style={st} title={d.c ? "Porta al punto del volo" : "Cerca il luogo per nome"}>🧭 Google Maps</a>
       <a href={waze} target="_blank" rel="noreferrer" style={st}>🚗 Waze</a>
     </>
-  );
-}
-
-function PulsantiCalendario({ dati, compatto = false }) {
-  if (!dati) return null;
-  const st = { display: "inline-flex", alignItems: "center", gap: 5, background: compatto ? "none" : "#1f2530", color: compatto ? "#3d8bfd" : "#e7eaee", border: compatto ? "none" : "1px solid #333a45", borderRadius: 6, padding: compatto ? "2px 4px" : "8px 12px", fontSize: 12.5, textDecoration: compatto ? "underline" : "none" };
-  return (
-    <div style={{ display: "flex", gap: compatto ? 4 : 6, flexWrap: "wrap", alignItems: "center", fontSize: 12.5, color: "#8b95a3" }}>
-      {compatto && <span>📅 Aggiungi al calendario:</span>}
-      <a href={linkGoogleCalendar(dati)} target="_blank" rel="noreferrer" style={st}>{compatto ? "Google" : "📅 Google Calendar"}</a>
-      {compatto && <span>·</span>}
-      <button type="button" onClick={() => scaricaIcs(dati)} style={st}>{compatto ? "iPhone / altro" : "📅 iPhone / altro calendario"}</button>
-    </div>
   );
 }
 
@@ -3534,6 +3476,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
 
         <InvitoImpronta />
         <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
+        <NotamFiniti />
         <RiquadroNovita onVai={onNav} />
         {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
 
@@ -6978,7 +6921,13 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
   const quando = dataPrevista ? new Date(`${dataPrevista}T${oraPrevista || "12:00"}`) : null;
   const latP = punto && punto.lat, lonP = punto && punto.lon;
   const esito = React.useMemo(
-    () => (zone && latP != null ? controllaPunto(zone, { lat: latP, lon: lonP }, { raggio: 500, quando }) : null),
+    () => {
+      if (!zone || latP == null) return null;
+      const e = controllaPunto(zone, { lat: latP, lon: lonP }, { raggio: 500, quando });
+      // le date dei NOTAM sono vere: se il giorno del volo il NOTAM non c'è, non lo conto (lo dico a parte)
+      const fuori = (z) => z.tipoUAS === "notam" && (z.fuoriPeriodo || zonaFinita(z));
+      return { dentro: e.dentro.filter((z) => !fuori(z)), vicine: e.vicine.filter((z) => !fuori(z)), notamFuori: e.dentro.filter(fuori) };
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [zone, latP, lonP, dataPrevista, oraPrevista]
   );
@@ -7032,18 +6981,23 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     const autorita = (z.autorita || []).map((a) => ({ ...a, nome: valoreReale(a.nome), servizio: valoreReale(a.servizio), email: valoreReale(a.email), telefono: valoreReale(a.telefono), sito: valoreReale(a.sito), preavviso: valoreReale(a.preavviso) }))
       .filter((a) => a.nome || a.email || a.telefono || a.sito);
     const motivo = motivoZona(z);
+    const notam = z.tipoUAS === "notam";
+    const zonaR = /\bLI[\s-]?R\s?\d/i.test(z.nome || "");
+    const consiglio = !notam ? d.consiglio : "Nei giorni del NOTAM qui non si vola, né in Open né in Specific: di solito non si può chiedere un permesso. Fuori da quelle date la zona non c'è.";
     return (
       <div key={(z.id || z.nome) + (vicina ? "-v" : "")} style={{ borderLeft: `3px solid ${d.colore}`, background: d.colore + "12", borderRadius: 4, padding: "8px 10px", marginTop: 6 }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: d.colore }}>{d.etichetta}{vicina ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m</span> : null}{z.temporanea ? <span style={{ color: "#f5b942", fontWeight: 400 }}> · temporanea</span> : null}</div>
         <div style={{ fontSize: 12.5, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
         {limiti && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {limiti}</div>}
         {motivo && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Motivo: {motivo}</div>}
-        {!vicina && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{z.messaggio}</div>}
+        {!vicina && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{messaggioBreve(z.messaggio)}</div>}
+        {!vicina && zonaR && <div style={{ fontSize: 11.5, color: "#ffd9a0", marginTop: 3 }}>⏰ Zona LI-R: vale <strong>solo quando è attiva</strong>. Gli orari sono nell'AIP Italia (ENR 5.1.2): su D-Flight tocca la zona → «Regole dell'aria». Può essere attivata anche con un NOTAM.</div>}
         {!vicina && valoreReale(z.condizioni) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
         {z.fuoriPeriodo && <div style={{ fontSize: 11.5, color: "#ffb877", marginTop: 3 }}>⚠ Secondo il file questa zona non vale il giorno del volo, ma le date del file potrebbero essere solo vecchie: per sicurezza la considero attiva. Aggiorna il file e controlla su D-Flight.</div>}
         {!vicina && z.validita && <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 2 }}>Attiva: {z.validita.map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}</div>}
-        {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {d.consiglio}</div>}
-        {!vicina && (z.restrizione === "REQ_AUTHORISATION" || z.restrizione === "PROHIBITED") && (
+        {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {consiglio}</div>}
+        {!vicina && notam && <AvvisaFineNotam zona={z} posto={testoLuogo || `${latP.toFixed(4)}, ${lonP.toFixed(4)}`} />}
+        {!vicina && !notam && (z.restrizione === "REQ_AUTHORISATION" || z.restrizione === "PROHIBITED") && (
           <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
             <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} style={{ background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si fa a volare qui?</button>
             <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } vaiA({ pagina: "permessi" }); }} style={{ background: "#1d2633", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 5, padding: "4px 9px", fontSize: 11.5, fontWeight: 600 }}>🧭 Preparami la richiesta</button>
@@ -7073,6 +7027,16 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
           </label>
         )}
       </div>
+      {/* il volo è tra pochi giorni e il file è di qualche giorno fa: i NOTAM nuovi non ci sono ancora */}
+      {archivio && dataPrevista && (() => {
+        const traGiorni = Math.round((new Date(`${dataPrevista}T12:00`).getTime() - Date.now()) / 86400000);
+        return traGiorni >= 0 && traGiorni <= 3 && giorniFile >= 2 ? (
+          <label style={{ display: "block", marginTop: 6, fontSize: 11.5, color: "#ffd9a0", background: "#3a2a12", border: "1px solid #f5b94255", borderRadius: 6, padding: "6px 9px", cursor: "pointer" }}>
+            ⚠ Il volo è {traGiorni === 0 ? "oggi" : traGiorni === 1 ? "domani" : `tra ${traGiorni} giorni`} e il file zone è di {giorniFile} giorni fa: i <strong>NOTAM</strong> nuovi non ci sono. Riscaricalo da D-Flight e <span style={{ color: "#3d8bfd" }}>caricalo qui</span>.
+            <input type="file" onChange={caricaFile} style={{ display: "none" }} />
+          </label>
+        ) : null;
+      })()}
 
       {!sbloccatoPro(piano) ? (
         <InvitoPro cosa="Il controllo automatico della zona" />
@@ -7158,6 +7122,11 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
             );
           })()}
           {esito && esito.dentro.map((z) => schedaZona(z, false))}
+          {esito && esito.notamFuori.map((z) => (
+            <div key={"nf-" + (z.id || z.nome)} style={{ borderLeft: "3px solid #4ade80", background: "#4ade8012", borderRadius: 4, padding: "8px 10px", marginTop: 6, fontSize: 12, color: "#c3cad4" }}>
+              ✓ <strong style={{ color: "#4ade80" }}>{z.nome}</strong>: qui c'è un NOTAM ({(z.validita || []).map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}), ma il giorno del volo non è attivo.
+            </div>
+          ))}
           {esito && esito.vicine.length > 0 && (
             <>
               <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "10px 0 0 0" }}>Zone vicine (entro 500 m): attento a non sconfinare.</p>

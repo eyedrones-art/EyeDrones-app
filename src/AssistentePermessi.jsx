@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { leggiZoneSalvate, motivoZona, sistemaZona, zonaFinita, controllaPunto, altezzaSenzaPermessi, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
+import { AvvisaFineNotam } from "./avvisiNotam.jsx";
+import { leggiZoneSalvate, messaggioBreve, motivoZona, sistemaZona, zonaFinita, controllaPunto, altezzaSenzaPermessi, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
 
 const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
 
@@ -313,7 +314,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: d.colore }}>{sigla ? `⛔ Zona LI-${sigla} dello spazio aereo` : notam ? "📢 NOTAM: divieto temporaneo" : avio ? "🚁 Elisuperficie o aviosuperficie" : aeroporto ? "✈️ Zona di un aeroporto" : "🏛️ Zona di un ente"}{z.distanza ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m dal punto</span> : null}</div>
                 <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
                 {motivoZona(z) && !notam && !String(z.id).startsWith("man-") && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>❓ Perché c'è: <strong>{motivoZona(z)}</strong></div>}
-                {valoreReale(z.messaggio) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2, whiteSpace: "pre-line" }}>📝 Dice D-Flight: «{String(valoreReale(z.messaggio)).slice(0, 600)}{String(z.messaggio).length > 600 ? "…" : ""}»</div>}
+                {valoreReale(z.messaggio) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2, whiteSpace: "pre-line" }}>📝 Dice D-Flight: «{messaggioBreve(valoreReale(z.messaggio)).slice(0, 600)}{messaggioBreve(z.messaggio).length > 600 ? "…" : ""}»</div>}
                 {z.validita && !notam && <div style={{ fontSize: 12, color: "#f5b942", marginTop: 2 }}>📅 Zona temporanea: {z.validita.map((v) => [v.da && `dal ${dataOra(v.da)}`, v.a && `al ${dataOra(v.a)}`].filter(Boolean).join(" ")).join("; ")}. Fuori da queste date la zona non vale.</div>}
                 {formattaLimiti(z.limiti) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {formattaLimiti(z.limiti)}</div>}
 
@@ -347,6 +348,8 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
                   <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 8, lineHeight: 1.5 }}>
                     {(() => { const v = (z.validita || [])[0] || {}; const ora = Date.now(); const inCorso = (!v.da || new Date(v.da).getTime() <= ora) && (!v.a || new Date(v.a).getTime() >= ora); return inCorso ? <>⛔ <strong>In vigore adesso</strong>{v.a ? <> fino al <strong>{dataOra(v.a)}</strong></> : ""}: in questi giorni qui non si vola, né in Open né in Specific.</> : <>⏳ <strong>Inizia il {dataOra(v.da)}</strong>{v.a ? <> e finisce il <strong>{dataOra(v.a)}</strong></> : ""}: se voli in quei giorni qui non si può. Prima e dopo la zona non c'è.</>; })()}
                     <div style={{ color: "#8b95a3", marginTop: 6 }}>Un NOTAM di solito non si può «chiedere»: è uno spazio riservato a un'attività (esercitazioni, eventi, altri droni). Scegli altre date o un posto fuori dalla zona.</div>
+                    <div style={{ color: "#8b95a3", marginTop: 4 }}>I NOTAM nuovi entrano nel file solo quando lo riscarichi: riscaricalo da D-Flight il giorno prima del volo.</div>
+                    <AvvisaFineNotam zona={z} posto={luogo && luogo.comune ? luogo.comune : `${punto.lat.toFixed(4)}, ${punto.lon.toFixed(4)}`} />
                   </div>
                 )}
                 {!aeroporto && !sigla && !notam && (

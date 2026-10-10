@@ -478,3 +478,6 @@ export const motivoZona = (z) => {
   const altri = String(z.motivo || "").split(/\s*,\s*/).filter((x) => !(t === "aeroporto" && /AIR_TRAFFIC/i.test(x))).join(",");
   return [TIPI_ZONA[t], traduciMotivi(altri)].filter(Boolean).join(" · ");
 };
+
+// i messaggi dei parchi hanno in fondo codici e norme: tengo la regola, l'ente, il contatto e il limite
+export const messaggioBreve = (t) => String(t || "").split("\n").filter((r) => !/^\s*(Euap|Codice|Nome Sito|Tipo|Tipo Limi|Norme|Misure|art\.|N\.B\.)\b/i.test(r)).join("\n").trim();
