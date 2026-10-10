@@ -39,6 +39,15 @@ const TIPI_AEROPORTO = {
   senza: { nome: "Aeroporto, aviosuperficie o elisuperficie senza servizi del traffico aereo", giorni: 15, a: [], pec: [], diritti: true },
 };
 
+// richiesta a un ente scelto da te (anche senza zona nel file): Prefettura, Comune, parco, proprietario...
+const ENTI_LIBERI = [
+  { id: "prefettura", nome: "Prefettura", esempio: "Prefettura di Torino", nota: "La Prefettura dà il nulla osta per l'ordine e la sicurezza pubblica (centri città, eventi, luoghi sensibili). Molte vogliono il loro modulo: guarda il sito della tua Prefettura («sorvoli con drone»). Di solito 10–15 giorni lavorativi prima, via PEC.", giorni: 15 },
+  { id: "comune", nome: "Comune", esempio: "Comune di Caselle Torinese", nota: "Al Comune si chiede per riprese in luoghi pubblici o se c'è un'ordinanza. Per il decollo da suolo pubblico può servire l'ufficio occupazione suolo pubblico.", giorni: 10 },
+  { id: "parco", nome: "Ente parco o riserva", esempio: "Ente Parco del …", nota: "Molti parchi hanno un loro modulo «nulla osta sorvolo droni» sul sito, a volte a pagamento: se c'è, usa quello.", giorni: 15 },
+  { id: "proprietario", nome: "Proprietario o gestore del posto", esempio: "Villa …, Azienda …", nota: "Per decollare o atterrare su un terreno privato, o volare vicino a un edificio (eccezione dell'ostacolo vicino agli aeroporti), serve il permesso del proprietario.", giorni: 3 },
+  { id: "altro", nome: "Altro ente", esempio: "Capitaneria di porto, Soprintendenza…", nota: "Usa il contatto scritto sul sito dell'ente.", giorni: 15 },
+];
+
 const ATTIVITA = ["Riprese video", "Fotografie", "Ispezione termografica", "Ispezione visiva", "Rilievo / aerofotogrammetria", "Riprese per evento", "Volo amatoriale"];
 
 // zone dello spazio aereo LI-P / LI-D (vietate) e LI-R (vietate quando attive): ATM-09A § 5.3
@@ -221,8 +230,19 @@ export default function AssistentePermessi({ cercaIndirizzo, droni = [], azienda
         </div>
       )}
 
+      {punto && (
+        <div style={{ ...st.card, padding: 12 }}>
+          <div style={{ fontSize: 13, color: "#c3cad4", marginBottom: 8 }}>✍️ Devi scrivere a qualcun altro? Prefettura, Comune, un parco che non è nel file o il proprietario del posto: ti scrivo io la richiesta.</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {ENTI_LIBERI.map((e) => (
+              <button key={e.id} type="button" onClick={() => setScelta({ tipo: "ente", libero: e, zona: { id: "libero-" + e.id, nome: "" }, ente: null })} style={{ ...st.secondario, minHeight: 38, padding: "6px 12px", fontSize: 12.5, borderColor: scelta?.libero?.id === e.id ? "#3d8bfd" : "#333a45" }}>{e.nome}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 3) richiesta */}
-      {scelta && <ModuloRichiesta key={(scelta.zona.id || scelta.zona.nome) + scelta.tipo} scelta={scelta} punto={punto} categoria={categoria} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={onSalva} />}
+      {scelta && <ModuloRichiesta key={(scelta.zona.id || scelta.zona.nome) + scelta.tipo + (scelta.libero ? scelta.libero.id : "")} scelta={scelta} punto={punto} categoria={categoria} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={onSalva} />}
 
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>
         Basato sul tuo file zone D-Flight e sulla Circolare ENAC ATM-09A. ENAC sta preparando un nuovo regolamento sulle zone geografiche: quando entra in vigore alcune regole possono cambiare. La verifica ufficiale resta su D-Flight.
@@ -253,13 +273,17 @@ function ModuloRichiesta({ scelta, punto, categoria, droni, azienda, emailUtente
     sicurezza: "Volo in VLOS con osservatore. Area di decollo e atterraggio delimitata e senza pubblico. Drone con geofence e ritorno automatico attivi.",
   }));
   const [fatto, setFatto] = useState(null);
+  const libero = scelta.libero || null;
+  const [enteNome, setEnteNome] = useState("");
+  const [enteEmail, setEnteEmail] = useState("");
   const cambia = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const drone = droni.find((d) => d.id === f.droneId);
   const descrDrone = drone ? [drone.modello || drone.nome, drone.marcatura_classe ? `classe ${drone.marcatura_classe}` : null, drone.matricola ? `S/N ${drone.matricola}` : null].filter(Boolean).join(", ") : "";
   const tipoA = TIPI_AEROPORTO[f.tipoAeroporto];
   const dir = DIREZIONI_AEROPORTUALI.find((x) => x.id === f.direzione);
-  const ente = scelta.ente;
-  const giorniEnte = (() => { const m = String(ente?.preavviso || "").match(/(\d+)\s*(giorn|D)/i) || String(ente?.preavviso || "").match(/^P(\d+)D/i); return m ? Number(m[1]) : null; })();
+  const ente = libero ? { nome: enteNome, email: enteEmail.trim() } : scelta.ente;
+  const nomeZona = libero ? (f.localita || "il luogo indicato") : scelta.zona.nome;
+  const giorniEnte = libero ? libero.giorni : (() => { const m = String(ente?.preavviso || "").match(/(\d+)\s*(giorn|D)/i) || String(ente?.preavviso || "").match(/^P(\d+)D/i); return m ? Number(m[1]) : null; })();
   const giorni = aeroporto ? tipoA.giorni : giorniEnte;
   const entro = giorni && f.dataDa ? meno(f.dataDa, giorni) : null;
   const tardi = entro && entro < oggiIso();
@@ -272,7 +296,7 @@ function ModuloRichiesta({ scelta, punto, categoria, droni, azienda, emailUtente
     : [ente?.email].filter(Boolean);
   const oggetto = aeroporto
     ? `Modello ATM-09A – Riserva di spazio aereo per operazioni UAS – ${f.localita || coord} – ${f.dataDa ? dataIt(f.dataDa) : ""}`
-    : `Richiesta di nulla osta per sorvolo con drone – ${scelta.zona.nome} – ${f.dataDa ? dataIt(f.dataDa) : ""}`;
+    : `${libero && libero.id === "proprietario" ? "Richiesta di permesso" : "Richiesta di nulla osta"} per sorvolo con drone – ${nomeZona} – ${f.dataDa ? dataIt(f.dataDa) : ""}`;
   const allegati = aeroporto
     ? ["Modello ATM-09A compilato e firmato", "Documentazione dell'operatore UAS: autorizzazione ENAC o dichiarazione dello scenario standard (STS)", "Attestato del pilota remoto", "Polizza assicurativa RC", ...(tipoA.diritti ? ["Ricevuta del pagamento dei diritti ENAC (servizionline.enac.gov.it)"] : [])]
     : ["Documento d'identità del richiedente e del pilota", "Attestato del pilota remoto (A1/A3, A2 o STS)", "Registrazione operatore D-Flight (codice operatore)", "Polizza assicurativa RC del drone", "Scheda del drone (modello, classe, peso)", "Mappa dell'area di volo con il punto di decollo"];
@@ -281,7 +305,9 @@ function ModuloRichiesta({ scelta, punto, categoria, droni, azienda, emailUtente
     "",
     aeroporto
       ? `in allegato il Modello ATM-09A per la riserva di spazio aereo per operazioni UAS in ${categoriaTesto}, nella zona «${scelta.zona.nome}».`
-      : `con la presente chiedo il nulla osta al sorvolo con drone nella zona «${scelta.zona.nome}», con le seguenti caratteristiche:`,
+      : libero
+        ? `con la presente chiedo ${libero.id === "proprietario" ? "il permesso di decollare, atterrare e volare con un drone" : "il nulla osta al sorvolo con drone"} a ${f.localita || "nel luogo indicato"}, con le seguenti caratteristiche:`
+        : `con la presente chiedo il nulla osta al sorvolo con drone nella zona «${scelta.zona.nome}», con le seguenti caratteristiche:`,
     "",
     `• Richiedente: ${richiedente || "—"}`,
     `• Attività: ${f.attivita}, in VLOS, ${categoriaTesto}`,
@@ -350,7 +376,7 @@ function ModuloRichiesta({ scelta, punto, categoria, droni, azienda, emailUtente
     testoEmail.split("\n").slice(0, -2).forEach((t) => (t ? riga(t) : (y += 2.5)));
     riga(f.nome);
     y += 6; riga([(f.localita || "").split(",")[0], new Date().toLocaleDateString("it-IT")].filter(Boolean).join(", ")); y += 10; riga("Firma ______________________________");
-    doc.save(`Richiesta-nulla-osta-${(scelta.zona.nome || "zona").replace(/[^\w]+/g, "-").slice(0, 30)}.pdf`);
+    doc.save(`Richiesta-${(libero ? `${libero.nome}-${f.localita}` : scelta.zona.nome || "zona").replace(/[^\w]+/g, "-").slice(0, 40)}.pdf`);
   };
 
   const apriEmail = () => { ricorda(); window.location.href = `mailto:${destinatari.join(",")}?subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(testoEmail)}`; };
@@ -359,20 +385,28 @@ function ModuloRichiesta({ scelta, punto, categoria, droni, azienda, emailUtente
     ricorda();
     const ok = await onSalva({
       impianto: f.localita || coord,
-      ente_contattato: aeroporto ? [tipoA.a.join(", "), `ENAC DA ${dir ? dir.nome : ""}`].filter(Boolean).join(" + ") : (ente?.nome || scelta.zona.nome),
-      permessi_richiesti: aeroporto ? `Riserva spazio aereo – Modello ATM-09A (${scelta.zona.nome})` : `Nulla osta sorvolo – ${scelta.zona.nome}`,
+      ente_contattato: aeroporto ? [tipoA.a.join(", "), `ENAC DA ${dir ? dir.nome : ""}`].filter(Boolean).join(" + ") : (ente?.nome || (libero ? libero.nome : scelta.zona.nome)),
+      permessi_richiesti: aeroporto ? `Riserva spazio aereo – Modello ATM-09A (${scelta.zona.nome})` : `${libero && libero.id === "proprietario" ? "Permesso" : "Nulla osta"} sorvolo – ${libero ? `${libero.nome}, ${nomeZona}` : scelta.zona.nome}`,
       data_richiesta: oggiIso(),
       note: [`Volo: ${periodo}`, `Area: raggio ${f.raggio} m, max ${f.altezza} m AGL, ${coord}`, giorni ? `Preavviso richiesto: ${giorni} giorni` : null].filter(Boolean).join("\n"),
     });
     if (ok) setFatto("salvato");
   };
 
-  const pronto = f.nome && f.dataDa && (aeroporto ? f.direzione || tipoA.a.length : true);
+  const pronto = f.nome && f.dataDa && (aeroporto ? f.direzione || tipoA.a.length : libero ? enteNome.trim() : true);
 
   return (
     <div style={st.card}>
-      <Titolo n="3">{aeroporto ? "Modello ATM-09A, compilato da me" : "La richiesta di nulla osta"}</Titolo>
-      <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 12px 0" }}>Zona: <strong>{scelta.zona.nome}</strong>. Riempi quello che manca: i dati della persona li ricordo per la prossima volta.</p>
+      <Titolo n="3">{aeroporto ? "Modello ATM-09A, compilato da me" : libero ? `La richiesta per: ${libero.nome}` : "La richiesta di nulla osta"}</Titolo>
+      {libero ? (
+        <>
+          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 10px 0" }}>{libero.nota}</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginBottom: 10 }}>
+            <Campo label={`A chi scrivi (es. ${libero.esempio})`}><input value={enteNome} onChange={(e) => setEnteNome(e.target.value)} style={st.input} /></Campo>
+            <Campo label="Email o PEC dell'ente (dal suo sito)"><input value={enteEmail} onChange={(e) => setEnteEmail(e.target.value)} inputMode="email" style={st.input} /></Campo>
+          </div>
+        </>
+      ) : <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 12px 0" }}>Zona: <strong>{scelta.zona.nome}</strong>. Riempi quello che manca: i dati della persona li ricordo per la prossima volta.</p>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
         <Campo label="Nome e cognome (o azienda)"><input value={f.nome} onChange={cambia("nome")} style={st.input} /></Campo>
         <Campo label="Codice operatore D-Flight (ITA…)"><input value={f.operatore} onChange={cambia("operatore")} placeholder="ITAxxxxxxxxxxxx" style={st.input} /></Campo>
@@ -432,7 +466,7 @@ function ModuloRichiesta({ scelta, punto, categoria, droni, azienda, emailUtente
         <button type="button" disabled={!pronto} onClick={copia} style={{ ...st.secondario, opacity: pronto ? 1 : 0.5 }}>{fatto === "copiato" ? "✓ Copiato" : "📋 Copia il testo"}</button>
         <button type="button" disabled={!pronto} onClick={salva} style={{ ...st.secondario, opacity: pronto ? 1 : 0.5 }}>{fatto === "salvato" ? "✓ Salvato nei permessi" : "💾 Segna come inviata"}</button>
       </div>
-      {!pronto && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "6px 0 0 0" }}>Servono almeno nome, giorno del volo{aeroporto ? " e Direzione Aeroportuale" : ""}.</p>}
+      {!pronto && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "6px 0 0 0" }}>Servono almeno nome, giorno del volo{aeroporto ? " e Direzione Aeroportuale" : libero ? " e a chi scrivi" : ""}.</p>}
       <p style={{ fontSize: 11, color: "#6b7480", margin: "10px 0 0 0" }}>Controlla sempre i dati prima di mandarla e firmala. {aeroporto ? "Modello ATM-09A: Allegato C della Circolare ENAC ATM-09A." : "Se l'ente ha un suo modulo, copia questi dati lì."}</p>
     </div>
   );
