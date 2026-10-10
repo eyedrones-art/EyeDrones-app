@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { leggiZoneSalvate, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
+import { leggiZoneSalvate, controllaPunto, altezzaSenzaPermessi, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
 
 const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
 
@@ -66,6 +66,22 @@ const PEC_DAP = "segreteriasicurezza.dap@giustiziacert.it";
 const CC_ENAC_05 = ["protocollo@pec.enac.gov.it", "mobilita.innovativa@enac.gov.it"];
 export const pecPrefettura = (sigla) => (sigla ? `protocollo.pref${String(sigla).toLowerCase()}@pec.interno.it` : "");
 const eCarcere = (z) => /penitenz|carcer|circondarial|reclusion|detenzion|edifici particolari/i.test(`${z.nome || ""} ${z.messaggio || ""} ${z.altroMotivo || ""} ${z.motivo || ""}`);
+
+// senza file: il pilota guarda il punto su D-Flight e mi dice cosa vede (i colori delle zone degli aeroporti
+// dicono da che altezza parte la zona: rossa dal suolo, arancione 25 m, gialla 45 m, azzurra 60 m)
+const aero = (colore, da) => ({ id: `man-aero-${colore}`, nome: `Zona di un aeroporto, ${colore} su D-Flight (indicata da te)`, restrizione: "REQ_AUTHORISATION", motivo: "AIR_TRAFFIC", limiti: da ? { da, rifDa: "AGL" } : null });
+const ZONE_A_MANO = [
+  { etichetta: "✈️ Aeroporto, zona rossa", zona: aero("rossa", 0) },
+  { etichetta: "✈️ Aeroporto, arancione", zona: aero("arancione", 25) },
+  { etichetta: "✈️ Aeroporto, gialla", zona: aero("gialla", 45) },
+  { etichetta: "✈️ Aeroporto, azzurra", zona: aero("azzurra", 60) },
+  { etichetta: "🏛️ Parco o zona di un ente", zona: { id: "man-ente", nome: "Zona di un ente: parco, area protetta, sito sensibile (indicata da te)", restrizione: "REQ_AUTHORISATION" } },
+  { etichetta: "⛔ LI-P", zona: { id: "man-lip", sigla: "P", nome: "LI-P zona proibita (indicata da te)", restrizione: "PROHIBITED" } },
+  { etichetta: "⛔ LI-R", zona: { id: "man-lir", sigla: "R", nome: "LI-R zona regolamentata (indicata da te)", restrizione: "PROHIBITED" } },
+  { etichetta: "⛔ LI-D", zona: { id: "man-lid", sigla: "D", nome: "LI-D zona pericolosa (indicata da te)", restrizione: "PROHIBITED" } },
+  { etichetta: "🔒 Carcere", zona: { id: "man-carcere", sigla: "P", nome: "LI-P carcere: divieto di sorvolo di edifici particolari (indicato da te)", restrizione: "PROHIBITED" } },
+  { etichetta: "✅ Nessuna zona", zona: null },
+];
 const cercaSulWeb = (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`;
 
 // tipo di aeroporto → a chi si manda il Modello ATM-09A e con quanto anticipo (ATM-09A § 9.2, 9.3, 9.4)
@@ -87,7 +103,7 @@ const ENTI_LIBERI = [
 const ATTIVITA = ["Riprese video", "Fotografie", "Ispezione termografica", "Ispezione visiva", "Rilievo / aerofotogrammetria", "Riprese per evento", "Volo amatoriale"];
 
 // zone dello spazio aereo LI-P / LI-D (vietate) e LI-R (vietate quando attive): ATM-09A § 5.3
-const siglaSpazioAereo = (z) => { const m = /\bLI[\s-]?([PDR])\s?\d/i.exec(`${z.nome || ""} ${z.id || ""}`); return m ? m[1].toUpperCase() : null; };
+const siglaSpazioAereo = (z) => { if (z.sigla) return z.sigla; const m = /\bLI[\s-]?([PDR])\s?\d/i.exec(`${z.nome || ""} ${z.id || ""}`); return m ? m[1].toUpperCase() : null; };
 const eZonaAeroporto = (z) => /AIR_TRAFFIC/i.test(z.motivo || "") || /ATM ?-?0?9/i.test(z.altroMotivo || "") || /\b(ATZ|CTR|aeroport|eliport|aviosuperf|elisuperf|idrosuperf|airport|heliport)/i.test(z.nome || "");
 
 // 45.40123 → 45°24'04"N (WGS84, risoluzione 1 secondo, come chiede il Modello ATM-09A)
@@ -157,7 +173,20 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
     return () => { vivo = false; clearTimeout(t); };
   }, [punto && punto.lat, punto && punto.lon]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const esito = useMemo(() => (archivio && punto ? controllaPunto(archivio.zone, punto, { raggio: 300 }) : null), [archivio, punto]);
+  const [aMano, setAMano] = useState(undefined); // senza file: la zona che il pilota vede su D-Flight (null = nessuna)
+  useEffect(() => { setAMano(undefined); setAlternative(null); }, [punto && punto.lat, punto && punto.lon]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [alternative, setAlternative] = useState(null); // null = non cercate, "cerco", [] = nessuna
+  const esito = useMemo(() => (archivio && punto ? controllaPunto(archivio.zone, punto, { raggio: 300 }) : !archivio && punto && aMano !== undefined ? { dentro: aMano ? [aMano] : [], vicine: [] } : null), [archivio, punto, aMano]);
+  const altezzaQui = archivio && punto ? altezzaSenzaPermessi(archivio.zone, punto) : null;
+  const cercaAlternative = () => {
+    setAlternative("cerco");
+    setTimeout(async () => {
+      const posti = postiLiberiVicini(archivio.zone, punto);
+      setAlternative(posti);
+      const conNome = await Promise.all(posti.map(async (x) => ({ ...x, luogo: await doveSono(x.lat, x.lon) })));
+      setAlternative((a) => (Array.isArray(a) && a.length === posti.length ? conNome : a));
+    }, 30);
+  };
   const vicine = esito ? esito.vicine.filter((z) => z.distanza <= 150 && z.restrizione !== "NO_RESTRICTION") : [];
 
   const cerca = async () => {
@@ -230,8 +259,23 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
         )}
       </div>
 
+      {/* 2 senza file) il pilota mi dice cosa vede su D-Flight */}
+      {punto && archivio === null && (
+        <div style={st.card}>
+          <Titolo n="2">Che zona vedi su D-Flight?</Titolo>
+          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 10px 0" }}>Senza il file non so che zona c'è. Apri <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ color: "#7fb0ff", fontWeight: 700 }}>D-Flight ↗</a>, guarda questo punto sulla mappa e toccalo: dimmi cosa vedi e ti dico cosa chiedere.</p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {ZONE_A_MANO.map((x) => {
+              const attivo = aMano !== undefined && (x.zona ? aMano && aMano.id === x.zona.id : aMano === null);
+              return <button key={x.etichetta} type="button" onClick={() => { setAMano(x.zona); setScelta(null); }} aria-pressed={attivo} style={{ ...st.secondario, minHeight: 38, padding: "6px 12px", fontSize: 12.5, background: attivo ? "#2b3a52" : "#1f2530", borderColor: attivo ? "#3d8bfd" : "#333a45" }}>{x.etichetta}</button>;
+            })}
+          </div>
+          <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "8px 0 0 0" }}>Con il file faccio tutto da solo, trovo anche il contatto dell'ente e i posti liberi lì vicino.</p>
+        </div>
+      )}
+
       {/* 2) cosa dice la zona */}
-      {punto && archivio && esito && (
+      {punto && esito && (
         <div style={st.card}>
           <Titolo n="2">Cosa serve qui</Titolo>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
@@ -299,6 +343,26 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
               </div>
             );
           })}
+
+          {altezzaQui != null && altezzaQui < 120 && (
+            <div style={{ border: "1px solid #4ade8055", background: "#4ade800d", borderRadius: 10, padding: 12, marginTop: 12 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#4ade80" }}>🔄 Non vuoi chiedere il permesso?</div>
+              <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{altezzaQui > 0 ? `Qui senza permessi sali al massimo a ${altezzaQui} m. ` : ""}Ti cerco un posto qui vicino dove voli {categoria === "open" ? "in Open" : ""} senza chiedere niente a nessuno.</div>
+              {alternative === null && <button type="button" onClick={cercaAlternative} style={{ ...st.secondario, marginTop: 8, borderColor: "#4ade8066" }}>🔎 Cerca un posto vicino</button>}
+              {alternative === "cerco" && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 8 }}>Cerco nel raggio di 8 km…</div>}
+              {Array.isArray(alternative) && alternative.length === 0 && <div style={{ fontSize: 12.5, color: "#f5b942", marginTop: 8 }}>Nel raggio di 8 km non trovo posti senza zone: qui conviene chiedere il permesso.</div>}
+              {Array.isArray(alternative) && alternative.map((x) => (
+                <div key={x.altezza} style={{ background: "#12151a", border: "1px solid #2b313d", borderRadius: 8, padding: "8px 10px", marginTop: 8 }}>
+                  <div style={{ fontSize: 13, color: "#e7eaee" }}>📍 <strong>{x.distanza >= 1000 ? `${(x.distanza / 1000).toFixed(1).replace(".", ",")} km` : `${x.distanza} m`} a {x.direzione}</strong>{x.luogo && x.luogo.comune ? ` · ${x.luogo.comune}` : ""} · <span style={{ color: "#4ade80" }}>{x.altezza >= 120 ? "libero fino a 120 m" : `libero fino a ${x.altezza} m`}</span></div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                    <button type="button" onClick={() => { setScelta(null); setPunto({ lat: x.lat, lon: x.lon, etichetta: "Posto libero vicino" }); setTesto(`${x.lat.toFixed(5)}, ${x.lon.toFixed(5)}`); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ ...st.secondario, minHeight: 34, padding: "5px 10px", fontSize: 12 }}>Usa questo punto</button>
+                    <a href={`https://www.google.com/maps/search/?api=1&query=${x.lat.toFixed(5)},${x.lon.toFixed(5)}`} target="_blank" rel="noreferrer" style={{ ...st.secondario, minHeight: 34, padding: "5px 10px", fontSize: 12, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>Vedi su Maps ↗</a>
+                  </div>
+                </div>
+              ))}
+              {Array.isArray(alternative) && alternative.length > 0 && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 8 }}>Ho guardato solo le zone del file D-Flight. Sul posto controlla che sia sicuro (persone, strade, cavi), in A1/A3 stai lontano da case e persone, e se decolli da un terreno privato chiedi al proprietario.</div>}
+            </div>
+          )}
 
           {zoneDaMostrare.length > 0 && (
             <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "12px 0 0 0" }}>

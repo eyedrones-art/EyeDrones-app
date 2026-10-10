@@ -376,3 +376,42 @@ export function limiteVicino(vicine, entro = 150) {
 
 // D-Flight riempie i campi vuoti con "N.A." o "-": li tratto come vuoti
 export const valoreReale = (v) => (v && !/^\s*(n\.?\s*a\.?|n\/a|na|-+|null|none|nd|n\.?d\.?)\s*$/i.test(String(v)) ? v : "");
+
+// altezza a cui si vola senza chiedere permessi in un punto (Open, 120 m al massimo), guardando anche le zone
+// entro `margine` metri: l'area di volo non è un punto. 0 = qui serve un permesso anche a pochi metri da terra
+export function altezzaSenzaPermessi(zone, punto, margine = 100) {
+  const { dentro, vicine } = controllaPunto(zone, punto, { raggio: margine });
+  let h = 120;
+  for (const z of [...dentro, ...vicine]) {
+    if (z.restrizione === "NO_RESTRICTION") continue;
+    h = Math.min(h, partenzaZona(z));
+    const scritta = altezzaDaTesto(z);
+    if (scritta != null) h = Math.min(h, scritta);
+  }
+  return h;
+}
+
+const DIREZIONI = ["nord", "nord-est", "est", "sud-est", "sud", "sud-ovest", "ovest", "nord-ovest"];
+
+// posti vicini dove si vola senza permessi: giro attorno al punto a cerchi sempre più larghi e tengo
+// il primo libero fino a 120 m e, se è più vicino, il primo dove si sale almeno a `minimo` metri
+export function postiLiberiVicini(zone, { lat, lon }, { maxKm = 8, passo = 250, margine = 100, minimo = 30 } = {}) {
+  const kLat = 111320, kLon = 111320 * Math.cos((lat * Math.PI) / 180);
+  const largo = maxKm * 1000 + margine + 200;
+  const mLat = largo / kLat, mLon = largo / kLon;
+  const qui = (zone || []).filter((z) => !(z.bbox[2] < lon - mLon || z.bbox[0] > lon + mLon || z.bbox[3] < lat - mLat || z.bbox[1] > lat + mLat));
+  let tutto = null, basso = null;
+  for (let r = passo; r <= maxKm * 1000 && !tutto; r += passo) {
+    const n = Math.min(48, Math.max(8, Math.round((2 * Math.PI * r) / passo)));
+    let migliore = null;
+    for (let i = 0; i < n; i++) {
+      const a = (2 * Math.PI * i) / n;
+      const q = { lat: lat + (Math.cos(a) * r) / kLat, lon: lon + (Math.sin(a) * r) / kLon };
+      const h = altezzaSenzaPermessi(qui, q, margine);
+      if (h >= 120) { tutto = { ...q, distanza: r, altezza: 120, direzione: DIREZIONI[Math.round((a * 8) / (2 * Math.PI)) % 8] }; break; }
+      if (!basso && h >= minimo && (!migliore || h > migliore.altezza)) migliore = { ...q, distanza: r, altezza: h, direzione: DIREZIONI[Math.round((a * 8) / (2 * Math.PI)) % 8] };
+    }
+    if (!basso && !tutto && migliore) basso = migliore;
+  }
+  return [basso, tutto].filter(Boolean);
+}
