@@ -357,6 +357,19 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     : aeroporto
     ? ["Modello ATM-09A compilato e firmato", "Documentazione dell'operatore UAS: autorizzazione ENAC o dichiarazione dello scenario standard (STS)", "Attestato del pilota remoto", "Polizza assicurativa RC", ...(tipoA.diritti ? ["Ricevuta del pagamento dei diritti ENAC (servizionline.enac.gov.it)"] : [])]
     : ["Documento d'identità del richiedente e del pilota", "Attestato del pilota remoto (A1/A3, A2 o STS)", "Registrazione operatore D-Flight (codice operatore)", "Polizza assicurativa RC del drone", "Scheda del drone (modello, classe, peso)", "Mappa dell'area di volo con il punto di decollo"];
+  // quanto costa: cifre sicure dove ci sono (bollo), altrimenti indicazioni oneste
+  const costi = atm05
+    ? [["Marca da bollo", "16 €", "il modulo va «in bollo»: la compri dal tabaccaio, la incolli sul modulo e scrivi il numero"], ...(scelta.carcere ? [] : [["Nulla osta", "di solito gratis", "se l'amministrazione chiede altro te lo dice nella risposta"]])]
+    : aeroporto
+    ? (tipoA.diritti
+      ? [["Diritti ENAC", "da pagare", "l'importo dipende dalla tariffa ENAC in vigore: lo vedi su servizionline prima di pagare"], ["ENAV / gestore", "di solito gratis", "la riserva di spazio aereo in sé non si paga"]]
+      : [["Comando Operazioni Aeree", "di solito gratis", "per gli aeroporti militari non ci sono diritti ENAC da pagare"]])
+    : libero?.id === "prefettura" ? [["Prefettura", "di solito gratis", "alcune Prefetture chiedono una marca da bollo da 16 €: è scritto sul loro modulo"]]
+    : libero?.id === "comune" ? [["Comune", "di solito gratis", "se decolli da suolo pubblico per lavoro può servire il permesso di occupazione (costo secondo il Comune)"]]
+    : libero?.id === "parco" ? [["Ente parco", "dipende", "spesso gratis per uso amatoriale, a pagamento per riprese commerciali: da poche decine a centinaia di €. Guarda il regolamento del parco"]]
+    : libero?.id === "proprietario" ? [["Proprietario", "gratis", "salvo accordi diversi con lui"]]
+    : [["Ente", "dipende", "di solito gratis: nella richiesta chiedo io se ci sono costi"]];
+  const chiediCosti = !atm05 && !aeroporto;
   const testoEmail = [
     "Buongiorno,",
     "",
@@ -379,6 +392,7 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     "Allego:",
     ...allegati.map((a) => `- ${a}`),
     "",
+    ...(chiediCosti ? ["Vi chiedo cortesemente di indicarmi eventuali costi, diritti o marche da bollo necessari.", ""] : []),
     "Resto a disposizione per qualsiasi chiarimento.",
     "Cordiali saluti,",
     f.nome,
@@ -569,6 +583,17 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
       ) : !aeroporto && (
         <div style={{ marginTop: 12, fontSize: 12.5, color: "#c3cad4" }}>⏰ Il file non dice il preavviso: chiedi almeno <strong>15 giorni prima</strong> per stare tranquillo.</div>
       )}
+
+      <div style={{ marginTop: 12 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 4 }}>💶 Quanto costa</div>
+        {costi.map(([chi, quanto, nota]) => (
+          <div key={chi} style={{ display: "flex", gap: 8, fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5, marginBottom: 2 }}>
+            <span style={{ flexShrink: 0, minWidth: 92, fontWeight: 700, color: /gratis/.test(quanto) ? "#4ade80" : "#ffb877" }}>{quanto}</span>
+            <span><strong>{chi}</strong>: {nota}.</span>
+          </div>
+        ))}
+        {libero?.id !== "proprietario" && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "4px 0 0 0" }}>Serve anche una casella <strong>PEC</strong> per mandarla: se non ce l'hai costa pochi euro l'anno.</p>}
+      </div>
 
       <div style={{ marginTop: 12 }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 4 }}>📎 Da allegare</div>

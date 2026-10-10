@@ -2371,7 +2371,7 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
 const VERSIONE_NOVITA = "2026-10k";
 const NOVITA = [
-  { emoji: "🧭", testo: "Assistente permessi: dici dove voli e ti dice se puoi chiedere, a chi e quanti giorni prima. Compila da solo il Modello ATM-09A di ENAC e la richiesta di nulla osta", pagina: "permessi" },
+  { emoji: "🧭", testo: "Assistente permessi: dici dove voli e ti dice se puoi chiedere, a chi, quanti giorni prima e quanto costa. Compila da solo il Modello ATM-09A di ENAC e la richiesta di nulla osta", pagina: "permessi" },
   { emoji: "▶️", testo: "Modalità riprese: sul posto una scena alla volta, a tutto schermo, con la foto grande e il promemoria della scheda SD", pagina: "dashboard" },
   { emoji: "✏️", testo: "Disegna sulla foto della scena (fino a 3 foto per scena): percorso del drone, punti di ripresa, pericoli e soggetto. Li vedi anche in Home e nel PDF", pagina: "pianificazione" },
   { emoji: "📋", testo: "Sopralluogo: foto con GPS su ogni scena, punti di decollo e ostacoli sulla mappa, orari della giornata e il PDF da mandare", pagina: "pianificazione" },
@@ -3559,6 +3559,12 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           <span style={{ fontSize: 16 }}>💾</span>
           <span>Prima di ogni volo: <strong>scheda SD nel drone, ed è vuota</strong> · batterie cariche · eliche integre</span>
         </div>
+        {/* l'assistente permessi: per chi ha paura delle zone rosse */}
+        <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } onNav("permessi"); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "#141c28", border: "1px solid #3d8bfd44", borderRadius: 8, padding: "8px 12px", margin: "-12px 0 22px", fontSize: 12.5, color: "#cfe2ff" }}>
+          <span style={{ fontSize: 16 }}>🧭</span>
+          <span style={{ flex: 1 }}>Zona rossa o devi chiedere un permesso? <strong>Ti guido io</strong>, il modulo si compila da solo</span>
+          <span style={{ color: "#7fb0ff" }}>→</span>
+        </button>
 
         {bloccoScadenze}
 
