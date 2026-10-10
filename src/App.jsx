@@ -9,7 +9,7 @@ import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
-import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
+import { leggiZoneSalvate, salvaZone, motivoZona, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
@@ -6759,11 +6759,6 @@ const CHECKLIST_FPV = [
 
 // --- Controllo zona di volo (file zone UAS di D-Flight) -------------------------------------------
 
-const MOTIVI_ZONA = {
-  AIR_TRAFFIC: "traffico aereo (aeroporto o spazio aereo controllato)", SENSITIVE: "sito sensibile", PRIVACY: "privacy",
-  POPULATION: "area popolata", NATURE: "area naturale protetta", NOISE: "rumore", FOREIGN_TERRITORY: "territorio straniero",
-  EMERGENCY: "emergenza", OTHER: "altro motivo",
-};
 // "P5D" → "5 giorni", "PT48H" → "48 ore" (durate ISO usate da D-Flight per il preavviso)
 const durataLeggibile = (d) => {
   const m = String(d || "").match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?$/i);
@@ -6771,10 +6766,6 @@ const durataLeggibile = (d) => {
   return [m[1] && `${m[1]} ${m[1] === "1" ? "giorno" : "giorni"}`, m[2] && `${m[2]} ${m[2] === "1" ? "ora" : "ore"}`, m[3] && `${m[3]} min`].filter(Boolean).join(" e ");
 };
 const SERVIZI_ENTE = { AUTHORIZATION: "autorizzazioni", INFORMATION: "informazioni" };
-// sigle che D-Flight usa nel campo "altro motivo"
-const SIGLE_ZONA = { ATM09: "zona aeroportuale con limiti di altezza (ENAC ATM-09)", NFZ: "no-fly zone" };
-const traduciSigla = (x) => SIGLE_ZONA[String(x || "").trim().toUpperCase()] || x;
-const traduciMotivi = (m) => String(m || "").split(/\s*,\s*/).filter(Boolean).map((x) => MOTIVI_ZONA[x.toUpperCase()] || x.toLowerCase()).join(", ");
 
 // cerca un indirizzo in Italia (via, numero, comune) con OpenStreetMap; se col numero civico non lo trova, riprova
 // senza numero (punto a metà della via). Restituisce { lat, lon, etichetta } oppure null
@@ -7009,7 +7000,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     const limiti = formattaLimiti(z.limiti);
     const autorita = (z.autorita || []).map((a) => ({ ...a, nome: valoreReale(a.nome), servizio: valoreReale(a.servizio), email: valoreReale(a.email), telefono: valoreReale(a.telefono), sito: valoreReale(a.sito), preavviso: valoreReale(a.preavviso) }))
       .filter((a) => a.nome || a.email || a.telefono || a.sito);
-    const motivo = [z.altroMotivo ? traduciMotivi(z.motivo).replace(/,?\s*altro motivo/, "") : traduciMotivi(z.motivo), traduciSigla(valoreReale(z.altroMotivo))].filter(Boolean).join(" · ");
+    const motivo = motivoZona(z);
     return (
       <div key={(z.id || z.nome) + (vicina ? "-v" : "")} style={{ borderLeft: `3px solid ${d.colore}`, background: d.colore + "12", borderRadius: 4, padding: "8px 10px", marginTop: 6 }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: d.colore }}>{d.etichetta}{vicina ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m</span> : null}{z.temporanea ? <span style={{ color: "#f5b942", fontWeight: 400 }}> · temporanea</span> : null}</div>

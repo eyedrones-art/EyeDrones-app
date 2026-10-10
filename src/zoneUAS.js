@@ -415,3 +415,15 @@ export function postiLiberiVicini(zone, { lat, lon }, { maxKm = 8, passo = 250, 
   }
   return [basso, tutto].filter(Boolean);
 }
+
+// perché c'è la zona, in parole semplici (motivo ED-269 + «altro motivo» di D-Flight)
+const MOTIVI_ZONA = {
+  AIR_TRAFFIC: "traffico aereo (aeroporto o spazio aereo controllato)", SENSITIVE: "sito sensibile", PRIVACY: "privacy",
+  POPULATION: "area popolata", NATURE: "area naturale protetta", NOISE: "rumore", FOREIGN_TERRITORY: "territorio straniero",
+  EMERGENCY: "emergenza", OTHER: "altro motivo",
+};
+// sigle che D-Flight usa nel campo "altro motivo"
+const SIGLE_ZONA = { ATM09: "zona aeroportuale con limiti di altezza (ENAC ATM-09)", NFZ: "no-fly zone" };
+const traduciSigla = (x) => SIGLE_ZONA[String(x || "").trim().toUpperCase()] || x;
+export const traduciMotivi = (m) => String(m || "").split(/\s*,\s*/).filter(Boolean).map((x) => MOTIVI_ZONA[x.toUpperCase()] || x.toLowerCase()).join(", ");
+export const motivoZona = (z) => [z.altroMotivo ? traduciMotivi(z.motivo).replace(/,?\s*altro motivo/, "") : traduciMotivi(z.motivo), traduciSigla(valoreReale(z.altroMotivo))].filter(Boolean).join(" · ");

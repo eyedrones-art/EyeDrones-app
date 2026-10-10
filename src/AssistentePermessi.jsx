@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { leggiZoneSalvate, controllaPunto, altezzaSenzaPermessi, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
+import { leggiZoneSalvate, motivoZona, controllaPunto, altezzaSenzaPermessi, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
 
 const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
 
@@ -116,6 +116,7 @@ export const coordinateDms = (lat, lon) => `${sessagesimale(lat, "N", "S", 2)} $
 const piedi = (m) => Math.round(Number(m) * 3.28084);
 const dataIt = (iso) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }) : "");
 const meno = (iso, giorni) => { if (!iso) return null; const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() - giorni); return d.toISOString().slice(0, 10); };
+const dataOra = (t) => { const d = new Date(t); return isNaN(d) ? String(t) : d.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" }); };
 const oggiIso = () => new Date().toISOString().slice(0, 10);
 // "P15D" → "15 giorni", "PT48H" → "48 ore" (durate ISO del file D-Flight)
 const durata = (d) => { const m = String(d || "").match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?)?$/i); return m && (m[1] || m[2]) ? [m[1] && `${m[1]} giorni`, m[2] && `${m[2]} ore`].filter(Boolean).join(" e ") : d; };
@@ -302,6 +303,9 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
               <div key={(z.id || z.nome) + (z.distanza || "")} style={{ border: `1px solid ${d.colore}55`, background: d.colore + "0f", borderRadius: 10, padding: 12, marginTop: 10 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: d.colore }}>{sigla ? `⛔ Zona LI-${sigla} dello spazio aereo` : aeroporto ? "✈️ Zona di un aeroporto" : "🏛️ Zona di un ente"}{z.distanza ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m dal punto</span> : null}</div>
                 <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
+                {motivoZona(z) && !String(z.id).startsWith("man-") && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>❓ Perché c'è: <strong>{motivoZona(z)}</strong></div>}
+                {valoreReale(z.messaggio) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>📝 Dice D-Flight: «{String(valoreReale(z.messaggio)).slice(0, 280)}»</div>}
+                {z.validita && <div style={{ fontSize: 12, color: "#f5b942", marginTop: 2 }}>📅 Zona temporanea: {z.validita.map((v) => [v.da && `dal ${dataOra(v.da)}`, v.a && `al ${dataOra(v.a)}`].filter(Boolean).join(" ")).join("; ")}. Fuori da queste date la zona non vale.</div>}
                 {formattaLimiti(z.limiti) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {formattaLimiti(z.limiti)}</div>}
 
                 {sigla && (
@@ -362,6 +366,12 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
               ))}
               {Array.isArray(alternative) && alternative.length > 0 && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 8 }}>✓ Zone già controllate da me, anche 100 m tutto intorno: non devi riguardarle su D-Flight. Come per ogni volo, il giorno prima guarda solo i NOTAM (eventi, elisoccorso). Sul posto controlla che sia sicuro (persone, strade, cavi), in A1/A3 stai lontano da case e persone, e se decolli da un terreno privato chiedi al proprietario.</div>}
             </div>
+          )}
+
+          {zoneDaMostrare.length > 0 && (
+            <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "12px 0 0 0" }}>
+              📢 I <strong>NOTAM</strong> (divieti temporanei per eventi, elisoccorso, esercitazioni) non sono nel file: guardali su <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ color: "#7fb0ff" }}>D-Flight ↗</a> il giorno prima del volo.
+            </p>
           )}
 
           {zoneDaMostrare.length > 0 && (
