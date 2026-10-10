@@ -20,7 +20,7 @@ export async function leggiZoneSalvate() {
     const db = await apriDb();
     return await new Promise((ok) => {
       const req = db.transaction(DB_STORE).objectStore(DB_STORE).get(CHIAVE);
-      req.onsuccess = () => ok(req.result || null);
+      req.onsuccess = () => ok(sistemaArchivio(req.result || null));
       req.onerror = () => ok(null);
     });
   } catch (e) {
@@ -72,7 +72,8 @@ const testo = (v) => (Array.isArray(v) ? v.filter(Boolean).join(", ") : v == nul
 // i messaggi di D-Flight possono avere pezzi di HTML (grassetti, link) e apostrofi doppi («dell''area»): li pulisco
 const ENTITA = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", agrave: "à", egrave: "è", eacute: "é", igrave: "ì", ograve: "ò", ugrave: "ù" };
 const testoPulito = (v) => testo(v)
-  .replace(/<\s*br\s*\/?>|<\/\s*p\s*>/gi, "\n")
+  .replace(/<\s*br\s*\/?>|<\/\s*p\s*>|<\/?\s*ul\s*>/gi, "\n")
+  .replace(/<\s*li[^>]*>/gi, "\n• ")
   .replace(/<a\s[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi, (_, h, t) => (t.trim() && !t.includes(h) ? `${t.trim()} (${h})` : h))
   .replace(/<[^>]+>/g, "")
   .replace(/&(#\d+|[a-z]+);/gi, (m, e) => (e[0] === "#" ? String.fromCharCode(Number(e.slice(1))) : ENTITA[e.toLowerCase()] ?? m))
@@ -183,7 +184,7 @@ export function leggiFileZone(json) {
     const z = zonaDa(f, geometrie);
     if (z) zone.push(z);
   });
-  return zone;
+  return zone.map(sistemaZona);
 }
 
 // --- controllo di un punto ------------------------------------------------------------------------
@@ -425,14 +426,55 @@ export function postiLiberiVicini(zone, { lat, lon }, { maxKm = 8, passo = 250, 
   return [basso, tutto].filter(Boolean);
 }
 
-// perché c'è la zona, in parole semplici (motivo ED-269 + «altro motivo» di D-Flight)
+// --- il file vero di D-Flight ---------------------------------------------------------------------
+// i nomi hanno davanti un codice: «LIMA_TORINO/AERITALIA», «avio_1737_OSPEDALE C.T.O.», «LIR34_LI R34 - …»,
+// «LIPROT274_RISERVA …». I NOTAM sono zone con nome «NOTAM W3966/26» e le date in cui valgono
+const PREFISSO = /^(avio_\d+|[A-Z]{2,}[A-Z0-9]*-?)\s?_(?=\S)/;
+function tipoDa(nome, codice, motivo) {
+  if (/^NOTAM\b/i.test(nome)) return "notam";
+  if (/^avio_/i.test(codice) || /\b(eliport|aviosuperf|elisuperf|idrosuperf|heliport)/i.test(nome)) return "avio";
+  if (/^LI[PRD]\d/i.test(codice) || /\bLI[\s-]?[PDR]\s?\d/i.test(nome)) return "spazio";
+  if (/^LI[A-Z]{2}-?$/.test(codice) || /AIR_TRAFFIC/i.test(motivo || "") || /\b(ATZ|CTR|aeroport|airport)/i.test(nome)) return "aeroporto";
+  return "ente";
+}
+// contatti scritti nel messaggio (i parchi li mettono lì: «Ente Gest: … Contatto: …, tel: …, pec»)
+function entiDalMessaggio(t) {
+  if (!t) return [];
+  const nome = (/Ente Gest[a-z]*\s*:\s*([^\n]+)/i.exec(t) || [])[1];
+  const email = (/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/.exec(t) || [])[0];
+  const telefono = (/\btel\.?\s*:?\s*([+\d][\d\s/.-]{5,}\d)/i.exec(t) || [])[1];
+  return nome || email ? [{ nome: (nome || "").trim(), email: email || "", telefono: (telefono || "").trim(), servizio: "", sito: "", scopo: "", preavviso: "" }] : [];
+}
+const vero = (v) => valoreReale(v);
+export function sistemaZona(z) {
+  if (!z || z.tipoUAS) return z;
+  const nomeFile = String(z.nome || "");
+  const m = PREFISSO.exec(nomeFile);
+  const codice = m ? m[1].replace(/-$/, "") : "";
+  const nome = (m ? nomeFile.slice(m[0].length) : nomeFile).trim() || nomeFile;
+  const messaggio = testoPulito(z.messaggio);
+  const autorita = (z.autorita || []).filter((a) => vero(a.nome) || vero(a.email) || vero(a.telefono));
+  return { ...z, nome, codice, tipoUAS: tipoDa(nomeFile, codice, z.motivo), messaggio, autorita: autorita.length ? z.autorita : entiDalMessaggio(messaggio) };
+}
+export const sistemaArchivio = (d) => (d && Array.isArray(d.zone) && d.zone.some((z) => !z.tipoUAS) ? { ...d, zone: d.zone.map(sistemaZona) } : d);
+
+// la zona è già finita (un NOTAM scaduto)? Le zone senza date o permanenti non finiscono mai
+export const zonaFinita = (z, ora = Date.now()) => !!(z && z.validita && z.validita.length && z.validita.every((v) => v.a && new Date(v.a).getTime() < ora));
+
+// perché c'è la zona, in parole semplici. D-Flight mette «emergenza, altro» quasi ovunque: li salto
 const MOTIVI_ZONA = {
-  AIR_TRAFFIC: "traffico aereo (aeroporto o spazio aereo controllato)", SENSITIVE: "sito sensibile", PRIVACY: "privacy",
+  AIR_TRAFFIC: "traffico aereo", SENSITIVE: "sito sensibile", PRIVACY: "privacy",
   POPULATION: "area popolata", NATURE: "area naturale protetta", NOISE: "rumore", FOREIGN_TERRITORY: "territorio straniero",
-  EMERGENCY: "emergenza", OTHER: "altro motivo",
 };
-// sigle che D-Flight usa nel campo "altro motivo"
-const SIGLE_ZONA = { ATM09: "zona aeroportuale con limiti di altezza (ENAC ATM-09)", NFZ: "no-fly zone" };
-const traduciSigla = (x) => SIGLE_ZONA[String(x || "").trim().toUpperCase()] || x;
-export const traduciMotivi = (m) => String(m || "").split(/\s*,\s*/).filter(Boolean).map((x) => MOTIVI_ZONA[x.toUpperCase()] || x.toLowerCase()).join(", ");
-export const motivoZona = (z) => [z.altroMotivo ? traduciMotivi(z.motivo).replace(/,?\s*altro motivo/, "") : traduciMotivi(z.motivo), traduciSigla(valoreReale(z.altroMotivo))].filter(Boolean).join(" · ");
+const TIPI_ZONA = {
+  notam: "divieto temporaneo pubblicato con un NOTAM",
+  avio: "elisuperficie o aviosuperficie: qui decollano e atterrano elicotteri o piccoli aerei (anche l'elisoccorso)",
+  aeroporto: "aeroporto: traffico aereo",
+};
+export const traduciMotivi = (m) => String(m || "").split(/\s*,\s*/).map((x) => MOTIVI_ZONA[x.toUpperCase()]).filter(Boolean).join(", ");
+export const motivoZona = (z) => {
+  const t = (z && z.tipoUAS) || sistemaZona(z || {}).tipoUAS;
+  if (t === "notam" || t === "avio") return TIPI_ZONA[t];
+  const altri = String(z.motivo || "").split(/\s*,\s*/).filter((x) => !(t === "aeroporto" && /AIR_TRAFFIC/i.test(x))).join(",");
+  return [TIPI_ZONA[t], traduciMotivi(altri)].filter(Boolean).join(" · ");
+};

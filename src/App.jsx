@@ -9,7 +9,7 @@ import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
-import { leggiZoneSalvate, salvaZone, motivoZona, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
+import { leggiZoneSalvate, salvaZone, motivoZona, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
@@ -6846,8 +6846,9 @@ async function riprendiCopiaZone() {
     const dati = JSON.parse(await data.text());
     if (!dati || !Array.isArray(dati.zone) || dati.zone.length === 0) return null;
     if (!dati.caricato) dati.caricato = new Date().toISOString();
-    await salvaZone(dati);
-    return dati;
+    const sistemati = sistemaArchivio(dati);
+    await salvaZone(sistemati);
+    return sistemati;
   } catch { return null; }
 }
 

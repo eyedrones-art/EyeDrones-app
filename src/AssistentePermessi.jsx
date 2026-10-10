@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { leggiZoneSalvate, motivoZona, controllaPunto, altezzaSenzaPermessi, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
+import { leggiZoneSalvate, motivoZona, sistemaZona, zonaFinita, controllaPunto, altezzaSenzaPermessi, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
 
 const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
 
@@ -105,7 +105,11 @@ const ATTIVITA = ["Riprese video", "Fotografie", "Ispezione termografica", "Ispe
 
 // zone dello spazio aereo LI-P / LI-D (vietate) e LI-R (vietate quando attive): ATM-09A § 5.3
 const siglaSpazioAereo = (z) => { if (z.sigla) return z.sigla; const m = /\bLI[\s-]?([PDR])\s?\d/i.exec(`${z.nome || ""} ${z.id || ""}`); return m ? m[1].toUpperCase() : null; };
-const eZonaAeroporto = (z) => /AIR_TRAFFIC/i.test(z.motivo || "") || /ATM ?-?0?9/i.test(z.altroMotivo || "") || /\b(ATZ|CTR|aeroport|eliport|aviosuperf|elisuperf|idrosuperf|airport|heliport)/i.test(z.nome || "");
+// tipo di zona (aeroporto, avio = elisuperficie/aviosuperficie, spazio = LI-P/R/D, notam, ente): lo calcola zoneUAS
+const tipoDi = (z) => z.tipoUAS || sistemaZona(z).tipoUAS;
+const eZonaAeroporto = (z) => ["aeroporto", "avio"].includes(tipoDi(z));
+// per il Modello ATM-09A: elisuperfici senza servizi, aeroporti militari (D-Flight li segna anche «sito sensibile»), civili
+const tipoAeroportoPer = (z) => (tipoDi(z) === "avio" ? "senza" : /SENSITIVE/i.test(z.motivo || "") && /AIR_TRAFFIC/i.test(z.motivo || "") ? "militare" : "civile");
 
 // 45.40123 → 45°24'04"N (WGS84, risoluzione 1 secondo, come chiede il Modello ATM-09A)
 function sessagesimale(v, pos, neg, cifre) {
@@ -178,12 +182,14 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
   const [aMano, setAMano] = useState(undefined); // senza file: la zona che il pilota vede su D-Flight (null = nessuna)
   useEffect(() => { setAMano(undefined); setAlternative(null); }, [punto && punto.lat, punto && punto.lon]); // eslint-disable-line react-hooks/exhaustive-deps
   const [alternative, setAlternative] = useState(null); // null = non cercate, "cerco", [] = nessuna
-  const esito = useMemo(() => (archivio && punto ? controllaPunto(archivio.zone, punto, { raggio: 300 }) : !archivio && punto && aMano !== undefined ? { dentro: aMano ? [aMano] : [], vicine: [] } : null), [archivio, punto, aMano]);
-  const altezzaQui = archivio && punto ? altezzaSenzaPermessi(archivio.zone, punto) : null;
+  // i NOTAM già finiti non contano più
+  const zoneValide = useMemo(() => (archivio ? archivio.zone.filter((z) => !zonaFinita(z)) : null), [archivio]);
+  const esito = useMemo(() => (archivio && punto ? controllaPunto(zoneValide, punto, { raggio: 300 }) : !archivio && punto && aMano !== undefined ? { dentro: aMano ? [aMano] : [], vicine: [] } : null), [archivio, zoneValide, punto, aMano]);
+  const altezzaQui = archivio && punto ? altezzaSenzaPermessi(zoneValide, punto) : null;
   const cercaAlternative = () => {
     setAlternative("cerco");
     setTimeout(async () => {
-      const posti = postiLiberiVicini(archivio.zone, punto);
+      const posti = postiLiberiVicini(zoneValide, punto);
       setAlternative(posti);
       const conNome = await Promise.all(posti.map(async (x) => ({ ...x, luogo: await doveSono(x.lat, x.lon) })));
       setAlternative((a) => (Array.isArray(a) && a.length === posti.length ? conNome : a));
@@ -296,17 +302,19 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
 
           {zoneDaMostrare.map((z) => {
             const sigla = siglaSpazioAereo(z);
-            const aeroporto = !sigla && eZonaAeroporto(z);
+            const notam = !sigla && tipoDi(z) === "notam";
+            const avio = !sigla && tipoDi(z) === "avio";
+            const aeroporto = !sigla && !notam && eZonaAeroporto(z);
             const d = descriviRestrizione(z.restrizione);
             const parte = partenzaZona(z);
             const enti = (z.autorita || []).map((a) => ({ nome: valoreReale(a.nome), email: valoreReale(a.email), telefono: valoreReale(a.telefono), sito: valoreReale(a.sito), preavviso: valoreReale(a.preavviso) })).filter((a) => a.nome || a.email || a.telefono);
             return (
               <div key={(z.id || z.nome) + (z.distanza || "")} style={{ border: `1px solid ${d.colore}55`, background: d.colore + "0f", borderRadius: 10, padding: 12, marginTop: 10 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: d.colore }}>{sigla ? `⛔ Zona LI-${sigla} dello spazio aereo` : aeroporto ? "✈️ Zona di un aeroporto" : "🏛️ Zona di un ente"}{z.distanza ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m dal punto</span> : null}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: d.colore }}>{sigla ? `⛔ Zona LI-${sigla} dello spazio aereo` : notam ? "📢 NOTAM: divieto temporaneo" : avio ? "🚁 Elisuperficie o aviosuperficie" : aeroporto ? "✈️ Zona di un aeroporto" : "🏛️ Zona di un ente"}{z.distanza ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m dal punto</span> : null}</div>
                 <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
-                {motivoZona(z) && !String(z.id).startsWith("man-") && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>❓ Perché c'è: <strong>{motivoZona(z)}</strong></div>}
+                {motivoZona(z) && !notam && !String(z.id).startsWith("man-") && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>❓ Perché c'è: <strong>{motivoZona(z)}</strong></div>}
                 {valoreReale(z.messaggio) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2, whiteSpace: "pre-line" }}>📝 Dice D-Flight: «{String(valoreReale(z.messaggio)).slice(0, 600)}{String(z.messaggio).length > 600 ? "…" : ""}»</div>}
-                {z.validita && <div style={{ fontSize: 12, color: "#f5b942", marginTop: 2 }}>📅 Zona temporanea: {z.validita.map((v) => [v.da && `dal ${dataOra(v.da)}`, v.a && `al ${dataOra(v.a)}`].filter(Boolean).join(" ")).join("; ")}. Fuori da queste date la zona non vale.</div>}
+                {z.validita && !notam && <div style={{ fontSize: 12, color: "#f5b942", marginTop: 2 }}>📅 Zona temporanea: {z.validita.map((v) => [v.da && `dal ${dataOra(v.da)}`, v.a && `al ${dataOra(v.a)}`].filter(Boolean).join(" ")).join("; ")}. Fuori da queste date la zona non vale.</div>}
                 {formattaLimiti(z.limiti) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {formattaLimiti(z.limiti)}</div>}
 
                 {sigla && (
@@ -332,10 +340,16 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
                 {aeroporto && categoria === "specific" && (
                   <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 8, lineHeight: 1.5 }}>
                     📄 Si chiede la <strong>riserva di spazio aereo</strong> con il <strong>Modello ATM-09A</strong> ufficiale di ENAC: te lo compilo io.
-                    <div style={{ marginTop: 8 }}><button type="button" onClick={() => setScelta({ zona: z, tipo: "aeroporto" })} style={st.primario}>Prepara il Modello ATM-09A ›</button></div>
+                    <div style={{ marginTop: 8 }}><button type="button" onClick={() => setScelta({ zona: z, tipo: "aeroporto", tipoAeroporto: tipoAeroportoPer(z) })} style={st.primario}>Prepara il Modello ATM-09A ›</button></div>
                   </div>
                 )}
-                {!aeroporto && !sigla && (
+                {notam && (
+                  <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 8, lineHeight: 1.5 }}>
+                    {(() => { const v = (z.validita || [])[0] || {}; const ora = Date.now(); const inCorso = (!v.da || new Date(v.da).getTime() <= ora) && (!v.a || new Date(v.a).getTime() >= ora); return inCorso ? <>⛔ <strong>In vigore adesso</strong>{v.a ? <> fino al <strong>{dataOra(v.a)}</strong></> : ""}: in questi giorni qui non si vola, né in Open né in Specific.</> : <>⏳ <strong>Inizia il {dataOra(v.da)}</strong>{v.a ? <> e finisce il <strong>{dataOra(v.a)}</strong></> : ""}: se voli in quei giorni qui non si può. Prima e dopo la zona non c'è.</>; })()}
+                    <div style={{ color: "#8b95a3", marginTop: 6 }}>Un NOTAM di solito non si può «chiedere»: è uno spazio riservato a un'attività (esercitazioni, eventi, altri droni). Scegli altre date o un posto fuori dalla zona.</div>
+                  </div>
+                )}
+                {!aeroporto && !sigla && !notam && (
                   <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 8, lineHeight: 1.5 }}>
                     {parte > 0 && <div>✅ Fino a <strong>{parte} m</strong> la zona non vale: lì voli con le regole normali.</div>}
                     ✉️ Si può chiedere il <strong>nulla osta</strong> all'ente che ha chiesto la zona{categoria === "open" ? ", anche in categoria Open" : ""}.
@@ -424,7 +438,7 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     localita: punto.etichetta && !/^Coordinate|Punto sulla mappa|La mia posizione$/.test(punto.etichetta) ? punto.etichetta.split(",").slice(0, 3).join(",") : luogo && luogo.comune ? `${luogo.comune}${luogo.sigla ? ` (${luogo.sigla})` : ""}` : "",
     dataDa: "", dataA: "", oraDa: "09:00", oraA: "12:00",
     altezza: aeroporto ? 60 : 50, raggio: 200,
-    tipoAeroporto: "civile", direzione: direzionePer(luogo), aeroportoNome: (scelta.zona.nome || "").replace(/^(ATZ|CTR)\s*/i, "").replace(/\s*[-–]\s*(area|zona)\b.*$/i, ""), distanzaKm: "",
+    tipoAeroporto: scelta.tipoAeroporto || "civile", direzione: direzionePer(luogo), aeroportoNome: (scelta.zona.nome || "").replace(/^(ATZ|CTR)\s*/i, "").replace(/\s+(CTR|ATZ)$/i, "").replace(/\s+\d{2}[LRCG]*(\/\d{2}[LRCG]*)+.*$/i, "").replace(/\s*[-–]\s*(area|zona)\b.*$/i, ""), distanzaKm: "",
     sicurezza: "Volo in VLOS con osservatore. Area di decollo e atterraggio delimitata e senza pubblico. Drone con geofence e ritorno automatico attivi.",
   }));
   const [fatto, setFatto] = useState(null);
@@ -432,7 +446,7 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
   const nomeProposto = atm05
     ? (scelta.carcere ? "Ministero della Giustizia – Dipartimento dell'Amministrazione Penitenziaria – Segreteria di Sicurezza" : scelta.ente?.nome || (scelta.citta && luogo && luogo.provincia ? `Prefettura di ${luogo.provincia}` : ""))
     : !libero || !luogo ? "" : libero.id === "prefettura" && luogo.provincia ? `Prefettura di ${luogo.provincia}` : libero.id === "comune" && luogo.comune ? `Comune di ${luogo.comune}` : "";
-  const emailProposta = atm05 ? (scelta.carcere ? PEC_DAP : scelta.ente?.email || (scelta.citta && luogo ? pecPrefettura(luogo.sigla) : "")) : libero && libero.id === "prefettura" && luogo ? pecPrefettura(luogo.sigla) : "";
+  const emailProposta = atm05 ? (scelta.carcere ? scelta.ente?.email || PEC_DAP : scelta.ente?.email || (scelta.citta && luogo ? pecPrefettura(luogo.sigla) : "")) : libero && libero.id === "prefettura" && luogo ? pecPrefettura(luogo.sigla) : "";
   const [enteNome, setEnteNome] = useState(nomeProposto);
   const [enteEmail, setEnteEmail] = useState(emailProposta);
   const cambia = (k) => (e) => setF({ ...f, [k]: e.target.value });
