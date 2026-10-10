@@ -3,17 +3,20 @@ import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, 
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
+import { datiCalendarioPiano, dataLocaleDa, PulsantiCalendario } from "./calendario.jsx";
+import { AvvisaFineNotam, NotamFiniti, NotamInItaliano } from "./avvisiNotam.jsx";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo } from "./Riprese.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
-import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
+import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
 const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
+const AssistentePermessi = lazy(() => import("./AssistentePermessi.jsx"));
 const Impara = lazy(() => import("./Impara.jsx"));
 const GuidaZonaRossa = lazy(() => import("./Impara.jsx").then((m) => ({ default: m.ZonaRossa })));
 const Posti = lazy(() => import("./Posti.jsx"));
@@ -1720,53 +1723,6 @@ function avvisoBatterieTemperatura(t) {
 }
 
 // --- Aggiungi al calendario -----------------------------------------------------------------------------
-function datiCalendarioPiano({ data, ora, titolo, luogo, dettagli }) {
-  if (!data) return null;
-  const d = data.replace(/-/g, "");
-  let inizio, fine, tuttoIlGiorno = false;
-  if (ora) {
-    const [h, m] = ora.split(":").map(Number);
-    const fineMin = h * 60 + m + 60;
-    inizio = `${d}T${String(h).padStart(2, "0")}${String(m).padStart(2, "0")}00`;
-    const giornoFine = fineMin >= 1440 ? dataLocaleDa(data, 1).replace(/-/g, "") : d;
-    const fm = fineMin % 1440;
-    fine = `${giornoFine}T${String(Math.floor(fm / 60)).padStart(2, "0")}${String(fm % 60).padStart(2, "0")}00`;
-  } else {
-    tuttoIlGiorno = true;
-    inizio = d;
-    fine = dataLocaleDa(data, 1).replace(/-/g, "");
-  }
-  return { inizio, fine, tuttoIlGiorno, titolo, luogo: luogo || "", dettagli: dettagli || "" };
-}
-function dataLocaleDa(data, giorni) {
-  const [y, m, g] = data.split("-").map(Number);
-  const x = new Date(y, m - 1, g + giorni);
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
-}
-function linkGoogleCalendar(c) {
-  const q = new URLSearchParams({ action: "TEMPLATE", text: c.titolo, dates: `${c.inizio}/${c.fine}`, details: c.dettagli, location: c.luogo });
-  return `https://calendar.google.com/calendar/render?${q.toString()}`;
-}
-function scaricaIcs(c) {
-  const esc = (t) => String(t || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
-  const dt = (k, v) => (c.tuttoIlGiorno ? `${k};VALUE=DATE:${v}` : `${k}:${v}`);
-  const ics = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//EyeDrones//Piano di volo//IT", "CALSCALE:GREGORIAN",
-    "BEGIN:VEVENT",
-    `UID:${Date.now()}-${Math.random().toString(36).slice(2)}@app.eyedrones.it`,
-    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z")}`,
-    dt("DTSTART", c.inizio), dt("DTEND", c.fine),
-    `SUMMARY:${esc(c.titolo)}`, `LOCATION:${esc(c.luogo)}`, `DESCRIPTION:${esc(c.dettagli)}`,
-    "BEGIN:VALARM", "TRIGGER:-P1D", "ACTION:DISPLAY", `DESCRIPTION:${esc("Domani: " + c.titolo)}`, "END:VALARM",
-    ...(c.tuttoIlGiorno ? [] : ["BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", `DESCRIPTION:${esc("Tra un'ora: " + c.titolo)}`, "END:VALARM"]),
-    "END:VEVENT", "END:VCALENDAR",
-  ].join("\r\n");
-  const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url; a.download = "volo-eyedrones.ics";
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
 function calendarioDaPiano(p, drone) {
   const ora = p.ora_prevista ? String(p.ora_prevista).slice(0, 5) : "";
   const tipo = ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione || "Volo";
@@ -1795,19 +1751,6 @@ function PulsantiNavigatore({ piano }) {
       <a href={maps} target="_blank" rel="noreferrer" style={st} title={d.c ? "Porta al punto del volo" : "Cerca il luogo per nome"}>🧭 Google Maps</a>
       <a href={waze} target="_blank" rel="noreferrer" style={st}>🚗 Waze</a>
     </>
-  );
-}
-
-function PulsantiCalendario({ dati, compatto = false }) {
-  if (!dati) return null;
-  const st = { display: "inline-flex", alignItems: "center", gap: 5, background: compatto ? "none" : "#1f2530", color: compatto ? "#3d8bfd" : "#e7eaee", border: compatto ? "none" : "1px solid #333a45", borderRadius: 6, padding: compatto ? "2px 4px" : "8px 12px", fontSize: 12.5, textDecoration: compatto ? "underline" : "none" };
-  return (
-    <div style={{ display: "flex", gap: compatto ? 4 : 6, flexWrap: "wrap", alignItems: "center", fontSize: 12.5, color: "#8b95a3" }}>
-      {compatto && <span>📅 Aggiungi al calendario:</span>}
-      <a href={linkGoogleCalendar(dati)} target="_blank" rel="noreferrer" style={st}>{compatto ? "Google" : "📅 Google Calendar"}</a>
-      {compatto && <span>·</span>}
-      <button type="button" onClick={() => scaricaIcs(dati)} style={st}>{compatto ? "iPhone / altro" : "📅 iPhone / altro calendario"}</button>
-    </div>
   );
 }
 
@@ -2043,7 +1986,7 @@ function AppShell({ session }) {
       const d = e.detail || {};
       if (d.pagina === "impara" && d.sopra && d.scheda === "zona-rossa") { try { window.history.pushState({ ...(window.history.state || {}), guida: true }, ""); } catch (err) { /* niente */ } setGuidaSopra(d.scheda); }
       else if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
-      else if (d.pagina === "permessi" || d.pagina === "nuova") { setPage(d.pagina); window.scrollTo(0, 0); }
+      else if (d.pagina === "permessi" || d.pagina === "nuova") { setGuidaSopra(null); setPage(d.pagina); window.scrollTo(0, 0); }
       else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
@@ -2286,7 +2229,7 @@ function AppShell({ session }) {
         {page === "preventivi" && <Preventivi preventivi={preventivi} clienti={clienti} onClientiCambiati={caricaClienti} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
         {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
-        {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
+        {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} droni={droni} emailUtente={session.user.email} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} obiettivoFormativo={obiettivoFormativo} onSalvaObiettivo={salvaObiettivoFormativo} />}
         {page === "droni" && <Droni droni={droni} azienda={azienda} onReload={loadData} dflightScadenza={dflightScadenza} onSalvaDflightScadenza={salvaDflightScadenza} />}
       </div>
@@ -2368,8 +2311,9 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 }
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10j";
+const VERSIONE_NOVITA = "2026-10k";
 const NOVITA = [
+  { emoji: "🧭", testo: "Assistente permessi: dici dove voli e ti dice se puoi chiedere, a chi, quanti giorni prima e quanto costa. Compila da solo il Modello ATM-09A di ENAC e la richiesta di nulla osta", pagina: "permessi" },
   { emoji: "▶️", testo: "Modalità riprese: sul posto una scena alla volta, a tutto schermo, con la foto grande e il promemoria della scheda SD", pagina: "dashboard" },
   { emoji: "✏️", testo: "Disegna sulla foto della scena (fino a 3 foto per scena): percorso del drone, punti di ripresa, pericoli e soggetto. Li vedi anche in Home e nel PDF", pagina: "pianificazione" },
   { emoji: "📋", testo: "Sopralluogo: foto con GPS su ogni scena, punti di decollo e ostacoli sulla mappa, orari della giornata e il PDF da mandare", pagina: "pianificazione" },
@@ -3532,6 +3476,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
 
         <InvitoImpronta />
         <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
+        <NotamFiniti />
         <RiquadroNovita onVai={onNav} />
         {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
 
@@ -3557,6 +3502,12 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           <span style={{ fontSize: 16 }}>💾</span>
           <span>Prima di ogni volo: <strong>scheda SD nel drone, ed è vuota</strong> · batterie cariche · eliche integre</span>
         </div>
+        {/* l'assistente permessi: per chi ha paura delle zone rosse */}
+        <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } onNav("permessi"); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "#141c28", border: "1px solid #3d8bfd44", borderRadius: 8, padding: "8px 12px", margin: "-12px 0 22px", fontSize: 12.5, color: "#cfe2ff" }}>
+          <span style={{ fontSize: 16 }}>🧭</span>
+          <span style={{ flex: 1 }}>Zona rossa o devi chiedere un permesso? <strong>Ti guido io</strong>, il modulo si compila da solo</span>
+          <span style={{ color: "#7fb0ff" }}>→</span>
+        </button>
 
         {bloccoScadenze}
 
@@ -5446,8 +5397,19 @@ const STATI_PERMESSO = [
   { key: "negato", label: "Negato", color: "#ff4d4d" },
 ];
 
-function Permessi({ permessi, impianti, azienda, piano, onReload }) {
+function Permessi({ permessi, impianti, azienda, piano, onReload, droni = [], emailUtente }) {
   const [showForm, setShowForm] = useState(false);
+  const [assistente, setAssistente] = useState(() => { try { return sessionStorage.getItem("eyedrones_assistente_permessi") === "si"; } catch { return false; } });
+  const apriAssistente = (si) => { setAssistente(si); try { sessionStorage.setItem("eyedrones_assistente_permessi", si ? "si" : "no"); } catch { /* niente */ } };
+  // dall'assistente: la richiesta preparata finisce tra i permessi, come «inviata oggi»
+  const salvaDaAssistente = async (riga) => {
+    const uid = await idUtenteCorrente();
+    if (!uid) { alert("Sei uscito dall'account: rientra e riprova."); return false; }
+    const { error } = await supabase.from("permessi").insert({ ...riga, user_id: uid });
+    if (error) { alert("Salvataggio non riuscito: " + error.message); return false; }
+    onReload();
+    return true;
+  };
   const [impiantoIdSel, setImpiantoIdSel] = useState("");
   const [impianto, setImpianto] = useState("");
   const [enteContattato, setEnteContattato] = useState("");
@@ -5544,7 +5506,18 @@ function Permessi({ permessi, impianti, azienda, piano, onReload }) {
           {showForm ? "Annulla" : <><Plus size={14} /> Nuova richiesta</>}
         </button>
       </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Richiedi e traccia i permessi di volo per zone soggette a restrizioni, prima ancora di fare il rilievo.</p>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 14px 0" }}>Richiedi e traccia i permessi di volo per zone soggette a restrizioni, prima ancora di fare il rilievo.</p>
+      {!assistente ? (
+        <button type="button" onClick={() => apriAssistente(true)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 760, textAlign: "left", background: "linear-gradient(135deg, #1d2633, #1b2028)", border: "1px solid #3d8bfd66", borderRadius: 12, padding: "14px 16px", marginBottom: 20, color: "#e7eaee" }}>
+          <span style={{ fontSize: 26 }}>🧭</span>
+          <span><span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>Non sai come chiedere un permesso? Ti guido io</span>
+            <span style={{ display: "block", fontSize: 12.5, color: "#9fb4d6", marginTop: 2 }}>Dimmi dove voli: ti dico se si può chiedere, a chi, quanti giorni prima, e ti preparo la richiesta già compilata (anche il Modello ATM-09A).</span></span>
+        </button>
+      ) : (
+        <Suspense fallback={<p style={{ color: "#8b95a3" }}>Carico l'assistente…</p>}>
+          <AssistentePermessi cercaIndirizzo={cercaIndirizzoItalia} caricaFileZone={caricaFileZone} riprendiZone={riprendiCopiaZone} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={salvaDaAssistente} onChiudi={() => apriAssistente(false)} />
+        </Suspense>
+      )}
 
       {showForm && (
         <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -6257,7 +6230,16 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
       if (editingId) {
         ({ error } = await supabase.from("droni").update(payload).eq("id", editingId));
       } else {
-        ({ error } = await supabase.from("droni").insert(payload));
+        // l'utente lo metto io: se la sessione è scaduta lo dico chiaro invece dell'errore di sicurezza del database
+        const uid = await idUtenteCorrente();
+        if (!uid) throw new Error("sei uscito dall'account (sessione scaduta). Esci, rientra e riprova: i dati scritti restano qui.");
+        ({ error } = await supabase.from("droni").insert({ ...payload, user_id: uid }));
+        if (error && /row-level security/i.test(error.message || "")) {
+          // a volte il permesso scade proprio in quel momento: rinnovo la sessione e riprovo una volta
+          await supabase.auth.refreshSession().catch(() => {});
+          ({ error } = await supabase.from("droni").insert({ ...payload, user_id: uid }));
+          if (error && /row-level security/i.test(error.message || "")) error = new Error("la sessione non è più valida. Esci, rientra e riprova.");
+        }
       }
       if (error) throw error;
       resetForm();
@@ -6720,11 +6702,6 @@ const CHECKLIST_FPV = [
 
 // --- Controllo zona di volo (file zone UAS di D-Flight) -------------------------------------------
 
-const MOTIVI_ZONA = {
-  AIR_TRAFFIC: "traffico aereo (aeroporto o spazio aereo controllato)", SENSITIVE: "sito sensibile", PRIVACY: "privacy",
-  POPULATION: "area popolata", NATURE: "area naturale protetta", NOISE: "rumore", FOREIGN_TERRITORY: "territorio straniero",
-  EMERGENCY: "emergenza", OTHER: "altro motivo",
-};
 // "P5D" → "5 giorni", "PT48H" → "48 ore" (durate ISO usate da D-Flight per il preavviso)
 const durataLeggibile = (d) => {
   const m = String(d || "").match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?$/i);
@@ -6732,10 +6709,6 @@ const durataLeggibile = (d) => {
   return [m[1] && `${m[1]} ${m[1] === "1" ? "giorno" : "giorni"}`, m[2] && `${m[2]} ${m[2] === "1" ? "ora" : "ore"}`, m[3] && `${m[3]} min`].filter(Boolean).join(" e ");
 };
 const SERVIZI_ENTE = { AUTHORIZATION: "autorizzazioni", INFORMATION: "informazioni" };
-// sigle che D-Flight usa nel campo "altro motivo"
-const SIGLE_ZONA = { ATM09: "zona aeroportuale con limiti di altezza (ENAC ATM-09)", NFZ: "no-fly zone" };
-const traduciSigla = (x) => SIGLE_ZONA[String(x || "").trim().toUpperCase()] || x;
-const traduciMotivi = (m) => String(m || "").split(/\s*,\s*/).filter(Boolean).map((x) => MOTIVI_ZONA[x.toUpperCase()] || x.toLowerCase()).join(", ");
 
 // cerca un indirizzo in Italia (via, numero, comune) con OpenStreetMap; se col numero civico non lo trova, riprova
 // senza numero (punto a metà della via). Restituisce { lat, lon, etichetta } oppure null
@@ -6816,9 +6789,51 @@ async function riprendiCopiaZone() {
     const dati = JSON.parse(await data.text());
     if (!dati || !Array.isArray(dati.zone) || dati.zone.length === 0) return null;
     if (!dati.caricato) dati.caricato = new Date().toISOString();
-    await salvaZone(dati);
-    return dati;
+    const sistemati = sistemaArchivio(dati);
+    await salvaZone(sistemati);
+    return sistemati;
   } catch { return null; }
+}
+
+// legge il file zone scelto dal pilota, lo salva sul telefono e nell'account; se non va lancia un errore da mostrare
+async function caricaFileZone(file) {
+  let zone;
+  try { zone = leggiFileZone(JSON.parse(await testoDaFileZone(file))); } catch (err) { throw new Error(err instanceof SyntaxError ? "Il file non è un JSON valido: scaricalo di nuovo da D-Flight." : (err.message || "Non sono riuscito a leggere il file.")); }
+  if (zone.length === 0) throw new Error("Non ho trovato zone in questo file: è quello scaricato da D-Flight («Download UAS Zone Geo»)?");
+  const dati = { zone, nomeFile: file.name, caricato: new Date().toISOString() };
+  await salvaZone(dati);
+  salvaCopiaZone(dati).then(() => { try { localStorage.setItem("eyedrones_zone_copia", dati.caricato); } catch { /* niente */ } });
+  return dati;
+}
+
+// in Pianifica, prima di scegliere il posto: il file zone si vede e si carica subito (prima compariva solo dopo)
+function FileZoneVeloce() {
+  const [archivio, setArchivio] = useState(undefined);
+  const [leggo, setLeggo] = useState(false);
+  const [errore, setErrore] = useState(null);
+  useEffect(() => { leggiZoneSalvate().then(async (d) => setArchivio(d && Array.isArray(d.zone) ? d : (await riprendiCopiaZone()) || null)); }, []);
+  const carica = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setLeggo(true); setErrore(null);
+    try { setArchivio(await caricaFileZone(file)); } catch (err) { setErrore(err.message); }
+    setLeggo(false);
+  };
+  if (archivio === undefined) return null;
+  const giorni = archivio ? Math.floor((Date.now() - new Date(archivio.caricato).getTime()) / 86400000) : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: archivio ? "#1b2028" : "#3a2a12", border: `1px solid ${archivio ? "#2b313d" : "#f5b94266"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, maxWidth: 620, fontSize: 12.5, color: archivio ? "#c3cad4" : "#ffd9a0" }}>
+      <span style={{ flex: "1 1 220px" }}>
+        🛡️ <strong>File zone di D-Flight</strong>: {archivio ? <>caricato il {formatData(String(archivio.caricato || "").slice(0, 10))} ({archivio.zone.length} zone){giorni > 28 ? <span style={{ color: "#f5b942" }}> · ⚠ aggiornalo</span> : " ✓"}</> : "non ancora caricato. Serve per sapere se nel posto puoi volare."}
+        {errore && <span style={{ display: "block", color: "#ff9c9c", marginTop: 4 }}>{errore}</span>}
+      </span>
+      <label style={{ display: "inline-block", background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+        {leggo ? "Sto leggendo il file…" : archivio ? "📂 Aggiorna il file" : "📂 Carica il file zone"}
+        <input type="file" onChange={carica} disabled={leggo} style={{ display: "none" }} />
+      </label>
+    </div>
+  );
 }
 
 function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, onPuntoCercato, dataPrevista, oraPrevista, piano, onEsito, onStato }) {
@@ -6858,14 +6873,9 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     setLeggendoFile(true);
     setErrore(null);
     try {
-      const zone = leggiFileZone(JSON.parse(await testoDaFileZone(file)));
-      if (zone.length === 0) throw new Error("Non ho trovato zone in questo file: è quello scaricato da D-Flight («Download UAS Zone Geo»)?");
-      const dati = { zone, nomeFile: file.name, caricato: new Date().toISOString() };
-      await salvaZone(dati);
-      setArchivio(dati);
-      salvaCopiaZone(dati).then(() => { try { localStorage.setItem("eyedrones_zone_copia", dati.caricato); } catch { /* niente */ } });
+      setArchivio(await caricaFileZone(file));
     } catch (err) {
-      setErrore(err instanceof SyntaxError ? "Il file non è un JSON valido: scaricalo di nuovo da D-Flight." : (err.message || "Non sono riuscito a leggere il file."));
+      setErrore(err.message);
     }
     setLeggendoFile(false);
   };
@@ -6911,7 +6921,13 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
   const quando = dataPrevista ? new Date(`${dataPrevista}T${oraPrevista || "12:00"}`) : null;
   const latP = punto && punto.lat, lonP = punto && punto.lon;
   const esito = React.useMemo(
-    () => (zone && latP != null ? controllaPunto(zone, { lat: latP, lon: lonP }, { raggio: 500, quando }) : null),
+    () => {
+      if (!zone || latP == null) return null;
+      const e = controllaPunto(zone, { lat: latP, lon: lonP }, { raggio: 500, quando });
+      // le date dei NOTAM sono vere: se il giorno del volo il NOTAM non c'è, non lo conto (lo dico a parte)
+      const fuori = (z) => z.tipoUAS === "notam" && (z.fuoriPeriodo || zonaFinita(z));
+      return { dentro: e.dentro.filter((z) => !fuori(z)), vicine: e.vicine.filter((z) => !fuori(z)), notamFuori: e.dentro.filter(fuori) };
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [zone, latP, lonP, dataPrevista, oraPrevista]
   );
@@ -6964,20 +6980,29 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     const limiti = formattaLimiti(z.limiti);
     const autorita = (z.autorita || []).map((a) => ({ ...a, nome: valoreReale(a.nome), servizio: valoreReale(a.servizio), email: valoreReale(a.email), telefono: valoreReale(a.telefono), sito: valoreReale(a.sito), preavviso: valoreReale(a.preavviso) }))
       .filter((a) => a.nome || a.email || a.telefono || a.sito);
-    const motivo = [z.altroMotivo ? traduciMotivi(z.motivo).replace(/,?\s*altro motivo/, "") : traduciMotivi(z.motivo), traduciSigla(valoreReale(z.altroMotivo))].filter(Boolean).join(" · ");
+    const motivo = motivoZona(z);
+    const notam = z.tipoUAS === "notam";
+    const zonaR = /\bLI[\s-]?R\s?\d/i.test(z.nome || "");
+    const consiglio = !notam ? d.consiglio : "Nei giorni del NOTAM qui non si vola, né in Open né in Specific: lo spazio è riservato a un'altra attività e non puoi chiedere di entrarci. Fuori da quelle date la zona non c'è. Un NOTAM tuo invece, in Specific (STS o autorizzazione ENAC), si chiede con il Modello ATM-09A: ENAC lo fa uscire almeno 7 giorni prima del volo.";
     return (
       <div key={(z.id || z.nome) + (vicina ? "-v" : "")} style={{ borderLeft: `3px solid ${d.colore}`, background: d.colore + "12", borderRadius: 4, padding: "8px 10px", marginTop: 6 }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: d.colore }}>{d.etichetta}{vicina ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m</span> : null}{z.temporanea ? <span style={{ color: "#f5b942", fontWeight: 400 }}> · temporanea</span> : null}</div>
         <div style={{ fontSize: 12.5, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
         {limiti && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {limiti}</div>}
         {motivo && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Motivo: {motivo}</div>}
-        {!vicina && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{z.messaggio}</div>}
+        {!vicina && notam && valoreReale(z.messaggio) && <NotamInItaliano testo={z.messaggio} />}
+        {!vicina && !notam && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{messaggioBreve(z.messaggio)}</div>}
+        {!vicina && zonaR && <div style={{ fontSize: 11.5, color: "#ffd9a0", marginTop: 3 }}>⏰ Zona LI-R: vale <strong>solo quando è attiva</strong>. Gli orari sono nell'AIP Italia (ENR 5.1.2): su D-Flight tocca la zona → «Regole dell'aria». Può essere attivata anche con un NOTAM.</div>}
         {!vicina && valoreReale(z.condizioni) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
         {z.fuoriPeriodo && <div style={{ fontSize: 11.5, color: "#ffb877", marginTop: 3 }}>⚠ Secondo il file questa zona non vale il giorno del volo, ma le date del file potrebbero essere solo vecchie: per sicurezza la considero attiva. Aggiorna il file e controlla su D-Flight.</div>}
         {!vicina && z.validita && <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 2 }}>Attiva: {z.validita.map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}</div>}
-        {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {d.consiglio}</div>}
-        {!vicina && (z.restrizione === "REQ_AUTHORISATION" || z.restrizione === "PROHIBITED") && (
-          <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} style={{ marginTop: 6, background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si fa a volare qui?</button>
+        {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {consiglio}</div>}
+        {!vicina && notam && <AvvisaFineNotam zona={z} posto={testoLuogo || `${latP.toFixed(4)}, ${lonP.toFixed(4)}`} />}
+        {!vicina && !notam && (z.restrizione === "REQ_AUTHORISATION" || z.restrizione === "PROHIBITED") && (
+          <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+            <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} style={{ background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si fa a volare qui?</button>
+            <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } vaiA({ pagina: "permessi" }); }} style={{ background: "#1d2633", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 5, padding: "4px 9px", fontSize: 11.5, fontWeight: 600 }}>🧭 Preparami la richiesta</button>
+          </span>
         )}
         {!vicina && autorita.map((a, i) => (
           <div key={i} style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 3 }}>
@@ -7003,6 +7028,16 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
           </label>
         )}
       </div>
+      {/* il volo è tra pochi giorni e il file è di qualche giorno fa: i NOTAM nuovi non ci sono ancora */}
+      {archivio && dataPrevista && (() => {
+        const traGiorni = Math.round((new Date(`${dataPrevista}T12:00`).getTime() - Date.now()) / 86400000);
+        return traGiorni >= 0 && traGiorni <= 3 && giorniFile >= 2 ? (
+          <label style={{ display: "block", marginTop: 6, fontSize: 11.5, color: "#ffd9a0", background: "#3a2a12", border: "1px solid #f5b94255", borderRadius: 6, padding: "6px 9px", cursor: "pointer" }}>
+            ⚠ Il volo è {traGiorni === 0 ? "oggi" : traGiorni === 1 ? "domani" : `tra ${traGiorni} giorni`} e il file zone è di {giorniFile} giorni fa: i <strong>NOTAM</strong> nuovi non ci sono. Riscaricalo da D-Flight e <span style={{ color: "#3d8bfd" }}>caricalo qui</span>.
+            <input type="file" onChange={caricaFile} style={{ display: "none" }} />
+          </label>
+        ) : null;
+      })()}
 
       {!sbloccatoPro(piano) ? (
         <InvitoPro cosa="Il controllo automatico della zona" />
@@ -7017,7 +7052,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
             <li>Tocca <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ ...linkD, fontSize: 12.5, fontWeight: 700 }}>🗺️ Apri D-Flight ↗</a> ed entra con le tue credenziali.</li>
             <li>In alto a sinistra tocca il pulsante col logo <strong>«d»</strong>.</li>
             <li>Sotto <strong>«Dettagli account»</strong> tocca il <strong>dischetto 💾</strong> (<em>Download UAS Zone Geo</em>). Il file si salva nella cartella <strong>Download</strong> del telefono.</li>
-            <li>Torna qui e tocca <strong>«📂 Carica il file zone di D-Flight»</strong> qui sotto, poi scegli il file dalla cartella Download.</li>
+            <li>Torna qui e tocca <strong>«📂 Carica il file zone di D-Flight»</strong> qui sotto. Si apre l'elenco dei file: tocca <strong>Recenti</strong> (o ☰ → <strong>Download</strong>) e scegli <strong>dflight_geozones_….json.gz</strong>, quello con la data più nuova.</li>
             <li>Scrivi la via del volo: l'app ti dice subito la zona e l'altezza massima.</li>
           </ol>
           <div style={{ color: "#8b95a3", fontSize: 11.5, marginBottom: 8 }}>Il file resta salvato anche nel tuo account, così non lo perdi se cambi telefono. Aggiornalo una volta al mese.</div>
@@ -7088,6 +7123,11 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
             );
           })()}
           {esito && esito.dentro.map((z) => schedaZona(z, false))}
+          {esito && esito.notamFuori.map((z) => (
+            <div key={"nf-" + (z.id || z.nome)} style={{ borderLeft: "3px solid #4ade80", background: "#4ade8012", borderRadius: 4, padding: "8px 10px", marginTop: 6, fontSize: 12, color: "#c3cad4" }}>
+              ✓ <strong style={{ color: "#4ade80" }}>{z.nome}</strong>: qui c'è un NOTAM ({(z.validita || []).map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}), ma il giorno del volo non è attivo.
+            </div>
+          ))}
           {esito && esito.vicine.length > 0 && (
             <>
               <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "10px 0 0 0" }}>Zone vicine (entro 500 m): attento a non sconfinare.</p>
@@ -8669,6 +8709,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           )}
         </div>
       )}
+
+      {!destinazione && <FileZoneVeloce />}
 
       {destinazione && (
         <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 620 }}>

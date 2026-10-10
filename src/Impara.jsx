@@ -204,10 +204,60 @@ function SigleZone() {
   );
 }
 
+// «Che zona rossa è?»: due domande e la risposta, per chi ha paura che «rossa» voglia dire sempre «vietato»
+const RISPOSTE_ZONA = {
+  aeroporto: {
+    open: { colore: "#f5b942", titolo: "In Open: si vola solo sotto l'altezza della zona", testo: "Area rossa vicino alla pista: no. Arancione: fino a 25 m. Gialla: fino a 45 m. Più lontano: fino a 60 m (dentro CTR/ATZ). Sopra non si può e il permesso non si chiede. Vicino a un edificio o un'antenna: entro 50 m e fino a 5 m sopra di esso, con il permesso del proprietario.", azione: false },
+    specific: { colore: "#3d8bfd", titolo: "In Specific: Modello ATM-09A", testo: "Riserva di spazio aereo con il Modello ATM-09A: 35 giorni prima per gli aeroporti ENAV, 60 per i militari, 15 per quelli senza torre. L'assistente lo compila per te.", azione: true },
+  },
+  ente: {
+    open: { colore: "#4ade80", titolo: "Sì, si può chiedere anche in Open", testo: "Serve il nulla osta dell'ente che ha chiesto la zona (nome ed email sono nella scheda su D-Flight). L'assistente ti prepara la lettera e l'email, e ti dice entro quando mandarla.", azione: true },
+    specific: { colore: "#4ade80", titolo: "Sì: nulla osta dell'ente", testo: "Come in Open: nulla osta dell'ente che ha chiesto la zona, più le condizioni della tua autorizzazione o scenario standard.", azione: true },
+  },
+  vietata: {
+    open: { colore: "#ff8c42", titolo: "Normalmente vietata, ma si può chiedere", testo: "LI-R è vietata solo quando è attiva (orari su D-Flight). Per LI-P e LI-D, o per volare quando la LI-R è attiva, serve il nulla osta dell'amministrazione che ha chiesto la zona, con il Modello ATM-05 in bollo (Circolare ENAC ATM-05B). Carceri: solo per lavoro, al DAP, 15 giorni prima. L'assistente compila il modulo per te.", azione: true },
+    specific: { colore: "#ff8c42", titolo: "Nulla osta con il Modello ATM-05", testo: "Come in Open: nulla osta dell'amministrazione che ha chiesto la zona, Modello ATM-05 in bollo via PEC e in copia a ENAC. L'assistente compila il modulo per te.", azione: true },
+  },
+};
+function CheZonaRossa() {
+  const [motivo, setMotivo] = useState(null);
+  const [cat, setCat] = useState("open");
+  const r = motivo && RISPOSTE_ZONA[motivo][cat];
+  const bottone = (attivo) => ({ background: attivo ? "#2b3a52" : "#161a1f", border: `1px solid ${attivo ? "#3d8bfd" : "#333a45"}`, color: "#e7eaee", borderRadius: 8, padding: "8px 12px", fontSize: 13, textAlign: "left", minHeight: 44 });
+  return (
+    <div style={{ ...stCard, borderColor: "#3d8bfd66", background: "linear-gradient(135deg, #1d2633, #1b2028)" }}>
+      <div style={{ fontSize: 15, fontWeight: 800 }}>🤔 Che zona rossa è? Scoprilo in 2 tocchi</div>
+      <div style={{ fontSize: 12.5, color: "#c3cad4", margin: "4px 0 10px 0" }}>Su D-Flight tocca la zona e guarda «Motivo» o il nome.</div>
+      <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 4 }}>1. Di cosa è la zona?</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 6 }}>
+        <button type="button" onClick={() => setMotivo("aeroporto")} style={bottone(motivo === "aeroporto")}>✈️ Aeroporto, eliporto, aviosuperficie<br /><span style={{ fontSize: 11.5, color: "#8b95a3" }}>motivo AIR_TRAFFIC, ATZ, CTR</span></button>
+        <button type="button" onClick={() => setMotivo("ente")} style={bottone(motivo === "ente")}>🏛️ Parco, sito sensibile, città, carcere…<br /><span style={{ fontSize: 11.5, color: "#8b95a3" }}>NATURE, SENSITIVE, PRIVACY…</span></button>
+        <button type="button" onClick={() => setMotivo("vietata")} style={bottone(motivo === "vietata")}>⛔ Sigla LI-P, LI-D o LI-R<br /><span style={{ fontSize: 11.5, color: "#8b95a3" }}>zone dello spazio aereo</span></button>
+      </div>
+      <div style={{ fontSize: 12, color: "#8b95a3", margin: "10px 0 4px 0" }}>2. Come voli?</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <button type="button" onClick={() => setCat("open")} style={bottone(cat === "open")}>Open (A1/A3, A2)</button>
+        <button type="button" onClick={() => setCat("specific")} style={bottone(cat === "specific")}>Specific (STS o autorizzazione)</button>
+      </div>
+      {r && (
+        <div style={{ marginTop: 12, borderLeft: `4px solid ${r.colore}`, background: r.colore + "14", borderRadius: 8, padding: "10px 12px" }}>
+          <div style={{ fontSize: 14.5, fontWeight: 800, color: r.colore }}>{r.titolo}</div>
+          <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 4, lineHeight: 1.5 }}>{r.testo}</div>
+          {r.azione && (
+            <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail: { pagina: "permessi" } })); }}
+              style={{ marginTop: 10, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 14, fontWeight: 700, minHeight: 44 }}>🧭 Preparami la richiesta</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ZonaRossa() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <p style={{ fontSize: 13, color: "#c3cad4", margin: 0 }}>Hai trovato una zona rossa sulla mappa D-Flight o nella verifica zona di EyeDrones? Ecco cosa fare, passo per passo.</p>
+      <p style={{ fontSize: 13, color: "#c3cad4", margin: 0 }}>Hai trovato una zona rossa? Tranquillo: molte volte si può volare lo stesso. Ecco come capirlo e cosa fare, passo per passo.</p>
+      <CheZonaRossa />
       {GUIDA_ZONA_ROSSA.map((s, i) => (
         <details key={s.titolo} open={i < 2} style={stCard}>
           <summary style={{ cursor: "pointer", fontSize: 14.5, fontWeight: 700 }}>{s.titolo}</summary>

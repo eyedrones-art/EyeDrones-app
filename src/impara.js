@@ -125,50 +125,57 @@ export const LEZIONI = {
   ],
 };
 
+// Guida «zona rossa», scritta per chi ha appena iniziato. Fonti: ENAC «Voli con droni (UAS): limitazioni e riserve
+// dello spazio aereo», Circolare ENAC ATM-09A (24/03/2021), Circolare ATM-05B, siti delle Prefetture.
 export const GUIDA_ZONA_ROSSA = [
   {
-    titolo: "1. Cosa vuol dire «zona rossa»",
+    titolo: "1. Niente panico: «rossa» non vuol dire sempre «mai»",
     punti: [
-      "Su D-Flight il rosso indica una zona geografica UAS: può essere vietata, soggetta ad autorizzazione oppure aperta solo con certe condizioni.",
-      "Molto spesso il divieto non parte da terra: «da 25 a 120 m» vuol dire che sotto i 25 m si vola senza autorizzazione, con le regole della tua categoria.",
-      "In EyeDrones, con il file ufficiale D-Flight caricato, la verifica zona ti dice subito fin dove sei libero e chi è l'ente da contattare.",
+      "Su D-Flight il rosso vuol dire «zona geografica UAS»: un posto con regole speciali per i droni. Ma le regole dipendono dal MOTIVO della zona.",
+      "Le zone fatte per la sicurezza degli aerei (aeroporti, eliporti, aviosuperfici) in categoria Open sono vietate. Lì il permesso non si può chiedere.",
+      "Le zone fatte per altri motivi (parchi, siti sensibili, privacy, carceri, centri città...) si possono volare ANCHE IN OPEN, con il nulla osta dell'ente che ha chiesto la zona. Lo dice ENAC.",
+      "Molte zone non partono da terra: «da 25 m» o «da 45 m» vuol dire che sotto quell'altezza si vola senza chiedere niente.",
+      "Come capirlo: su D-Flight tocca la zona e leggi «Motivo». AIR_TRAFFIC = aeroporto. NATURE, SENSITIVE, PRIVACY, POPULATION e altri = ente. In EyeDrones l'assistente permessi te lo dice da solo.",
     ],
   },
   {
-    titolo: "2. Prima prova a evitarla",
+    titolo: "2. Zona di un aeroporto (motivo «traffico aereo»)",
     punti: [
-      "Resta sotto l'altezza libera della zona, se basta per la ripresa.",
-      "Spostati: a volte bastano poche centinaia di metri per uscire dalla zona.",
-      "Controlla gli orari: alcune zone valgono solo in certi giorni o fasce orarie.",
-      "Le zone «vietate» (per esempio carceri o aree militari) di norma non si possono sorvolare: lì non perdere tempo con la richiesta, cambia posto.",
+      "Area ROSSA vicino alla pista: in Open non si vola, a nessuna altezza.",
+      "Area ARANCIONE: in Open si vola fino a 25 m dal suolo. Area GIALLA: fino a 45 m. Più lontano: fino a 60 m dentro CTR/ATZ, 120 m fuori. Sopra, in Open, non si può e non si chiede.",
+      "Eccezione utile (ATM-09A § 6.4): vicino a un edificio o a un'antenna puoi volare entro 50 m in orizzontale e fino a 5 m sopra di esso, con il permesso del proprietario. Non vale nell'area rossa.",
+      "Le zone degli aeroporti valgono negli orari di apertura dell'aeroporto: le trovi su D-Flight/NOTAM.",
+      "Per salire di più o entrare nell'area rossa serve la categoria Specific (scenario standard STS o autorizzazione ENAC) e la riserva di spazio aereo con il Modello ATM-09A: 35 giorni prima per gli aeroporti ENAV, 60 per i militari, 15 per quelli senza torre. EyeDrones lo compila per te.",
     ],
   },
   {
-    titolo: "3. Chi devi contattare",
+    titolo: "3. Zona di un ente (parco, sito sensibile, città...)",
     punti: [
-      "Vicino agli aeroporti civili (CTR, ATZ) di solito è ENAV o il gestore dell'aeroporto, spesso con la richiesta tramite D-Flight.",
-      "Aeroporti e aree militari: l'ente militare indicato nella zona.",
-      "Parchi e aree protette: l'ente parco. Ospedali con elisuperficie, porti, siti sensibili: l'ente o il gestore indicato.",
-      "Il nome e i contatti dell'ente li trovi nella scheda della zona su D-Flight (e in EyeDrones nella verifica zona).",
+      "Chi la deve autorizzare è l'ente che ha chiesto la zona: il nome, l'email e spesso i giorni di anticipo sono scritti nella scheda della zona su D-Flight.",
+      "Si manda una richiesta di nulla osta (email o PEC) con: chi sei, codice operatore, attestato, drone, assicurazione, giorno e orari, posto con coordinate, altezza e area, motivo del volo.",
+      "Se l'ente ha un suo modulo (molti parchi ce l'hanno), usa il loro: i dati sono gli stessi.",
+      "Leggi bene le condizioni della zona: alcune ammettono solo voli di lavoro, non quelli per hobby.",
+      "In città, durante eventi o vicino a luoghi sensibili può servire anche il nulla osta della Prefettura (ordine e sicurezza pubblica), di solito 10–15 giorni lavorativi prima, con il loro modulo.",
     ],
   },
   {
-    titolo: "4. Cosa scrivere nella richiesta",
+    titolo: "4. Zone LI-P, LI-R, LI-D (spazio aereo) e carceri",
     punti: [
-      "Data e fascia oraria del volo, con un margine se il meteo cambia.",
-      "Area di volo: indirizzo, coordinate e raggio, quota massima.",
-      "Drone: modello, classe, peso e codice operatore D-Flight; pilota con numero dell'attestato.",
-      "Scopo del volo (riprese, ispezione...) e un numero di telefono raggiungibile durante il volo.",
-      "Chiedi con anticipo: spesso servono diversi giorni lavorativi. Controlla i tempi indicati dall'ente.",
+      "LI-P (proibite) e LI-D (pericolose): normalmente vietate ai droni. LI-R (regolamentate): vietate solo quando sono attive, gli orari sono su D-Flight.",
+      "Si può chiedere il nulla osta all'amministrazione che ha chiesto la zona, con il Modello ATM-05 in bollo (Circolare ENAC ATM-05B, capitolo 11), via PEC e in copia a ENAC. EyeDrones lo compila per te.",
+      "Carceri (zone «divieto di sorvolo di edifici particolari»): nulla osta solo per lavoro, non per hobby. Si chiede al Dipartimento dell'Amministrazione Penitenziaria (segreteriasicurezza.dap@giustiziacert.it) almeno 15 giorni prima, con il documento d'identità.",
+      "Zone di sicurezza sulle città: nulla osta alla Prefettura della provincia (PEC del tipo protocollo.prefXX@pec.interno.it, dove XX è la sigla della provincia).",
+      "Per le altre zone gli indirizzi delle amministrazioni sono nell'AIP-Italia, sezione ENR 5.1 («Zone vietate» e «Zone regolamentate»).",
     ],
   },
   {
     titolo: "5. Il giorno del volo",
     punti: [
-      "Carica l'autorizzazione in EyeDrones (Permessi): così la ritrovi nei documenti per il controllo, anche senza campo.",
-      "Rispetta esattamente orari, quote e area autorizzati e le prescrizioni dell'ente (per esempio una telefonata prima del decollo).",
-      "Ricontrolla i NOTAM la mattina stessa: un avviso nuovo può chiudere la zona.",
-      "Se l'autorizzazione non arriva in tempo, non volare: sposta il lavoro.",
+      "Tieni con te il nulla osta (in EyeDrones: Permessi, si vede anche nei documenti per il controllo, pure senza campo).",
+      "Rispetta esattamente orari, altezze e area scritti nel nulla osta, e le prescrizioni dell'ente (per esempio una telefonata prima di decollare).",
+      "Controlla i NOTAM la sera prima e la mattina: un avviso nuovo può chiudere la zona.",
+      "Se il nulla osta non è arrivato, non volare: sposta il lavoro o scegli un altro posto.",
+      "ENAC sta preparando un nuovo regolamento sulle zone geografiche (altezze più alte vicino a molti aeroporti): finché non è in vigore valgono le regole di oggi.",
     ],
   },
 ];
@@ -255,7 +262,7 @@ export const DOMANDE = {
 export const SIGLE_ZONE = [
   { sigla: "D-Flight", nome: "Il portale ufficiale dei droni in Italia", cosa: "Ci si registra come operatore, si stampa il QR da attaccare al drone e si guarda la mappa delle zone.", fare: "Guardalo sempre prima di volare in un posto nuovo." },
   { sigla: "ENAC", nome: "Ente Nazionale per l'Aviazione Civile", cosa: "Fa le regole, rilascia gli attestati e le autorizzazioni per i voli fuori dalla categoria Open.", fare: "Lo contatti per la categoria Specifica o per segnalare un incidente." },
-  { sigla: "ENAV", nome: "Chi gestisce il traffico aereo civile", cosa: "Controlla gli aerei intorno agli aeroporti. In molte zone vicino agli aeroporti è l'ente indicato per le autorizzazioni.", fare: "Se la zona dice ENAV, segui la procedura indicata nella scheda della zona (spesso la richiesta parte da D-Flight)." },
+  { sigla: "ENAV", nome: "Chi gestisce il traffico aereo civile", cosa: "Controlla gli aerei intorno agli aeroporti civili. Per i droni in Specific vicino agli aeroporti riceve il Modello ATM-09A (35 giorni prima).", fare: "In categoria Open non devi chiedere niente a ENAV: resta sotto l'altezza della zona." },
   { sigla: "AM", nome: "Aeronautica Militare", cosa: "Gestisce aeroporti e zone militari.", fare: "Nelle zone militari contatta il comando indicato nella zona; se è vietata, cambia posto." },
   { sigla: "UAS", nome: "Drone", cosa: "Sta per «sistema aeromobile senza equipaggio». «Zona geografica UAS» = zona con regole speciali per i droni.", fare: "Quando leggi UAS pensa semplicemente «drone»." },
   { sigla: "CTR", nome: "Zona di controllo di un aeroporto", cosa: "Lo spazio intorno a un aeroporto dove gli aerei decollano e atterrano. Per i droni di solito si può volare solo molto bassi (es. 25, 45 o 60 m) e sopra serve l'autorizzazione.", fare: "Leggi l'altezza libera nella verifica zona e resta sotto." },
@@ -273,8 +280,8 @@ export const SIGLE_ZONE = [
 
 // Chi contattare in base al tipo di zona
 export const CONTATTI_ZONE = [
-  { emoji: "✈️", dove: "Vicino a un aeroporto civile (CTR, ATZ, zone ATM-09)", chi: "ENAV o il gestore indicato nella zona", come: "Il contatto e la procedura sono nella scheda della zona su D-Flight (e nella verifica zona di EyeDrones). Chiedi con diversi giorni di anticipo." },
-  { emoji: "🪖", dove: "Aeroporti e zone militari", chi: "Il comando dell'Aeronautica Militare indicato nella zona", come: "Usa il contatto scritto nella scheda della zona. Se la zona è vietata, non serve chiedere: cambia posto." },
+  { emoji: "✈️", dove: "Vicino a un aeroporto civile (CTR, ATZ, zone ATM-09)", chi: "In Open nessuno: si vola solo sotto l'altezza della zona", come: "In Specific/STS: Modello ATM-09A via PEC a ENAV (protocollogenerale@pec.enav.it) e alla Direzione Aeroportuale ENAC (protocollo@pec.enac.gov.it), almeno 35 giorni prima, con i diritti ENAC pagati. L'assistente permessi lo compila per te." },
+  { emoji: "🪖", dove: "Aeroporti e zone militari", chi: "In Open nessuno. In Specific: Comando Operazioni Aeree (COA) e Direzione Aeroportuale ENAC", come: "Modello ATM-09A almeno 60 giorni prima a aerosquadra.coa@postacert.difesa.it e protocollo@pec.enac.gov.it, in copia all'ACU dell'Aeronautica. Le zone militari vietate non si chiedono." },
   { emoji: "🌲", dove: "Parchi nazionali e regionali, riserve naturali", chi: "L'ente parco", come: "Cerca sul sito dell'ente la pagina «autorizzazioni» o «nulla osta riprese»: spesso c'è un modulo da mandare via email o PEC." },
   { emoji: "🏛️", dove: "Siti archeologici, musei, monumenti", chi: "L'ente che gestisce il sito", come: "Per le riprese (soprattutto se professionali) chiedi il permesso al gestore del sito." },
   { emoji: "⚓", dove: "Porti e zone portuali", chi: "Capitaneria di porto o autorità portuale indicata nella zona", come: "Contatto nella scheda della zona su D-Flight o sul sito della Capitaneria." },
