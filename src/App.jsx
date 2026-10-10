@@ -6863,6 +6863,36 @@ async function caricaFileZone(file) {
   return dati;
 }
 
+// in Pianifica, prima di scegliere il posto: il file zone si vede e si carica subito (prima compariva solo dopo)
+function FileZoneVeloce() {
+  const [archivio, setArchivio] = useState(undefined);
+  const [leggo, setLeggo] = useState(false);
+  const [errore, setErrore] = useState(null);
+  useEffect(() => { leggiZoneSalvate().then(async (d) => setArchivio(d && Array.isArray(d.zone) ? d : (await riprendiCopiaZone()) || null)); }, []);
+  const carica = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setLeggo(true); setErrore(null);
+    try { setArchivio(await caricaFileZone(file)); } catch (err) { setErrore(err.message); }
+    setLeggo(false);
+  };
+  if (archivio === undefined) return null;
+  const giorni = archivio ? Math.floor((Date.now() - new Date(archivio.caricato).getTime()) / 86400000) : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: archivio ? "#1b2028" : "#3a2a12", border: `1px solid ${archivio ? "#2b313d" : "#f5b94266"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, maxWidth: 620, fontSize: 12.5, color: archivio ? "#c3cad4" : "#ffd9a0" }}>
+      <span style={{ flex: "1 1 220px" }}>
+        🛡️ <strong>File zone di D-Flight</strong>: {archivio ? <>caricato il {formatData(String(archivio.caricato || "").slice(0, 10))} ({archivio.zone.length} zone){giorni > 28 ? <span style={{ color: "#f5b942" }}> · ⚠ aggiornalo</span> : " ✓"}</> : "non ancora caricato. Serve per sapere se nel posto puoi volare."}
+        {errore && <span style={{ display: "block", color: "#ff9c9c", marginTop: 4 }}>{errore}</span>}
+      </span>
+      <label style={{ display: "inline-block", background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+        {leggo ? "Sto leggendo il file…" : archivio ? "📂 Aggiorna il file" : "📂 Carica il file zone"}
+        <input type="file" onChange={carica} disabled={leggo} style={{ display: "none" }} />
+      </label>
+    </div>
+  );
+}
+
 function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, onPuntoCercato, dataPrevista, oraPrevista, piano, onEsito, onStato }) {
   const [archivio, setArchivio] = useState(undefined); // undefined = sto leggendo, null = nessun file
   const [leggendoFile, setLeggendoFile] = useState(false);
@@ -8709,6 +8739,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
           )}
         </div>
       )}
+
+      {!destinazione && <FileZoneVeloce />}
 
       {destinazione && (
         <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 620 }}>
