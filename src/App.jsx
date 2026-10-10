@@ -5572,7 +5572,7 @@ function Permessi({ permessi, impianti, azienda, piano, onReload, droni = [], em
         </button>
       ) : (
         <Suspense fallback={<p style={{ color: "#8b95a3" }}>Carico l'assistente…</p>}>
-          <AssistentePermessi cercaIndirizzo={cercaIndirizzoItalia} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={salvaDaAssistente} onChiudi={() => apriAssistente(false)} />
+          <AssistentePermessi cercaIndirizzo={cercaIndirizzoItalia} caricaFileZone={caricaFileZone} riprendiZone={riprendiCopiaZone} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={salvaDaAssistente} onChiudi={() => apriAssistente(false)} />
         </Suspense>
       )}
 
@@ -6860,6 +6860,17 @@ async function riprendiCopiaZone() {
   } catch { return null; }
 }
 
+// legge il file zone scelto dal pilota, lo salva sul telefono e nell'account; se non va lancia un errore da mostrare
+async function caricaFileZone(file) {
+  let zone;
+  try { zone = leggiFileZone(JSON.parse(await testoDaFileZone(file))); } catch (err) { throw new Error(err instanceof SyntaxError ? "Il file non è un JSON valido: scaricalo di nuovo da D-Flight." : (err.message || "Non sono riuscito a leggere il file.")); }
+  if (zone.length === 0) throw new Error("Non ho trovato zone in questo file: è quello scaricato da D-Flight («Download UAS Zone Geo»)?");
+  const dati = { zone, nomeFile: file.name, caricato: new Date().toISOString() };
+  await salvaZone(dati);
+  salvaCopiaZone(dati).then(() => { try { localStorage.setItem("eyedrones_zone_copia", dati.caricato); } catch { /* niente */ } });
+  return dati;
+}
+
 function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, onPuntoCercato, dataPrevista, oraPrevista, piano, onEsito, onStato }) {
   const [archivio, setArchivio] = useState(undefined); // undefined = sto leggendo, null = nessun file
   const [leggendoFile, setLeggendoFile] = useState(false);
@@ -6897,14 +6908,9 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     setLeggendoFile(true);
     setErrore(null);
     try {
-      const zone = leggiFileZone(JSON.parse(await testoDaFileZone(file)));
-      if (zone.length === 0) throw new Error("Non ho trovato zone in questo file: è quello scaricato da D-Flight («Download UAS Zone Geo»)?");
-      const dati = { zone, nomeFile: file.name, caricato: new Date().toISOString() };
-      await salvaZone(dati);
-      setArchivio(dati);
-      salvaCopiaZone(dati).then(() => { try { localStorage.setItem("eyedrones_zone_copia", dati.caricato); } catch { /* niente */ } });
+      setArchivio(await caricaFileZone(file));
     } catch (err) {
-      setErrore(err instanceof SyntaxError ? "Il file non è un JSON valido: scaricalo di nuovo da D-Flight." : (err.message || "Non sono riuscito a leggere il file."));
+      setErrore(err.message);
     }
     setLeggendoFile(false);
   };

@@ -119,7 +119,7 @@ function Titolo({ n, children }) {
   return <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><span style={st.passo}>{n}</span><span style={{ fontSize: 15.5, fontWeight: 700 }}>{children}</span></div>;
 }
 
-export default function AssistentePermessi({ cercaIndirizzo, droni = [], azienda, emailUtente, onSalva, onChiudi }) {
+export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, riprendiZone, droni = [], azienda, emailUtente, onSalva, onChiudi }) {
   const [archivio, setArchivio] = useState(undefined);
   const [testo, setTesto] = useState("");
   const [punto, setPunto] = useState(null);
@@ -129,7 +129,25 @@ export default function AssistentePermessi({ cercaIndirizzo, droni = [], azienda
   const [categoria, setCategoria] = useState("open");
   const [luogo, setLuogo] = useState(null); // comune, provincia, regione del punto
 
-  useEffect(() => { leggiZoneSalvate().then((d) => setArchivio(d && Array.isArray(d.zone) ? d : null)); }, []);
+  const [leggoFile, setLeggoFile] = useState(false);
+  const [erroreFile, setErroreFile] = useState(null);
+  // zone dal telefono; se non ci sono provo la copia salvata nell'account
+  useEffect(() => {
+    let vivo = true;
+    leggiZoneSalvate().then(async (d) => {
+      const dati = d && Array.isArray(d.zone) ? d : riprendiZone ? await riprendiZone() : null;
+      if (vivo) setArchivio(dati || null);
+    });
+    return () => { vivo = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const caricaFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !caricaFileZone) return;
+    setLeggoFile(true); setErroreFile(null);
+    try { setArchivio(await caricaFileZone(file)); } catch (err) { setErroreFile(err.message); }
+    setLeggoFile(false);
+  };
 
   useEffect(() => {
     setLuogo(null);
@@ -180,7 +198,20 @@ export default function AssistentePermessi({ cercaIndirizzo, droni = [], azienda
         <Titolo n="1">Dove voli?</Titolo>
         {archivio === null && (
           <div style={{ background: "#3a2a12", border: "1px solid #f5b94266", color: "#ffd9a0", borderRadius: 8, padding: "10px 12px", fontSize: 13, marginBottom: 10 }}>
-            ⚠ Per sapere le zone serve il <strong>file delle zone di D-Flight</strong>. Si carica una volta sola in <strong>Pianifica → Zona di volo</strong>, poi torni qui.
+            <div>⚠ Per sapere che zona è serve il <strong>file delle zone di D-Flight</strong>. È gratis e si fa <strong>una volta sola</strong>:</div>
+            <ol style={{ margin: "6px 0 8px 0", paddingLeft: 20, fontSize: 12.5, lineHeight: 1.5, color: "#f3dfbf" }}>
+              <li>Apri <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ color: "#7fb0ff", fontWeight: 700 }}>D-Flight ↗</a> ed entra con le tue credenziali.</li>
+              <li>In alto a sinistra tocca il logo <strong>«d»</strong>, poi sotto «Dettagli account» il <strong>dischetto 💾</strong> (Download UAS Zone Geo).</li>
+              <li>Torna qui e tocca il bottone qui sotto: scegli il file dalla cartella <strong>Download</strong>.</li>
+            </ol>
+            {caricaFileZone && (
+              <label style={{ display: "inline-block", background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                {leggoFile ? "Sto leggendo il file…" : "📂 Carica il file zone di D-Flight"}
+                <input type="file" onChange={caricaFile} disabled={leggoFile} style={{ display: "none" }} />
+              </label>
+            )}
+            {erroreFile && <div style={{ color: "#ff9c9c", fontSize: 12.5, marginTop: 6 }}>{erroreFile}</div>}
+            <div style={{ fontSize: 11.5, color: "#c9b48f", marginTop: 6 }}>Anche senza file, quando hai scritto il posto puoi già preparare la richiesta a Prefettura, Comune, parco o proprietario.</div>
           </div>
         )}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
