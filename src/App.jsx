@@ -2044,7 +2044,7 @@ function AppShell({ session }) {
       const d = e.detail || {};
       if (d.pagina === "impara" && d.sopra && d.scheda === "zona-rossa") { try { window.history.pushState({ ...(window.history.state || {}), guida: true }, ""); } catch (err) { /* niente */ } setGuidaSopra(d.scheda); }
       else if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
-      else if (d.pagina === "permessi" || d.pagina === "nuova") { setPage(d.pagina); window.scrollTo(0, 0); }
+      else if (d.pagina === "permessi" || d.pagina === "nuova") { setGuidaSopra(null); setPage(d.pagina); window.scrollTo(0, 0); }
       else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);

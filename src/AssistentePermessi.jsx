@@ -41,6 +41,8 @@ const TIPI_AEROPORTO = {
 
 const ATTIVITA = ["Riprese video", "Fotografie", "Ispezione termografica", "Ispezione visiva", "Rilievo / aerofotogrammetria", "Riprese per evento", "Volo amatoriale"];
 
+// zone dello spazio aereo LI-P / LI-D (vietate) e LI-R (vietate quando attive): ATM-09A § 5.3
+const siglaSpazioAereo = (z) => { const m = /\bLI[\s-]?([PDR])\s?\d/i.exec(`${z.nome || ""} ${z.id || ""}`); return m ? m[1].toUpperCase() : null; };
 const eZonaAeroporto = (z) => /AIR_TRAFFIC/i.test(z.motivo || "") || /ATM ?-?0?9/i.test(z.altroMotivo || "") || /\b(ATZ|CTR|aeroport|eliport|aviosuperf|elisuperf|idrosuperf|airport|heliport)/i.test(z.nome || "");
 
 // 45.40123 → 45°24'04"N (WGS84, risoluzione 1 secondo, come chiede il Modello ATM-09A)
@@ -162,16 +164,25 @@ export default function AssistentePermessi({ cercaIndirizzo, droni = [], azienda
           )}
 
           {zoneDaMostrare.map((z) => {
-            const aeroporto = eZonaAeroporto(z);
+            const sigla = siglaSpazioAereo(z);
+            const aeroporto = !sigla && eZonaAeroporto(z);
             const d = descriviRestrizione(z.restrizione);
             const parte = partenzaZona(z);
             const enti = (z.autorita || []).map((a) => ({ nome: valoreReale(a.nome), email: valoreReale(a.email), telefono: valoreReale(a.telefono), sito: valoreReale(a.sito), preavviso: valoreReale(a.preavviso) })).filter((a) => a.nome || a.email || a.telefono);
             return (
               <div key={(z.id || z.nome) + (z.distanza || "")} style={{ border: `1px solid ${d.colore}55`, background: d.colore + "0f", borderRadius: 10, padding: 12, marginTop: 10 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: d.colore }}>{aeroporto ? "✈️ Zona di un aeroporto" : "🏛️ Zona di un ente"}{z.distanza ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m dal punto</span> : null}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: d.colore }}>{sigla ? `⛔ Zona LI-${sigla} dello spazio aereo` : aeroporto ? "✈️ Zona di un aeroporto" : "🏛️ Zona di un ente"}{z.distanza ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m dal punto</span> : null}</div>
                 <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
                 {formattaLimiti(z.limiti) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {formattaLimiti(z.limiti)}</div>}
 
+                {sigla && (
+                  <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 8, lineHeight: 1.5 }}>
+                    {sigla === "R"
+                      ? <>⏰ <strong>Vietata solo quando è attiva.</strong> Guarda gli orari della zona su D-Flight e nei NOTAM: fuori orario valgono le regole normali.</>
+                      : <>⛔ <strong>Zona {sigla === "P" ? "proibita" : "pericolosa"}: vietata ai droni.</strong> Il nulla osta non si chiede: cambia posto.</>}
+                    {categoria === "specific" && <div style={{ color: "#8b95a3", marginTop: 6 }}>Le deroghe seguono le procedure ENAC per gli aerei con equipaggio (Circolare ATM-05B), con tempi lunghi.</div>}
+                  </div>
+                )}
                 {aeroporto && categoria === "open" && (
                   <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 8, lineHeight: 1.5 }}>
                     {parte > 0
@@ -187,7 +198,7 @@ export default function AssistentePermessi({ cercaIndirizzo, droni = [], azienda
                     <div style={{ marginTop: 8 }}><button type="button" onClick={() => setScelta({ zona: z, tipo: "aeroporto" })} style={st.primario}>Prepara il Modello ATM-09A ›</button></div>
                   </div>
                 )}
-                {!aeroporto && (
+                {!aeroporto && !sigla && (
                   <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 8, lineHeight: 1.5 }}>
                     {parte > 0 && <div>✅ Fino a <strong>{parte} m</strong> la zona non vale: lì voli con le regole normali.</div>}
                     ✉️ Si può chiedere il <strong>nulla osta</strong> all'ente che ha chiesto la zona{categoria === "open" ? ", anche in categoria Open" : ""}.
