@@ -32,6 +32,36 @@ export const DIREZIONI_AEROPORTUALI = [
 ];
 const PEC_ENAC = "protocollo@pec.enac.gov.it";
 
+// dove sei → comune, provincia (sigla) e regione, da OpenStreetMap
+async function doveSono(lat, lon) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1&accept-language=it`);
+    const a = (await r.json()).address || {};
+    const sigla = String(a["ISO3166-2-lvl6"] || "").replace(/^IT-/, "");
+    const provincia = String(a.county || a.province || a.state_district || "").replace(/^(Città Metropolitana di|Provincia (autonoma )?di|Libero consorzio comunale di)\s+/i, "").trim();
+    return { comune: a.city || a.town || a.village || a.municipality || "", provincia, sigla, regione: a.state || "" };
+  } catch { return null; }
+}
+// regione (e per Lombardia e Sicilia la provincia) → Direzione Aeroportuale ENAC competente (ATM-09A, Allegato B)
+function direzionePer(luogo) {
+  if (!luogo) return "";
+  const r = (luogo.regione || "").toLowerCase(), sg = (luogo.sigla || "").toUpperCase();
+  if (/piemonte|valle d|liguria/.test(r)) return "nordovest";
+  if (/lombardia/.test(r)) return ["CO", "VA"].includes(sg) ? "malpensa" : "lombardia";
+  if (/veneto|friuli|trentino|alto adige|südtirol/.test(r)) return "nordest";
+  if (/emilia/.test(r)) return "emilia";
+  if (/toscana/.test(r)) return "toscana";
+  if (/marche|umbria|abruzzo|molise/.test(r)) return "centro";
+  if (/lazio/.test(r)) return "lazio";
+  if (/campania/.test(r)) return "campania";
+  if (/puglia|basilicata/.test(r)) return "puglia";
+  if (/calabria/.test(r)) return "calabria";
+  if (/sardegna/.test(r)) return "sardegna";
+  if (/sicilia/.test(r)) return ["AG", "CL", "EN", "PA", "TP"].includes(sg) ? "siciliaocc" : "siciliaor";
+  return "";
+}
+const cercaSulWeb = (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+
 // tipo di aeroporto → a chi si manda il Modello ATM-09A e con quanto anticipo (ATM-09A § 9.2, 9.3, 9.4)
 const TIPI_AEROPORTO = {
   civile: { nome: "Aeroporto civile con torre o servizi ENAV (CTR/ATZ)", giorni: 35, a: ["ENAV S.p.A. – protocollogenerale@pec.enav.it"], pec: ["protocollogenerale@pec.enav.it"], diritti: true },
@@ -91,8 +121,17 @@ export default function AssistentePermessi({ cercaIndirizzo, droni = [], azienda
   const [errore, setErrore] = useState(null);
   const [scelta, setScelta] = useState(null); // { zona, tipo: "aeroporto" | "ente" }
   const [categoria, setCategoria] = useState("open");
+  const [luogo, setLuogo] = useState(null); // comune, provincia, regione del punto
 
   useEffect(() => { leggiZoneSalvate().then((d) => setArchivio(d && Array.isArray(d.zone) ? d : null)); }, []);
+
+  useEffect(() => {
+    setLuogo(null);
+    if (!punto) return undefined;
+    let vivo = true;
+    const t = setTimeout(() => doveSono(punto.lat, punto.lon).then((l) => vivo && setLuogo(l)), 400);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [punto && punto.lat, punto && punto.lon]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const esito = useMemo(() => (archivio && punto ? controllaPunto(archivio.zone, punto, { raggio: 300 }) : null), [archivio, punto]);
   const vicine = esito ? esito.vicine.filter((z) => z.distanza <= 150 && z.restrizione !== "NO_RESTRICTION") : [];
@@ -146,7 +185,7 @@ export default function AssistentePermessi({ cercaIndirizzo, droni = [], azienda
         {errore && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore}</p>}
         {punto && (
           <>
-            <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "8px 0 0 0" }}>📍 {punto.etichetta} · {coordinateDms(punto.lat, punto.lon)} · trascina il puntino se non è nel posto esatto</p>
+            <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "8px 0 0 0" }}>📍 {luogo && luogo.comune ? `${luogo.comune}${luogo.sigla ? ` (${luogo.sigla})` : ""}${luogo.regione ? ` · ${luogo.regione}` : ""}` : punto.etichetta} · {coordinateDms(punto.lat, punto.lon)} · trascina il puntino se non è nel posto esatto</p>
             <Suspense fallback={null}>
               <MappaPunto punto={punto} zone={esito ? [...esito.dentro, ...esito.vicine] : null} onSposta={(lat, lon) => { setScelta(null); setPunto({ lat, lon, etichetta: "Punto sulla mappa" }); }} />
             </Suspense>
@@ -242,7 +281,7 @@ export default function AssistentePermessi({ cercaIndirizzo, droni = [], azienda
       )}
 
       {/* 3) richiesta */}
-      {scelta && <ModuloRichiesta key={(scelta.zona.id || scelta.zona.nome) + scelta.tipo + (scelta.libero ? scelta.libero.id : "")} scelta={scelta} punto={punto} categoria={categoria} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={onSalva} />}
+      {scelta && <ModuloRichiesta key={(scelta.zona.id || scelta.zona.nome) + scelta.tipo + (scelta.libero ? scelta.libero.id : "") + (luogo ? luogo.comune : "")} scelta={scelta} punto={punto} luogo={luogo} categoria={categoria} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={onSalva} />}
 
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>
         Basato sul tuo file zone D-Flight e sulla Circolare ENAC ATM-09A. ENAC sta preparando un nuovo regolamento sulle zone geografiche: quando entra in vigore alcune regole possono cambiare. La verifica ufficiale resta su D-Flight.
@@ -255,7 +294,7 @@ function Campo({ label, children, largo }) {
   return <label style={{ display: "block", gridColumn: largo ? "1 / -1" : undefined }}><span style={st.etich}>{label}</span>{children}</label>;
 }
 
-function ModuloRichiesta({ scelta, punto, categoria, droni, azienda, emailUtente, onSalva }) {
+function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emailUtente, onSalva }) {
   const aeroporto = scelta.tipo === "aeroporto";
   const ricordo = leggiRichiedente();
   const [f, setF] = useState(() => ({
@@ -266,15 +305,16 @@ function ModuloRichiesta({ scelta, punto, categoria, droni, azienda, emailUtente
     email: ricordo.email || emailUtente || "",
     droneId: droni[0]?.id || "",
     attivita: "Riprese video",
-    localita: punto.etichetta && !/^Coordinate|Punto sulla mappa|La mia posizione$/.test(punto.etichetta) ? punto.etichetta.split(",").slice(0, 3).join(",") : "",
+    localita: punto.etichetta && !/^Coordinate|Punto sulla mappa|La mia posizione$/.test(punto.etichetta) ? punto.etichetta.split(",").slice(0, 3).join(",") : luogo && luogo.comune ? `${luogo.comune}${luogo.sigla ? ` (${luogo.sigla})` : ""}` : "",
     dataDa: "", dataA: "", oraDa: "09:00", oraA: "12:00",
     altezza: aeroporto ? 60 : 50, raggio: 200,
-    tipoAeroporto: "civile", direzione: "", aeroportoNome: (scelta.zona.nome || "").replace(/^(ATZ|CTR)\s*/i, "").replace(/\s*[-–]\s*(area|zona)\b.*$/i, ""), distanzaKm: "",
+    tipoAeroporto: "civile", direzione: direzionePer(luogo), aeroportoNome: (scelta.zona.nome || "").replace(/^(ATZ|CTR)\s*/i, "").replace(/\s*[-–]\s*(area|zona)\b.*$/i, ""), distanzaKm: "",
     sicurezza: "Volo in VLOS con osservatore. Area di decollo e atterraggio delimitata e senza pubblico. Drone con geofence e ritorno automatico attivi.",
   }));
   const [fatto, setFatto] = useState(null);
   const libero = scelta.libero || null;
-  const [enteNome, setEnteNome] = useState("");
+  const nomeProposto = !libero || !luogo ? "" : libero.id === "prefettura" && luogo.provincia ? `Prefettura di ${luogo.provincia}` : libero.id === "comune" && luogo.comune ? `Comune di ${luogo.comune}` : "";
+  const [enteNome, setEnteNome] = useState(nomeProposto);
   const [enteEmail, setEnteEmail] = useState("");
   const cambia = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const drone = droni.find((d) => d.id === f.droneId);
@@ -405,6 +445,11 @@ function ModuloRichiesta({ scelta, punto, categoria, droni, azienda, emailUtente
             <Campo label={`A chi scrivi (es. ${libero.esempio})`}><input value={enteNome} onChange={(e) => setEnteNome(e.target.value)} style={st.input} /></Campo>
             <Campo label="Email o PEC dell'ente (dal suo sito)"><input value={enteEmail} onChange={(e) => setEnteEmail(e.target.value)} inputMode="email" style={st.input} /></Campo>
           </div>
+          {enteNome.trim() && (
+            <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 10px 0" }}>
+              🔎 Non sai l'indirizzo? <a href={cercaSulWeb(`${enteNome} ${libero.id === "prefettura" ? "sorvolo drone PEC" : libero.id === "comune" ? "PEC protocollo" : "PEC nulla osta drone"}`)} target="_blank" rel="noreferrer" style={{ color: "#7fb0ff" }}>Cercalo sul sito di {enteNome} ↗</a>{libero.id === "prefettura" ? " (guarda se c'è la pagina «sorvoli con drone» e il loro modulo)" : ""}
+            </p>
+          )}
         </>
       ) : <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 12px 0" }}>Zona: <strong>{scelta.zona.nome}</strong>. Riempi quello che manca: i dati della persona li ricordo per la prossima volta.</p>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
@@ -431,7 +476,7 @@ function ModuloRichiesta({ scelta, punto, categoria, droni, azienda, emailUtente
           <Campo label="Che aeroporto è?" largo>
             <select value={f.tipoAeroporto} onChange={cambia("tipoAeroporto")} style={st.input}>{Object.entries(TIPI_AEROPORTO).map(([k, t]) => <option key={k} value={k}>{t.nome} · {t.giorni} giorni prima</option>)}</select>
           </Campo>
-          <Campo label="Direzione Aeroportuale ENAC (la tua regione)" largo>
+          <Campo label={direzionePer(luogo) && f.direzione === direzionePer(luogo) ? `Direzione Aeroportuale ENAC · scelta in automatico per ${luogo.regione}` : "Direzione Aeroportuale ENAC (la tua regione)"} largo>
             <select value={f.direzione} onChange={cambia("direzione")} style={st.input}>
               <option value="">— scegli —</option>
               {DIREZIONI_AEROPORTUALI.map((x) => <option key={x.id} value={x.id}>{x.nome} · {x.zona}</option>)}
