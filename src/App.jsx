@@ -1689,6 +1689,19 @@ const pulisciRef = (v) => {
   const r = String(v || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 40);
   return r || null;
 };
+const SITI_PROVENIENZA = [[/dronezine/, "dronezine"], [/facebook|fb\.com|fb\.me/, "facebook"], [/instagram/, "instagram"], [/tiktok/, "tiktok"], [/linkedin|lnkd\.in/, "linkedin"], [/youtube|youtu\.be/, "youtube"], [/google\./, "google"], [/bing\.|duckduckgo/, "ricerca"], [/whatsapp|wa\.me/, "whatsapp"], [/t\.me|telegram/, "telegram"]];
+function provenienzaDaSito() {
+  try {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("fbclid")) return "facebook";
+    if (q.get("igshid")) return "instagram";
+    if (q.get("ttclid")) return "tiktok";
+    const host = document.referrer ? new URL(document.referrer).hostname.toLowerCase() : "";
+    if (!host || host === window.location.hostname) return null;
+    const trovato = SITI_PROVENIENZA.find(([r]) => r.test(host));
+    return pulisciRef(trovato ? trovato[1] : host.replace(/^www\./, "").split(".").slice(-2, -1)[0]);
+  } catch { return null; }
+}
 const refSalvato = () => {
   try { return pulisciRef(localStorage.getItem("eyedrones_ref")); } catch { return null; }
 };
@@ -1764,7 +1777,9 @@ function AppAutenticata() {
   useEffect(() => {
     // memorizzo eventuale provenienza (?ref=nomeaffiliato) per collegarla all'account al momento della registrazione
     const refParam = pulisciRef(new URLSearchParams(window.location.search).get("ref"));
-    if (refParam) { try { localStorage.setItem("eyedrones_ref", refParam); } catch { /* memoria del browser non disponibile */ } }
+    // senza ?ref provo a capirlo dal sito da cui arriva (articolo di DronEzine, Instagram, Facebook, Google…)
+    const ref = refParam || (refSalvato() ? null : provenienzaDaSito());
+    if (ref) { try { localStorage.setItem("eyedrones_ref", ref); } catch { /* memoria del browser non disponibile */ } }
 
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: listener } = supabase.auth.onAuthStateChange((evento, s) => {
