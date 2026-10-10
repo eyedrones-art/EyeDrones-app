@@ -3,8 +3,40 @@
 // non sono le domande ufficiali e non sostituiscono un corso o il materiale ENAC.
 
 export const ESAMI = {
-  a1a3: { nome: "A1/A3", domande: 40, minuti: 60, punti: { giusta: 2, sbagliata: -1, vuota: 0 }, soglia: 60, massimo: 80, dove: "online sul portale ENAC, dopo il corso online" },
-  a2: { nome: "A2", domande: 30, minuti: 60, punti: { giusta: 2, sbagliata: 0, vuota: 0 }, soglia: 45, massimo: 60, dove: "presso ENAC o un ente riconosciuto (anche online con sorveglianza)" },
+  a1a3: { nome: "A1/A3", domande: 40, minuti: 60, punti: { giusta: 2, sbagliata: -1, vuota: 0 }, soglia: 60, massimo: 80, dove: "online sul portale ENAC (con SPID)" },
+  a2: { nome: "A2", domande: 30, minuti: 60, punti: { giusta: 2, sbagliata: 0, vuota: 0 }, soglia: 45, massimo: 60, dove: "presso un'Entità Riconosciuta da ENAC, con un sorvegliante" },
+};
+
+// Come si prende l'attestato: passi e link ufficiali ENAC (verificati a ottobre 2026: costi e regole possono cambiare)
+export const COME_SI_PRENDE = {
+  a1a3: {
+    passi: [
+      "Studia: il materiale ufficiale è il corso ENAC in PDF (link qui sotto). Le lezioni e i quiz di questa pagina servono a ripassare.",
+      "Entra nei Servizi web ENAC con lo SPID.",
+      "Paga online il diritto fisso di 31 € prima di iniziare. Con lo stesso pagamento hai più tentativi: il numero esatto è scritto sul portale.",
+      "Fai il test da casa: 40 domande in 60 minuti, si passa con 60 punti su 80 (giusta +2, sbagliata −1, vuota 0). Se proprio non sai, meglio lasciarla vuota.",
+      "Superato il test scarichi l'attestato: vale 5 anni. Salvalo in EyeDrones, sezione Attestati, così ti avvisiamo prima della scadenza.",
+    ],
+    link: [
+      ["📘 Pagina ufficiale ENAC: come si diventa pilota A1/A3 (con il corso in PDF)", "https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/come-si-diventa-pilota-uas-drone-open-a1a3/"],
+      ["🧑‍💻 Servizi web ENAC (dove si fa il test)", "https://serviziweb.enac.gov.it"],
+      ["📄 Argomenti d'esame A1/A3 (syllabus ENAC)", "https://www.enac.gov.it/app/uploads/2024/09/syllabus-A1-A3-2024.pdf"],
+    ],
+  },
+  a2: {
+    passi: [
+      "Prima serve l'attestato A1/A3. Alcune entità chiedono che sia stato preso da qualche giorno: chiedi a quella che scegli.",
+      "Fai l'autoaddestramento pratico, in condizioni A3 (lontano dalle persone), e compila la dichiarazione di averlo completato.",
+      "Scegli un'Entità Riconosciuta da ENAC per l'esame OPEN A2: l'elenco ufficiale è sul sito ENAC.",
+      "Esame sorvegliato: 30 domande in 60 minuti, si passa con 45 punti su 60 (le sbagliate non tolgono punti: rispondi sempre).",
+      "Costi: diritto ENAC di 31 € più quanto chiede l'entità (cambia da una all'altra). Il certificato vale 5 anni.",
+    ],
+    link: [
+      ["📘 Pagina ufficiale ENAC: come si diventa pilota A2", "https://www.enac.gov.it/sicurezza-aerea/droni/come-si-diventa-pilota-uas-drone-open-a2"],
+      ["🏫 Elenco ufficiale delle Entità Riconosciute", "https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/entita-riconosciute/"],
+      ["📄 Argomenti dell'esame A2 (ENAC)", "https://www.enac.gov.it/sites/default/files/allegati/2021-Dic/Allegato%20O%20-%20Argomenti%20esame%20teorico%20OPEN%20A2.pdf"],
+    ],
+  },
 };
 
 export const LEZIONI = {
@@ -78,6 +110,58 @@ export const LEZIONI = {
         "Le liberatorie firmate (anche in EyeDrones) servono proprio a questo.",
       ],
     },
+    {
+      id: "operatore-pilota", titolo: "Operatore e pilota: chi fa cosa",
+      punti: [
+        "L'operatore UAS è chi ha la responsabilità del drone e si registra su D-Flight (una persona o un'azienda). Il pilota remoto è chi lo comanda. Spesso sono la stessa persona.",
+        "L'operatore deve: registrarsi, mettere il codice sul drone, avere l'assicurazione, far volare solo piloti con l'attestato giusto e tenere i droni in buone condizioni.",
+        "Il pilota deve: controllare zone, meteo e drone prima del volo, rispettare i limiti della sottocategoria, non volare se non è in condizione di farlo.",
+        "Cosa portare con sé quando voli: attestato (e certificato A2 se serve), registrazione operatore, assicurazione. In EyeDrones li trovi tutti in «Controllo», anche senza campo.",
+        "Il drone va usato come dice il costruttore: modifiche che cambiano la classe (es. pesi aggiunti su un C1) possono farti uscire dalle regole della classe.",
+      ],
+    },
+    {
+      id: "conoscenza-drone", titolo: "Il drone: com'è fatto e come si comporta",
+      punti: [
+        "Le parti principali: telaio, motori ed eliche, controllore di volo, GPS (GNSS), bussola, sensori di inerzia (IMU), batteria, radiocomando e collegamento video.",
+        "Modalità di volo: normale (con GPS, il drone sta fermo da solo), Cine (più lenta e morbida), Sport (più veloce: di solito i sensori ostacoli sono spenti), ATTI (senza GPS: il vento lo sposta).",
+        "I sensori ostacoli non vedono tutto: rami sottili, cavi, vetri, il buio e i lati senza sensori. Non sono un motivo per volare più vicino agli ostacoli.",
+        "Il «failsafe» è quello che fa il drone se qualcosa va storto: ritorno a casa se perde il segnale, atterraggio con batteria critica. Impostalo prima del volo.",
+        "Il geofence (limiti di altezza, distanza e zone) è un aiuto, non un permesso: la responsabilità resta del pilota.",
+      ],
+    },
+    {
+      id: "batterie", titolo: "Batterie LiPo: sicurezza",
+      punti: [
+        "Non caricarle mai senza controllo e lontano da cose che bruciano; meglio in un sacchetto ignifugo.",
+        "Una batteria gonfia, ammaccata o che scalda troppo non si usa più: va smaltita nei punti di raccolta.",
+        "Se non le usi per giorni, lasciale a metà carica (circa 40–60%): molte batterie DJI lo fanno da sole.",
+        "Dopo il volo falle raffreddare prima di ricaricarle.",
+        "In aereo vanno nel bagaglio a mano, mai in stiva. Fino a 100 Wh di solito sono ammesse, tra 100 e 160 Wh serve l'ok della compagnia, oltre non si portano.",
+      ],
+    },
+    {
+      id: "emergenze", titolo: "Emergenze: cosa fare",
+      punti: [
+        "Perdi il segnale: non spegnere il radiocomando, punta le antenne verso il drone e aspetta che riprenda o che torni a casa da solo.",
+        "Il drone perde il GPS (ATTI): resta calmo, correggi tu la deriva del vento e riportalo vicino a te a vista.",
+        "Batteria che cala di colpo (freddo, batteria vecchia): rientra subito e atterra nel primo punto sicuro.",
+        "Il drone si allontana da solo (fly-away): annota l'ultima posizione sull'app; se può essere un pericolo per aerei o persone, avvisa subito le autorità (112).",
+        "Si avvicina un aereo o un elicottero: scendi e allontanati, loro hanno sempre la precedenza.",
+        "Incidente con feriti: prima i soccorsi (112), poi la segnalazione. Gli incidenti gravi vanno segnalati entro 72 ore.",
+      ],
+    },
+    {
+      id: "security", titolo: "Security: proteggere il drone e gli altri",
+      punti: [
+        "«Safety» è non fare danni volando; «security» è impedire che il drone venga usato per fare danni, anche da altri.",
+        "Non lasciare drone e radiocomando incustoditi; proteggi con password l'account e l'app del drone.",
+        "Aggiorna il firmware solo dall'app o dal sito del costruttore: niente programmi strani che sbloccano limiti.",
+        "Stai lontano da carceri, caserme, centrali, aeroporti e zone sensibili: lì il volo è vietato o serve un'autorizzazione.",
+        "Se il drone ti viene rubato o lo perdi, avvisa le autorità: il codice operatore è registrato a tuo nome.",
+        "Interferenze e disturbi al GPS esistono: se il drone si comporta in modo strano, rientra e atterra.",
+      ],
+    },
   ],
   a2: [
     {
@@ -120,6 +204,37 @@ export const LEZIONI = {
         "Tieni una zona di sicurezza intorno all'area di volo: serve a contenere il drone se qualcosa va storto.",
         "La modalità bassa velocità e i limiti di distanza e quota nel drone aiutano a non uscire dall'area.",
         "In emergenza: allontana il drone dalle persone e atterra nel punto sicuro più vicino.",
+      ],
+    },
+    {
+      id: "meteo-piu", titolo: "Meteo: come leggere la giornata",
+      punti: [
+        "Guarda il vento a terra e in quota, le raffiche (contano più del vento medio), la pioggia e la visibilità. In EyeDrones li trovi ora per ora, anche a 80 e 120 m.",
+        "La differenza tra vento medio e raffiche dice quanto è turbolenta la giornata: se le raffiche sono molto più forti, l'aria è «a scossoni».",
+        "Davanti a un temporale il vento cambia di colpo e si rafforza: se vedi nuvole scure a torre, atterra.",
+        "Col freddo e l'umidità vicino a 0 °C può formarsi ghiaccio sulle eliche: perdono spinta.",
+        "In montagna il vento sale lungo i pendii al sole e scende lungo quelli in ombra; tra due montagne accelera.",
+        "Sopra l'acqua e la neve il drone può avere problemi con i sensori che guardano in basso: vola più alto e controlla la quota.",
+      ],
+    },
+    {
+      id: "prestazioni-piu", titolo: "Prestazioni: autonomia e margini",
+      punti: [
+        "Regola pratica: rientra con almeno il 25–30% di batteria, di più col freddo o col vento contro sulla via del ritorno.",
+        "La velocità rispetto al suolo è la tua velocità più (o meno) il vento: col vento in coda vai lontano in fretta, al ritorno ci metti molto di più.",
+        "Il peso conta: più peso vuol dire più consumo e frenate più lunghe. Tienine conto vicino alle persone.",
+        "Le frenate non sono istantanee: a 10 m/s un drone ha bisogno di diversi metri per fermarsi. Per questo ci sono le distanze dalle persone.",
+        "Eliche rovinate o montate male fanno vibrare il drone e lo rendono instabile: controllale a ogni volo.",
+      ],
+    },
+    {
+      id: "mitigazioni", titolo: "Mitigazioni: tecniche e operative",
+      punti: [
+        "Mitigazioni tecniche (sul drone): modalità bassa velocità, limiti di altezza e distanza, geofence, luci, ritorno automatico impostato bene.",
+        "Mitigazioni operative (come lavori): sopralluogo, area delimitata, osservatore, briefing alle persone coinvolte, orari con meno gente, punto di atterraggio d'emergenza scelto prima.",
+        "Le persone coinvolte vanno informate prima: cosa farai, dove staranno, cosa fare se il drone ha un problema.",
+        "La distanza dalle persone è una mitigazione: più veloce e più pesante è il drone, più spazio serve per fermarlo o farlo cadere lontano.",
+        "Se qualcosa cambia (arriva gente, si alza il vento), adegua il volo: riduci velocità e quota o atterra.",
       ],
     },
   ],
@@ -223,6 +338,21 @@ export const DOMANDE = {
     { tema: "Eventi", d: "Hai un incidente grave con il drone. Entro quando va segnalato?", r: ["Entro 72 ore", "Entro 30 giorni", "Non serve segnalarlo", "Entro un anno"], ok: 0, perche: "Gli eventi gravi vanno segnalati entro 72 ore da quando se ne viene a conoscenza." },
     { tema: "Drone", d: "A cosa serve il Remote ID?", r: ["A pilotare con lo smartphone", "A trasmettere identificativo dell'operatore e posizione del drone", "A registrare i video", "A ricaricare la batteria"], ok: 1, perche: "Il Remote ID trasmette in tempo reale chi è l'operatore e dove si trova il drone." },
     { tema: "Responsabilità", d: "Chi deve assicurarsi che il volo sia sicuro?", r: ["Il costruttore", "Il pilota remoto", "ENAC", "Chi viene ripreso"], ok: 1, perche: "Il pilota remoto è responsabile della condotta sicura del volo." },
+    { tema: "Responsabilità", d: "Chi deve registrarsi su D-Flight: l'operatore o il pilota?", r: ["Il pilota, ogni volta che vola", "L'operatore UAS", "Il costruttore", "Nessuno dei due"], ok: 1, perche: "Si registra l'operatore (chi ha la responsabilità del drone). Il pilota deve avere l'attestato." },
+    { tema: "Responsabilità", d: "Quali documenti è bene avere con sé quando si vola?", r: ["Nessuno", "Attestato, registrazione operatore e assicurazione", "Solo lo scontrino del drone", "Solo la patente dell'auto"], ok: 1, perche: "In caso di controllo servono attestato (e A2 se serve), registrazione operatore e assicurazione." },
+    { tema: "Drone", d: "In modalità Sport cosa succede di solito ai sensori anti-ostacolo?", r: ["Sono più precisi", "Sono spenti", "Raddoppiano", "Non cambia nulla"], ok: 1, perche: "In Sport il drone è più veloce e di solito i sensori ostacoli non sono attivi: serve più attenzione." },
+    { tema: "Drone", d: "I sensori anti-ostacolo vedono sempre tutto?", r: ["Sì, sempre", "No: cavi, rami sottili, vetri e il buio possono sfuggire", "Sì, ma solo di notte", "Sì, se il drone è nuovo"], ok: 1, perche: "Hanno dei limiti: cavi, rami sottili, superfici lucide e scarsa luce. Non contare solo su di loro." },
+    { tema: "Drone", d: "Cos'è il failsafe del drone?", r: ["Un tipo di elica", "Quello che il drone fa da solo se qualcosa va storto (es. torna a casa)", "La custodia", "Un'app per i video"], ok: 1, perche: "È il comportamento automatico in caso di perdita del segnale o batteria critica: va impostato prima del volo." },
+    { tema: "Drone", d: "Il geofence del drone ti lascia volare in una zona. Vuol dire che puoi?", r: ["Sì, è un'autorizzazione", "No: è solo un aiuto, la responsabilità resta del pilota", "Sì, se è un drone DJI", "Sì, se vai piano"], ok: 1, perche: "Il geofence aiuta ma non sostituisce il controllo delle zone e delle regole." },
+    { tema: "Batterie", d: "Una batteria LiPo è gonfia. Cosa fai?", r: ["La usi per voli brevi", "Non la usi più e la porti al punto di raccolta", "La metti in freezer", "La ricarichi lentamente"], ok: 1, perche: "Una batteria gonfia può prendere fuoco: non va più usata." },
+    { tema: "Batterie", d: "Come conservi le batterie che non userai per un po'?", r: ["Cariche al 100%", "A metà carica, circa 40–60%", "Completamente scariche", "In auto al sole"], ok: 1, perche: "A metà carica si rovinano meno; piene o vuote per tanto tempo si degradano." },
+    { tema: "Batterie", d: "In aereo le batterie del drone vanno:", r: ["In stiva", "Nel bagaglio a mano", "Spedite a parte", "Dove vuoi"], ok: 1, perche: "Le batterie al litio vanno nel bagaglio a mano; sopra 100 Wh serve l'ok della compagnia." },
+    { tema: "Emergenze", d: "Perdi il segnale del drone. Cosa NON devi fare?", r: ["Puntare le antenne verso il drone", "Spegnere il radiocomando", "Aspettare che il drone torni a casa", "Guardare dov'era l'ultima volta"], ok: 1, perche: "Spegnere il radiocomando non aiuta: tienilo acceso, orienta le antenne e lascia lavorare il ritorno automatico." },
+    { tema: "Emergenze", d: "Il drone si allontana da solo e potrebbe essere un pericolo per gli aerei. Cosa fai?", r: ["Niente", "Annoti l'ultima posizione e avvisi subito le autorità", "Lo insegui in auto", "Spegni il telefono"], ok: 1, perche: "Se c'è un pericolo per il traffico aereo o le persone bisogna avvisare subito le autorità." },
+    { tema: "Emergenze", d: "C'è un incidente con un ferito. Qual è la prima cosa?", r: ["Fare la segnalazione online", "Chiamare i soccorsi (112)", "Recuperare il drone", "Fare un video"], ok: 1, perche: "Prima le persone: soccorsi. Poi la segnalazione (per gli incidenti gravi entro 72 ore)." },
+    { tema: "Security", d: "Che differenza c'è tra safety e security?", r: ["Nessuna", "Safety: non fare danni volando; security: impedire che il drone venga usato per fare danni", "Safety è per i droni grandi", "Security è l'assicurazione"], ok: 1, perche: "La safety riguarda la sicurezza del volo; la security la protezione da usi illeciti o malevoli." },
+    { tema: "Security", d: "Vuoi togliere i limiti di altezza del drone con un programma trovato online. È una buona idea?", r: ["Sì, se voli bene", "No: si aggiorna solo con l'app o il sito del costruttore", "Sì, in A3", "Sì, se lo fanno tutti"], ok: 1, perche: "Modifiche non ufficiali possono rendere il drone pericoloso e non conforme alle regole." },
+    { tema: "Security", d: "Ti rubano il drone. Perché conviene denunciarlo?", r: ["Non serve", "Perché il codice operatore sul drone è registrato a tuo nome", "Per avere un drone nuovo gratis", "Per cambiare classe"], ok: 1, perche: "Il drone porta il tuo codice operatore: se qualcuno lo usa male, la denuncia ti tutela." },
   ],
   a2: [
     { tema: "Requisiti", d: "Cosa serve per ottenere il certificato A2?", r: ["Solo l'attestato A1/A3", "Attestato A1/A3, autoaddestramento pratico ed esame teorico", "Una visita medica", "Un'autorizzazione ENAC per ogni volo"], ok: 1, perche: "L'A2 richiede l'A1/A3, l'autoaddestramento pratico dichiarato e il superamento dell'esame teorico." },
@@ -255,6 +385,16 @@ export const DOMANDE = {
     { tema: "Rischio a terra", d: "Come riduci il rischio di uscire dall'area prevista?", r: ["Volando in modalità Sport", "Con limiti di distanza e quota nel drone e traiettorie lontane dalle persone", "Spegnendo i sensori", "Volando più veloce"], ok: 1, perche: "I limiti impostati nel drone e una buona pianificazione delle traiettorie aiutano a restare nell'area." },
     { tema: "Rischio a terra", d: "Le persone coinvolte nel volo devono:", r: ["Non sapere niente", "Essere informate, istruite e d'accordo", "Stare sotto il drone", "Avere l'attestato"], ok: 1, perche: "Le persone coinvolte partecipano consapevolmente: sanno del volo e sanno cosa fare." },
     { tema: "Rischio a terra", d: "Vuoi ridurre la distanza dalle persone a 5 m con il tuo C2. Cosa attivi?", r: ["La modalità Sport", "La modalità bassa velocità", "Il Remote ID", "La luce verde"], ok: 1, perche: "Solo con la modalità bassa velocità attiva puoi scendere da 30 m a 5 m." },
+    { tema: "Meteo", d: "Vento medio 15 km/h e raffiche a 40 km/h. Cosa ti dice?", r: ["Che è una giornata calma", "Che l'aria è molto turbolenta: attenzione o rimanda", "Che le raffiche non contano", "Che pioverà"], ok: 1, perche: "Raffiche molto più forti del vento medio = aria a scossoni: il drone può essere spinto all'improvviso." },
+    { tema: "Meteo", d: "Si avvicinano nuvole scure a torre (cumulonembi). Cosa fai?", r: ["Sali per riprenderle", "Atterri: davanti ai temporali il vento cambia di colpo", "Niente", "Voli più lontano"], ok: 1, perche: "Vicino ai temporali ci sono raffiche forti e improvvise: meglio atterrare." },
+    { tema: "Meteo", d: "Temperatura vicina a 0 °C e molta umidità. Che rischio c'è?", r: ["Nessuno", "Ghiaccio sulle eliche, che perdono spinta", "Il drone va più veloce", "Il GPS migliora"], ok: 1, perche: "Con freddo umido può formarsi ghiaccio sulle eliche: il drone perde spinta." },
+    { tema: "Meteo", d: "In montagna, di giorno, sui pendii al sole il vento di solito:", r: ["Scende verso valle", "Sale lungo il pendio", "Non c'è mai", "Gira in cerchio"], ok: 1, perche: "L'aria scaldata dal sole sale lungo i pendii (brezza di monte/valle)." },
+    { tema: "Prestazioni", d: "Con che batteria è prudente rientrare?", r: ["5%", "Almeno 25–30%, di più col freddo o col vento contro", "50% sempre", "Quando suona l'allarme critico"], ok: 1, perche: "Serve margine per il ritorno, soprattutto col vento contro e col freddo." },
+    { tema: "Prestazioni", d: "Vai col vento in coda. Al ritorno cosa succede?", r: ["Torni più veloce", "Ci metti di più e consumi di più", "Nulla", "Il drone si ferma"], ok: 1, perche: "Al ritorno il vento è contro: velocità al suolo più bassa e più consumo." },
+    { tema: "Prestazioni", d: "Perché un drone più pesante ha bisogno di più distanza dalle persone?", r: ["Perché fa più rumore", "Perché frena in più spazio e in caso di caduta fa più danni", "Perché va più piano", "Non serve"], ok: 1, perche: "Più massa = frenate più lunghe ed energia maggiore in caso di impatto." },
+    { tema: "Mitigazioni", d: "Quale di queste è una mitigazione tecnica?", r: ["Fare un briefing alle persone", "La modalità bassa velocità del drone", "Delimitare l'area", "Scegliere un orario con meno gente"], ok: 1, perche: "Le mitigazioni tecniche sono funzioni del drone; le altre sono operative (come organizzi il lavoro)." },
+    { tema: "Mitigazioni", d: "Quale di queste è una mitigazione operativa?", r: ["Il geofence", "Le luci del drone", "Un osservatore e un'area delimitata", "Il ritorno automatico"], ok: 2, perche: "Osservatore e area delimitata riguardano come organizzi il volo: sono mitigazioni operative." },
+    { tema: "Mitigazioni", d: "Durante un volo A2 arrivano persone vicino all'area. Cosa fai?", r: ["Continui come prima", "Riduci velocità e quota, ti allontani o atterri", "Voli sopra di loro per farle spostare", "Acceleri per finire prima"], ok: 1, perche: "Se cambiano le condizioni bisogna adeguare il volo per mantenere le distanze." },
   ],
 };
 

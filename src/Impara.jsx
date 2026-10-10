@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { ESAMI, LEZIONI, GUIDA_ZONA_ROSSA, DOMANDE, SIGLE_ZONE, CONTATTI_ZONE } from "./impara";
+import React, { useState, useEffect, useMemo } from "react";
+import { ESAMI, COME_SI_PRENDE, LEZIONI, GUIDA_ZONA_ROSSA, DOMANDE, SIGLE_ZONE, CONTATTI_ZONE } from "./impara";
 import Notizie from "./Notizie.jsx";
 import Manuale from "./Manuale.jsx";
 
@@ -16,6 +16,8 @@ const SCHEDE = [
 const CHIAVE_ERRORI = "eyedrones_quiz_errori";
 const leggiErrori = () => { try { return JSON.parse(localStorage.getItem(CHIAVE_ERRORI) || "[]"); } catch { return []; } };
 const scriviErrori = (l) => { try { localStorage.setItem(CHIAVE_ERRORI, JSON.stringify(l)); } catch { /* niente */ } };
+// le risposte in ordine casuale a ogni giro: così la risposta giusta non è sempre nello stesso posto
+const mescolaRisposte = (banca) => banca.map((q) => { const p = mescola(q.r.map((_, i) => i)); return { ...q, r: p.map((i) => q.r[i]), ok: p.indexOf(q.ok) }; });
 const mescola = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 const AVVISO = "Domande di allenamento scritte sugli argomenti d'esame: non sono quelle ufficiali e non sostituiscono il corso ENAC o una scuola.";
 
@@ -23,6 +25,28 @@ const stCard = { background: "#1b2028", border: "1px solid #2b313d", borderRadiu
 const stBtn = (attivo) => ({ background: attivo ? "#ff8c42" : "#1f2530", color: attivo ? "#161a1f" : "#e7eaee", border: attivo ? "none" : "1px solid #333a45", borderRadius: 18, padding: "6px 12px", fontSize: 12.5, fontWeight: attivo ? 700 : 500, whiteSpace: "nowrap" });
 const stAzione = { background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 700 };
 const stSecondario = { background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "9px 14px", fontSize: 13 };
+
+// passi e link ufficiali per prendere l'attestato
+function ComeSiPrende({ esame }) {
+  const c = COME_SI_PRENDE[esame];
+  const e = ESAMI[esame];
+  if (!c) return null;
+  return (
+    <details open style={{ ...stCard, borderColor: "#3d8bfd55", background: "#141c28" }}>
+      <summary style={{ cursor: "pointer", fontSize: 14.5, fontWeight: 700 }}>🎓 Come si prende l'attestato {e.nome}</summary>
+      <ol style={{ margin: "10px 0 0 0", paddingLeft: 20, fontSize: 13, lineHeight: 1.6, color: "#d6dde6" }}>
+        {c.passi.map((p) => <li key={p} style={{ marginBottom: 4 }}>{p}</li>)}
+      </ol>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+        {c.link.map(([testo, url]) => (
+          <a key={url} href={url} target="_blank" rel="noreferrer" style={{ display: "block", background: "#1d2633", border: "1px solid #3d8bfd55", color: "#9fc5ff", borderRadius: 8, padding: "9px 12px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>{testo} ↗</a>
+        ))}
+      </div>
+      <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail: { pagina: "attestati" } }))} style={{ ...stSecondario, marginTop: 10 }}>📇 Hai già l'attestato? Salvalo negli Attestati</button>
+      <p style={{ fontSize: 11, color: "#8b95a3", margin: "8px 0 0 0" }}>Informazioni controllate a ottobre 2026: costi e regole possono cambiare, verifica sempre sul sito ENAC prima di pagare.</p>
+    </details>
+  );
+}
 
 function Lezioni({ esame, onQuiz }) {
   const lezioni = LEZIONI[esame];
@@ -32,8 +56,9 @@ function Lezioni({ esame, onQuiz }) {
       <div style={{ ...stCard, background: "#14251b", borderColor: "#2c5a3a", fontSize: 12.5, color: "#bfe8cc" }}>
         🎓 Esame {e.nome}: {e.domande} domande in {e.minuti} minuti, {e.dove}. Si passa con {e.soglia} punti su {e.massimo} (risposta giusta +{e.punti.giusta}{e.punti.sbagliata ? `, sbagliata ${e.punti.sbagliata}` : ""}).
       </div>
+      <ComeSiPrende esame={esame} />
       {lezioni.map((l, i) => (
-        <details key={l.id} open={i === 0} style={stCard}>
+        <details key={l.id} open={false} style={stCard}>
           <summary style={{ cursor: "pointer", fontSize: 14.5, fontWeight: 700 }}>{i + 1}. {l.titolo}</summary>
           <ul style={{ margin: "10px 0 0 0", paddingLeft: 18, fontSize: 13, lineHeight: 1.6, color: "#d6dde6" }}>
             {l.punti.map((p) => <li key={p} style={{ marginBottom: 4 }}>{p}</li>)}
@@ -78,7 +103,8 @@ function Quiz({ esameIniziale = "a1a3" }) {
   const [scadenza, setScadenza] = useState(null);
   const [adesso, setAdesso] = useState(Date.now());
   const [errori, setErrori] = useState(leggiErrori);
-  const banca = DOMANDE[esame];
+  const [giro, setGiro] = useState(0);
+  const banca = useMemo(() => mescolaRisposte(DOMANDE[esame]), [esame, giro]); // eslint-disable-line react-hooks/exhaustive-deps
   const conf = ESAMI[esame];
   const erroriEsame = errori.filter((k) => k.startsWith(esame + "-"));
 
@@ -96,7 +122,7 @@ function Quiz({ esameIniziale = "a1a3" }) {
   const avvia = (m) => {
     const indici = m === "errori" ? erroriEsame.map((k) => Number(k.split("-")[1])).filter((i) => banca[i]) : banca.map((_, i) => i);
     setOrdine(m === "simulazione" ? mescola(indici).slice(0, conf.domande) : mescola(indici));
-    setPos(0); setScelte({}); setMostra(false); setFine(false); setModo(m);
+    setGiro((g) => g + 1); setPos(0); setScelte({}); setMostra(false); setFine(false); setModo(m);
     if (m === "simulazione") { setScadenza(Date.now() + conf.minuti * 60000); setAdesso(Date.now()); }
   };
   const segnaErrore = (i, sbagliata) => {
