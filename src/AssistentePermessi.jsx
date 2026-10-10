@@ -65,6 +65,7 @@ function direzionePer(luogo) {
 const PEC_DAP = "segreteriasicurezza.dap@giustiziacert.it";
 const CC_ENAC_05 = ["protocollo@pec.enac.gov.it", "mobilita.innovativa@enac.gov.it"];
 export const pecPrefettura = (sigla) => (sigla ? `protocollo.pref${String(sigla).toLowerCase()}@pec.interno.it` : "");
+const eCitta = (z) => /\b(citt[aà]|city|centro urbano|centro storico)\b/i.test(`${z.nome || ""} ${z.messaggio || ""}`);
 const eCarcere = (z) => /penitenz|carcer|circondarial|reclusion|detenzion|edifici particolari/i.test(`${z.nome || ""} ${z.messaggio || ""} ${z.altroMotivo || ""} ${z.motivo || ""}`);
 
 // senza file: il pilota guarda il punto su D-Flight e mi dice cosa vede (i colori delle zone degli aeroporti
@@ -311,11 +312,12 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
                 {sigla && (
                   <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 8, lineHeight: 1.5 }}>
                     {sigla === "R"
-                      ? <>⏰ <strong>Vietata solo quando è attiva.</strong> Guarda gli orari su D-Flight e nei NOTAM: fuori orario valgono le regole normali.</>
+                      ? <>⏰ <strong>Vietata solo quando è attiva.</strong> Gli orari sono nell'<strong>AIP Italia (ENR 5.1.2)</strong>: su D-Flight tocca la zona, apri «Regole dell'aria» e poi il link «AIP ITALIA ENR 5.1.2». Può essere attivata anche con un <strong>NOTAM</strong>: guardali il giorno prima. Fuori orario valgono le regole normali.</>
                       : <>⛔ <strong>Zona {sigla === "P" ? "proibita" : "pericolosa"}: normalmente vietata ai droni.</strong></>}
                     <div style={{ marginTop: 6 }}>✉️ Per volarci {sigla === "R" ? "mentre è attiva " : ""}serve il <strong>nulla osta dell'amministrazione che ha chiesto la zona</strong>, con il <strong>Modello ATM-05 in bollo</strong> (Circolare ENAC ATM-05B, cap. 11), in copia a ENAC.</div>
+                    {eCitta(z) && !eCarcere(z) && enti.length === 0 && <div style={{ marginTop: 6, color: "#cfe2ff" }}>🏙️ È una zona a protezione della città (ordine e sicurezza pubblica): di solito il nulla osta lo dà la <strong>Prefettura</strong>{luogo && luogo.provincia ? ` di ${luogo.provincia}` : ""}. Ti preparo il modulo già indirizzato a lei.</div>}
                     {eCarcere(z) && <div style={{ marginTop: 6, color: "#ffd9a0" }}>🏢 Zona di un carcere: il nulla osta si dà <strong>solo per lavoro</strong> (non per hobby), al Dipartimento dell'Amministrazione Penitenziaria, <strong>almeno 15 giorni prima</strong>, con il documento d'identità.</div>}
-                    <div style={{ marginTop: 8 }}><button type="button" onClick={() => setScelta({ zona: z, tipo: "atm05", ente: enti[0] || null, carcere: eCarcere(z) })} style={st.primario}>Prepara il Modello ATM-05 ›</button></div>
+                    <div style={{ marginTop: 8 }}><button type="button" onClick={() => setScelta({ zona: z, tipo: "atm05", ente: enti[0] || null, carcere: eCarcere(z), citta: eCitta(z) && !eCarcere(z) && enti.length === 0 })} style={st.primario}>Prepara il Modello ATM-05 ›</button></div>
                   </div>
                 )}
                 {aeroporto && categoria === "open" && (
@@ -428,9 +430,9 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
   const [fatto, setFatto] = useState(null);
   const libero = scelta.libero || null;
   const nomeProposto = atm05
-    ? (scelta.carcere ? "Ministero della Giustizia – Dipartimento dell'Amministrazione Penitenziaria – Segreteria di Sicurezza" : scelta.ente?.nome || "")
+    ? (scelta.carcere ? "Ministero della Giustizia – Dipartimento dell'Amministrazione Penitenziaria – Segreteria di Sicurezza" : scelta.ente?.nome || (scelta.citta && luogo && luogo.provincia ? `Prefettura di ${luogo.provincia}` : ""))
     : !libero || !luogo ? "" : libero.id === "prefettura" && luogo.provincia ? `Prefettura di ${luogo.provincia}` : libero.id === "comune" && luogo.comune ? `Comune di ${luogo.comune}` : "";
-  const emailProposta = atm05 ? (scelta.carcere ? PEC_DAP : scelta.ente?.email || "") : libero && libero.id === "prefettura" && luogo ? pecPrefettura(luogo.sigla) : "";
+  const emailProposta = atm05 ? (scelta.carcere ? PEC_DAP : scelta.ente?.email || (scelta.citta && luogo ? pecPrefettura(luogo.sigla) : "")) : libero && libero.id === "prefettura" && luogo ? pecPrefettura(luogo.sigla) : "";
   const [enteNome, setEnteNome] = useState(nomeProposto);
   const [enteEmail, setEnteEmail] = useState(emailProposta);
   const cambia = (k) => (e) => setF({ ...f, [k]: e.target.value });
