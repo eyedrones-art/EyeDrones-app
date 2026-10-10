@@ -2,6 +2,7 @@
 // e, se vuole, mette la fine nel calendario del telefono (così la notifica arriva anche ad app chiusa)
 import React, { useState } from "react";
 import { datiCalendarioPiano, PulsantiCalendario } from "./calendario.jsx";
+import { spiegaNotam } from "./zoneUAS";
 
 const CHIAVE = "eyedrones_avvisi_notam";
 export const leggiAvvisiNotam = () => { try { const l = JSON.parse(localStorage.getItem(CHIAVE) || "[]"); return Array.isArray(l) ? l : []; } catch { return []; } };
@@ -53,4 +54,22 @@ export function NotamFiniti() {
       <button type="button" onClick={() => ok(a.id)} style={{ background: "none", border: "1px solid #4ade8066", color: "#4ade80", borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>Ok</button>
     </div>
   ));
+}
+
+// il testo del NOTAM spiegato in italiano, con l'originale sotto (si apre se serve)
+export function NotamInItaliano({ testo }) {
+  const n = spiegaNotam(testo);
+  if (!n) return null;
+  return (
+    <div style={{ fontSize: 12, color: "#e7eaee", marginTop: 4, lineHeight: 1.5 }}>
+      <div>🇮🇹 <strong>{n.cosa}</strong></div>
+      {n.dove && <div>📍 Dove: {n.dove}</div>}
+      {(n.altezza || n.raggio) && <div>↕️ {[n.altezza && `Fino a ${n.altezza}`, n.raggio].filter(Boolean).join(" · ")}</div>}
+      {n.nota && <div>📝 Nota: {n.nota}</div>}
+      <details style={{ marginTop: 2, color: "#8b95a3" }}>
+        <summary style={{ cursor: "pointer", fontSize: 11.5 }}>Testo originale del NOTAM</summary>
+        <div style={{ whiteSpace: "pre-wrap", fontSize: 11, fontFamily: "monospace", marginTop: 2 }}>{testo}</div>
+      </details>
+    </div>
+  );
 }

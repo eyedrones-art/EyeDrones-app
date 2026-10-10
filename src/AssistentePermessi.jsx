@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { AvvisaFineNotam } from "./avvisiNotam.jsx";
+import { AvvisaFineNotam, NotamInItaliano } from "./avvisiNotam.jsx";
 import { leggiZoneSalvate, messaggioBreve, motivoZona, sistemaZona, zonaFinita, controllaPunto, altezzaSenzaPermessi, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
 
 const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
@@ -99,6 +99,9 @@ const ENTI_LIBERI = [
   { id: "comune", nome: "Comune", esempio: "Comune di Caselle Torinese", nota: "Al Comune si chiede per riprese in luoghi pubblici o se c'è un'ordinanza. Per il decollo da suolo pubblico può servire l'ufficio occupazione suolo pubblico.", giorni: 10 },
   { id: "parco", nome: "Ente parco o riserva", esempio: "Ente Parco del …", nota: "Molti parchi hanno un loro modulo «nulla osta sorvolo droni» sul sito, a volte a pagamento: se c'è, usa quello.", giorni: 15 },
   { id: "proprietario", nome: "Proprietario o gestore del posto", esempio: "Villa …, Azienda …", nota: "Per decollare o atterrare su un terreno privato, o volare vicino a un edificio (eccezione dell'ostacolo vicino agli aeroporti), serve il permesso del proprietario.", giorni: 3 },
+  { id: "capitaneria", nome: "Capitaneria di porto", esempio: "Capitaneria di porto di Genova", nota: "Per porti, spiagge e specchi d'acqua: molte Capitanerie hanno un'ordinanza sui droni. In alcune basta una comunicazione, in altre serve l'autorizzazione: guarda le ordinanze sul sito della tua Capitaneria (guardiacostiera.gov.it).", giorni: 10 },
+  { id: "soprintendenza", nome: "Soprintendenza o museo", esempio: "Soprintendenza ABAP di Torino", nota: "Per riprendere monumenti, aree archeologiche o musei statali per lavoro serve la concessione all'uso delle immagini (Codice dei beni culturali, artt. 107-108). Per uso personale le riprese di beni culturali sono libere. Per volare dentro un sito chiedi anche al gestore del sito.", giorni: 15 },
+  { id: "infrastruttura", nome: "Ferrovia, autostrada, linee elettriche", esempio: "RFI, Autostrade per l'Italia, ANAS, Terna", nota: "Per volare sopra o vicino a binari, autostrade, linee elettriche o dighe chiedi al gestore. Per le ispezioni di solito c'è già un accordo con il committente: chiedi a lui chi va avvisato.", giorni: 15 },
   { id: "altro", nome: "Altro ente", esempio: "Capitaneria di porto, Soprintendenza…", nota: "Usa il contatto scritto sul sito dell'ente.", giorni: 15 },
 ];
 
@@ -121,6 +124,7 @@ function sessagesimale(v, pos, neg, cifre) {
 export const coordinateDms = (lat, lon) => `${sessagesimale(lat, "N", "S", 2)} ${sessagesimale(lon, "E", "W", 3)}`;
 const piedi = (m) => Math.round(Number(m) * 3.28084);
 const dataIt = (iso) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }) : "");
+const piu = (iso, giorni) => { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + giorni); return d.toISOString().slice(0, 10); };
 const meno = (iso, giorni) => { if (!iso) return null; const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() - giorni); return d.toISOString().slice(0, 10); };
 const dataOra = (t) => { const d = new Date(t); return isNaN(d) ? String(t) : d.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" }); };
 const oggiIso = () => new Date().toISOString().slice(0, 10);
@@ -314,9 +318,10 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: d.colore }}>{sigla ? `⛔ Zona LI-${sigla} dello spazio aereo` : notam ? "📢 NOTAM: divieto temporaneo" : avio ? "🚁 Elisuperficie o aviosuperficie" : aeroporto ? "✈️ Zona di un aeroporto" : "🏛️ Zona di un ente"}{z.distanza ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m dal punto</span> : null}</div>
                 <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
                 {motivoZona(z) && !notam && !String(z.id).startsWith("man-") && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>❓ Perché c'è: <strong>{motivoZona(z)}</strong></div>}
-                {valoreReale(z.messaggio) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2, whiteSpace: "pre-line" }}>📝 Dice D-Flight: «{messaggioBreve(valoreReale(z.messaggio)).slice(0, 600)}{messaggioBreve(z.messaggio).length > 600 ? "…" : ""}»</div>}
+                {notam && valoreReale(z.messaggio) && <NotamInItaliano testo={z.messaggio} />}
+                {!notam && valoreReale(z.messaggio) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2, whiteSpace: "pre-line" }}>📝 Dice D-Flight: «{messaggioBreve(valoreReale(z.messaggio)).slice(0, 600)}{messaggioBreve(z.messaggio).length > 600 ? "…" : ""}»</div>}
                 {z.validita && !notam && <div style={{ fontSize: 12, color: "#f5b942", marginTop: 2 }}>📅 Zona temporanea: {z.validita.map((v) => [v.da && `dal ${dataOra(v.da)}`, v.a && `al ${dataOra(v.a)}`].filter(Boolean).join(" ")).join("; ")}. Fuori da queste date la zona non vale.</div>}
-                {formattaLimiti(z.limiti) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {formattaLimiti(z.limiti)}</div>}
+                {formattaLimiti(z.limiti) && !(notam && valoreReale(z.messaggio)) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {formattaLimiti(z.limiti)}</div>}
 
                 {sigla && (
                   <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 8, lineHeight: 1.5 }}>
@@ -471,11 +476,12 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     ? [...tipoA.pec, PEC_ENAC]
     : [ente?.email].filter(Boolean);
   const inCopia = atm05 ? CC_ENAC_05 : [];
+  const giorniOggetto = f.dataDa ? (f.dataA && f.dataA !== f.dataDa ? `dal ${dataIt(f.dataDa)} al ${dataIt(f.dataA)}` : dataIt(f.dataDa)) : "";
   const oggetto = atm05
-    ? `Modello ATM-05 – Richiesta di nulla osta al sorvolo della zona ${scelta.zona.nome} con drone – ${f.dataDa ? dataIt(f.dataDa) : ""}`
+    ? `Modello ATM-05 – Richiesta di nulla osta al sorvolo della zona ${scelta.zona.nome} con drone – ${giorniOggetto}`
     : aeroporto
-    ? `Modello ATM-09A – Riserva di spazio aereo per operazioni UAS – ${f.localita || coord} – ${f.dataDa ? dataIt(f.dataDa) : ""}`
-    : `${libero && libero.id === "proprietario" ? "Richiesta di permesso" : "Richiesta di nulla osta"} per sorvolo con drone – ${nomeZona} – ${f.dataDa ? dataIt(f.dataDa) : ""}`;
+    ? `Modello ATM-09A – Riserva di spazio aereo per operazioni UAS – ${f.localita || coord} – ${giorniOggetto}`
+    : `${libero && libero.id === "proprietario" ? "Richiesta di permesso" : "Richiesta di nulla osta"} per sorvolo con drone – ${nomeZona} – ${giorniOggetto}`;
   const allegati = atm05
     ? ["Modello ATM-05 compilato e firmato, con marca da bollo da 16 €", "Documento d'identità del richiedente", "Attestato del pilota remoto", "Registrazione operatore D-Flight (codice operatore)", "Polizza assicurativa RC", ...(categoria === "specific" ? ["Autorizzazione ENAC o dichiarazione dello scenario standard (STS)"] : []), "Mappa dell'area di volo"]
     : aeroporto
@@ -492,6 +498,9 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     : libero?.id === "comune" ? [["Comune", "di solito gratis", "se decolli da suolo pubblico per lavoro può servire il permesso di occupazione (costo secondo il Comune)"]]
     : libero?.id === "parco" ? [["Ente parco", "dipende", "spesso gratis per uso amatoriale, a pagamento per riprese commerciali: da poche decine a centinaia di €. Guarda il regolamento del parco"]]
     : libero?.id === "proprietario" ? [["Proprietario", "gratis", "salvo accordi diversi con lui"]]
+    : libero?.id === "capitaneria" ? [["Capitaneria", "di solito gratis", "a volte con marca da bollo da 16 € sull'istanza: è scritto nell'ordinanza"]]
+    : libero?.id === "soprintendenza" ? [["Soprintendenza", "dipende", "per uso personale gratis; per uso commerciale c'è un canone di concessione, deciso da ogni istituto"]]
+    : libero?.id === "infrastruttura" ? [["Gestore", "dipende", "di solito gratis; il gestore può chiedere la tua assicurazione o di essere presente"]]
     : [["Ente", "dipende", "di solito gratis: nella richiesta chiedo io se ci sono costi"]];
   const chiediCosti = !atm05 && !aeroporto;
   const testoEmail = [
@@ -511,6 +520,7 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     `• Luogo: ${[f.localita, `coordinate ${coord} (WGS84)`].filter(Boolean).join(" – ")}`,
     `• Area: raggio ${f.raggio} m dal punto, altezza massima ${f.altezza} m dal suolo (${piedi(f.altezza)} ft AGL)`,
     `• Quando: ${periodo || "—"}`,
+    ...(f.riserva && f.dataA && f.dataA !== f.dataDa ? ["  (chiedo qualche giorno in più per poter spostare il volo in caso di maltempo)"] : []),
     `• Sicurezza: ${f.sicurezza}`,
     "",
     "Allego:",
@@ -680,6 +690,11 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
         <Campo label="Località (paese, via)" largo><input value={f.localita} onChange={cambia("localita")} style={st.input} /></Campo>
         <Campo label="Giorno del volo"><input type="date" value={f.dataDa} onChange={cambia("dataDa")} style={st.input} /></Campo>
         <Campo label="Ultimo giorno (se più giorni)"><input type="date" value={f.dataA} onChange={cambia("dataA")} style={st.input} /></Campo>
+        <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "#c3cad4", background: "#141c28", border: "1px solid #3d8bfd33", borderRadius: 8, padding: "8px 10px" }}>
+          🌧️ <strong>Consiglio:</strong> chiedi qualche giorno in più di quello che ti serve, così se piove o c'è vento sei già coperto (e una fascia oraria più larga).{" "}
+          {f.dataDa ? <>Aggiungi giorni di riserva:{" "}{[1, 2, 3].map((n) => <button key={n} type="button" onClick={() => setF({ ...f, dataA: piu(f.dataDa, n), riserva: true })} style={{ background: f.dataA === piu(f.dataDa, n) ? "#2b3a52" : "#1f2530", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 6, padding: "3px 9px", fontSize: 12, fontWeight: 600, marginLeft: 4 }}>+{n}</button>)}</> : "Prima scegli il giorno del volo."}
+          <div style={{ color: "#8b95a3", marginTop: 4 }}>Non esagerare: 2–3 giorni in più vanno bene, periodi troppo lunghi possono essere rifiutati. Il preavviso si conta dal primo giorno.</div>
+        </div>
         <Campo label="Dalle"><input type="time" value={f.oraDa} onChange={cambia("oraDa")} style={st.input} /></Campo>
         <Campo label="Alle"><input type="time" value={f.oraA} onChange={cambia("oraA")} style={st.input} /></Campo>
         <Campo label="Altezza massima (m dal suolo)"><input type="number" inputMode="numeric" value={f.altezza} onChange={cambia("altezza")} style={st.input} /></Campo>

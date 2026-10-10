@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
 import { datiCalendarioPiano, dataLocaleDa, PulsantiCalendario } from "./calendario.jsx";
-import { AvvisaFineNotam, NotamFiniti } from "./avvisiNotam.jsx";
+import { AvvisaFineNotam, NotamFiniti, NotamInItaliano } from "./avvisiNotam.jsx";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo } from "./Riprese.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
@@ -6990,7 +6990,8 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         <div style={{ fontSize: 12.5, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
         {limiti && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {limiti}</div>}
         {motivo && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Motivo: {motivo}</div>}
-        {!vicina && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{messaggioBreve(z.messaggio)}</div>}
+        {!vicina && notam && valoreReale(z.messaggio) && <NotamInItaliano testo={z.messaggio} />}
+        {!vicina && !notam && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{messaggioBreve(z.messaggio)}</div>}
         {!vicina && zonaR && <div style={{ fontSize: 11.5, color: "#ffd9a0", marginTop: 3 }}>⏰ Zona LI-R: vale <strong>solo quando è attiva</strong>. Gli orari sono nell'AIP Italia (ENR 5.1.2): su D-Flight tocca la zona → «Regole dell'aria». Può essere attivata anche con un NOTAM.</div>}
         {!vicina && valoreReale(z.condizioni) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
         {z.fuoriPeriodo && <div style={{ fontSize: 11.5, color: "#ffb877", marginTop: 3 }}>⚠ Secondo il file questa zona non vale il giorno del volo, ma le date del file potrebbero essere solo vecchie: per sicurezza la considero attiva. Aggiorna il file e controlla su D-Flight.</div>}

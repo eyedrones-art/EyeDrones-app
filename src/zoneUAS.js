@@ -481,3 +481,53 @@ export const motivoZona = (z) => {
 
 // i messaggi dei parchi hanno in fondo codici e norme: tengo la regola, l'ente, il contatto e il limite
 export const messaggioBreve = (t) => String(t || "").split("\n").filter((r) => !/^\s*(Euap|Codice|Nome Sito|Tipo|Tipo Limi|Norme|Misure|art\.|N\.B\.)\b/i.test(r)).join("\n").trim();
+
+// --- NOTAM in italiano ------------------------------------------------------------------------------
+// i NOTAM sono in inglese abbreviato («TEMPORARY RESTRICTED AREA … DUE TO CIV UNMANNED ACFT ACTIVITY»):
+// ne tiro fuori cosa succede, dove, fino a che altezza e le note, in parole semplici
+const PUNTI_CARDINALI = { N: "nord", NNE: "nord-nord-est", NE: "nord-est", ENE: "est-nord-est", E: "est", ESE: "est-sud-est", SE: "sud-est", SSE: "sud-sud-est", S: "sud", SSW: "sud-sud-ovest", SW: "sud-ovest", WSW: "ovest-sud-ovest", W: "ovest", WNW: "ovest-nord-ovest", NW: "nord-ovest", NNW: "nord-nord-ovest" };
+const COSA_NOTAM = [
+  [/TEMPO?RARY RESTRICTED AREA|TEMPO RESTRICTED AREA/, "area vietata temporanea"],
+  [/TEMPO?RARY (SEGREGATED|RESERVED) AREA/, "area riservata temporanea"],
+  [/FIRING/, "esercitazione di tiro"],
+  [/MIL(ITARY)? UNMANNED( ACFT| AIRCRAFT)?/, "voli di droni militari"],
+  [/CIV(IL)? UNMANNED( ACFT| AIRCRAFT)?/, "voli di droni civili"],
+  [/\bUNMANNED\b|\bUAS\b|\bRPAS\b|\bDRONES?\b/, "voli di droni"],
+  [/PARACHUT|\bPJE\b/, "lanci con il paracadute"],
+  [/FIREWORK|PYROTECHNIC/, "fuochi d'artificio"],
+  [/AEROBATIC|AIR SHOW|AIR DISPLAY|FLYING DISPLAY/, "manifestazione o acrobazie aeree"],
+  [/\bHEL(ICOPTER)?S?\b/, "elicotteri"],
+  [/BALLOON/, "mongolfiere o palloni"],
+  [/\bEXER(CISE)?\b/, "esercitazione"],
+  [/\bMIL(ITARY)?\b/, "attività militare"],
+  [/\bSAR\b|SEARCH AND RESCUE|RESCUE/, "soccorso"],
+  [/\bOBST(ACLE)?\b|\bCRANE\b/, "ostacolo (gru o altro)"],
+];
+const titolo = (t) => t.toLowerCase().replace(/(^|[\s(/-])([a-zà-ù])/g, (m, a, b) => a + b.toUpperCase());
+export function spiegaNotam(testo) {
+  const t = String(testo || "").toUpperCase().replace(/\s+/g, " ").trim();
+  if (!t) return null;
+  const cosa = [...new Set(COSA_NOTAM.filter(([r]) => r.test(t)).map(([, c]) => c))];
+  // «voli di droni» generico solo se non ho già detto civili o militari
+  const cose = cosa.filter((c) => !(c === "voli di droni" && cosa.some((x) => /droni (civili|militari)/.test(x))) && !(c === "attività militare" && cosa.some((x) => /militari|tiro/.test(x))));
+  const posto = (/\/\s*([^/\n]{3,80}?)\s*\/(?!\s*\d)/.exec(t) || [])[1];
+  let dove = "";
+  if (posto) {
+    dove = posto.split(/\s*-\s*/).map((pezzo) => {
+      const m = /^(N|NNE|NE|ENE|E|ESE|SE|SSE|S|SSW|SW|WSW|W|WNW|NW|NNW)\s+(.+)$/.exec(pezzo.trim());
+      const nome = (x) => titolo(x.replace(/\bTOWN\b/, "(città)").replace(/\bGULF\b/, "(golfo)"));
+      return m ? `a ${PUNTI_CARDINALI[m[1]]} di ${nome(m[2])}` : nome(pezzo.trim());
+    }).join(", ");
+  }
+  const quota = /ELEV\s*(\d+)\s*(M|FT)\s*(AGL|AMSL)?/.exec(t) || /(?:UP TO|TO|MAX)\s*(\d+)\s*(M|FT)\s*(AGL|AMSL)/.exec(t);
+  const altezza = quota ? `${quota[1]} ${quota[2] === "FT" ? "piedi" : "m"}${quota[3] === "AMSL" ? " sul livello del mare" : " dal suolo"}` : "";
+  const raggio = /(\d+(?:\.\d+)?)\s*(NM|KM|M)\s*RADIUS/.exec(t) || /RADIUS\s*(?:OF\s*)?(\d+(?:\.\d+)?)\s*(NM|KM|M)/.exec(t);
+  const metri = raggio ? Math.round(Number(raggio[1]) * (raggio[2] === "NM" ? 1852 : raggio[2] === "KM" ? 1000 : 1)) : null;
+  const nota = (/RMK:?\s*(.+)$/.exec(t) || [])[1];
+  const notaIt = nota ? nota.replace(/\bACT\b/g, "attività").replace(/\bSUBJ\b/g, "soggetta a").replace(/\bCOORD\b/g, "coordinamento").replace(/\bWITH\b/g, "con").replace(/\bAPP\b/g, "(avvicinamento)").replace(/\bTWR\b/g, "(torre)").replace(/\bACC\b/g, "(controllo)").replace(/\s+/g, " ").toLowerCase() : "";
+  return {
+    cosa: (cose.length ? (/^area/.test(cose[0]) && cose.length > 1 ? `${cose[0]} per ${cose.slice(1).join(", ")}` : cose.join(", ")) : "area con restrizioni temporanee").replace(/^./, (c) => c.toUpperCase()),
+    dove, altezza, raggio: metri ? `raggio di circa ${metri >= 1000 ? `${(metri / 1000).toFixed(1).replace(".", ",")} km` : `${metri} m`}` : "",
+    nota: notaIt,
+  };
+}
