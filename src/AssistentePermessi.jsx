@@ -305,7 +305,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: d.colore }}>{sigla ? `⛔ Zona LI-${sigla} dello spazio aereo` : aeroporto ? "✈️ Zona di un aeroporto" : "🏛️ Zona di un ente"}{z.distanza ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m dal punto</span> : null}</div>
                 <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
                 {motivoZona(z) && !String(z.id).startsWith("man-") && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>❓ Perché c'è: <strong>{motivoZona(z)}</strong></div>}
-                {valoreReale(z.messaggio) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>📝 Dice D-Flight: «{String(valoreReale(z.messaggio)).slice(0, 280)}»</div>}
+                {valoreReale(z.messaggio) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2, whiteSpace: "pre-line" }}>📝 Dice D-Flight: «{String(valoreReale(z.messaggio)).slice(0, 600)}{String(z.messaggio).length > 600 ? "…" : ""}»</div>}
                 {z.validita && <div style={{ fontSize: 12, color: "#f5b942", marginTop: 2 }}>📅 Zona temporanea: {z.validita.map((v) => [v.da && `dal ${dataOra(v.da)}`, v.a && `al ${dataOra(v.a)}`].filter(Boolean).join(" ")).join("; ")}. Fuori da queste date la zona non vale.</div>}
                 {formattaLimiti(z.limiti) && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {formattaLimiti(z.limiti)}</div>}
 

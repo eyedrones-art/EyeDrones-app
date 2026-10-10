@@ -69,6 +69,15 @@ export async function cancellaZone() {
 const num = (v) => (v == null || v === "" || Number.isNaN(Number(v)) ? null : Number(v));
 const inMetri = (v, uom) => (v == null ? null : /^ft/i.test(String(uom || "")) ? Math.round(v * 0.3048) : Math.round(v));
 const testo = (v) => (Array.isArray(v) ? v.filter(Boolean).join(", ") : v == null ? "" : String(v));
+// i messaggi di D-Flight possono avere pezzi di HTML (grassetti, link) e apostrofi doppi («dell''area»): li pulisco
+const ENTITA = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", agrave: "à", egrave: "è", eacute: "é", igrave: "ì", ograve: "ò", ugrave: "ù" };
+const testoPulito = (v) => testo(v)
+  .replace(/<\s*br\s*\/?>|<\/\s*p\s*>/gi, "\n")
+  .replace(/<a\s[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi, (_, h, t) => (t.trim() && !t.includes(h) ? `${t.trim()} (${h})` : h))
+  .replace(/<[^>]+>/g, "")
+  .replace(/&(#\d+|[a-z]+);/gi, (m, e) => (e[0] === "#" ? String.fromCharCode(Number(e.slice(1))) : ENTITA[e.toLowerCase()] ?? m))
+  .replace(/''/g, "'")
+  .replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim();
 
 // in Italia la latitudine (35–48) e la longitudine (6–19) non si sovrappongono: se la coppia è [lat, lon] la giro
 function lonLat(c) {
@@ -143,10 +152,10 @@ function zonaDa(p, geometrie) {
     id: testo(p.identifier || p.id || p.name),
     nome: testo(p.name || p.nome || p.identifier) || "Zona senza nome",
     restrizione: String(p.restriction || p.restrizione || "").toUpperCase(),
-    condizioni: testo(p.restrictionConditions),
+    condizioni: testoPulito(p.restrictionConditions),
     motivo: testo(p.reason),
     altroMotivo: testo(p.otherReasonInfo),
-    messaggio: testo(p.message),
+    messaggio: testoPulito(p.message),
     tipo: testo(p.type),
     limiti,
     autorita: leggiAutorita(p.zoneAuthority || p.authority),
