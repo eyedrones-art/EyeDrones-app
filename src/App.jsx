@@ -14,6 +14,7 @@ import { leggiZoneSalvate, salvaZone, leggiFileZone, testoDaFileZone, controllaP
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
 const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
+const AssistentePermessi = lazy(() => import("./AssistentePermessi.jsx"));
 const Impara = lazy(() => import("./Impara.jsx"));
 const GuidaZonaRossa = lazy(() => import("./Impara.jsx").then((m) => ({ default: m.ZonaRossa })));
 const Posti = lazy(() => import("./Posti.jsx"));
@@ -2286,7 +2287,7 @@ function AppShell({ session }) {
         {page === "preventivi" && <Preventivi preventivi={preventivi} clienti={clienti} onClientiCambiati={caricaClienti} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
         {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
-        {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} />}
+        {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} droni={droni} emailUtente={session.user.email} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} obiettivoFormativo={obiettivoFormativo} onSalvaObiettivo={salvaObiettivoFormativo} />}
         {page === "droni" && <Droni droni={droni} azienda={azienda} onReload={loadData} dflightScadenza={dflightScadenza} onSalvaDflightScadenza={salvaDflightScadenza} />}
       </div>
@@ -2368,8 +2369,9 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 }
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10j";
+const VERSIONE_NOVITA = "2026-10k";
 const NOVITA = [
+  { emoji: "🧭", testo: "Assistente permessi: dici dove voli e ti dice se puoi chiedere, a chi e quanti giorni prima. Compila da solo il Modello ATM-09A di ENAC e la richiesta di nulla osta", pagina: "permessi" },
   { emoji: "▶️", testo: "Modalità riprese: sul posto una scena alla volta, a tutto schermo, con la foto grande e il promemoria della scheda SD", pagina: "dashboard" },
   { emoji: "✏️", testo: "Disegna sulla foto della scena (fino a 3 foto per scena): percorso del drone, punti di ripresa, pericoli e soggetto. Li vedi anche in Home e nel PDF", pagina: "pianificazione" },
   { emoji: "📋", testo: "Sopralluogo: foto con GPS su ogni scena, punti di decollo e ostacoli sulla mappa, orari della giornata e il PDF da mandare", pagina: "pianificazione" },
@@ -5446,8 +5448,19 @@ const STATI_PERMESSO = [
   { key: "negato", label: "Negato", color: "#ff4d4d" },
 ];
 
-function Permessi({ permessi, impianti, azienda, piano, onReload }) {
+function Permessi({ permessi, impianti, azienda, piano, onReload, droni = [], emailUtente }) {
   const [showForm, setShowForm] = useState(false);
+  const [assistente, setAssistente] = useState(() => { try { return sessionStorage.getItem("eyedrones_assistente_permessi") === "si"; } catch { return false; } });
+  const apriAssistente = (si) => { setAssistente(si); try { sessionStorage.setItem("eyedrones_assistente_permessi", si ? "si" : "no"); } catch { /* niente */ } };
+  // dall'assistente: la richiesta preparata finisce tra i permessi, come «inviata oggi»
+  const salvaDaAssistente = async (riga) => {
+    const uid = await idUtenteCorrente();
+    if (!uid) { alert("Sei uscito dall'account: rientra e riprova."); return false; }
+    const { error } = await supabase.from("permessi").insert({ ...riga, user_id: uid });
+    if (error) { alert("Salvataggio non riuscito: " + error.message); return false; }
+    onReload();
+    return true;
+  };
   const [impiantoIdSel, setImpiantoIdSel] = useState("");
   const [impianto, setImpianto] = useState("");
   const [enteContattato, setEnteContattato] = useState("");
@@ -5544,7 +5557,18 @@ function Permessi({ permessi, impianti, azienda, piano, onReload }) {
           {showForm ? "Annulla" : <><Plus size={14} /> Nuova richiesta</>}
         </button>
       </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Richiedi e traccia i permessi di volo per zone soggette a restrizioni, prima ancora di fare il rilievo.</p>
+      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 14px 0" }}>Richiedi e traccia i permessi di volo per zone soggette a restrizioni, prima ancora di fare il rilievo.</p>
+      {!assistente ? (
+        <button type="button" onClick={() => apriAssistente(true)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 760, textAlign: "left", background: "linear-gradient(135deg, #1d2633, #1b2028)", border: "1px solid #3d8bfd66", borderRadius: 12, padding: "14px 16px", marginBottom: 20, color: "#e7eaee" }}>
+          <span style={{ fontSize: 26 }}>🧭</span>
+          <span><span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>Non sai come chiedere un permesso? Ti guido io</span>
+            <span style={{ display: "block", fontSize: 12.5, color: "#9fb4d6", marginTop: 2 }}>Dimmi dove voli: ti dico se si può chiedere, a chi, quanti giorni prima, e ti preparo la richiesta già compilata (anche il Modello ATM-09A).</span></span>
+        </button>
+      ) : (
+        <Suspense fallback={<p style={{ color: "#8b95a3" }}>Carico l'assistente…</p>}>
+          <AssistentePermessi cercaIndirizzo={cercaIndirizzoItalia} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={salvaDaAssistente} onChiudi={() => apriAssistente(false)} />
+        </Suspense>
+      )}
 
       {showForm && (
         <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -6986,7 +7010,10 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         {!vicina && z.validita && <div style={{ fontSize: 11.5, color: "#f5b942", marginTop: 2 }}>Attiva: {z.validita.map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}</div>}
         {!vicina && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 {d.consiglio}</div>}
         {!vicina && (z.restrizione === "REQ_AUTHORISATION" || z.restrizione === "PROHIBITED") && (
-          <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} style={{ marginTop: 6, background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si fa a volare qui?</button>
+          <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+            <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} style={{ background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si fa a volare qui?</button>
+            <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } vaiA({ pagina: "permessi" }); }} style={{ background: "#1d2633", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 5, padding: "4px 9px", fontSize: 11.5, fontWeight: 600 }}>🧭 Preparami la richiesta</button>
+          </span>
         )}
         {!vicina && autorita.map((a, i) => (
           <div key={i} style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 3 }}>
