@@ -239,7 +239,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
             <ol style={{ margin: "6px 0 8px 0", paddingLeft: 20, fontSize: 12.5, lineHeight: 1.5, color: "#f3dfbf" }}>
               <li>Apri <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ color: "#7fb0ff", fontWeight: 700 }}>D-Flight ↗</a> ed entra con le tue credenziali.</li>
               <li>In alto a sinistra tocca il logo <strong>«d»</strong>, poi sotto «Dettagli account» il <strong>dischetto 💾</strong> (Download UAS Zone Geo).</li>
-              <li>Torna qui e tocca il bottone qui sotto: scegli il file dalla cartella <strong>Download</strong>.</li>
+              <li>Torna qui e tocca il bottone qui sotto. Si apre l'elenco dei file: tocca <strong>Recenti</strong> (o ☰ → <strong>Download</strong>) e scegli <strong>dflight_geozones_….json.gz</strong>, quello con la data più nuova.</li>
             </ol>
             {caricaFileZone && (
               <label style={{ display: "inline-block", background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>

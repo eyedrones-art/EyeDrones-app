@@ -7057,7 +7057,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
             <li>Tocca <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ ...linkD, fontSize: 12.5, fontWeight: 700 }}>🗺️ Apri D-Flight ↗</a> ed entra con le tue credenziali.</li>
             <li>In alto a sinistra tocca il pulsante col logo <strong>«d»</strong>.</li>
             <li>Sotto <strong>«Dettagli account»</strong> tocca il <strong>dischetto 💾</strong> (<em>Download UAS Zone Geo</em>). Il file si salva nella cartella <strong>Download</strong> del telefono.</li>
-            <li>Torna qui e tocca <strong>«📂 Carica il file zone di D-Flight»</strong> qui sotto, poi scegli il file dalla cartella Download.</li>
+            <li>Torna qui e tocca <strong>«📂 Carica il file zone di D-Flight»</strong> qui sotto. Si apre l'elenco dei file: tocca <strong>Recenti</strong> (o ☰ → <strong>Download</strong>) e scegli <strong>dflight_geozones_….json.gz</strong>, quello con la data più nuova.</li>
             <li>Scrivi la via del volo: l'app ti dice subito la zona e l'altezza massima.</li>
           </ol>
           <div style={{ color: "#8b95a3", fontSize: 11.5, marginBottom: 8 }}>Il file resta salvato anche nel tuo account, così non lo perdi se cambi telefono. Aggiornalo una volta al mese.</div>
