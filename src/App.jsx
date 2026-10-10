@@ -6983,7 +6983,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     const motivo = motivoZona(z);
     const notam = z.tipoUAS === "notam";
     const zonaR = /\bLI[\s-]?R\s?\d/i.test(z.nome || "");
-    const consiglio = !notam ? d.consiglio : "Nei giorni del NOTAM qui non si vola, né in Open né in Specific: di solito non si può chiedere un permesso. Fuori da quelle date la zona non c'è.";
+    const consiglio = !notam ? d.consiglio : "Nei giorni del NOTAM qui non si vola, né in Open né in Specific: lo spazio è riservato a un'altra attività e non puoi chiedere di entrarci. Fuori da quelle date la zona non c'è. Un NOTAM tuo invece, in Specific (STS o autorizzazione ENAC), si chiede con il Modello ATM-09A: ENAC lo fa uscire almeno 7 giorni prima del volo.";
     return (
       <div key={(z.id || z.nome) + (vicina ? "-v" : "")} style={{ borderLeft: `3px solid ${d.colore}`, background: d.colore + "12", borderRadius: 4, padding: "8px 10px", marginTop: 6 }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: d.colore }}>{d.etichetta}{vicina ? <span style={{ color: "#8b95a3", fontWeight: 400 }}> · a {z.distanza} m</span> : null}{z.temporanea ? <span style={{ color: "#f5b942", fontWeight: 400 }}> · temporanea</span> : null}</div>
