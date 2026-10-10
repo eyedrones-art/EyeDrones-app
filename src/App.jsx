@@ -3515,7 +3515,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
         {/* sempre: la scheda SD è la cosa che si dimentica più spesso */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, background: "#211a0c", border: "1px solid #f5b94255", borderRadius: 8, padding: "8px 12px", margin: "10px 0 22px", fontSize: 12.5, color: "#ffe2a8" }}>
           <span style={{ fontSize: 16 }}>💾</span>
-          <span>Prima di ogni volo: <strong>scheda SD nel drone, ed è vuota</strong> · batterie cariche · eliche integre</span>
+          <span>Prima di ogni volo: <strong>scheda SD inserita e vuota</strong> · batterie cariche · eliche integre</span>
         </div>
         {/* l'assistente permessi: per chi ha paura delle zone rosse */}
         <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } onNav("permessi"); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "#141c28", border: "1px solid #3d8bfd44", borderRadius: 8, padding: "8px 12px", margin: "-12px 0 22px", fontSize: 12.5, color: "#cfe2ff" }}>
@@ -8046,7 +8046,7 @@ function DaGirare({ piano }) {
         {ispezione ? "🔍" : "🎬"} {piano.checklist_stato?.lavoro ? `${piano.checklist_stato.lavoro} · ` : ispezione ? "Foto da fare · " : "Da girare · "}<span style={{ color: tutte ? "#4ade80" : "#e7eaee" }}>{fatte} di {daFare.length} {ispezione ? "fatte" : "girate"}</span>
       </summary>
       <button type="button" onClick={() => setModalita(true)} style={{ display: "block", width: "100%", marginTop: 8, background: "#7c5cd6", color: "#fff", border: "none", borderRadius: 8, padding: "10px 12px", fontSize: 14, fontWeight: 800, minHeight: 48 }}>▶️ Modalità riprese<span style={{ display: "block", fontSize: 11.5, fontWeight: 500, opacity: 0.9 }}>Una {ispezione ? "foto" : "scena"} alla volta, a tutto schermo, con la foto grande</span></button>
-      {fatte === 0 && <div style={{ marginTop: 8, fontSize: 12.5, color: "#ffe2a8", background: "#2a1f0c", border: "1px solid #f5b94266", borderRadius: 6, padding: "6px 10px" }}>💾 Prima di partire: <strong>scheda SD nel drone, ed è vuota?</strong></div>}
+      {fatte === 0 && <div style={{ marginTop: 8, fontSize: 12.5, color: "#ffe2a8", background: "#2a1f0c", border: "1px solid #f5b94266", borderRadius: 6, padding: "6px 10px" }}>💾 Prima di partire: <strong>la scheda SD è inserita e vuota?</strong></div>}
       {modalita && <ModalitaRiprese voci={daFare.map((m) => (Array.isArray(m.foto) ? m : { ...m, foto: [] }))} girate={girate} onSegna={cambia} onChiudi={() => setModalita(false)} visibile={indirizzoVisibile} ispezione={ispezione} fpv={piano.tipo_ispezione === "fpv"} />}
       {daFare.map((m, i) => (
         <div key={m.id} style={{ marginTop: 8, paddingTop: 8, borderTop: i ? "1px solid #2e2540" : "none" }}>
