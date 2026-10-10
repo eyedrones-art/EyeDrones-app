@@ -6257,7 +6257,16 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
       if (editingId) {
         ({ error } = await supabase.from("droni").update(payload).eq("id", editingId));
       } else {
-        ({ error } = await supabase.from("droni").insert(payload));
+        // l'utente lo metto io: se la sessione è scaduta lo dico chiaro invece dell'errore di sicurezza del database
+        const uid = await idUtenteCorrente();
+        if (!uid) throw new Error("sei uscito dall'account (sessione scaduta). Esci, rientra e riprova: i dati scritti restano qui.");
+        ({ error } = await supabase.from("droni").insert({ ...payload, user_id: uid }));
+        if (error && /row-level security/i.test(error.message || "")) {
+          // a volte il permesso scade proprio in quel momento: rinnovo la sessione e riprovo una volta
+          await supabase.auth.refreshSession().catch(() => {});
+          ({ error } = await supabase.from("droni").insert({ ...payload, user_id: uid }));
+          if (error && /row-level security/i.test(error.message || "")) error = new Error("la sessione non è più valida. Esci, rientra e riprova.");
+        }
       }
       if (error) throw error;
       resetForm();

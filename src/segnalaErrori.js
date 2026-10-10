@@ -3,8 +3,8 @@
 let inviati = 0;
 const visti = new Set();
 const pulisci = (t, max) => String(t || "").replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]").slice(0, max);
-// errori del browser o di estensioni che non dipendono dall'app
-const DA_IGNORARE = /ResizeObserver loop|Script error\.?$|extension:\/\/|Non-Error promise rejection|AbortError|The user aborted|Load failed$/i;
+// errori del browser, di estensioni o dei browser interni delle app (Instagram, Facebook, traduttori) che non dipendono dall'app
+const DA_IGNORARE = /ResizeObserver loop|Script error\.?$|extension:\/\/|Non-Error promise rejection|AbortError|The user aborted|Load failed$|__KVARS__|__gCrWeb|webkit\.messageHandlers/i;
 
 export function installaSegnalazioneErrori(supabase) {
   const segnala = (errore, extra = "") => {
