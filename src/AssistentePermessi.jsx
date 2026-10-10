@@ -60,6 +60,12 @@ function direzionePer(luogo) {
   if (/sicilia/.test(r)) return ["AG", "CL", "EN", "PA", "TP"].includes(sg) ? "siciliaocc" : "siciliaor";
   return "";
 }
+// Circolare ENAC ATM-05B, capitolo 11: zone P, R (attive), D e altre di AIP ENR 5 → nulla osta dell'amministrazione
+// che ha chiesto la zona, con il Modello ATM-05 in bollo, e in copia a ENAC (indirizzo aggiornato a febbraio 2024)
+const PEC_DAP = "segreteriasicurezza.dap@giustiziacert.it";
+const CC_ENAC_05 = ["protocollo@pec.enac.gov.it", "mobilita.innovativa@enac.gov.it"];
+export const pecPrefettura = (sigla) => (sigla ? `protocollo.pref${String(sigla).toLowerCase()}@pec.interno.it` : "");
+const eCarcere = (z) => /penitenz|carcer|circondarial|reclusion|detenzion|edifici particolari/i.test(`${z.nome || ""} ${z.messaggio || ""} ${z.altroMotivo || ""} ${z.motivo || ""}`);
 const cercaSulWeb = (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`;
 
 // tipo di aeroporto → a chi si manda il Modello ATM-09A e con quanto anticipo (ATM-09A § 9.2, 9.3, 9.4)
@@ -226,9 +232,11 @@ export default function AssistentePermessi({ cercaIndirizzo, droni = [], azienda
                 {sigla && (
                   <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 8, lineHeight: 1.5 }}>
                     {sigla === "R"
-                      ? <>⏰ <strong>Vietata solo quando è attiva.</strong> Guarda gli orari della zona su D-Flight e nei NOTAM: fuori orario valgono le regole normali.</>
-                      : <>⛔ <strong>Zona {sigla === "P" ? "proibita" : "pericolosa"}: vietata ai droni.</strong> Il nulla osta non si chiede: cambia posto.</>}
-                    {categoria === "specific" && <div style={{ color: "#8b95a3", marginTop: 6 }}>Le deroghe seguono le procedure ENAC per gli aerei con equipaggio (Circolare ATM-05B), con tempi lunghi.</div>}
+                      ? <>⏰ <strong>Vietata solo quando è attiva.</strong> Guarda gli orari su D-Flight e nei NOTAM: fuori orario valgono le regole normali.</>
+                      : <>⛔ <strong>Zona {sigla === "P" ? "proibita" : "pericolosa"}: normalmente vietata ai droni.</strong></>}
+                    <div style={{ marginTop: 6 }}>✉️ Per volarci {sigla === "R" ? "mentre è attiva " : ""}serve il <strong>nulla osta dell'amministrazione che ha chiesto la zona</strong>, con il <strong>Modello ATM-05 in bollo</strong> (Circolare ENAC ATM-05B, cap. 11), in copia a ENAC.</div>
+                    {eCarcere(z) && <div style={{ marginTop: 6, color: "#ffd9a0" }}>🏢 Zona di un carcere: il nulla osta si dà <strong>solo per lavoro</strong> (non per hobby), al Dipartimento dell'Amministrazione Penitenziaria, <strong>almeno 15 giorni prima</strong>, con il documento d'identità.</div>}
+                    <div style={{ marginTop: 8 }}><button type="button" onClick={() => setScelta({ zona: z, tipo: "atm05", ente: enti[0] || null, carcere: eCarcere(z) })} style={st.primario}>Prepara il Modello ATM-05 ›</button></div>
                   </div>
                 )}
                 {aeroporto && categoria === "open" && (
@@ -296,6 +304,7 @@ function Campo({ label, children, largo }) {
 
 function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emailUtente, onSalva }) {
   const aeroporto = scelta.tipo === "aeroporto";
+  const atm05 = scelta.tipo === "atm05";
   const ricordo = leggiRichiedente();
   const [f, setF] = useState(() => ({
     nome: ricordo.nome || (azienda && azienda.nomeImpostato ? azienda.nome : ""),
@@ -313,18 +322,21 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
   }));
   const [fatto, setFatto] = useState(null);
   const libero = scelta.libero || null;
-  const nomeProposto = !libero || !luogo ? "" : libero.id === "prefettura" && luogo.provincia ? `Prefettura di ${luogo.provincia}` : libero.id === "comune" && luogo.comune ? `Comune di ${luogo.comune}` : "";
+  const nomeProposto = atm05
+    ? (scelta.carcere ? "Ministero della Giustizia – Dipartimento dell'Amministrazione Penitenziaria – Segreteria di Sicurezza" : scelta.ente?.nome || "")
+    : !libero || !luogo ? "" : libero.id === "prefettura" && luogo.provincia ? `Prefettura di ${luogo.provincia}` : libero.id === "comune" && luogo.comune ? `Comune di ${luogo.comune}` : "";
+  const emailProposta = atm05 ? (scelta.carcere ? PEC_DAP : scelta.ente?.email || "") : libero && libero.id === "prefettura" && luogo ? pecPrefettura(luogo.sigla) : "";
   const [enteNome, setEnteNome] = useState(nomeProposto);
-  const [enteEmail, setEnteEmail] = useState("");
+  const [enteEmail, setEnteEmail] = useState(emailProposta);
   const cambia = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const drone = droni.find((d) => d.id === f.droneId);
   const descrDrone = drone ? [drone.modello || drone.nome, drone.marcatura_classe ? `classe ${drone.marcatura_classe}` : null, drone.matricola ? `S/N ${drone.matricola}` : null].filter(Boolean).join(", ") : "";
   const tipoA = TIPI_AEROPORTO[f.tipoAeroporto];
   const dir = DIREZIONI_AEROPORTUALI.find((x) => x.id === f.direzione);
-  const ente = libero ? { nome: enteNome, email: enteEmail.trim() } : scelta.ente;
+  const ente = libero || atm05 ? { nome: enteNome, email: enteEmail.trim(), preavviso: scelta.ente?.preavviso } : scelta.ente;
   const nomeZona = libero ? (f.localita || "il luogo indicato") : scelta.zona.nome;
   const giorniEnte = libero ? libero.giorni : (() => { const m = String(ente?.preavviso || "").match(/(\d+)\s*(giorn|D)/i) || String(ente?.preavviso || "").match(/^P(\d+)D/i); return m ? Number(m[1]) : null; })();
-  const giorni = aeroporto ? tipoA.giorni : giorniEnte;
+  const giorni = aeroporto ? tipoA.giorni : atm05 ? (scelta.carcere ? 15 : giorniEnte || 15) : giorniEnte;
   const entro = giorni && f.dataDa ? meno(f.dataDa, giorni) : null;
   const tardi = entro && entro < oggiIso();
   const coord = coordinateDms(punto.lat, punto.lon);
@@ -334,16 +346,23 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
   const destinatari = aeroporto
     ? [...tipoA.pec, PEC_ENAC]
     : [ente?.email].filter(Boolean);
-  const oggetto = aeroporto
+  const inCopia = atm05 ? CC_ENAC_05 : [];
+  const oggetto = atm05
+    ? `Modello ATM-05 – Richiesta di nulla osta al sorvolo della zona ${scelta.zona.nome} con drone – ${f.dataDa ? dataIt(f.dataDa) : ""}`
+    : aeroporto
     ? `Modello ATM-09A – Riserva di spazio aereo per operazioni UAS – ${f.localita || coord} – ${f.dataDa ? dataIt(f.dataDa) : ""}`
     : `${libero && libero.id === "proprietario" ? "Richiesta di permesso" : "Richiesta di nulla osta"} per sorvolo con drone – ${nomeZona} – ${f.dataDa ? dataIt(f.dataDa) : ""}`;
-  const allegati = aeroporto
+  const allegati = atm05
+    ? ["Modello ATM-05 compilato e firmato, con marca da bollo da 16 €", "Documento d'identità del richiedente", "Attestato del pilota remoto", "Registrazione operatore D-Flight (codice operatore)", "Polizza assicurativa RC", ...(categoria === "specific" ? ["Autorizzazione ENAC o dichiarazione dello scenario standard (STS)"] : []), "Mappa dell'area di volo"]
+    : aeroporto
     ? ["Modello ATM-09A compilato e firmato", "Documentazione dell'operatore UAS: autorizzazione ENAC o dichiarazione dello scenario standard (STS)", "Attestato del pilota remoto", "Polizza assicurativa RC", ...(tipoA.diritti ? ["Ricevuta del pagamento dei diritti ENAC (servizionline.enac.gov.it)"] : [])]
     : ["Documento d'identità del richiedente e del pilota", "Attestato del pilota remoto (A1/A3, A2 o STS)", "Registrazione operatore D-Flight (codice operatore)", "Polizza assicurativa RC del drone", "Scheda del drone (modello, classe, peso)", "Mappa dell'area di volo con il punto di decollo"];
   const testoEmail = [
     "Buongiorno,",
     "",
-    aeroporto
+    atm05
+      ? `in allegato il Modello ATM-05 per la richiesta di nulla osta al sorvolo con drone della zona ${scelta.zona.nome}, ai sensi della Circolare ENAC ATM-05B (cap. 11), con le seguenti caratteristiche:`
+      : aeroporto
       ? `in allegato il Modello ATM-09A per la riserva di spazio aereo per operazioni UAS in ${categoriaTesto}, nella zona «${scelta.zona.nome}».`
       : libero
         ? `con la presente chiedo ${libero.id === "proprietario" ? "il permesso di decollare, atterrare e volare con un drone" : "il nulla osta al sorvolo con drone"} a ${f.localita || "nel luogo indicato"}, con le seguenti caratteristiche:`
@@ -402,6 +421,53 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   };
 
+  // Modello ATM-05 (Allegato A della ATM-05B): il modulo ufficiale è un'immagine, scrivo i dati sopra, riga per riga
+  const scaricaModello05 = async () => {
+    ricorda();
+    const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
+    const pdf = await PDFDocument.load(await (await fetch("/moduli/MOD_ATM-05.pdf")).arrayBuffer());
+    const pg = pdf.getPage(0);
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const H = pg.getSize().height;
+    const pulito = (t) => String(t || "").replace(/[•]/g, "-").replace(/[^\x20-\x7E\xA0-\xFF–—‘’“”€…]/g, "");
+    // coordinate prese dal modulo disegnato a 1,5x (px), convertite in punti PDF
+    const scrivi = (t, x, y, finoA = 770) => {
+      const testo = pulito(t); if (!testo) return;
+      let size = 8.5; const larg = (finoA - x) / 1.5;
+      while (size > 5.5 && font.widthOfTextAtSize(testo, size) > larg) size -= 0.5;
+      pg.drawText(testo, { x: x / 1.5, y: H - (y + 3) / 1.5, size, font, color: rgb(0.05, 0.12, 0.4) });
+    };
+    const aCapo = (t, x, y, finoA, righe) => {
+      const parole = pulito(t).split(/\s+/); const larg = (finoA - x) / 1.5; let riga = "", n = 0;
+      for (const w of parole) { const prova = riga ? `${riga} ${w}` : w; if (font.widthOfTextAtSize(prova, 8) > larg && riga) { pg.drawText(riga, { x: x / 1.5, y: H - (y + 3 + n * 13) / 1.5, size: 8, font, color: rgb(0.05, 0.12, 0.4) }); riga = w; n += 1; if (n >= righe) return; } else riga = prova; }
+      if (riga) pg.drawText(riga, { x: x / 1.5, y: H - (y + 3 + n * 13) / 1.5, size: 8, font, color: rgb(0.05, 0.12, 0.4) });
+    };
+    scrivi(`${ente?.nome || ""}${ente?.email ? ` – ${ente.email}` : ""}`, 140, 461);
+    scrivi(`ENAC – Direzione Regolazione e Ricerca Mobilità Innovativa – ${CC_ENAC_05.join(" – ")}`, 140, 482);
+    scrivi(richiedente, 190, 510);
+    scrivi(f.telefono, 170, 532, 455);
+    scrivi(f.email, 528, 532);
+    scrivi(`${f.attivita} con drone (UAS) – VLOS – ${categoriaTesto}`, 265, 554);
+    scrivi(`UAS ${descrDrone}`, 258, 576);
+    scrivi(`${f.localita} – ${coord}`, 400, 597);
+    scrivi(`${f.localita} – ${coord}`, 412, 619);
+    scrivi(f.localita, 345, 640);
+    scrivi(scelta.zona.nome, 292, 661);
+    scrivi((f.raggio / 1852).toFixed(2), 192, 847, 236);
+    scrivi((f.raggio / 1000).toFixed(2), 298, 847, 322);
+    scrivi(coord, 598, 847);
+    scrivi("GND", 272, 867, 340);
+    scrivi(`${piedi(f.altezza)} ft AGL`, 425, 867, 505);
+    scrivi(luogo && luogo.provincia ? `${luogo.comune || ""} (${luogo.sigla || luogo.provincia})` : "", 538, 888);
+    scrivi(periodo, 305, 931);
+    aCapo(f.sicurezza, 395, 951, 770, 4);
+    scrivi([(f.localita || "").split(/[,(]/)[0].trim(), new Date().toLocaleDateString("it-IT")].filter(Boolean).join(", "), 178, 1229, 345);
+    const out = await pdf.save();
+    const url = URL.createObjectURL(new Blob([out], { type: "application/pdf" }));
+    const a = document.createElement("a"); a.href = url; a.download = `Modello-ATM-05-${(scelta.zona.nome || "zona").replace(/[^\w]+/g, "-").slice(0, 30)}.pdf`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
   // lettera di richiesta del nulla osta, pronta da firmare
   const scaricaLettera = async () => {
     ricorda();
@@ -419,26 +485,34 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     doc.save(`Richiesta-${(libero ? `${libero.nome}-${f.localita}` : scelta.zona.nome || "zona").replace(/[^\w]+/g, "-").slice(0, 40)}.pdf`);
   };
 
-  const apriEmail = () => { ricorda(); window.location.href = `mailto:${destinatari.join(",")}?subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(testoEmail)}`; };
-  const copia = async () => { try { await navigator.clipboard.writeText(`A: ${destinatari.join(", ")}\nOggetto: ${oggetto}\n\n${testoEmail}`); setFatto("copiato"); setTimeout(() => setFatto(null), 2500); } catch { setFatto("errore"); } };
+  const apriEmail = () => { ricorda(); window.location.href = `mailto:${destinatari.join(",")}?${inCopia.length ? `cc=${inCopia.join(",")}&` : ""}subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(testoEmail)}`; };
+  const copia = async () => { try { await navigator.clipboard.writeText(`A: ${destinatari.join(", ")}${inCopia.length ? `\nCc: ${inCopia.join(", ")}` : ""}\nOggetto: ${oggetto}\n\n${testoEmail}`); setFatto("copiato"); setTimeout(() => setFatto(null), 2500); } catch { setFatto("errore"); } };
   const salva = async () => {
     ricorda();
     const ok = await onSalva({
       impianto: f.localita || coord,
-      ente_contattato: aeroporto ? [tipoA.a.join(", "), `ENAC DA ${dir ? dir.nome : ""}`].filter(Boolean).join(" + ") : (ente?.nome || (libero ? libero.nome : scelta.zona.nome)),
-      permessi_richiesti: aeroporto ? `Riserva spazio aereo – Modello ATM-09A (${scelta.zona.nome})` : `${libero && libero.id === "proprietario" ? "Permesso" : "Nulla osta"} sorvolo – ${libero ? `${libero.nome}, ${nomeZona}` : scelta.zona.nome}`,
+      ente_contattato: atm05 ? `${ente?.nome || ""} (cc ENAC)` : aeroporto ? [tipoA.a.join(", "), `ENAC DA ${dir ? dir.nome : ""}`].filter(Boolean).join(" + ") : (ente?.nome || (libero ? libero.nome : scelta.zona.nome)),
+      permessi_richiesti: atm05 ? `Nulla osta zona ${scelta.zona.nome} – Modello ATM-05` : aeroporto ? `Riserva spazio aereo – Modello ATM-09A (${scelta.zona.nome})` : `${libero && libero.id === "proprietario" ? "Permesso" : "Nulla osta"} sorvolo – ${libero ? `${libero.nome}, ${nomeZona}` : scelta.zona.nome}`,
       data_richiesta: oggiIso(),
       note: [`Volo: ${periodo}`, `Area: raggio ${f.raggio} m, max ${f.altezza} m AGL, ${coord}`, giorni ? `Preavviso richiesto: ${giorni} giorni` : null].filter(Boolean).join("\n"),
     });
     if (ok) setFatto("salvato");
   };
 
-  const pronto = f.nome && f.dataDa && (aeroporto ? f.direzione || tipoA.a.length : libero ? enteNome.trim() : true);
+  const pronto = f.nome && f.dataDa && (aeroporto ? f.direzione || tipoA.a.length : libero || atm05 ? enteNome.trim() : true);
 
   return (
     <div style={st.card}>
-      <Titolo n="3">{aeroporto ? "Modello ATM-09A, compilato da me" : libero ? `La richiesta per: ${libero.nome}` : "La richiesta di nulla osta"}</Titolo>
-      {libero ? (
+      <Titolo n="3">{aeroporto ? "Modello ATM-09A, compilato da me" : atm05 ? "Modello ATM-05, compilato da me" : libero ? `La richiesta per: ${libero.nome}` : "La richiesta di nulla osta"}</Titolo>
+      {atm05 ? (
+        <>
+          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 10px 0" }}>Zona <strong>{scelta.zona.nome}</strong>. Il nulla osta lo dà l'amministrazione che ha chiesto la zona{scelta.carcere ? ": per le carceri il DAP, solo per lavoro" : ""}. Se non è scritta nel file, la trovi nell'AIP-Italia (ENR 5.1) o toccando la zona su D-Flight.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginBottom: 10 }}>
+            <Campo label="Amministrazione a cui chiedi"><input value={enteNome} onChange={(e) => setEnteNome(e.target.value)} style={st.input} /></Campo>
+            <Campo label="PEC dell'amministrazione"><input value={enteEmail} onChange={(e) => setEnteEmail(e.target.value)} inputMode="email" style={st.input} /></Campo>
+          </div>
+        </>
+      ) : libero ? (
         <>
           <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 10px 0" }}>{libero.nota}</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginBottom: 10 }}>
@@ -500,19 +574,22 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
         <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 4 }}>📎 Da allegare</div>
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: "#c3cad4", lineHeight: 1.6 }}>{allegati.map((a) => <li key={a}>{a}</li>)}</ul>
         {aeroporto && tipoA.diritti && <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 0 0" }}>I diritti ENAC si pagano su <a href="https://servizionline.enac.gov.it" target="_blank" rel="noreferrer" style={{ color: "#7fb0ff" }}>servizionline.enac.gov.it ↗</a>: poi scrivi numero e data della fattura nel riquadro in alto a destra del modello.</p>}
+        {atm05 && <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 0 0" }}>Va mandata da una <strong>PEC</strong> a {ente?.email || "l'amministrazione"}, in copia a ENAC ({CC_ENAC_05.join(", ")}). La marca da bollo da 16 € va applicata sul modulo (o pagata come indicato dall'amministrazione).</p>}
         {aeroporto && <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 0 0" }}>Va mandata da una <strong>PEC</strong> a: {destinatari.join(", ")}{tipoA.cc ? ` (in copia ${tipoA.cc.join(", ")})` : ""}.</p>}
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
-        {aeroporto
+        {atm05
+          ? <button type="button" disabled={!pronto} onClick={scaricaModello05} style={{ ...st.primario, opacity: pronto ? 1 : 0.5 }}>📄 Scarica il Modello ATM-05 compilato</button>
+          : aeroporto
           ? <button type="button" disabled={!pronto} onClick={scaricaModello} style={{ ...st.primario, opacity: pronto ? 1 : 0.5 }}>📄 Scarica il Modello ATM-09A compilato</button>
           : <button type="button" disabled={!pronto} onClick={scaricaLettera} style={{ ...st.primario, opacity: pronto ? 1 : 0.5 }}>📄 Scarica la lettera compilata</button>}
         {destinatari.length > 0 && <button type="button" disabled={!pronto} onClick={apriEmail} style={{ ...st.secondario, opacity: pronto ? 1 : 0.5 }}>✉️ Prepara l'email</button>}
         <button type="button" disabled={!pronto} onClick={copia} style={{ ...st.secondario, opacity: pronto ? 1 : 0.5 }}>{fatto === "copiato" ? "✓ Copiato" : "📋 Copia il testo"}</button>
         <button type="button" disabled={!pronto} onClick={salva} style={{ ...st.secondario, opacity: pronto ? 1 : 0.5 }}>{fatto === "salvato" ? "✓ Salvato nei permessi" : "💾 Segna come inviata"}</button>
       </div>
-      {!pronto && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "6px 0 0 0" }}>Servono almeno nome, giorno del volo{aeroporto ? " e Direzione Aeroportuale" : libero ? " e a chi scrivi" : ""}.</p>}
-      <p style={{ fontSize: 11, color: "#6b7480", margin: "10px 0 0 0" }}>Controlla sempre i dati prima di mandarla e firmala. {aeroporto ? "Modello ATM-09A: Allegato C della Circolare ENAC ATM-09A." : "Se l'ente ha un suo modulo, copia questi dati lì."}</p>
+      {!pronto && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "6px 0 0 0" }}>Servono almeno nome, giorno del volo{aeroporto ? " e Direzione Aeroportuale" : libero || atm05 ? " e a chi scrivi" : ""}.</p>}
+      <p style={{ fontSize: 11, color: "#6b7480", margin: "10px 0 0 0" }}>Controlla sempre i dati prima di mandarla e firmala. {aeroporto ? "Modello ATM-09A: Allegato C della Circolare ENAC ATM-09A." : atm05 ? "Modello ATM-05: Allegato A della Circolare ENAC ATM-05B." : "Se l'ente ha un suo modulo, copia questi dati lì."}</p>
     </div>
   );
 }

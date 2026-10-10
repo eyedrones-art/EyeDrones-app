@@ -159,12 +159,13 @@ export const GUIDA_ZONA_ROSSA = [
     ],
   },
   {
-    titolo: "4. Le zone dove non si vola (e non si chiede)",
+    titolo: "4. Zone LI-P, LI-R, LI-D (spazio aereo) e carceri",
     punti: [
-      "Zone LI-P (proibite) e LI-D (pericolose): vietate ai droni.",
-      "Zone LI-R (regolamentate): vietate quando sono attive. Su D-Flight trovi gli orari: fuori orario valgono le regole normali.",
-      "Alcune zone nuove hanno le stesse regole delle LI-P (per esempio sopra certi impianti): vietate a tutti, anche in Specific.",
-      "Per le deroghe a queste zone esistono procedure ENAC (Circolare ATM-05B), pensate per operatori professionali, non per i voli amatoriali.",
+      "LI-P (proibite) e LI-D (pericolose): normalmente vietate ai droni. LI-R (regolamentate): vietate solo quando sono attive, gli orari sono su D-Flight.",
+      "Si può chiedere il nulla osta all'amministrazione che ha chiesto la zona, con il Modello ATM-05 in bollo (Circolare ENAC ATM-05B, capitolo 11), via PEC e in copia a ENAC. EyeDrones lo compila per te.",
+      "Carceri (zone «divieto di sorvolo di edifici particolari»): nulla osta solo per lavoro, non per hobby. Si chiede al Dipartimento dell'Amministrazione Penitenziaria (segreteriasicurezza.dap@giustiziacert.it) almeno 15 giorni prima, con il documento d'identità.",
+      "Zone di sicurezza sulle città: nulla osta alla Prefettura della provincia (PEC del tipo protocollo.prefXX@pec.interno.it, dove XX è la sigla della provincia).",
+      "Per le altre zone gli indirizzi delle amministrazioni sono nell'AIP-Italia, sezione ENR 5.1 («Zone vietate» e «Zone regolamentate»).",
     ],
   },
   {

@@ -215,8 +215,8 @@ const RISPOSTE_ZONA = {
     specific: { colore: "#4ade80", titolo: "Sì: nulla osta dell'ente", testo: "Come in Open: nulla osta dell'ente che ha chiesto la zona, più le condizioni della tua autorizzazione o scenario standard.", azione: true },
   },
   vietata: {
-    open: { colore: "#ff4d4d", titolo: "No: zona vietata", testo: "LI-P (proibita) e LI-D (pericolosa) sono vietate ai droni. LI-R è vietata solo quando è attiva: guarda gli orari su D-Flight. Cambia posto o orario.", azione: false },
-    specific: { colore: "#ff8c42", titolo: "Solo con deroga ENAC", testo: "Le deroghe per le zone P, R e D seguono le procedure ENAC per gli aerei con equipaggio (Circolare ATM-05B): sono per operatori professionali, con tempi lunghi.", azione: false },
+    open: { colore: "#ff8c42", titolo: "Normalmente vietata, ma si può chiedere", testo: "LI-R è vietata solo quando è attiva (orari su D-Flight). Per LI-P e LI-D, o per volare quando la LI-R è attiva, serve il nulla osta dell'amministrazione che ha chiesto la zona, con il Modello ATM-05 in bollo (Circolare ENAC ATM-05B). Carceri: solo per lavoro, al DAP, 15 giorni prima. L'assistente compila il modulo per te.", azione: true },
+    specific: { colore: "#ff8c42", titolo: "Nulla osta con il Modello ATM-05", testo: "Come in Open: nulla osta dell'amministrazione che ha chiesto la zona, Modello ATM-05 in bollo via PEC e in copia a ENAC. L'assistente compila il modulo per te.", azione: true },
   },
 };
 function CheZonaRossa() {
