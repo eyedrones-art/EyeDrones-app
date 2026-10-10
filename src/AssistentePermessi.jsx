@@ -360,7 +360,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
                   </div>
                 </div>
               ))}
-              {Array.isArray(alternative) && alternative.length > 0 && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 8 }}>Ho guardato solo le zone del file D-Flight. Sul posto controlla che sia sicuro (persone, strade, cavi), in A1/A3 stai lontano da case e persone, e se decolli da un terreno privato chiedi al proprietario.</div>}
+              {Array.isArray(alternative) && alternative.length > 0 && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 8 }}>✓ Zone già controllate da me, anche 100 m tutto intorno: non devi riguardarle su D-Flight. Come per ogni volo, il giorno prima guarda solo i NOTAM (eventi, elisoccorso). Sul posto controlla che sia sicuro (persone, strade, cavi), in A1/A3 stai lontano da case e persone, e se decolli da un terreno privato chiedi al proprietario.</div>}
             </div>
           )}
 
