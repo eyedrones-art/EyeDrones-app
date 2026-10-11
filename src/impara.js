@@ -26,10 +26,10 @@ export const COME_SI_PRENDE = {
       testo: [
         "L'attestato A1/A3 preso in un altro paese EASA vale in tutta Europa, Italia compresa.",
         "Lussemburgo: corso e test online gratis sulla piattaforma LearningZone di Eurocontrol, in inglese, francese o tedesco. Ci si iscrive come privato (nel campo «azienda» basta il cognome) e si sceglie il corso «UAS-OPEN A1+A3».",
-        "Paesi Bassi: si fa in inglese tramite le scuole olandesi, ma è a pagamento (corso ed esame, più la richiesta del certificato).",
+        "Paesi Bassi: si fa online in inglese tramite le scuole riconosciute (circa 99 €), ma il certificato lo chiedi all'RDW entrando con DigiD, l'identità digitale olandese: si può fare solo se sei registrato in Olanda.",
         "Da sapere: il regolamento europeo dice che il test va fatto con l'autorità del paese dove sei registrato come operatore (per chi è su D-Flight, ENAC). In tanti lo fanno all'estero e l'attestato viene accettato, ma se vuoi stare tranquillo al 100% scegli ENAC.",
       ],
-      link: [["🇱🇺 Lussemburgo (DAC): come e dove fare il corso", "https://dac.gouvernement.lu/en/drones/train-where-how.html"]],
+      link: [["🇱🇺 Lussemburgo (DAC): come e dove fare il corso", "https://dac.gouvernement.lu/en/drones/train-where-how.html"], ["🇳🇱 Paesi Bassi (governo): come chiedere il certificato", "https://www.rijksoverheid.nl/wetten-en-regelingen/productbeschrijvingen/vliegbewijs-drone-aanvragen"]],
     },
   },
   a2: {
@@ -45,6 +45,15 @@ export const COME_SI_PRENDE = {
       ["🏫 Elenco ufficiale delle Entità Riconosciute", "https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/entita-riconosciute/"],
       ["📄 Argomenti dell'esame A2 (ENAC)", "https://www.enac.gov.it/sites/default/files/allegati/2021-Dic/Allegato%20O%20-%20Argomenti%20esame%20teorico%20OPEN%20A2.pdf"],
     ],
+    estero: {
+      testo: [
+        "Anche il certificato A2 preso in un altro paese EASA vale in tutta Europa, Italia compresa.",
+        "Paesi Bassi: corso ed esame A2 online e sorvegliato, in inglese, con le scuole riconosciute (circa 99 €). Il certificato però si chiede all'RDW con DigiD (identità digitale olandese) e serve prima l'A1/A3 olandese: va bene solo per chi è registrato in Olanda.",
+        "Lussemburgo: c'è un corso di preparazione all'A2, ma non abbiamo trovato informazioni ufficiali su come fare l'esame da fuori: chiedi direttamente alla DAC.",
+        "Da sapere: come per l'A1/A3, il regolamento chiede di fare l'esame nel paese dove sei registrato come operatore. Per chi vive in Italia la strada più semplice resta un'Entità Riconosciuta ENAC.",
+      ],
+      link: [["🇳🇱 Paesi Bassi (governo): come chiedere il certificato", "https://www.rijksoverheid.nl/wetten-en-regelingen/productbeschrijvingen/vliegbewijs-drone-aanvragen"]],
+    },
   },
 };
 
