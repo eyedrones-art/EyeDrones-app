@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import L from "leaflet";
+import L from "./leafletSicuro";
 import "leaflet/dist/leaflet.css";
 
 // colori come nel riquadro della zona

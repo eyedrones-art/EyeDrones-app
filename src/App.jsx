@@ -6233,17 +6233,23 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
         marcatura_classe: marcaturaClasse || null,
         registrazione_dflight: registrazioneDflight || null,
         data_acquisto: dataAcquisto || null,
-        ore_volo: oreVolo ? Number(oreVolo) : null,
+        // nel database le ore sono un numero intero: «43,2» o «43.2» diventa 43
+        ore_volo: oreVolo !== "" && oreVolo != null && !Number.isNaN(Number(String(oreVolo).replace(",", "."))) ? Math.round(Number(String(oreVolo).replace(",", "."))) : null,
         prossima_manutenzione: prossimaManutenzione || null,
         note: note || null,
       };
       // il limite di vento si salva solo se lo indichi (o se lo stai togliendo): così l'app funziona anche prima dello script SQL
       const droneInModifica = editingId ? droni.find((x) => x.id === editingId) : null;
-      if (ventoMax !== "" || (droneInModifica && droneInModifica.vento_max_kmh != null)) payload.vento_max_kmh = ventoMax !== "" ? Number(ventoMax) : null;
+      if (ventoMax !== "" || (droneInModifica && droneInModifica.vento_max_kmh != null)) payload.vento_max_kmh = ventoMax !== "" && !Number.isNaN(Number(String(ventoMax).replace(",", "."))) ? Math.round(Number(String(ventoMax).replace(",", "."))) : null;
       if (documentoUrl) payload.documento_url = documentoUrl;
       let error;
       if (editingId) {
         ({ error } = await supabase.from("droni").update(payload).eq("id", editingId));
+        if (error && /row-level security/i.test(error.message || "")) {
+          await supabase.auth.refreshSession().catch(() => {});
+          ({ error } = await supabase.from("droni").update(payload).eq("id", editingId));
+          if (error && /row-level security/i.test(error.message || "")) error = new Error("la sessione non è più valida. Esci, rientra e riprova.");
+        }
       } else {
         // l'utente lo metto io: se la sessione è scaduta lo dico chiaro invece dell'errore di sicurezza del database
         const uid = await idUtenteCorrente();
