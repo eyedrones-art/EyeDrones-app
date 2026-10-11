@@ -2,6 +2,18 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 
+// dopo un aggiornamento dell'app, chi aveva la versione vecchia aperta non trova più alcuni pezzi
+// («Failed to fetch dynamically imported module», «Importing a module script failed»): ricarico una volta
+window.addEventListener("vite:preloadError", (e) => {
+  try {
+    const ultima = Number(sessionStorage.getItem("eyedrones_ricarica_versione") || 0);
+    if (Date.now() - ultima < 60000) return; // già ricaricato da poco: lascio stare per non entrare in un giro
+    sessionStorage.setItem("eyedrones_ricarica_versione", String(Date.now()));
+    e.preventDefault();
+    location.reload();
+  } catch { /* niente */ }
+});
+
 // se una pagina si rompe, al posto della schermata vuota mostro un messaggio e segnalo l'errore
 class ProtezioneErrori extends React.Component {
   constructor(props) { super(props); this.state = { errore: null }; }

@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { AvvisaFineNotam, NotamInItaliano } from "./avvisiNotam.jsx";
 import { leggiZoneSalvate, messaggioBreve, motivoZona, sistemaZona, zonaFinita, controllaPunto, altezzaSenzaPermessi, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
 
@@ -650,8 +650,11 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
 
   const pronto = f.nome && f.dataDa && (aeroporto ? f.direzione || tipoA.a.length : libero || atm05 ? enteNome.trim() : true);
 
+  // appena tocchi «Prepara…» porto lo schermo sul modulo (sul telefono è molto più in basso)
+  const inizio = useRef(null);
+  useEffect(() => { const t = setTimeout(() => inizio.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); return () => clearTimeout(t); }, []);
   return (
-    <div style={st.card}>
+    <div ref={inizio} style={{ ...st.card, scrollMarginTop: 80 }}>
       <Titolo n="3">{aeroporto ? "Modello ATM-09A, compilato da me" : atm05 ? "Modello ATM-05, compilato da me" : libero ? `La richiesta per: ${libero.nome}` : "La richiesta di nulla osta"}</Titolo>
       {atm05 ? (
         <>

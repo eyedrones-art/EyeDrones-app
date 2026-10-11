@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import L from "leaflet";
+import L from "./leafletSicuro";
 import "leaflet/dist/leaflet.css";
 
 // "45.4012, 8.0391" → [45.4012, 8.0391]

@@ -1689,6 +1689,19 @@ const pulisciRef = (v) => {
   const r = String(v || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 40);
   return r || null;
 };
+const SITI_PROVENIENZA = [[/dronezine/, "dronezine"], [/facebook|fb\.com|fb\.me/, "facebook"], [/instagram/, "instagram"], [/tiktok/, "tiktok"], [/linkedin|lnkd\.in/, "linkedin"], [/youtube|youtu\.be/, "youtube"], [/google\./, "google"], [/bing\.|duckduckgo/, "ricerca"], [/whatsapp|wa\.me/, "whatsapp"], [/t\.me|telegram/, "telegram"]];
+function provenienzaDaSito() {
+  try {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("fbclid")) return "facebook";
+    if (q.get("igshid")) return "instagram";
+    if (q.get("ttclid")) return "tiktok";
+    const host = document.referrer ? new URL(document.referrer).hostname.toLowerCase() : "";
+    if (!host || host === window.location.hostname) return null;
+    const trovato = SITI_PROVENIENZA.find(([r]) => r.test(host));
+    return pulisciRef(trovato ? trovato[1] : host.replace(/^www\./, "").split(".").slice(-2, -1)[0]);
+  } catch { return null; }
+}
 const refSalvato = () => {
   try { return pulisciRef(localStorage.getItem("eyedrones_ref")); } catch { return null; }
 };
@@ -1764,7 +1777,9 @@ function AppAutenticata() {
   useEffect(() => {
     // memorizzo eventuale provenienza (?ref=nomeaffiliato) per collegarla all'account al momento della registrazione
     const refParam = pulisciRef(new URLSearchParams(window.location.search).get("ref"));
-    if (refParam) { try { localStorage.setItem("eyedrones_ref", refParam); } catch { /* memoria del browser non disponibile */ } }
+    // senza ?ref provo a capirlo dal sito da cui arriva (articolo di DronEzine, Instagram, Facebook, Google…)
+    const ref = refParam || (refSalvato() ? null : provenienzaDaSito());
+    if (ref) { try { localStorage.setItem("eyedrones_ref", ref); } catch { /* memoria del browser non disponibile */ } }
 
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: listener } = supabase.auth.onAuthStateChange((evento, s) => {
@@ -1986,7 +2001,7 @@ function AppShell({ session }) {
       const d = e.detail || {};
       if (d.pagina === "impara" && d.sopra && d.scheda === "zona-rossa") { try { window.history.pushState({ ...(window.history.state || {}), guida: true }, ""); } catch (err) { /* niente */ } setGuidaSopra(d.scheda); }
       else if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
-      else if (d.pagina === "permessi" || d.pagina === "nuova") { setGuidaSopra(null); setPage(d.pagina); window.scrollTo(0, 0); }
+      else if (d.pagina === "permessi" || d.pagina === "nuova" || d.pagina === "attestati") { setGuidaSopra(null); setPage(d.pagina); window.scrollTo(0, 0); }
       else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
@@ -3500,7 +3515,7 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
         {/* sempre: la scheda SD è la cosa che si dimentica più spesso */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, background: "#211a0c", border: "1px solid #f5b94255", borderRadius: 8, padding: "8px 12px", margin: "10px 0 22px", fontSize: 12.5, color: "#ffe2a8" }}>
           <span style={{ fontSize: 16 }}>💾</span>
-          <span>Prima di ogni volo: <strong>scheda SD nel drone, ed è vuota</strong> · batterie cariche · eliche integre</span>
+          <span>Prima di ogni volo: <strong>scheda SD inserita e vuota</strong> · batterie cariche · eliche integre</span>
         </div>
         {/* l'assistente permessi: per chi ha paura delle zone rosse */}
         <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } onNav("permessi"); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "#141c28", border: "1px solid #3d8bfd44", borderRadius: 8, padding: "8px 12px", margin: "-12px 0 22px", fontSize: 12.5, color: "#cfe2ff" }}>
@@ -6218,17 +6233,23 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
         marcatura_classe: marcaturaClasse || null,
         registrazione_dflight: registrazioneDflight || null,
         data_acquisto: dataAcquisto || null,
-        ore_volo: oreVolo ? Number(oreVolo) : null,
+        // nel database le ore sono un numero intero: «43,2» o «43.2» diventa 43
+        ore_volo: oreVolo !== "" && oreVolo != null && !Number.isNaN(Number(String(oreVolo).replace(",", "."))) ? Math.round(Number(String(oreVolo).replace(",", "."))) : null,
         prossima_manutenzione: prossimaManutenzione || null,
         note: note || null,
       };
       // il limite di vento si salva solo se lo indichi (o se lo stai togliendo): così l'app funziona anche prima dello script SQL
       const droneInModifica = editingId ? droni.find((x) => x.id === editingId) : null;
-      if (ventoMax !== "" || (droneInModifica && droneInModifica.vento_max_kmh != null)) payload.vento_max_kmh = ventoMax !== "" ? Number(ventoMax) : null;
+      if (ventoMax !== "" || (droneInModifica && droneInModifica.vento_max_kmh != null)) payload.vento_max_kmh = ventoMax !== "" && !Number.isNaN(Number(String(ventoMax).replace(",", "."))) ? Math.round(Number(String(ventoMax).replace(",", "."))) : null;
       if (documentoUrl) payload.documento_url = documentoUrl;
       let error;
       if (editingId) {
         ({ error } = await supabase.from("droni").update(payload).eq("id", editingId));
+        if (error && /row-level security/i.test(error.message || "")) {
+          await supabase.auth.refreshSession().catch(() => {});
+          ({ error } = await supabase.from("droni").update(payload).eq("id", editingId));
+          if (error && /row-level security/i.test(error.message || "")) error = new Error("la sessione non è più valida. Esci, rientra e riprova.");
+        }
       } else {
         // l'utente lo metto io: se la sessione è scaduta lo dico chiaro invece dell'errore di sicurezza del database
         const uid = await idUtenteCorrente();
@@ -8031,7 +8052,7 @@ function DaGirare({ piano }) {
         {ispezione ? "🔍" : "🎬"} {piano.checklist_stato?.lavoro ? `${piano.checklist_stato.lavoro} · ` : ispezione ? "Foto da fare · " : "Da girare · "}<span style={{ color: tutte ? "#4ade80" : "#e7eaee" }}>{fatte} di {daFare.length} {ispezione ? "fatte" : "girate"}</span>
       </summary>
       <button type="button" onClick={() => setModalita(true)} style={{ display: "block", width: "100%", marginTop: 8, background: "#7c5cd6", color: "#fff", border: "none", borderRadius: 8, padding: "10px 12px", fontSize: 14, fontWeight: 800, minHeight: 48 }}>▶️ Modalità riprese<span style={{ display: "block", fontSize: 11.5, fontWeight: 500, opacity: 0.9 }}>Una {ispezione ? "foto" : "scena"} alla volta, a tutto schermo, con la foto grande</span></button>
-      {fatte === 0 && <div style={{ marginTop: 8, fontSize: 12.5, color: "#ffe2a8", background: "#2a1f0c", border: "1px solid #f5b94266", borderRadius: 6, padding: "6px 10px" }}>💾 Prima di partire: <strong>scheda SD nel drone, ed è vuota?</strong></div>}
+      {fatte === 0 && <div style={{ marginTop: 8, fontSize: 12.5, color: "#ffe2a8", background: "#2a1f0c", border: "1px solid #f5b94266", borderRadius: 6, padding: "6px 10px" }}>💾 Prima di partire: <strong>la scheda SD è inserita e vuota?</strong></div>}
       {modalita && <ModalitaRiprese voci={daFare.map((m) => (Array.isArray(m.foto) ? m : { ...m, foto: [] }))} girate={girate} onSegna={cambia} onChiudi={() => setModalita(false)} visibile={indirizzoVisibile} ispezione={ispezione} fpv={piano.tipo_ispezione === "fpv"} />}
       {daFare.map((m, i) => (
         <div key={m.id} style={{ marginTop: 8, paddingTop: 8, borderTop: i ? "1px solid #2e2540" : "none" }}>

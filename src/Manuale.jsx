@@ -225,6 +225,33 @@ const SEZIONI = [
           "«Color»: correggi esposizione e bianco, poi aggiungi la LUT se hai girato in D-Log.",
           "«Deliver»: scegli formato e qualità (vedi la tabella qui sopra) ed esporta.",
         ]} />
+        <Sotto>CapCut in 4 passi (telefono)</Sotto>
+        <Lista voci={[
+          "«Nuovo progetto»: scegli le clip del volo nell'ordine del piano e tocca «Aggiungi».",
+          "Taglia: tocca una clip e trascina i bordi; «Dividi» per togliere un pezzo in mezzo.",
+          "«Audio» per la musica e «Testo» per le scritte; con «Regola» sistemi luce e colore.",
+          "Freccia in alto a destra: scegli 1080p o 4K, 30 fps, ed esporta.",
+        ]} />
+        <Sotto>DJI LightCut in 3 passi (telefono)</Sotto>
+        <Lista voci={[
+          "Apri l'app e scegli le clip: dal drone collegato o dalla galleria del telefono.",
+          "Tocca «Montaggio con un tocco»: l'app taglia le parti migliori e mette la musica da sola.",
+          "Prova un altro modello o cambia musica, poi esporta: comodo per un reel veloce sul posto.",
+        ]} />
+        <Sotto>Lightroom in 4 passi (foto)</Sotto>
+        <Lista voci={[
+          "Importa le foto (meglio i file RAW/DNG del drone, hanno più margine).",
+          "«Luce»: esposizione, alte luci giù e ombre su; «Colore»: bilanciamento del bianco e un po' di vividezza.",
+          "«Ottica»: attiva la correzione dell'obiettivo; raddrizza l'orizzonte con «Ritaglia».",
+          "Esporta in JPG (vedi la tabella qui sopra). Per HDR e panorami, sul computer usa «Unione foto».",
+        ]} />
+        <Sotto>Snapseed in 4 passi (foto)</Sotto>
+        <Lista voci={[
+          "Apri la foto e tocca «Strumenti».",
+          "«Ottimizza»: luminosità, contrasto e saturazione; «Dettagli» per un po' di nitidezza.",
+          "«Ruota» o «Prospettiva» per l'orizzonte; «Selettivo» per schiarire solo una zona (es. il soggetto).",
+          "«Esporta» → «Salva una copia»: l'originale resta com'era.",
+        ]} />
       </>
     ),
   },

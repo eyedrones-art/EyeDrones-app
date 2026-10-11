@@ -517,7 +517,7 @@ export default function PianoScene({ tipo, scene, onCambia, libreria, scalette, 
 // --- Modalità riprese: sul posto, una scena alla volta a tutto schermo --------------------------------
 // voci: [{ id, nome, det, note, stick, anim, foto: [..] }]; girate: id già fatte; onSegna(id) le spunta
 const PRIMA_DI_PARTIRE = [
-  { id: "sd", emoji: "💾", testo: "Scheda SD nel drone, ed è vuota", sotto: "Senza scheda il drone non registra niente. Se ci sono file vecchi: copiali e poi formattala dal drone." },
+  { id: "sd", emoji: "💾", testo: "Scheda SD inserita e vuota", sotto: "Senza scheda il drone non registra niente. Se ci sono file vecchi: copiali e poi formattala dal drone." },
   { id: "batterie", emoji: "🔋", testo: "Batterie cariche: drone, radiocomando e telefono", sotto: "" },
   { id: "eliche", emoji: "🌀", testo: "Eliche integre e montate bene", sotto: "" },
   { id: "camera", emoji: "🎥", testo: "Impostazioni della camera controllate", sotto: "Risoluzione, fps, profilo colore e filtro ND giusti per la luce di adesso." },

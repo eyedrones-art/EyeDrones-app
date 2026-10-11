@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import L from "leaflet";
+import L from "./leafletSicuro";
 import "leaflet/dist/leaflet.css";
 
 // mappa del sopralluogo: decollo, ostacoli, persone, parcheggio, foto delle scene e direzione del sole.
