@@ -22,6 +22,15 @@ export const COME_SI_PRENDE = {
       ["🧑‍💻 Servizi web ENAC (dove si fa il test)", "https://serviziweb.enac.gov.it"],
       ["📄 Argomenti d'esame A1/A3 (syllabus ENAC)", "https://www.enac.gov.it/app/uploads/2024/09/syllabus-A1-A3-2024.pdf"],
     ],
+    estero: {
+      testo: [
+        "L'attestato A1/A3 preso in un altro paese EASA vale in tutta Europa, Italia compresa.",
+        "Lussemburgo: corso e test online gratis sulla piattaforma LearningZone di Eurocontrol, in inglese, francese o tedesco. Ci si iscrive come privato (nel campo «azienda» basta il cognome) e si sceglie il corso «UAS-OPEN A1+A3».",
+        "Paesi Bassi: si fa in inglese tramite le scuole olandesi, ma è a pagamento (corso ed esame, più la richiesta del certificato).",
+        "Da sapere: il regolamento europeo dice che il test va fatto con l'autorità del paese dove sei registrato come operatore (per chi è su D-Flight, ENAC). In tanti lo fanno all'estero e l'attestato viene accettato, ma se vuoi stare tranquillo al 100% scegli ENAC.",
+      ],
+      link: [["🇱🇺 Lussemburgo (DAC): come e dove fare il corso", "https://dac.gouvernement.lu/en/drones/train-where-how.html"]],
+    },
   },
   a2: {
     passi: [

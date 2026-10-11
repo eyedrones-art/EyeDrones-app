@@ -42,6 +42,15 @@ function ComeSiPrende({ esame }) {
           <a key={url} href={url} target="_blank" rel="noreferrer" style={{ display: "block", background: "#1d2633", border: "1px solid #3d8bfd55", color: "#9fc5ff", borderRadius: 8, padding: "9px 12px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>{testo} ↗</a>
         ))}
       </div>
+      {c.estero && (
+        <details style={{ marginTop: 10, background: "#161a1f", border: "1px solid #2b313d", borderRadius: 8, padding: "8px 12px" }}>
+          <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 700 }}>🌍 Si può fare anche all'estero (anche gratis)</summary>
+          <ul style={{ margin: "8px 0 0 0", paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: "#c3cad4" }}>
+            {c.estero.testo.map((t) => <li key={t} style={{ marginBottom: 4 }}>{t}</li>)}
+          </ul>
+          {c.estero.link.map(([testo, url]) => <a key={url} href={url} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 6, background: "#1d2633", border: "1px solid #3d8bfd55", color: "#9fc5ff", borderRadius: 8, padding: "8px 12px", fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}>{testo} ↗</a>)}
+        </details>
+      )}
       <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail: { pagina: "attestati" } }))} style={{ ...stSecondario, marginTop: 10 }}>📇 Hai già l'attestato? Salvalo negli Attestati</button>
       <p style={{ fontSize: 11, color: "#8b95a3", margin: "8px 0 0 0" }}>Informazioni controllate a ottobre 2026: costi e regole possono cambiare, verifica sempre sul sito ENAC prima di pagare.</p>
     </details>
