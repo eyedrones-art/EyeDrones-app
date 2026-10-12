@@ -7,6 +7,7 @@ import { datiCalendarioPiano, dataLocaleDa, PulsantiCalendario } from "./calenda
 import { AvvisaFineNotam, NotamFiniti, NotamInItaliano } from "./avvisiNotam.jsx";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo, inMs, numVento, ventoInMsScelto, scegliUnitaVento } from "./Riprese.jsx";
+import { droneNoto } from "./droniNoti.js";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
@@ -269,6 +270,14 @@ function minutiDelGiorno(d, timeZone) {
   if (!d) return null;
   const [hh, mm] = formattaOraLuogo(d, timeZone).split(":").map(Number);
   return Number.isNaN(hh) ? null : hh * 60 + mm;
+}
+
+// limite di vento del drone: quello scritto dal pilota, altrimenti quello del manuale se il modello è noto, altrimenti 30 km/h
+function limiteVentoDrone(drone) {
+  if (!drone) return 30;
+  if (Number(drone.vento_max_kmh) > 0) return Number(drone.vento_max_kmh);
+  const noto = droneNoto(drone.modello, drone.nome);
+  return noto ? noto.kmh : 30;
 }
 
 // semaforo meteo: il limite di vento può essere quello del drone scelto (30 km/h se non indicato)
@@ -3086,7 +3095,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
   if (!p) return <section style={{ marginBottom: 18 }}>{elencoAltri}</section>;
 
   const drone = (droni || []).find((d) => d.id === p.drone_id) || null;
-  const limite = Number(drone?.vento_max_kmh) > 0 ? Number(drone.vento_max_kmh) : 30;
+  const limite = limiteVentoDrone(drone);
   const oraP = ora(p);
   const hOra = oraP ? Number(oraP.slice(0, 2)) : null;
   const ore = meteo && !meteo.errore ? (meteo.orari || []).filter((o) => o.data === p.data_prevista && (hOra == null ? o.ora >= 7 && o.ora <= 20 : Math.abs(o.ora - hOra) <= 2)) : [];
@@ -6191,12 +6200,23 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
   const [prossimaManutenzione, setProssimaManutenzione] = useState("");
   const [ventoMax, setVentoMax] = useState("");
   const [ventoInMs, setVentoInMs] = useState(false); // il limite si può scrivere anche in m/s, come nel manuale del drone
+  const [daCatalogo, setDaCatalogo] = useState(null); // modello riconosciuto: vento (e classe) compilati da soli
+  // scrivendo nome o modello: se è un drone noto compilo il vento massimo del manuale e la classe, se sono vuoti o li avevo messi io
+  const riconosciModello = (nuovoNome, nuovoModello) => {
+    const noto = droneNoto(nuovoModello, nuovoNome);
+    const ventoMio = daCatalogo && ventoMax === (ventoInMs ? String(daCatalogo.ms).replace(".", ",") : String(daCatalogo.kmh));
+    if (noto && (ventoMax === "" || ventoMio)) setVentoMax(ventoInMs ? String(noto.ms).replace(".", ",") : String(noto.kmh));
+    else if (!noto && ventoMio) setVentoMax("");
+    if (noto && noto.classe && (marcaturaClasse === "" || (daCatalogo && marcaturaClasse === daCatalogo.classe))) setMarcaturaClasse(noto.classe);
+    else if (!noto && daCatalogo && daCatalogo.classe && marcaturaClasse === daCatalogo.classe) setMarcaturaClasse("");
+    setDaCatalogo(noto && (ventoMax === "" || ventoMio) ? noto : null);
+  };
   const [note, setNote] = useState("");
   const [documento, setDocumento] = useState(null);
   const [salvataggio, setSalvataggio] = useState(false);
 
   const resetForm = () => {
-    setVentoMax("");
+    setVentoMax(""); setDaCatalogo(null);
     setNome(""); setModello(""); setMatricola(""); setMarcaturaClasse("");
     setRegistrazioneDflight(""); setDataAcquisto(""); setOreVolo("");
     setProssimaManutenzione(""); setNote(""); setDocumento(null); setEditingId(null);
@@ -6213,7 +6233,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
     setOreVolo(d.ore_volo ? String(d.ore_volo) : "");
     setProssimaManutenzione(d.prossima_manutenzione || "");
     setVentoMax(d.vento_max_kmh != null ? String(d.vento_max_kmh) : "");
-    setVentoInMs(false);
+    setVentoInMs(false); setDaCatalogo(null);
     setNote(d.note || "");
     setDocumento(null);
     setShowForm(true);
@@ -6357,12 +6377,12 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
         <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome / etichetta</label>
-            <input placeholder="es. Matrice 4T principale" value={nome} onChange={(e) => setNome(e.target.value)} style={inputStyle} />
+            <input placeholder="es. Matrice 4T principale" value={nome} onChange={(e) => { setNome(e.target.value); riconosciModello(e.target.value, modello); }} style={inputStyle} />
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Modello</label>
-              <input placeholder="es. DJI Matrice 4T" value={modello} onChange={(e) => setModello(e.target.value)} style={inputStyle} />
+              <input placeholder="es. DJI Mini 4 Pro" value={modello} onChange={(e) => { setModello(e.target.value); riconosciModello(nome, e.target.value); }} style={inputStyle} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Matricola</label>
@@ -6396,7 +6416,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Vento massimo consigliato</label>
             <div style={{ display: "flex", gap: 6 }}>
-              <input type="text" inputMode="decimal" placeholder={ventoInMs ? "es. 10,7 (lo trovi nel manuale)" : "es. 38 (lo trovi nel manuale)"} value={ventoMax} onChange={(e) => setVentoMax(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+              <input type="text" inputMode="decimal" placeholder={ventoInMs ? "es. 10,7 (lo trovi nel manuale)" : "es. 38 (lo trovi nel manuale)"} value={ventoMax} onChange={(e) => { setVentoMax(e.target.value); setDaCatalogo(null); }} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
               {/* il manuale DJI scrive «resistenza al vento 10,7 m/s»: si sceglie l'unità e converto io */}
               <div role="group" aria-label="Unità del vento" style={{ display: "flex", border: "1px solid #333a45", borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
                 {[["km/h", false], ["m/s", true]].map(([etichetta, ms]) => {
@@ -6405,13 +6425,16 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
                     <button key={etichetta} type="button" aria-pressed={scelto} onClick={() => {
                       if (scelto) return;
                       const n = Number(String(ventoMax).replace(",", "."));
-                      if (ventoMax !== "" && !Number.isNaN(n)) setVentoMax(ms ? (n / 3.6).toFixed(1).replace(".", ",") : String(Math.round(n * 3.6)));
+                      // con un modello riconosciuto uso il valore esatto del manuale, senza arrotondamenti
+                      if (daCatalogo) setVentoMax(ms ? String(daCatalogo.ms).replace(".", ",") : String(daCatalogo.kmh));
+                      else if (ventoMax !== "" && !Number.isNaN(n)) setVentoMax(ms ? (n / 3.6).toFixed(1).replace(".", ",") : String(Math.round(n * 3.6)));
                       setVentoInMs(ms);
                     }} style={{ background: scelto ? "#ff8c42" : "#1f2530", color: scelto ? "#161a1f" : "#c3cad4", border: "none", padding: "0 12px", fontSize: 12.5, fontWeight: 700 }}>{etichetta}</button>
                   );
                 })}
               </div>
             </div>
+            {daCatalogo && <p style={{ fontSize: 11.5, color: "#4ade80", margin: "4px 0 0 0" }}>✓ Dal manuale di {daCatalogo.nome}: {String(daCatalogo.ms).replace(".", ",")} m/s{daCatalogo.classe ? ` · classe ${daCatalogo.classe} (controlla l'etichetta sul drone)` : ""}. Puoi cambiarlo.</p>}
             {(() => { const n = Number(String(ventoMax).replace(",", ".")); return ventoMax !== "" && n > 0 ? <p style={{ fontSize: 11.5, color: "#c3cad4", margin: "4px 0 0 0" }}>= {ventoInMs ? `${Math.round(n * 3.6)} km/h` : inMs(n)}</p> : null; })()}
             <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>Lo trovi nel manuale come «resistenza al vento» (di solito in m/s). Lo usa il semaforo meteo in «Pianificazione volo». Se lo lasci vuoto vale il limite standard di 30 km/h ({inMs(30)}).</p>
           </div>
@@ -6452,6 +6475,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
                     {d.modello && <>{d.modello} &middot; </>}
                     {d.matricola && <>{d.matricola} &middot; </>}
+                    {(() => { const v = limiteVentoDrone(d); const manuale = !(Number(d.vento_max_kmh) > 0) && droneNoto(d.modello, d.nome); return Number(d.vento_max_kmh) > 0 || manuale ? <>💨 max {v} km/h ({manuale ? `${String(manuale.ms).replace(".", ",")} m/s, dal manuale` : inMs(v)}) &middot; </> : null; })()}
                     {stato ? <span style={{ color: stato.colore, fontWeight: 600 }}>{stato.testo}</span> : "Nessuna manutenzione programmata"}
                   </div>
                   {d.qr_dflight_nuovo !== undefined && (
@@ -8466,7 +8490,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
   };
 
   // il semaforo usa il limite di vento del drone scelto (30 km/h se non è indicato)
-  const limiteVento = Number(droneSelezionato && droneSelezionato.vento_max_kmh) > 0 ? Number(droneSelezionato.vento_max_kmh) : 30;
+  const limiteVento = limiteVentoDrone(droneSelezionato);
+  const notoSelezionato = droneSelezionato && !(Number(droneSelezionato.vento_max_kmh) > 0) ? droneNoto(droneSelezionato.modello, droneSelezionato.nome) : null;
   const giornoPrevistoBase = meteo?.prossimiGiorni?.find((g) => g.data === dataPrevista);
   const giornoPrevisto = giornoPrevistoBase ? { ...giornoPrevistoBase, adatto: valutaGiorno(giornoPrevistoBase, limiteVento) } : undefined;
   const kpPrevisto = meteoSpaziale?.previsioneGiorni?.find((g) => g.giorno === dataPrevista);
@@ -8854,7 +8879,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
 
           {giornoPrevisto && (
             <div style={{ marginTop: 12, background: "#161a1f", border: `1px solid ${giornoPrevisto.adatto ? "#4ade8055" : "#ff9c9c55"}`, borderRadius: 6, padding: 12 }}>
-              <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Previsione per il {formatData(dataPrevista)} · soglia vento {limiteVento} km/h ({inMs(limiteVento)}){droneSelezionato && droneSelezionato.vento_max_kmh ? ` (da ${droneSelezionato.nome})` : " (standard)"}</p>
+              <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Previsione per il {formatData(dataPrevista)} · soglia vento {limiteVento} km/h ({notoSelezionato ? `${String(notoSelezionato.ms).replace(".", ",")} m/s` : inMs(limiteVento)}){droneSelezionato && droneSelezionato.vento_max_kmh ? ` (da ${droneSelezionato.nome})` : notoSelezionato ? ` (dal manuale ${notoSelezionato.nome})` : " (standard)"}</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12.5 }}>
                 <div>🌡️ {giornoPrevisto.tMin}° / {giornoPrevisto.tMax}°</div>
                 <div>💨 max {giornoPrevisto.ventoMax} km/h · {inMs(giornoPrevisto.ventoMax)} (raffiche {giornoPrevisto.raffiche})</div>
