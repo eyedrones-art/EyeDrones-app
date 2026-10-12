@@ -46,7 +46,7 @@ function ComeSiPrende({ esame }) {
         <a href={c.partner.url} target="_blank" rel="noreferrer sponsored" style={{ display: "block", marginTop: 10, background: "#1f1a2b", border: "1px solid #a78bfa66", borderRadius: 8, padding: "10px 12px", textDecoration: "none" }}>
           <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#d9ccff" }}>🎓 Corso guidato con {c.partner.nome} ↗</span>
           <span style={{ display: "block", fontSize: 12.5, color: "#c3cad4", marginTop: 3, lineHeight: 1.5 }}>{c.partner.testo}</span>
-          <span style={{ display: "block", fontSize: 10.5, color: "#8b95a3", marginTop: 4 }}>Partner · link affiliato: se compri, EyeDrones riceve una piccola commissione, per te il prezzo non cambia.</span>
+          <span style={{ display: "block", fontSize: 10.5, color: "#8b95a3", marginTop: 4 }}>Partner · link affiliato</span>
         </a>
       )}
       {c.partner && c.partner.altri && (
