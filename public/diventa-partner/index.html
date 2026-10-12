@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>Diventa partner EyeDrones</title>
+<meta name="description" content="Consiglia EyeDrones ai piloti di droni e guadagna il 25% per 12 mesi su ogni abbonamento. Per scuole di volo, istruttori, creator e negozi.">
+<meta property="og:title" content="Diventa partner EyeDrones">
+<meta property="og:description" content="Consiglia EyeDrones ai piloti di droni e guadagna il 25% per 12 mesi su ogni abbonamento.">
+<meta property="og:image" content="https://app.eyedrones.it/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root {
+  --bg: #12151c; --surface: #1b2028; --surface-2: #161a1f; --line: #2b313d;
+  --fg: #e7eaee; --muted: #9aa4b1; --faint: #6b7480;
+  --accent: #ff8c42; --accent-deep: #e0552f; --violet: #a78bfa; --ok: #4ade80; --on-accent: #161a1f;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+    --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+    --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+  --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+  --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 16px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.12; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(34px, 6vw, 54px); }
+h2 { font-size: clamp(24px, 4vw, 32px); margin-bottom: 14px; }
+h3 { font-size: 19px; margin-bottom: 6px; }
+p { margin: 0; }
+a { color: var(--accent); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 18px; }
+.marchio { font-family: var(--display); font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; }
+.occhio { width: 30px; height: 18px; border-radius: 50%; border: 2.5px solid var(--accent); position: relative; }
+.occhio::after { content: ""; position: absolute; inset: 3px 9px; border-radius: 50%; background: var(--violet); }
+.top a.link { font-family: var(--mono); font-size: 13px; text-decoration: none; }
+.hero { padding-block: 32px 48px; display: grid; gap: 18px; }
+.hero p.lead { font-size: 19px; color: var(--muted); max-width: 640px; }
+.cta { display: inline-block; background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; font-weight: 700; padding: 13px 22px; border-radius: 10px; text-decoration: none; font-size: 16px; }
+section { padding-block: 32px; border-top: 1px solid var(--line); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.card .emoji { font-size: 26px; margin-bottom: 8px; display: block; }
+.numeri { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.numero { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.numero b { display: block; font-family: var(--display); font-size: 38px; color: var(--accent); line-height: 1.1; }
+.esempio { background: var(--surface-2); border: 1px dashed var(--line); border-radius: 12px; padding: 14px 16px; margin-top: 14px; color: var(--muted); }
+ol.passi { margin: 0; padding-left: 22px; display: grid; gap: 10px; }
+ul.regole { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--muted); }
+form { display: grid; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+input, select, textarea { width: 100%; background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; font: inherit; font-weight: 400; min-height: 44px; }
+textarea { min-height: 96px; resize: vertical; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; color: var(--muted); }
+.check input { width: 20px; min-height: 20px; margin-top: 3px; }
+button { background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; border: none; border-radius: 10px; padding: 13px 22px; font-weight: 700; font-size: 16px; cursor: pointer; min-height: 48px; }
+.esito { display: none; padding: 14px 16px; border-radius: 10px; }
+.esito.ok { display: block; background: color-mix(in srgb, var(--ok) 14%, transparent); border: 1px solid var(--ok); }
+.esito.ko { display: block; background: color-mix(in srgb, #ff6b6b 14%, transparent); border: 1px solid #ff6b6b; }
+.nascosto { display: none; }
+footer { padding-block: 28px 40px; color: var(--faint); font-size: 13px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="marchio" href="https://app.eyedrones.it/?ref=partner-pagina"><span class="occhio" aria-hidden="true"></span>EyeDrones</a>
+    <a class="link" href="https://app.eyedrones.it/?ref=partner-pagina">Apri l'app ↗</a>
+  </header>
+
+  <div class="hero">
+    <span class="eyebrow">Programma partner</span>
+    <h1>Consiglia EyeDrones ai piloti.<br>Guadagna su ogni abbonamento.</h1>
+    <p class="lead">Per scuole di volo, istruttori, creator, negozi e gruppi di piloti. Ricevi il tuo link personale: per ogni pilota che si abbona grazie a te guadagni il 25% per 12 mesi.</p>
+    <p><a class="cta" href="#richiesta">Diventa partner</a></p>
+  </div>
+
+  <section>
+    <h2>Cos'è EyeDrones</h2>
+    <p class="muted" style="max-width:720px">L'app per i piloti di droni italiani: pianificazione con meteo e zone D-Flight, permessi con i moduli ENAC compilati da soli, attestati, droni e batterie con gli avvisi delle scadenze, registro voli, documenti per i controlli, preventivi, report di ispezione e consegna di foto e video ai clienti. Più lezioni e quiz per gli attestati A1/A3, A2 e STS.</p>
+  </section>
+
+  <section>
+    <h2>Quanto guadagni</h2>
+    <div class="numeri">
+      <div class="numero"><b>25%</b>su ogni pagamento dei piloti che porti</div>
+      <div class="numero"><b>12 mesi</b>per ogni pilota, dal suo primo pagamento</div>
+      <div class="numero"><b>50 €</b>soglia minima: ti paghiamo con bonifico ogni mese</div>
+    </div>
+    <p class="esempio">Esempio: porti 20 piloti che scelgono il piano Pro (12,90 € al mese). Ogni mese ricevi circa 64 €, per un anno. Con il piano Pilota (6,90 € al mese) sono circa 1,70 € al mese per pilota.</p>
+    <p class="muted" style="margin-top:12px">EyeDrones è gratis con tutte le funzioni fino al 31 gennaio 2027: le commissioni partono con i primi abbonamenti a pagamento. Puoi iniziare già adesso: contano tutti i piloti che si iscrivono con il tuo link.</p>
+  </section>
+
+  <section>
+    <h2>Chi può diventare partner</h2>
+    <div class="grid">
+      <div class="card"><span class="emoji">🏫</span><h3>Scuole di volo</h3><p class="muted">I tuoi allievi, appena preso l'attestato, devono gestire zone, permessi e documenti: EyeDrones li aiuta dal primo volo.</p></div>
+      <div class="card"><span class="emoji">🎥</span><h3>Creator e youtuber</h3><p class="muted">Video su droni, riprese, normativa: metti il tuo link nella descrizione o nella bio.</p></div>
+      <div class="card"><span class="emoji">🛒</span><h3>Negozi di droni</h3><p class="muted">Consiglia l'app a chi compra un drone: è la prima cosa che serve per volare in regola.</p></div>
+      <div class="card"><span class="emoji">👥</span><h3>Gruppi e community</h3><p class="muted">Gruppi Facebook, Telegram, associazioni: un'app utile da condividere con i membri.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Come funziona</h2>
+    <ol class="passi">
+      <li><b>Mandi la richiesta</b> qui sotto: ti rispondiamo per email.</li>
+      <li><b>Ricevi il tuo link personale</b>, per esempio <code>app.eyedrones.it/?ref=tuonome</code>.</li>
+      <li><b>Lo condividi</b>: sito, social, video, email agli allievi, gruppi.</li>
+      <li><b>Ogni mese</b> ti mandiamo il riepilogo dei piloti portati e, sopra i 50 €, il bonifico.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Le regole</h2>
+    <ul class="regole">
+      <li>Quando condividi il link, scrivi che è un link partner o affiliato: lo chiede la legge ed è giusto verso chi ti segue.</li>
+      <li>Niente spam, niente promesse non vere sull'app e niente pubblicità a pagamento sul nome «EyeDrones».</li>
+      <li>La commissione vale per i piloti nuovi che si iscrivono con il tuo link, per 12 mesi dal loro primo pagamento, finché restano abbonati.</li>
+      <li>Per ricevere i pagamenti serve una fattura o una ricevuta (anche per prestazione occasionale).</li>
+      <li>Le condizioni possono cambiare: ti avvisiamo prima per email, e le commissioni già maturate restano tue.</li>
+    </ul>
+  </section>
+
+  <section id="richiesta">
+    <h2>Diventa partner</h2>
+    <form name="partner" method="POST" data-netlify="true" netlify-honeypot="campo-trappola" id="modulo">
+      <input type="hidden" name="form-name" value="partner">
+      <p class="nascosto"><label>Non compilare: <input name="campo-trappola"></label></p>
+      <label>Nome e cognome<input name="nome" required autocomplete="name"></label>
+      <label>Email<input name="email" type="email" required autocomplete="email"></label>
+      <label>Chi sei
+        <select name="tipo" required>
+          <option value="">— scegli —</option>
+          <option>Scuola di volo / Entità Riconosciuta</option>
+          <option>Istruttore</option>
+          <option>Creator / youtuber</option>
+          <option>Negozio di droni</option>
+          <option>Gruppo o associazione</option>
+          <option>Pilota</option>
+          <option>Altro</option>
+        </select>
+      </label>
+      <label>Nome della scuola, del canale o dell'attività (facoltativo)<input name="attivita"></label>
+      <label>Dove consiglieresti EyeDrones (sito, profilo social, canale…)<input name="dove" placeholder="es. instagram.com/tuonome"></label>
+      <label>Quanti allievi o follower hai, circa (facoltativo)<input name="pubblico" placeholder="es. 300 allievi all'anno"></label>
+      <label>Messaggio (facoltativo)<textarea name="messaggio"></textarea></label>
+      <label class="check"><input type="checkbox" name="privacy" value="si" required><span>Ho letto l'<a href="https://app.eyedrones.it/privacy" target="_blank" rel="noreferrer">informativa privacy</a> e accetto di essere contattato per il programma partner.</span></label>
+      <button type="submit">Invia la richiesta</button>
+      <div class="esito" id="esito" role="status"></div>
+    </form>
+    <p class="muted" style="margin-top:12px">Preferisci l'email? Scrivi a <a href="mailto:info@eyedrones.it?subject=Programma%20partner%20EyeDrones">info@eyedrones.it</a>.</p>
+  </section>
+
+  <footer>EyeDrones · Ivan Ravinale, Grugliasco (TO) · <a href="https://app.eyedrones.it/termini">Termini</a> · <a href="https://app.eyedrones.it/privacy">Privacy</a></footer>
+</div>
+<script>
+// invio senza cambiare pagina (Netlify Forms); se qualcosa va storto propongo l'email
+document.getElementById("modulo").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target, esito = document.getElementById("esito"), bottone = f.querySelector("button");
+  bottone.disabled = true; bottone.textContent = "Invio…";
+  try {
+    const r = await fetch("/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(new FormData(f)).toString() });
+    if (!r.ok) throw new Error(r.status);
+    f.reset();
+    esito.className = "esito ok"; esito.textContent = "Grazie! Richiesta ricevuta: ti rispondiamo per email con il tuo link personale.";
+  } catch (err) {
+    esito.className = "esito ko"; esito.innerHTML = 'Invio non riuscito. Scrivi a <a href="mailto:info@eyedrones.it?subject=Programma%20partner%20EyeDrones">info@eyedrones.it</a>, ti rispondiamo noi.';
+  }
+  bottone.disabled = false; bottone.textContent = "Invia la richiesta";
+});
+</script>
+</body>
+</html>

@@ -1829,8 +1829,11 @@ function AppShell({ session }) {
   // scorciatoia dell'icona installata (?vai=controllo): apre subito i documenti a schermo pieno
   const [vaiAControllo] = useState(() => new URLSearchParams(window.location.search).get("vai") === "controllo");
   const [controlloSubito, setControlloSubito] = useState(vaiAControllo);
-  const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : vaiAControllo ? "documenti-controllo" : PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard"));
-  useEffect(() => { if (vaiARichieste || vaiAControllo) window.history.replaceState(null, "", window.location.pathname); }, []);
+  // altre scorciatoie dell'icona: ?vai=qui (sono sul posto: meteo e zona dove sei) e ?vai=voli (i voli pianificati)
+  const [vaiAQui] = useState(() => new URLSearchParams(window.location.search).get("vai") === "qui");
+  const [vaiAVoli] = useState(() => new URLSearchParams(window.location.search).get("vai") === "voli");
+  const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : vaiAControllo ? "documenti-controllo" : vaiAVoli ? "pianificazione" : vaiAQui ? "dashboard" : PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard"));
+  useEffect(() => { if (vaiARichieste || vaiAControllo || vaiAQui || vaiAVoli) window.history.replaceState(null, "", window.location.pathname); }, []);
   const [paginaPrecedente, setPaginaPrecedente] = useState(null); // da dove si apre «Suggerimenti», per capire dove c'è un problema
   const setPage = (p) => {
     if (p === "suggerimenti") setPaginaPrecedente((prec) => (page !== "suggerimenti" ? page : prec));
@@ -2007,6 +2010,8 @@ function AppShell({ session }) {
     window.addEventListener("eyedrones-vai", ascolta);
     return () => window.removeEventListener("eyedrones-vai", ascolta);
   }, []);
+  // scorciatoia «Sono sul posto»: come il pulsante in Home, cerco la posizione e apro Pianifica qui e ora
+  useEffect(() => { if (vaiAQui) volaQui(); }, []);
   // frasi per il report scelte sul posto: le salvo anche nell'account, così le ritrovi sul computer
   useEffect(() => {
     const salva = (e) => { supabase.auth.updateUser({ data: { frasi_report: e.detail || null } }).then(() => {}, () => {}); };
@@ -3254,18 +3259,20 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
 }
 
 // «Sono già sul posto»: niente piano preparato prima, apro Pianifica sulla posizione GPS con data e ora di adesso
+// «Sono sul posto»: cerco la posizione e apro Pianifica con meteo e zona di qui (senza GPS si sceglie il posto a mano)
+function volaQui(fatto = () => {}) {
+  const vai = (luogo) => { fatto(); vaiA({ pagina: "pianificazione", luogo: { nome: luogo ? "La mia posizione" : "", adesso: true, ...(luogo || {}) } }); };
+  if (!navigator.geolocation) { vai(null); return; }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => vai({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+    () => vai(null),
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+  );
+}
+
 function VoloAdesso() {
   const [cerco, setCerco] = useState(false);
-  const vai = (luogo) => vaiA({ pagina: "pianificazione", luogo: { nome: luogo ? "La mia posizione" : "", adesso: true, ...(luogo || {}) } });
-  const premi = () => {
-    if (!navigator.geolocation) { vai(null); return; }
-    setCerco(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => { setCerco(false); vai({ lat: pos.coords.latitude, lon: pos.coords.longitude }); },
-      () => { setCerco(false); vai(null); },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
-    );
-  };
+  const premi = () => { setCerco(true); volaQui(() => setCerco(false)); };
   return (
     <button type="button" onClick={premi} disabled={cerco} className="home-azione">
       <span className="home-azione-emoji" style={{ background: "#ff8c4226" }}>📍</span>
