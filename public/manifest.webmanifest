@@ -36,6 +36,32 @@
   ],
   "shortcuts": [
     {
+      "name": "Sono sul posto: si vola qui?",
+      "short_name": "Sono sul posto",
+      "description": "Meteo, vento e zona D-Flight dove sei adesso",
+      "url": "/?vai=qui",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "I miei voli pianificati",
+      "short_name": "Prossimi voli",
+      "description": "I voli in programma e la pianificazione",
+      "url": "/?vai=voli",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
       "name": "Documenti controllo",
       "short_name": "Controllo",
       "description": "Attestati, assicurazione, drone e zona a schermo pieno",
