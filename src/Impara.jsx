@@ -42,6 +42,18 @@ function ComeSiPrende({ esame }) {
           <a key={url} href={url} target="_blank" rel="noreferrer" style={{ display: "block", background: "#1d2633", border: "1px solid #3d8bfd55", color: "#9fc5ff", borderRadius: 8, padding: "9px 12px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>{testo} ↗</a>
         ))}
       </div>
+      {c.partner && (
+        <a href={c.partner.url} target="_blank" rel="noreferrer sponsored" style={{ display: "block", marginTop: 10, background: "#1f1a2b", border: "1px solid #a78bfa66", borderRadius: 8, padding: "10px 12px", textDecoration: "none" }}>
+          <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#d9ccff" }}>🎓 Corso guidato con {c.partner.nome} ↗</span>
+          <span style={{ display: "block", fontSize: 12.5, color: "#c3cad4", marginTop: 3, lineHeight: 1.5 }}>{c.partner.testo}</span>
+          <span style={{ display: "block", fontSize: 10.5, color: "#8b95a3", marginTop: 4 }}>Partner · link affiliato: se compri, EyeDrones riceve una piccola commissione, per te il prezzo non cambia.</span>
+        </a>
+      )}
+      {c.partner && c.partner.altri && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+          {c.partner.altri.map(([t, u]) => <a key={u} href={u} target="_blank" rel="noreferrer sponsored" style={{ background: "#1f1a2b", border: "1px solid #a78bfa44", color: "#d9ccff", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>{t} con {c.partner.nome} ↗</a>)}
+        </div>
+      )}
       {c.estero && (
         <details style={{ marginTop: 10, background: "#161a1f", border: "1px solid #2b313d", borderRadius: 8, padding: "8px 12px" }}>
           <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 700 }}>🌍 Si può fare anche all'estero{esame === "a1a3" ? " (anche gratis)" : ""}</summary>
