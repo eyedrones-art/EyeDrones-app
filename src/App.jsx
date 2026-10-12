@@ -3029,7 +3029,7 @@ function AvvisoLancio({ onScopri }) {
       <span style={{ fontSize: 22 }}>🚀</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700 }}>EyeDrones è in lancio: tutte le funzioni Pro sono gratis fino al {fineLancio()}</div>
-        <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 3 }}>Sei tra i fondatori: quando partiranno gli abbonamenti avrai il <strong>primo anno a metà prezzo</strong>, con Pro a meno di {euro(Math.ceil(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12))} al mese.</div>
+        <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 3 }}>Sei tra i fondatori: quando partiranno gli abbonamenti avrai il <strong>primo anno a metà prezzo</strong>, con Pro a meno di {euro(Math.ceil(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12))} al mese. Alla fine del lancio passi da solo al Free: <strong>nessun addebito automatico</strong>.</div>
         <button type="button" onClick={onScopri} style={{ marginTop: 8, background: "none", border: "1px solid #ff8c4288", color: "#ffb877", borderRadius: 6, padding: "5px 10px", fontSize: 12 }}>Vedi i prezzi fondatori</button>
       </div>
       <button type="button" onClick={chiudi} aria-label="Chiudi avviso" style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 16, lineHeight: 1 }}>×</button>
@@ -4494,6 +4494,15 @@ function Abbonamento({ piano }) {
             Fino al <strong>{fineLancio()}</strong> hai <strong>tutte le funzioni Pro gratis</strong>, senza limiti e senza carta di credito.
             Quando partiranno gli abbonamenti, chi si è iscritto durante il lancio avrà il <strong>primo anno a metà prezzo</strong>: per esempio Pro a {euro(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12)} al mese con l'annuale (poi {euro(PREZZI_PIANO.pro.anno / 12)} al mese). Ti avviseremo prima, e potrai scegliere se continuare.
           </p>
+          {/* la domanda che arriva per email: alla fine del lancio cosa succede? niente addebiti a sorpresa */}
+          <div style={{ marginTop: 12, background: "#161a1f", border: "1px solid #2b313d", borderRadius: 8, padding: "10px 12px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#e7eaee" }}>❓ Cosa succede dopo il {fineLancio()}?</div>
+            <ul style={{ fontSize: 12.5, color: "#c3cad4", margin: "6px 0 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
+              <li>Passi <strong>da solo al piano Free</strong>, <strong>senza nessun addebito</strong>: non ti abbiamo chiesto la carta e non c'è nessun rinnovo automatico.</li>
+              <li>Voli, droni, attestati e documenti <strong>restano salvati</strong>.</li>
+              <li>Se vuoi continuare con tutte le funzioni, scegli tu Pilota o Pro: il primo anno a metà prezzo, sia con il mensile sia con l'annuale (Pro {euro(prezzoFondatori(PREZZI_PIANO.pro.mese))} al mese invece di {euro(PREZZI_PIANO.pro.mese)}).</li>
+            </ul>
+          </div>
         </div>
       ) : (
         <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 24px 0" }}>Sei attualmente sul piano <strong style={{ color: COLORE_PIANO[piano] || "#f5b942" }}>{NOME_PIANO[piano] || "Free"}</strong>.</p>
