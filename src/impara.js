@@ -5,6 +5,7 @@
 export const ESAMI = {
   a1a3: { nome: "A1/A3", domande: 40, minuti: 60, punti: { giusta: 2, sbagliata: -1, vuota: 0 }, soglia: 60, massimo: 80, dove: "online sul portale ENAC (con SPID)" },
   a2: { nome: "A2", domande: 30, minuti: 60, punti: { giusta: 2, sbagliata: 0, vuota: 0 }, soglia: 45, massimo: 60, dove: "presso un'Entità Riconosciuta da ENAC, con un sorvegliante" },
+  sts: { nome: "STS", domande: 40, minuti: 60, punti: { giusta: 1, sbagliata: 0, vuota: 0 }, soglia: 30, massimo: 40, dove: "presso un'Entità Riconosciuta da ENAC, con un sorvegliante", testo: "Esame teorico STS: si fa presso un'Entità Riconosciuta da ENAC, sorvegliato come l'A2 (anche online, se l'entità è autorizzata). Numero di domande, tempo e soglia te li conferma l'entità: nel quiz qui sotto si passa con il 75%.", notaQuiz: "allenamento: giusta +1, si passa con il 75%. Le soluzioni alla fine." },
 };
 
 // Come si prende l'attestato: passi e link ufficiali ENAC (verificati a ottobre 2026: costi e regole possono cambiare)
@@ -56,6 +57,21 @@ export const COME_SI_PRENDE = {
       ],
       link: [["🇳🇱 Paesi Bassi (governo): come chiedere il certificato", "https://www.rijksoverheid.nl/wetten-en-regelingen/productbeschrijvingen/vliegbewijs-drone-aanvragen"]],
     },
+  },
+  sts: {
+    passi: [
+      "Gli scenari standard europei sono due: STS-01 (a vista, in area controllata a terra, anche in zona abitata, drone C5) e STS-02 (oltre la vista con osservatori, in zona poco abitata, drone C6). Dal 1° gennaio 2026 i vecchi scenari italiani IT-STS non valgono più.",
+      "Di solito si parte dall'attestato A1/A3: l'esame STS comprende anche gli argomenti dell'A2, più quelli propri degli scenari standard.",
+      "Esame teorico STS presso un'Entità Riconosciuta da ENAC, sorvegliato (come l'A2): ti dà il «Certificato di conoscenza teorica di pilota remoto» per scenari standard.",
+      "Addestramento pratico presso un'Entità Riconosciuta: a fine corso ti rilascia l'«accreditamento» per lo scenario (STS-01, e a parte STS-02).",
+      "Come operatore: dichiari l'operazione STS su D-Flight, hai il manuale delle operazioni, un piano per le emergenze e l'assicurazione. Poi puoi volare negli scenari dichiarati.",
+    ],
+    link: [
+      ["📘 ENAC: scenari standard EASA (STS-01 e STS-02)", "https://www.enac.gov.it/sicurezza-aerea/droni/categoria-specifica-specific-category/scenari-standard-easa/"],
+      ["🏫 Elenco ufficiale delle Entità Riconosciute", "https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/entita-riconosciute/"],
+      ["🧑‍✈️ ENAC: pagina dei piloti UAS", "https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/"],
+    ],
+    partner: { nome: "DroneXT", testo: "Preferisci un corso guidato? DroneXT ha il percorso per l'attestato Specific STS.", url: "https://dronext.idevaffiliate.com/idevaffiliate.php?id=626&url=1066" },
   },
 };
 
@@ -258,6 +274,67 @@ export const LEZIONI = {
       ],
     },
   ],
+  sts: [
+    {
+      id: "cosa-sono", titolo: "STS-01 e STS-02 in breve",
+      punti: [
+        "Gli scenari standard (STS) sono operazioni della categoria Specific già «pronte»: invece di chiedere un'autorizzazione, l'operatore le dichiara e rispetta le condizioni dello scenario.",
+        "STS-01: volo a vista (VLOS) sopra un'area controllata a terra, anche in zona abitata, con un drone di classe C5, fino a 120 m dal suolo.",
+        "STS-02: volo oltre la vista (BVLOS) con osservatori dello spazio aereo, sopra un'area controllata in zona poco abitata, con un drone di classe C6, fino a 120 m.",
+        "In STS-02 il drone resta entro 1 km dal pilota, oppure 2 km se ci sono gli osservatori dello spazio aereo; decollo e atterraggio si fanno a vista.",
+        "Mai sopra assembramenti di persone e un solo drone per pilota alla volta.",
+        "Dal 1° gennaio 2026 valgono solo gli scenari europei: i vecchi IT-STS italiani sono scaduti.",
+      ],
+    },
+    {
+      id: "pilota-sts", titolo: "Cosa serve al pilota",
+      punti: [
+        "Il «Certificato di conoscenza teorica di pilota remoto» per scenari standard: esame presso un'Entità Riconosciuta da ENAC, sorvegliato come l'A2.",
+        "L'«accreditamento» di addestramento pratico per lo scenario: lo rilascia l'Entità Riconosciuta dopo il corso pratico. STS-01 e STS-02 sono separati.",
+        "Gli argomenti in più rispetto all'Open: regole degli scenari, procedure operative, riduzione del rischio a terra e in aria, comunicazione e lavoro in squadra.",
+        "Come tutti gli attestati ha una scadenza: salvala in EyeDrones (Attestati) per avere l'avviso in tempo.",
+      ],
+    },
+    {
+      id: "operatore-sts", titolo: "Cosa serve all'operatore",
+      punti: [
+        "La dichiarazione dell'operazione STS fatta su D-Flight, prima di iniziare a volare nello scenario.",
+        "Il manuale delle operazioni: come lavori, chi fa cosa, le procedure normali e quelle d'emergenza.",
+        "Un piano di risposta alle emergenze (ERP): cosa fare se il drone esce dall'area o cade, chi chiamare.",
+        "Personale formato (pilota e, in STS-02, osservatori), droni della classe giusta mantenuti in efficienza e assicurazione RC.",
+        "Prima di ogni volo: zone geografiche e NOTAM, meteo, area controllata a terra delimitata, briefing alla squadra.",
+      ],
+    },
+    {
+      id: "volumi", titolo: "I volumi: area di volo, contingenza, buffer",
+      punti: [
+        "Area di volo (flight geography): dove il drone deve stare durante il volo normale.",
+        "Volume di contingenza: lo spazio intorno all'area di volo dove il drone può finire se qualcosa va storto e il pilota lo recupera. In STS-01 almeno 10 m.",
+        "Buffer per il rischio a terra: una fascia in più dove, se serve, il drone viene fatto cadere o terminare il volo senza colpire persone.",
+        "L'area controllata a terra comprende tutto: lì possono esserci solo persone coinvolte nell'operazione.",
+        "In STS-01 il buffer dipende da altezza e peso: per esempio fino a 30 m di altezza servono 10 m (drone fino a 10 kg) o 20 m (oltre 10 kg); a 120 m servono 25 m o 60 m.",
+        "In Pianifica, con il calcolatore STS-01, l'app calcola e disegna i volumi sulla mappa.",
+      ],
+    },
+    {
+      id: "droni-c5-c6", titolo: "Droni C5 e C6",
+      punti: [
+        "C5: è il drone per lo STS-01. Ha, tra l'altro, una modalità a bassa velocità e un sistema per terminare il volo in sicurezza.",
+        "C6: è il drone per lo STS-02. Permette di programmare i limiti dell'area di volo (il drone non ne esce) e ha anche lui la terminazione del volo.",
+        "Alcuni droni C2 o C3 si possono trasformare in C5 con un kit accessorio certificato (per esempio paracadute e terminatore): solo con il kit previsto dal costruttore.",
+        "Come per l'Open, il drone va usato come dice il costruttore: modifiche non previste fanno perdere la classe.",
+      ],
+    },
+    {
+      id: "aria-squadra", titolo: "Rischio aria, comunicazione e squadra",
+      punti: [
+        "Gli aerei con equipaggio hanno sempre la precedenza: se ne arriva uno, scendi e allontana il drone.",
+        "In STS-02 gli osservatori dello spazio aereo guardano il cielo e avvisano il pilota: servono frasi brevi e chiare concordate prima.",
+        "Prima di volare si fa il briefing: ruoli, area, procedure d'emergenza, come ci si parla (radio, telefono).",
+        "Il lavoro in squadra (CRM) serve a non sbagliare per fretta o malinteso: chi vede un problema lo dice subito.",
+        "Controlla sempre zone geografiche e NOTAM: in STS valgono le stesse zone di D-Flight dell'Open.",
+      ],
+    },  ],
 };
 
 // Guida «zona rossa», scritta per chi ha appena iniziato. Fonti: ENAC «Voli con droni (UAS): limitazioni e riserve
@@ -415,6 +492,31 @@ export const DOMANDE = {
     { tema: "Mitigazioni", d: "Quale di queste è una mitigazione tecnica?", r: ["Fare un briefing alle persone", "La modalità bassa velocità del drone", "Delimitare l'area", "Scegliere un orario con meno gente"], ok: 1, perche: "Le mitigazioni tecniche sono funzioni del drone; le altre sono operative (come organizzi il lavoro)." },
     { tema: "Mitigazioni", d: "Quale di queste è una mitigazione operativa?", r: ["Il geofence", "Le luci del drone", "Un osservatore e un'area delimitata", "Il ritorno automatico"], ok: 2, perche: "Osservatore e area delimitata riguardano come organizzi il volo: sono mitigazioni operative." },
     { tema: "Mitigazioni", d: "Durante un volo A2 arrivano persone vicino all'area. Cosa fai?", r: ["Continui come prima", "Riduci velocità e quota, ti allontani o atterri", "Voli sopra di loro per farle spostare", "Acceleri per finire prima"], ok: 1, perche: "Se cambiano le condizioni bisogna adeguare il volo per mantenere le distanze." },
+  ],
+  sts: [
+    { tema: "Scenari", d: "Che cos'è uno scenario standard (STS)?", r: ["Un'operazione della categoria Open", "Un'operazione della categoria Specific che si dichiara rispettandone le condizioni", "Un tipo di drone", "Un corso di volo"], ok: 1, perche: "Gli STS sono operazioni Specific già definite: l'operatore le dichiara invece di chiedere un'autorizzazione." },
+    { tema: "Scenari", d: "Lo STS-01 riguarda voli:", r: ["Oltre la vista, in zona poco abitata", "A vista, sopra un'area controllata a terra, anche in zona abitata", "Notturni sopra la folla", "Solo sopra l'acqua"], ok: 1, perche: "STS-01: VLOS sopra un'area controllata a terra, anche in ambiente popolato." },
+    { tema: "Scenari", d: "Lo STS-02 riguarda voli:", r: ["A vista in città", "Oltre la vista con osservatori, in zona poco abitata", "Sopra assembramenti", "Senza alcun limite"], ok: 1, perche: "STS-02: BVLOS con osservatori dello spazio aereo, sopra un'area controllata in ambiente scarsamente popolato." },
+    { tema: "Scenari", d: "Che classe di drone serve per lo STS-01?", r: ["C0", "C2", "C5", "C6"], ok: 2, perche: "Lo STS-01 si fa con droni di classe C5." },
+    { tema: "Scenari", d: "Che classe di drone serve per lo STS-02?", r: ["C1", "C4", "C5", "C6"], ok: 3, perche: "Lo STS-02 si fa con droni di classe C6." },
+    { tema: "Scenari", d: "Qual è l'altezza massima negli scenari STS?", r: ["50 m", "120 m", "150 m", "Nessun limite"], ok: 1, perche: "Come nell'Open, il limite è 120 m dal punto più vicino della superficie." },
+    { tema: "Scenari", d: "In STS-02, quanto lontano dal pilota può andare il drone con gli osservatori dello spazio aereo?", r: ["500 m", "1 km", "2 km", "10 km"], ok: 2, perche: "1 km senza osservatori, fino a 2 km con gli osservatori dello spazio aereo." },
+    { tema: "Scenari", d: "Dal 1° gennaio 2026 gli scenari italiani IT-STS:", r: ["Valgono ancora", "Non valgono più: restano gli scenari europei STS-01 e STS-02", "Sostituiscono quelli europei", "Valgono solo di notte"], ok: 1, perche: "Gli IT-STS sono scaduti: ora si usano solo gli STS europei o i PDRA." },
+    { tema: "Pilota", d: "Cosa serve al pilota per volare in STS-01?", r: ["Solo l'attestato A1/A3", "Certificato di conoscenza teorica STS e accreditamento di addestramento pratico STS-01", "Solo l'assicurazione", "Nessun attestato"], ok: 1, perche: "Servono la teoria STS (esame) e l'accreditamento pratico per lo scenario, rilasciato da un'Entità Riconosciuta." },
+    { tema: "Pilota", d: "Chi rilascia l'accreditamento dell'addestramento pratico STS?", r: ["Il costruttore del drone", "Un'Entità Riconosciuta da ENAC", "Il Comune", "D-Flight"], ok: 1, perche: "L'addestramento pratico e il suo accreditamento li fa un'Entità Riconosciuta." },
+    { tema: "Operatore", d: "Dove si fa la dichiarazione dell'operazione STS?", r: ["In Comune", "Su D-Flight", "In Prefettura", "Non serve"], ok: 1, perche: "L'operatore dichiara l'operazione STS sul portale D-Flight prima di volare." },
+    { tema: "Operatore", d: "Cos'è l'ERP?", r: ["Un tipo di batteria", "Il piano di risposta alle emergenze", "Il registro dei voli", "Un modulo ENAC per gli aeroporti"], ok: 1, perche: "L'Emergency Response Plan dice cosa fare se il drone esce dall'area o cade." },
+    { tema: "Operatore", d: "Cosa deve contenere il manuale delle operazioni?", r: ["Le foto migliori", "Come lavori, chi fa cosa, procedure normali e d'emergenza", "Solo il numero di serie del drone", "Il prezzo dei lavori"], ok: 1, perche: "Il manuale descrive organizzazione e procedure dell'operatore." },
+    { tema: "Volumi", d: "Cos'è il volume di contingenza?", r: ["L'area dove si parcheggia", "Lo spazio intorno all'area di volo dove il drone può finire se qualcosa va storto", "La zona dei curiosi", "L'altezza massima"], ok: 1, perche: "È lo spazio di sicurezza intorno all'area di volo, dove il pilota recupera il drone." },
+    { tema: "Volumi", d: "A cosa serve il buffer per il rischio a terra?", r: ["A fare foto migliori", "A non colpire persone se il drone deve cadere o terminare il volo", "A risparmiare batteria", "A ricaricare il drone"], ok: 1, perche: "È una fascia in più, oltre la contingenza, per proteggere le persone a terra." },
+    { tema: "Volumi", d: "In STS-01, quanto deve essere almeno il volume di contingenza in orizzontale?", r: ["1 m", "5 m", "10 m", "100 m"], ok: 2, perche: "Nello STS-01 la contingenza è di almeno 10 m." },
+    { tema: "Volumi", d: "In STS-01, con un drone fino a 10 kg che vola fino a 30 m, il buffer minimo è:", r: ["5 m", "10 m", "30 m", "60 m"], ok: 1, perche: "Dalla tabella dello scenario: fino a 30 m di altezza servono 10 m (20 m oltre i 10 kg)." },
+    { tema: "Volumi", d: "Chi può stare nell'area controllata a terra?", r: ["Chiunque", "Solo le persone coinvolte nell'operazione", "Solo i bambini", "Nessuno, nemmeno il pilota"], ok: 1, perche: "Nell'area controllata ci sono solo persone coinvolte, informate e d'accordo." },
+    { tema: "Droni", d: "Cosa permette un drone C6 che serve nello STS-02?", r: ["Di volare sopra la folla", "Di programmare i limiti dell'area di volo e terminare il volo", "Di superare i 120 m", "Di volare senza pilota"], ok: 1, perche: "Il C6 ha i limiti dell'area programmabili e la terminazione del volo." },
+    { tema: "Droni", d: "Un C2 si può usare in STS-01?", r: ["Mai", "Solo se trasformato in C5 con il kit accessorio previsto dal costruttore", "Sempre", "Solo di notte"], ok: 1, perche: "Alcuni C2/C3 diventano C5 con un kit accessorio certificato." },
+    { tema: "Aria", d: "In STS-02 a cosa servono gli osservatori dello spazio aereo?", r: ["A fare le foto", "A guardare il cielo e avvisare il pilota di altri aerei", "A pilotare un secondo drone", "A tenere lontani i curiosi"], ok: 1, perche: "Aiutano il pilota a evitare il traffico aereo quando il drone è oltre la vista." },
+    { tema: "Aria", d: "Arriva un elicottero vicino all'area. Cosa fai?", r: ["Continui", "Scendi e allontani il drone: l'elicottero ha la precedenza", "Ti avvicini per vederlo", "Sali sopra di lui"], ok: 1, perche: "Gli aeromobili con equipaggio hanno sempre la precedenza." },
+    { tema: "Squadra", d: "Perché si fa il briefing prima del volo?", r: ["Per perdere tempo", "Per chiarire ruoli, area, emergenze e come ci si parla", "Per scegliere la musica", "Non serve"], ok: 1, perche: "Il briefing riduce errori e malintesi: tutti sanno cosa fare." },
   ],
 };
 

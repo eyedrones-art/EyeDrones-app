@@ -9,6 +9,7 @@ const SCHEDE = [
   { key: "manuale", label: "🎞️ Post-produzione" },
   { key: "a1a3", label: "📘 A1/A3" },
   { key: "a2", label: "📗 A2" },
+  { key: "sts", label: "📙 STS" },
   { key: "quiz", label: "📝 Quiz" },
   { key: "zona-rossa", label: "🔴 Zona rossa" },
   { key: "consigli", label: "💡 Consigli di volo" },
@@ -75,7 +76,7 @@ function Lezioni({ esame, onQuiz }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ ...stCard, background: "#14251b", borderColor: "#2c5a3a", fontSize: 12.5, color: "#bfe8cc" }}>
-        🎓 Esame {e.nome}: {e.domande} domande in {e.minuti} minuti, {e.dove}. Si passa con {e.soglia} punti su {e.massimo} (risposta giusta +{e.punti.giusta}{e.punti.sbagliata ? `, sbagliata ${e.punti.sbagliata}` : ""}).
+        🎓 {e.testo || <>Esame {e.nome}: {e.domande} domande in {e.minuti} minuti, {e.dove}. Si passa con {e.soglia} punti su {e.massimo} (risposta giusta +{e.punti.giusta}{e.punti.sbagliata ? `, sbagliata ${e.punti.sbagliata}` : ""}).</>}
       </div>
       <ComeSiPrende esame={esame} />
       {lezioni.map((l, i) => (
@@ -171,7 +172,7 @@ function Quiz({ esameIniziale = "a1a3" }) {
         </div>
         <div style={stCard}>
           <div style={{ fontSize: 14.5, fontWeight: 700 }}>⏱️ Simulazione d'esame {conf.nome}</div>
-          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "4px 0 10px 0" }}>{Math.min(conf.domande, banca.length)} domande in {conf.minuti} minuti, punteggio come all'esame: giusta +{conf.punti.giusta}{conf.punti.sbagliata ? `, sbagliata ${conf.punti.sbagliata}` : ""}, non data 0. Si passa con {conf.soglia} su {conf.massimo}. Le soluzioni alla fine.</p>
+          <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "4px 0 10px 0" }}>{Math.min(conf.domande, banca.length)} domande in {conf.minuti} minuti, {conf.notaQuiz || <>punteggio come all'esame: giusta +{conf.punti.giusta}{conf.punti.sbagliata ? `, sbagliata ${conf.punti.sbagliata}` : ""}, non data 0. Si passa con {conf.soglia} su {conf.massimo}. Le soluzioni alla fine.</>}</p>
           <button type="button" onClick={() => avvia("simulazione")} style={stAzione}>Inizia la simulazione</button>
         </div>
         {erroriEsame.length > 0 && (
@@ -353,6 +354,7 @@ export default function Impara({ schedaIniziale = "a1a3", consigli, colore }) {
       </div>
       {corpo === "a1a3" && <Lezioni esame="a1a3" onQuiz={() => vaiQuiz("a1a3")} />}
       {corpo === "a2" && <Lezioni esame="a2" onQuiz={() => vaiQuiz("a2")} />}
+      {corpo === "sts" && <Lezioni esame="sts" onQuiz={() => vaiQuiz("sts")} />}
       {corpo === "quiz" && <Quiz key={esameQuiz} esameIniziale={esameQuiz} />}
       {corpo === "zona-rossa" && <ZonaRossa />}
       {corpo === "consigli" && <div style={{ margin: "0 -32px" }}>{consigli}</div>}
