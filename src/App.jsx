@@ -5831,6 +5831,12 @@ function RinnovoAttestato({ attestato }) {
       {/* il pulsante grande: apre subito dove si rinnova */}
       <a href={r.rinnova.url} target="_blank" rel={r.rinnova.partner ? "noreferrer sponsored" : "noreferrer"} style={{ display: "block", textAlign: "center", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", borderRadius: 8, padding: "11px 14px", fontSize: 14.5, fontWeight: 800, textDecoration: "none", marginBottom: 4 }}>🔁 {r.rinnova.testo} ↗</a>
       <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "0 0 8px 0", textAlign: "center" }}>{r.rinnova.nota}{r.rinnova.partner ? " · Partner · link affiliato" : ""}</p>
+      {r.gratis && (
+        <a href={r.gratis.url} target="_blank" rel="noreferrer" style={{ display: "block", background: "#14231a", border: "1px solid #4ade8066", borderRadius: 8, padding: "8px 12px", textDecoration: "none", marginBottom: 8 }}>
+          <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#4ade80" }}>{r.gratis.testo} ↗</span>
+          <span style={{ display: "block", fontSize: 11.5, color: "#c3cad4", marginTop: 3, lineHeight: 1.45 }}>{r.gratis.nota}</span>
+        </a>
+      )}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: r.chiave })} style={btn}>🎓 Ripassa con lezioni e quiz</button>
         <a href={r.enac} target="_blank" rel="noreferrer" style={btn}>📘 Pagina ENAC ↗</a>
