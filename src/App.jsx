@@ -2331,8 +2331,9 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 }
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10k";
+const VERSIONE_NOVITA = "2026-10l";
 const NOVITA = [
+  { emoji: "📲", testo: "Scorciatoie: tieni premuta l'icona di EyeDrones sul telefono e scegli «Sono sul posto» (meteo, vento e zona dove sei) o «Prossimi voli». Su Android, con l'app installata", pagina: "dashboard" },
   { emoji: "🧭", testo: "Assistente permessi: dici dove voli e ti dice se puoi chiedere, a chi, quanti giorni prima e quanto costa. Compila da solo il Modello ATM-09A di ENAC e la richiesta di nulla osta", pagina: "permessi" },
   { emoji: "▶️", testo: "Modalità riprese: sul posto una scena alla volta, a tutto schermo, con la foto grande e il promemoria della scheda SD", pagina: "dashboard" },
   { emoji: "✏️", testo: "Disegna sulla foto della scena (fino a 3 foto per scena): percorso del drone, punti di ripresa, pericoli e soggetto. Li vedi anche in Home e nel PDF", pagina: "pianificazione" },
@@ -2833,7 +2834,7 @@ function AvvisoInstallaApp() {
       <div style={{ flex: 1, minWidth: 180 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700 }}>Installa EyeDrones sul telefono</div>
         {!passiIphone ? (
-          <div style={{ fontSize: 12, color: "#aab3bf", marginTop: 2 }}>Si apre con un tocco dalla schermata Home, a schermo intero, come un'app vera. Gratis, niente store.</div>
+          <div style={{ fontSize: 12, color: "#aab3bf", marginTop: 2 }}>Si apre con un tocco dalla schermata Home, a schermo intero, come un'app vera. Gratis, niente store.{evento ? " Poi tieni premuta l'icona: «Sono sul posto» ti dice subito se puoi volare dove sei." : ""}</div>
         ) : (
           <ol style={{ fontSize: 12, color: "#c3cad4", margin: "4px 0 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
             <li>Apri questa pagina con <strong>Safari</strong></li>
