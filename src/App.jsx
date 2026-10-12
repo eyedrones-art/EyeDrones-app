@@ -8,6 +8,7 @@ import { AvvisaFineNotam, NotamFiniti, NotamInItaliano } from "./avvisiNotam.jsx
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo, inMs, numVento, ventoInMsScelto, scegliUnitaVento } from "./Riprese.jsx";
 import { droneNoto } from "./droniNoti.js";
+import { rinnovoPer } from "./rinnovi.js";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
@@ -5816,6 +5817,29 @@ function statoScadenza(dataScadenza) {
   return { livello: "ok", testo: `Valido fino al ${formatData(dataScadenza)}`, colore: "#4ade80" };
 }
 
+// attestato A1/A3, A2 o STS che scade entro 3 mesi (o già scaduto): come si rinnova, link ENAC, ripasso e corso
+function RinnovoAttestato({ attestato }) {
+  const r = rinnovoPer(attestato.tipo);
+  if (!r || !attestato.data_scadenza) return null;
+  const giorni = Math.ceil((new Date(attestato.data_scadenza) - new Date()) / 86400000);
+  if (giorni > 90) return null;
+  const btn = { display: "inline-flex", alignItems: "center", gap: 4, background: "#1f2530", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 10px", fontSize: 12, fontWeight: 600, textDecoration: "none" };
+  return (
+    <div style={{ flexBasis: "100%", background: "#161a1f", border: `1px solid ${giorni < 0 ? "#ff4d4d55" : "#f5b94255"}`, borderRadius: 8, padding: "10px 12px", marginTop: 2 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: giorni < 0 ? "#ff9c9c" : "#ffd68a" }}>🔁 {giorni < 0 ? `Attestato ${r.nome} scaduto` : `È ora di rinnovare l'attestato ${r.nome}`}</div>
+      <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "4px 0 8px 0", lineHeight: 1.5 }}>{giorni < 0 ? r.scaduto : r.testo}</p>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: r.chiave })} style={btn}>🎓 Ripassa con lezioni e quiz</button>
+        <a href={r.enac} target="_blank" rel="noreferrer" style={btn}>📘 Pagina ENAC ↗</a>
+      </div>
+      <a href={r.corso} target="_blank" rel="noreferrer sponsored" style={{ display: "block", marginTop: 8, background: "#1f1a2b", border: "1px solid #a78bfa66", borderRadius: 8, padding: "8px 12px", textDecoration: "none" }}>
+        <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#d9ccff" }}>🎓 Ripasso guidato con il corso {r.nome} di DroneXT ↗</span>
+        <span style={{ display: "block", fontSize: 10.5, color: "#8b95a3", marginTop: 3 }}>Partner · link affiliato</span>
+      </a>
+    </div>
+  );
+}
+
 function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaObiettivo }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -6069,6 +6093,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
                     Elimina
                   </button>
                 </div>
+                <RinnovoAttestato attestato={a} />
               </div>
             );
           })}
