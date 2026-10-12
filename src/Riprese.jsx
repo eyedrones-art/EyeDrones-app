@@ -5,6 +5,11 @@ import React from "react";
 
 // i costruttori (DJI e gli altri) scrivono la resistenza al vento in m/s: la mostro accanto ai km/h
 export const inMs = (kmh) => `${(Number(kmh) / 3.6).toFixed(1).replace(".", ",")} m/s`;
+// unità preferita per i numeri piccoli (ora per ora) e per il valore grande del vento in quota: si sceglie in Impostazioni
+const CHIAVE_UNITA_VENTO = "eyedrones_unita_vento";
+export const ventoInMsScelto = () => { try { return localStorage.getItem(CHIAVE_UNITA_VENTO) === "ms"; } catch { return false; } };
+export const scegliUnitaVento = (ms) => { try { localStorage.setItem(CHIAVE_UNITA_VENTO, ms ? "ms" : "kmh"); } catch { /* senza memoria resta km/h */ } };
+export const numVento = (kmh) => (ventoInMsScelto() ? (Number(kmh) / 3.6).toFixed(1).replace(".", ",") : String(Math.round(Number(kmh))));
 
 // --- Vento in quota ------------------------------------------------------------------------------
 // A terra può esserci poco vento e a 120 m il doppio: il drone fatica, consuma di più e al ritorno può non farcela
@@ -26,11 +31,12 @@ export function VentoInQuota({ orari, data, ora, limite = 30, compatto }) {
     : v120 > limite * 0.75
       ? ["#f5b942", `In alto il vento è vicino al limite del drone (${limite} km/h = ${inMs(limite)}): attento al ritorno controvento.`]
       : ["#4ade80", "Vento tranquillo anche in alto."];
+  const inMsPrima = ventoInMsScelto();
   const valore = (etichetta, v) => (
     <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", minWidth: 62, padding: "4px 6px", borderRadius: 6, background: (v > limite ? "#ff4d4d" : v > limite * 0.75 ? "#f5b942" : "#4ade80") + "1a" }}>
       <span style={{ fontSize: 10.5, color: "#8b95a3" }}>{etichetta}</span>
-      <span style={{ fontSize: 13, fontWeight: 700, color: "#e7eaee" }}>{v} km/h</span>
-      <span style={{ fontSize: 10.5, color: "#8b95a3" }}>{inMs(v)}</span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: "#e7eaee" }}>{inMsPrima ? inMs(v) : `${v} km/h`}</span>
+      <span style={{ fontSize: 10.5, color: "#8b95a3" }}>{inMsPrima ? `${v} km/h` : inMs(v)}</span>
     </span>
   );
   return (

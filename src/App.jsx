@@ -6,7 +6,7 @@ import { installaSegnalazioneErrori } from "./segnalaErrori";
 import { datiCalendarioPiano, dataLocaleDa, PulsantiCalendario } from "./calendario.jsx";
 import { AvvisaFineNotam, NotamFiniti, NotamInItaliano } from "./avvisiNotam.jsx";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
-import { VentoInQuota, PrevisioneCielo, inMs } from "./Riprese.jsx";
+import { VentoInQuota, PrevisioneCielo, inMs, numVento, ventoInMsScelto, scegliUnitaVento } from "./Riprese.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
@@ -3188,7 +3188,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
                       <div key={o.ora} style={{ flex: "0 0 auto", width: 50, textAlign: "center", background: COLORE_SEMAFORO[s] + "1f", border: o.ora === hOra ? "2px solid #ff8c42" : `1px solid ${COLORE_SEMAFORO[s]}66`, borderRadius: 6, padding: "4px 2px", fontSize: 10.5, color: "#c3cad4" }}>
                         <div style={{ fontWeight: 700, color: "#e7eaee" }}>{String(o.ora).padStart(2, "0")}</div>
                         <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORE_SEMAFORO[s], margin: "3px auto" }} />
-                        <div>💨{Math.round(o.vento)}</div>
+                        <div>💨{numVento(o.vento)}</div>
                         <div style={{ color: "#8b95a3" }}>☔{o.probPioggia ?? "—"}%</div>
                       </div>
                     );
@@ -8900,7 +8900,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             const riprese = ["video", "foto", "fpv"].includes(tipoIspezione);
             return (
               <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 }}>
-                <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Ora per ora · soglia vento {limiteVento} km/h ({inMs(limiteVento)}) · ✨ = ora d'oro · tocca un'ora per sceglierla</p>
+                <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Ora per ora · soglia vento {limiteVento} km/h ({inMs(limiteVento)}) · 💨 vento e ↑ raffiche in {ventoInMsScelto() ? "m/s" : "km/h"} · ✨ = ora d'oro · tocca un'ora per sceglierla</p>
                 {finestre.length > 0 ? (
                   <div style={{ fontSize: 12.5, marginBottom: 8 }}>
                     <span style={{ color: "#4ade80", fontWeight: 700 }}>Ore migliori: </span>
@@ -8916,8 +8916,8 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
                     <div key={o.ora} onClick={() => scegliOraPrevista(hh(o.ora))} title={`${hh(o.ora)} · vento ${Math.round(o.vento)} km/h (${inMs(o.vento)}), raffiche ${Math.round(o.raffiche)} · pioggia ${o.probPioggia ?? "—"}% · nuvole ${o.nuvole ?? "—"}%`} style={{ flex: "0 0 auto", width: 48, textAlign: "center", cursor: "pointer", background: COLORE_SEMAFORO[o.semaforo] + "1f", border: oraPrevista.slice(0, 2) === String(o.ora).padStart(2, "0") ? "2px solid #ff8c42" : `1px solid ${COLORE_SEMAFORO[o.semaforo]}66`, borderRadius: 6, padding: "5px 2px", fontSize: 10.5, color: "#c3cad4" }}>
                       <div style={{ fontWeight: 700, color: "#e7eaee" }}>{String(o.ora).padStart(2, "0")}{o.oro ? "✨" : ""}</div>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORE_SEMAFORO[o.semaforo], margin: "3px auto" }} />
-                      <div>💨{Math.round(o.vento)}</div>
-                      <div style={{ color: "#8b95a3" }}>↑{Math.round(o.raffiche)}</div>
+                      <div>💨{numVento(o.vento)}</div>
+                      <div style={{ color: "#8b95a3" }}>↑{numVento(o.raffiche)}</div>
                       <div style={{ color: (o.probPioggia || 0) >= 40 ? "#7fa8ff" : "#8b95a3" }}>☔{o.probPioggia ?? "—"}%</div>
                     </div>
                   ))}
@@ -13291,6 +13291,24 @@ function SpazioEPromemoria() {
   );
 }
 
+// km/h o m/s: i manuali dei droni danno la resistenza al vento in m/s, così si confronta senza fare conti
+function SceltaUnitaVento() {
+  const [ms, setMs] = useState(ventoInMsScelto);
+  const scegli = (v) => { scegliUnitaVento(v); setMs(v); };
+  return (
+    <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 24, maxWidth: 560 }}>
+      <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>💨 Vento in km/h o m/s</h3>
+      <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>Il manuale del drone di solito scrive la resistenza al vento in m/s. Scegli l'unità per il meteo ora per ora e per il vento in quota: l'altra resta scritta accanto.</p>
+      <div role="group" aria-label="Unità del vento" style={{ display: "inline-flex", border: "1px solid #333a45", borderRadius: 8, overflow: "hidden" }}>
+        {[["km/h", false], ["m/s", true]].map(([etichetta, v]) => (
+          <button key={etichetta} type="button" aria-pressed={ms === v} onClick={() => scegli(v)} style={{ background: ms === v ? "#ff8c42" : "#1f2530", color: ms === v ? "#161a1f" : "#c3cad4", border: "none", padding: "8px 18px", fontSize: 13, fontWeight: 700 }}>{etichetta}</button>
+        ))}
+      </div>
+      <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "8px 0 0 0" }}>Esempio: {ms ? "10,7 m/s (39 km/h)" : "39 km/h (10,7 m/s)"}</p>
+    </div>
+  );
+}
+
 function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userEmail }) {
   const [confermaEliminazione, setConfermaEliminazione] = useState("");
   const [spostamento, setSpostamento] = useState(null); // null | "in corso: ..." | risultato
@@ -13332,6 +13350,8 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
         <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>Scegli cosa ti serve: nel menu e nella prima pagina vedrai solo le sezioni giuste.</p>
         <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Salva" />
       </div>
+
+      <SceltaUnitaVento />
 
       {!proAttivo && (
         <div style={{ maxWidth: 420, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 12.5, color: "#ffb877" }}>
