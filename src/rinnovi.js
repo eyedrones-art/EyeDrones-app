@@ -9,12 +9,16 @@ export const RINNOVI = {
     testo: "L'attestato A1/A3 vale 5 anni. Per rinnovarlo, prima della scadenza, si rifà il test online sul portale ENAC: conviene ripassare, perché le regole nel frattempo possono essere cambiate.",
     scaduto: "Con l'attestato A1/A3 scaduto non si vola in categoria Open: per tornare in regola si rifà il test online sul portale ENAC.",
     enac: "https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/come-si-diventa-pilota-uas-drone-open-a1a3/",
+    // «Rinnova ora»: dove si fa davvero il rinnovo. A1/A3 sul portale ENAC con lo SPID (31 €)
+    rinnova: { url: "https://serviziweb.enac.gov.it", testo: "Rinnova ora sul portale ENAC", nota: "Entri con lo SPID, paghi il diritto di 31 € e rifai il test da casa." },
     corso: DRONEXT + "1064",
   },
   a2: {
     nome: "A2",
     testo: "Il certificato A2 vale 5 anni. Per rinnovarlo, prima della scadenza, si rifà l'esame presso ENAC o un'entità riconosciuta (oppure l'aggiornamento previsto): conviene ripassare con calma.",
     enac: "https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/",
+    // A2: DroneXT ha il corso con l'accesso all'esame online da casa
+    rinnova: { url: DRONEXT + "1065", testo: "Rinnova ora con DroneXT", nota: "Corso A2 con l'accesso all'esame online da casa.", partner: true },
     scaduto: "Con il certificato A2 scaduto non si vola in sottocategoria A2: per tornare in regola si rifà l'esame presso ENAC o un'entità riconosciuta.",
     corso: DRONEXT + "1065",
   },
@@ -22,6 +26,7 @@ export const RINNOVI = {
     nome: "STS",
     testo: "L'attestato teorico STS vale 5 anni. Per rinnovarlo, prima della scadenza, serve l'aggiornamento o il nuovo esame presso un'entità riconosciuta da ENAC.",
     enac: "https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/",
+    rinnova: { url: DRONEXT + "1066", testo: "Rinnova ora con DroneXT", nota: "Percorso per l'attestato Specific STS.", partner: true },
     scaduto: "Con l'attestato STS scaduto non si vola in scenario standard: per tornare in regola serve il nuovo esame presso un'entità riconosciuta da ENAC.",
     corso: DRONEXT + "1066",
   },
