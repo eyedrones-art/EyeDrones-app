@@ -6,7 +6,7 @@ import { installaSegnalazioneErrori } from "./segnalaErrori";
 import { datiCalendarioPiano, dataLocaleDa, PulsantiCalendario } from "./calendario.jsx";
 import { AvvisaFineNotam, NotamFiniti, NotamInItaliano } from "./avvisiNotam.jsx";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
-import { VentoInQuota, PrevisioneCielo } from "./Riprese.jsx";
+import { VentoInQuota, PrevisioneCielo, inMs } from "./Riprese.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
@@ -3178,7 +3178,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
                   <div style={{ fontSize: 13, fontWeight: 700, color: COLORE_SEMAFORO[valutaOra(allOra, limite)], marginBottom: 6 }}>
                     {(termografia
                       ? { verde: "✓ Vento e pioggia ok", giallo: "⚠ Vento al limite", rosso: "✗ Vento o pioggia sfavorevoli", grigio: "Meteo incompleto" }
-                      : { verde: "✓ Condizioni buone", giallo: "⚠ Condizioni al limite", rosso: "✗ Condizioni sfavorevoli", grigio: "Meteo incompleto" })[valutaOra(allOra, limite)]} alle {oraP}: vento {Math.round(allOra.vento)} km/h, raffiche {Math.round(allOra.raffiche)}, pioggia {allOra.probPioggia ?? "—"}%
+                      : { verde: "✓ Condizioni buone", giallo: "⚠ Condizioni al limite", rosso: "✗ Condizioni sfavorevoli", grigio: "Meteo incompleto" })[valutaOra(allOra, limite)]} alle {oraP}: vento {Math.round(allOra.vento)} km/h ({inMs(allOra.vento)}), raffiche {Math.round(allOra.raffiche)}, pioggia {allOra.probPioggia ?? "—"}%
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
@@ -3333,7 +3333,7 @@ function SiVolaQui() {
       <span style={{ fontSize: 24 }}>{emoji}</span>
       <span>
         <span style={{ display: "block", fontSize: 14.5, fontWeight: 700, color: colore }}>{titolo}</span>
-        <span style={{ display: "block", fontSize: 12, color: "#c3cad4" }}>{[m.luogo, m.t != null ? `${Math.round(m.t)}°` : null, m.v != null ? `vento ${Math.round(m.v)} km/h` : null, m.raff != null ? `raffiche ${Math.round(m.raff)}` : null].filter(Boolean).join(" · ")}</span>
+        <span style={{ display: "block", fontSize: 12, color: "#c3cad4" }}>{[m.luogo, m.t != null ? `${Math.round(m.t)}°` : null, m.v != null ? `vento ${Math.round(m.v)} km/h (${inMs(m.v)})` : null, m.raff != null ? `raffiche ${Math.round(m.raff)}` : null].filter(Boolean).join(" · ")}</span>
       </span>
     </button>
   );
@@ -6190,6 +6190,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
   const [oreVolo, setOreVolo] = useState("");
   const [prossimaManutenzione, setProssimaManutenzione] = useState("");
   const [ventoMax, setVentoMax] = useState("");
+  const [ventoInMs, setVentoInMs] = useState(false); // il limite si può scrivere anche in m/s, come nel manuale del drone
   const [note, setNote] = useState("");
   const [documento, setDocumento] = useState(null);
   const [salvataggio, setSalvataggio] = useState(false);
@@ -6212,6 +6213,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
     setOreVolo(d.ore_volo ? String(d.ore_volo) : "");
     setProssimaManutenzione(d.prossima_manutenzione || "");
     setVentoMax(d.vento_max_kmh != null ? String(d.vento_max_kmh) : "");
+    setVentoInMs(false);
     setNote(d.note || "");
     setDocumento(null);
     setShowForm(true);
@@ -6248,7 +6250,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
       };
       // il limite di vento si salva solo se lo indichi (o se lo stai togliendo): così l'app funziona anche prima dello script SQL
       const droneInModifica = editingId ? droni.find((x) => x.id === editingId) : null;
-      if (ventoMax !== "" || (droneInModifica && droneInModifica.vento_max_kmh != null)) payload.vento_max_kmh = ventoMax !== "" && !Number.isNaN(Number(String(ventoMax).replace(",", "."))) ? Math.round(Number(String(ventoMax).replace(",", "."))) : null;
+      if (ventoMax !== "" || (droneInModifica && droneInModifica.vento_max_kmh != null)) payload.vento_max_kmh = ventoMax !== "" && !Number.isNaN(Number(String(ventoMax).replace(",", "."))) ? Math.round(Number(String(ventoMax).replace(",", ".")) * (ventoInMs ? 3.6 : 1)) : null;
       if (documentoUrl) payload.documento_url = documentoUrl;
       let error;
       if (editingId) {
@@ -6392,9 +6394,26 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
             <input type="date" value={prossimaManutenzione} onChange={(e) => setProssimaManutenzione(e.target.value)} style={inputStyle} />
           </div>
           <div>
-            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Vento massimo consigliato (km/h)</label>
-            <input type="number" min="0" placeholder="es. 38 (lo trovi nel manuale)" value={ventoMax} onChange={(e) => setVentoMax(e.target.value)} style={inputStyle} />
-            <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>Lo usa il semaforo meteo in «Pianificazione volo». Se lo lasci vuoto vale il limite standard di 30 km/h.</p>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Vento massimo consigliato</label>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input type="text" inputMode="decimal" placeholder={ventoInMs ? "es. 10,7 (lo trovi nel manuale)" : "es. 38 (lo trovi nel manuale)"} value={ventoMax} onChange={(e) => setVentoMax(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+              {/* il manuale DJI scrive «resistenza al vento 10,7 m/s»: si sceglie l'unità e converto io */}
+              <div role="group" aria-label="Unità del vento" style={{ display: "flex", border: "1px solid #333a45", borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
+                {[["km/h", false], ["m/s", true]].map(([etichetta, ms]) => {
+                  const scelto = ventoInMs === ms;
+                  return (
+                    <button key={etichetta} type="button" aria-pressed={scelto} onClick={() => {
+                      if (scelto) return;
+                      const n = Number(String(ventoMax).replace(",", "."));
+                      if (ventoMax !== "" && !Number.isNaN(n)) setVentoMax(ms ? (n / 3.6).toFixed(1).replace(".", ",") : String(Math.round(n * 3.6)));
+                      setVentoInMs(ms);
+                    }} style={{ background: scelto ? "#ff8c42" : "#1f2530", color: scelto ? "#161a1f" : "#c3cad4", border: "none", padding: "0 12px", fontSize: 12.5, fontWeight: 700 }}>{etichetta}</button>
+                  );
+                })}
+              </div>
+            </div>
+            {(() => { const n = Number(String(ventoMax).replace(",", ".")); return ventoMax !== "" && n > 0 ? <p style={{ fontSize: 11.5, color: "#c3cad4", margin: "4px 0 0 0" }}>= {ventoInMs ? `${Math.round(n * 3.6)} km/h` : inMs(n)}</p> : null; })()}
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>Lo trovi nel manuale come «resistenza al vento» (di solito in m/s). Lo usa il semaforo meteo in «Pianificazione volo». Se lo lasci vuoto vale il limite standard di 30 km/h ({inMs(30)}).</p>
           </div>
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Documento (facoltativo, es. certificato di conformità)</label>
@@ -8835,10 +8854,10 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
 
           {giornoPrevisto && (
             <div style={{ marginTop: 12, background: "#161a1f", border: `1px solid ${giornoPrevisto.adatto ? "#4ade8055" : "#ff9c9c55"}`, borderRadius: 6, padding: 12 }}>
-              <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Previsione per il {formatData(dataPrevista)} · soglia vento {limiteVento} km/h{droneSelezionato && droneSelezionato.vento_max_kmh ? ` (da ${droneSelezionato.nome})` : " (standard)"}</p>
+              <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Previsione per il {formatData(dataPrevista)} · soglia vento {limiteVento} km/h ({inMs(limiteVento)}){droneSelezionato && droneSelezionato.vento_max_kmh ? ` (da ${droneSelezionato.nome})` : " (standard)"}</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12.5 }}>
                 <div>🌡️ {giornoPrevisto.tMin}° / {giornoPrevisto.tMax}°</div>
-                <div>💨 max {giornoPrevisto.ventoMax} km/h (raffiche {giornoPrevisto.raffiche})</div>
+                <div>💨 max {giornoPrevisto.ventoMax} km/h · {inMs(giornoPrevisto.ventoMax)} (raffiche {giornoPrevisto.raffiche})</div>
                 <div>🌧️ {giornoPrevisto.pioggia} mm{giornoPrevisto.probPioggia != null ? ` (${giornoPrevisto.probPioggia}%)` : ""}</div>
                 <div style={{ fontWeight: 700, color: giornoPrevisto.adatto ? "#4ade80" : "#ff9c9c" }}>{giornoPrevisto.adatto ? "✓ Condizioni favorevoli" : "⚠ Valuta di rimandare"}</div>
               </div>
@@ -8881,7 +8900,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             const riprese = ["video", "foto", "fpv"].includes(tipoIspezione);
             return (
               <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 }}>
-                <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Ora per ora · soglia vento {limiteVento} km/h · ✨ = ora d'oro · tocca un'ora per sceglierla</p>
+                <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Ora per ora · soglia vento {limiteVento} km/h ({inMs(limiteVento)}) · ✨ = ora d'oro · tocca un'ora per sceglierla</p>
                 {finestre.length > 0 ? (
                   <div style={{ fontSize: 12.5, marginBottom: 8 }}>
                     <span style={{ color: "#4ade80", fontWeight: 700 }}>Ore migliori: </span>
@@ -8894,7 +8913,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
                 )}
                 <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 4 }}>
                   {ore.map((o) => (
-                    <div key={o.ora} onClick={() => scegliOraPrevista(hh(o.ora))} title={`${hh(o.ora)} · vento ${Math.round(o.vento)} km/h, raffiche ${Math.round(o.raffiche)} · pioggia ${o.probPioggia ?? "—"}% · nuvole ${o.nuvole ?? "—"}%`} style={{ flex: "0 0 auto", width: 48, textAlign: "center", cursor: "pointer", background: COLORE_SEMAFORO[o.semaforo] + "1f", border: oraPrevista.slice(0, 2) === String(o.ora).padStart(2, "0") ? "2px solid #ff8c42" : `1px solid ${COLORE_SEMAFORO[o.semaforo]}66`, borderRadius: 6, padding: "5px 2px", fontSize: 10.5, color: "#c3cad4" }}>
+                    <div key={o.ora} onClick={() => scegliOraPrevista(hh(o.ora))} title={`${hh(o.ora)} · vento ${Math.round(o.vento)} km/h (${inMs(o.vento)}), raffiche ${Math.round(o.raffiche)} · pioggia ${o.probPioggia ?? "—"}% · nuvole ${o.nuvole ?? "—"}%`} style={{ flex: "0 0 auto", width: 48, textAlign: "center", cursor: "pointer", background: COLORE_SEMAFORO[o.semaforo] + "1f", border: oraPrevista.slice(0, 2) === String(o.ora).padStart(2, "0") ? "2px solid #ff8c42" : `1px solid ${COLORE_SEMAFORO[o.semaforo]}66`, borderRadius: 6, padding: "5px 2px", fontSize: 10.5, color: "#c3cad4" }}>
                       <div style={{ fontWeight: 700, color: "#e7eaee" }}>{String(o.ora).padStart(2, "0")}{o.oro ? "✨" : ""}</div>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORE_SEMAFORO[o.semaforo], margin: "3px auto" }} />
                       <div>💨{Math.round(o.vento)}</div>
