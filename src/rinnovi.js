@@ -13,7 +13,7 @@ export const RINNOVI = {
     rinnova: { url: "https://serviziweb.enac.gov.it", testo: "Rinnova ora sul portale ENAC", nota: "Entri con lo SPID, paghi il diritto di 31 € e rifai il test da casa. Non serve un corso." },
     corso: DRONEXT + "1064",
     // gratis all'estero: un A1/A3 preso in un altro paese EASA vale anche in Italia
-    gratis: { url: "https://dac.gouvernement.lu/en/drones/train-where-how.html", testo: "🇱🇺 Gratis in Lussemburgo", nota: "Corso e test online gratis su LearningZone di Eurocontrol (in inglese, francese o tedesco), valido in tutta Europa. Attenzione: se hai l'A2 italiano conviene rinnovare l'A2, che rinnova anche l'A1/A3." },
+    gratis: { url: "https://dac.gouvernement.lu/en/drones/train-where-how.html", testo: "🇱🇺 Gratis in Lussemburgo", nota: "Corso e test online gratis su LearningZone di Eurocontrol, valido in tutta Europa. Attenzione: se hai l'A2 italiano conviene rinnovare l'A2, che rinnova anche l'A1/A3." },
   },
   a2: {
     nome: "A2",
