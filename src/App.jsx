@@ -5836,7 +5836,7 @@ function RinnovoAttestato({ attestato }) {
         <a href={r.enac} target="_blank" rel="noreferrer" style={btn}>📘 Pagina ENAC ↗</a>
       </div>
       {!r.rinnova.partner && <a href={r.corso} target="_blank" rel="noreferrer sponsored" style={{ display: "block", marginTop: 8, background: "#1f1a2b", border: "1px solid #a78bfa66", borderRadius: 8, padding: "8px 12px", textDecoration: "none" }}>
-        <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#d9ccff" }}>🎓 Ripasso guidato con il corso {r.nome} di DroneXT ↗</span>
+        <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#d9ccff" }}>🎓 Facoltativo: ripasso guidato con il corso {r.nome} di DroneXT ↗</span>
         <span style={{ display: "block", fontSize: 10.5, color: "#8b95a3", marginTop: 3 }}>Partner · link affiliato</span>
       </a>}
     </div>
