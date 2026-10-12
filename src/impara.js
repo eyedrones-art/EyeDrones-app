@@ -22,7 +22,7 @@ export const COME_SI_PRENDE = {
       ["🧑‍💻 Servizi web ENAC (dove si fa il test)", "https://serviziweb.enac.gov.it"],
       ["📄 Argomenti d'esame A1/A3 (syllabus ENAC)", "https://www.enac.gov.it/app/uploads/2024/09/syllabus-A1-A3-2024.pdf"],
     ],
-    partner: { nome: "DroneXT", testo: "Preferisci un corso guidato? DroneXT ha manuale, eserciziario con centinaia di domande e videocorsi per l'A1/A3, l'A2 e lo Specific STS.", url: "https://dronext.idevaffiliate.com/626.html" },
+    partner: { nome: "DroneXT", testo: "Preferisci un corso guidato? Il patentino A1/A3 di DroneXT ha manuale ed eserciziario con centinaia di domande e risposte.", url: "https://dronext.idevaffiliate.com/idevaffiliate.php?id=626&url=1064", altri: [["Corso A2", "https://dronext.idevaffiliate.com/idevaffiliate.php?id=626&url=1065"], ["Corso Specific STS", "https://dronext.idevaffiliate.com/idevaffiliate.php?id=626&url=1066"]] },
     estero: {
       testo: [
         "L'attestato A1/A3 preso in un altro paese EASA vale in tutta Europa, Italia compresa.",
@@ -46,7 +46,7 @@ export const COME_SI_PRENDE = {
       ["🏫 Elenco ufficiale delle Entità Riconosciute", "https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/entita-riconosciute/"],
       ["📄 Argomenti dell'esame A2 (ENAC)", "https://www.enac.gov.it/sites/default/files/allegati/2021-Dic/Allegato%20O%20-%20Argomenti%20esame%20teorico%20OPEN%20A2.pdf"],
     ],
-    partner: { nome: "DroneXT", testo: "Preferisci un corso guidato? DroneXT ha il videocorso A2 (6 ore) con manuale ed eserciziario, e l'accesso all'esame online da casa.", url: "https://dronext.idevaffiliate.com/626.html" },
+    partner: { nome: "DroneXT", testo: "Preferisci un corso guidato? DroneXT ha il videocorso A2 (6 ore) con manuale, eserciziario e accesso all'esame online da casa.", url: "https://dronext.idevaffiliate.com/idevaffiliate.php?id=626&url=1065", altri: [["Corso Specific STS", "https://dronext.idevaffiliate.com/idevaffiliate.php?id=626&url=1066"]] },
     estero: {
       testo: [
         "Anche il certificato A2 preso in un altro paese EASA vale in tutta Europa, Italia compresa.",
