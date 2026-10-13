@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -25,6 +25,7 @@ const Posti = lazy(() => import("./Posti.jsx"));
 const UltimaNotizia = lazy(() => import("./Notizie.jsx").then((m) => ({ default: m.UltimaNotizia })));
 const PostiVicini = lazy(() => import("./Posti.jsx").then((m) => ({ default: m.PostiVicini })));
 const Collaboratori = lazy(() => import("./Collaboratori.jsx"));
+const Agricoltura = lazy(() => import("./Agricoltura.jsx"));
 const PaginaPrivacy = lazy(() => import("./Legali.jsx").then((m) => ({ default: m.Privacy })));
 const PaginaTermini = lazy(() => import("./Legali.jsx").then((m) => ({ default: m.Termini })));
 // navigazione da componenti lontani (es. «Come si fa?» nella verifica zona): window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }))
@@ -1832,7 +1833,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2105,6 +2106,7 @@ function AppShell({ session }) {
 
   const usaIspezioni = !moduli || moduli.includes("ispezioni");
   const usaRiprese = !moduli || moduli.includes("riprese");
+  const usaAgricoltura = !!moduli && moduli.includes("agricoltura");
   const voliDashboard = [...voliManuali, ...costruisciVoliDaIspezioni(ispezioni, impianti)].sort((a, b) => {
     const da = `${a.data || ""} ${a.ora ? String(a.ora).slice(0, 5) : "00:00"}`;
     const db = `${b.data || ""} ${b.ora ? String(b.ora).slice(0, 5) : "00:00"}`;
@@ -2190,7 +2192,7 @@ function AppShell({ session }) {
         }
       `}</style>
 
-      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
+      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AvvisoInstallaApp />
@@ -2252,6 +2254,11 @@ function AppShell({ session }) {
             <Posti supabase={supabase} cercaIndirizzo={cercaIndirizzoItalia} voli={voliDashboard} inputStyle={inputStyle}
               onPianifica={(l) => { setLuogoDaPianificare(l); setPage("pianificazione"); window.scrollTo(0, 0); }}
               onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} />
+          </Suspense>
+        )}
+        {page === "campi" && (
+          <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
+            <Agricoltura supabase={supabase} inputStyle={inputStyle} clienti={clienti} droni={droni} azienda={azienda} />
           </Suspense>
         )}
         {page === "clienti" && <Clienti clienti={clienti} preventivi={preventivi} onCambiati={caricaClienti} onApriPreventivi={() => setPage("preventivi")} />}
@@ -2677,13 +2684,17 @@ function Login({ modoIniziale = "login", onTorna }) {
 
 // --- Sidebar -----------------------------------------------------------
 
-function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, batterieAvvisi, richiesteNuove, onControllo }) {
+function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, usaAgricoltura, batterieAvvisi, richiesteNuove, onControllo }) {
   const items = [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
     ...(usaIspezioni ? [
       { intestazione: "Ispezioni" },
       { key: "impianti", label: "Impianti", icon: Sun },
       { key: "nuova", label: "Nuova ispezione", icon: Plus },
+    ] : []),
+    ...(usaAgricoltura ? [
+      { intestazione: "Agricoltura" },
+      { key: "campi", label: "Campi e trattamenti", icon: Sprout },
     ] : []),
     { intestazione: "Voli e riprese" },
     { key: "pianificazione", label: "Pianificazione volo", icon: CalendarDays },
@@ -2973,17 +2984,17 @@ function TitoloSezione({ emoji, titolo, azione }) {
 
 // scelta di cosa fa il pilota con il drone: decide quali sezioni vedere nel menu e nella prima pagina
 function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
-  const daModuli = (m) => ({ ispezioni: !m || m.includes("ispezioni"), riprese: !m || m.includes("riprese") });
+  const daModuli = (m) => ({ ispezioni: !m || m.includes("ispezioni"), riprese: !m || m.includes("riprese"), agricoltura: !!m && m.includes("agricoltura") });
   const [sel, setSel] = useState(daModuli(moduli));
   const [salvando, setSalvando] = useState(false);
   const [salvato, setSalvato] = useState(false);
   useEffect(() => { setSel(daModuli(moduli)); }, [moduli]);
-  const nessuno = !sel.ispezioni && !sel.riprese;
+  const nessuno = !sel.ispezioni && !sel.riprese && !sel.agricoltura;
 
   const salva = async () => {
     if (nessuno) return;
     setSalvando(true);
-    await onSave([sel.ispezioni ? "ispezioni" : null, sel.riprese ? "riprese" : null].filter(Boolean).join(","));
+    await onSave([sel.ispezioni ? "ispezioni" : null, sel.riprese ? "riprese" : null, sel.agricoltura ? "agricoltura" : null].filter(Boolean).join(","));
     setSalvando(false);
     setSalvato(true);
     setTimeout(() => setSalvato(false), 2500);
@@ -3008,6 +3019,7 @@ function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         {opzione("ispezioni", "🔍", "Ispezioni tecniche", "Fotovoltaico, edifici, danni, impianti elettrici: impianti, report con foto e anomalie, pianificazione dei voli.")}
         {opzione("riprese", "🎬", "Video, foto e FPV", "Registro voli con galleria di foto e video, per chi vola per riprese, lavoro o passione.")}
+        {opzione("agricoltura", "🌾", "Agricoltura", "Appezzamenti dei clienti con i confini sulla mappa, registro dei trattamenti in PDF e meteo per irrorare.")}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
         <button type="button" onClick={salva} disabled={nessuno || salvando} style={{ background: nessuno ? "#333a45" : "#ff8c42", color: nessuno ? "#6b7480" : "#161a1f", border: "none", padding: "8px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
@@ -6132,8 +6144,17 @@ const TIPI_MANUTENZIONE = [
   { key: "calibrazione", label: "Calibrazione IMU / bussola / gimbal", emoji: "🧭" },
   { key: "riparazione", label: "Riparazione", emoji: "🛠️" },
   { key: "parti", label: "Sostituzione di parti (motore, braccio…)", emoji: "⚙️" },
+  // droni agricoli (Agras): compaiono solo per loro
+  { key: "ugelli", label: "Ugelli puliti o sostituiti", emoji: "💧", agricolo: true },
+  { key: "pompe", label: "Pompe e flussimetro controllati", emoji: "🔁", agricolo: true },
+  { key: "serbatoio", label: "Serbatoio, tubi e filtri lavati", emoji: "🧴", agricolo: true },
+  { key: "spargimento", label: "Sistema di spargimento (granulare)", emoji: "🌱", agricolo: true },
+  { key: "generatore", label: "Generatore: tagliando (olio, filtri, candela)", emoji: "⛽", agricolo: true },
+  { key: "radar", label: "Radar e sensori puliti", emoji: "📡", agricolo: true },
   { key: "altro", label: "Altro", emoji: "📝" },
 ];
+// drone agricolo: Agras o le sigle della serie (T10, T25, T40, T50, T100…)
+const droneAgricolo = (d) => /agras|\bt\s?(10|16|20|25|30|40|50|60|70|100)p?\b/i.test(`${d?.modello || ""} ${d?.nome || ""}`);
 const etichettaManutenzione = (k) => (TIPI_MANUTENZIONE.find((t) => t.key === k) || {}).label || k;
 const tabellaMancante = (msg) => /manutenzioni_droni|does not exist|schema cache/i.test(String(msg || ""));
 
@@ -6141,7 +6162,9 @@ function ManutenzioniDrone({ drone }) {
   const [aperto, setAperto] = useState(false);
   const [elenco, setElenco] = useState(null);
   const [mancaTabella, setMancaTabella] = useState(false);
-  const [form, setForm] = useState({ data: dataLocale(), tipo: "controllo", descrizione: "" });
+  const [form, setForm] = useState({ data: dataLocale(), tipo: "controllo", descrizione: "", ore: "" });
+  const agricolo = droneAgricolo(drone);
+  const tipiVisibili = TIPI_MANUTENZIONE.filter((t) => agricolo || !t.agricolo);
   const [file, setFile] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -6160,9 +6183,11 @@ function ManutenzioniDrone({ drone }) {
         const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
         documento_url = await caricaDocumento(`manutenzione-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`, file, { contentType: file.type || undefined });
       }
-      const { error } = await supabase.from("manutenzioni_droni").insert({ drone_id: String(drone.id), data: form.data, tipo: form.tipo, descrizione: form.descrizione.trim() || null, documento_url });
+      const ore = Number(String(form.ore || "").replace(",", "."));
+      // le ore si mandano solo se scritte: così il registro funziona anche senza la colonna nuova (supabase/agricoltura.sql)
+      const { error } = await supabase.from("manutenzioni_droni").insert({ drone_id: String(drone.id), data: form.data, tipo: form.tipo, descrizione: form.descrizione.trim() || null, documento_url, ...(form.ore !== "" && !Number.isNaN(ore) ? { ore } : {}) });
       if (error) throw error;
-      setForm({ data: dataLocale(), tipo: "controllo", descrizione: "" });
+      setForm({ data: dataLocale(), tipo: "controllo", descrizione: "", ore: "" });
       setFile(null);
       carica();
     } catch (err) {
@@ -6194,8 +6219,9 @@ function ManutenzioniDrone({ drone }) {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "flex-end" }}>
                 <input type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 12.5 }} />
                 <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 12.5 }}>
-                  {TIPI_MANUTENZIONE.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
+                  {tipiVisibili.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
                 </select>
+                {agricolo && <input inputMode="decimal" placeholder="Ore motore/volo" value={form.ore} onChange={(e) => setForm({ ...form, ore: e.target.value })} style={{ ...inputStyle, width: 120, padding: "6px 8px", fontSize: 12.5 }} aria-label="Ore motore o di volo" />}
                 <input placeholder="Note (es. firmware v01.02, eliche anteriori)" value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} style={{ ...inputStyle, flex: "1 1 200px", padding: "6px 8px", fontSize: 12.5 }} />
                 <label style={{ fontSize: 12, color: "#3d8bfd", cursor: "pointer", padding: "6px 0" }}>
                   📎 {file ? file.name.slice(0, 18) : "Foto o ricevuta"}
@@ -6208,7 +6234,7 @@ function ManutenzioniDrone({ drone }) {
                 {(elenco || []).map((m) => (
                   <div key={m.id} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5, color: "#c3cad4" }}>
                     <span style={{ color: "#8b95a3", minWidth: 82 }}>{formatData(m.data)}</span>
-                    <span style={{ flex: 1 }}>{(TIPI_MANUTENZIONE.find((t) => t.key === m.tipo) || {}).emoji || "📝"} {etichettaManutenzione(m.tipo)}{m.descrizione ? <span style={{ color: "#8b95a3" }}> · {m.descrizione}</span> : null}</span>
+                    <span style={{ flex: 1 }}>{(TIPI_MANUTENZIONE.find((t) => t.key === m.tipo) || {}).emoji || "📝"} {etichettaManutenzione(m.tipo)}{m.ore != null ? <span style={{ color: "#c3cad4" }}> · {String(m.ore).replace(".", ",")} h</span> : null}{m.descrizione ? <span style={{ color: "#8b95a3" }}> · {m.descrizione}</span> : null}</span>
                     {m.documento_url && <LinkFile url={m.documento_url} style={{ color: "#3d8bfd", fontSize: 11.5 }}>📎</LinkFile>}
                     <button type="button" onClick={() => elimina(m)} style={{ background: "none", border: "none", color: "#ff9c9c", fontSize: 13 }}>×</button>
                   </div>
