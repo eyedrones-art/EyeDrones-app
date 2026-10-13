@@ -2076,6 +2076,24 @@ function AppShell({ session }) {
   };
 
   useEffect(() => { caricaProfilo(); loadData(); caricaVoli(); caricaBatterie(); caricaEventiVolo(); caricaRichiesteNuove(); caricaClienti(); }, []);
+
+  // un segno al giorno quando l'app viene usata (tabella uso_giornaliero, script supabase/uso-giornaliero.sql):
+  // serve solo per contare quanti la usano davvero. Se la tabella non c'è ancora, non succede niente
+  useEffect(() => {
+    const segna = () => {
+      if (document.visibilityState === "hidden") return;
+      const d = new Date();
+      const oggi = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const chiave = "eyedrones_uso_" + session.user.id;
+      try { if (localStorage.getItem(chiave) === oggi) return; } catch { /* senza memoria locale segno lo stesso */ }
+      supabase.from("uso_giornaliero").upsert({ user_id: session.user.id, giorno: oggi }, { onConflict: "user_id,giorno", ignoreDuplicates: true })
+        .then(({ error }) => { if (!error) { try { localStorage.setItem(chiave, oggi); } catch { /* pazienza */ } } });
+    };
+    segna();
+    document.addEventListener("visibilitychange", segna);
+    return () => document.removeEventListener("visibilitychange", segna);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // piani vicini nella copia per i controlli senza rete
   useEffect(() => {
     supabase.from("piani_volo").select("*").gte("data_prevista", dataLocale(-1)).order("data_prevista", { ascending: true }).limit(30)
