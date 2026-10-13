@@ -8,6 +8,7 @@ import { AvvisaFineNotam, NotamFiniti, NotamInItaliano } from "./avvisiNotam.jsx
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo, inMs, numVento, ventoInMsScelto, scegliUnitaVento } from "./Riprese.jsx";
 import { droneNoto } from "./droniNoti.js";
+import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
@@ -7681,14 +7682,6 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
 
 // --- Strumenti per i lavori speciali: rilievo/fotogrammetria, agricoltura, pulizia -----------------------------------
 
-// fotocamere: larghezza sensore (mm), focale reale (mm), larghezza immagine (px). Valori indicativi dalle schede tecniche.
-const FOTOCAMERE_RILIEVO = [
-  { key: "p4rtk", nome: "DJI Phantom 4 RTK", sensore: 13.2, focale: 8.8, px: 5472 },
-  { key: "m3e", nome: "DJI Mavic 3 Enterprise / Matrice 4E (grandangolo)", sensore: 17.3, focale: 12.29, px: 5280 },
-  { key: "mini", nome: "DJI Mini 3/4 Pro, Air 3 (12 MP)", sensore: 9.6, focale: 6.72, px: 4032 },
-  { key: "manuale", nome: "Altra fotocamera (inserisco i dati)", sensore: 13.2, focale: 8.8, px: 5472 },
-];
-
 // GSD in cm/pixel ↔ altezza in metri: GSD = sensore × H / (focale × px)
 const gsdDaAltezza = (c, h) => (c.sensore * h * 100) / (c.focale * c.px);
 const altezzaDaGsd = (c, g) => (g * c.focale * c.px) / (c.sensore * 100);
@@ -7697,7 +7690,7 @@ function calcolaMissioneRilievo({ cam, modo, valore, frontale, laterale, ettari,
   const H = modo === "altezza" ? Number(valore) || 0 : altezzaDaGsd(cam, Number(valore) || 0);
   const gsd = modo === "gsd" ? Number(valore) || 0 : gsdDaAltezza(cam, H);
   const larg = (gsd * cam.px) / 100; // impronta a terra, lato lungo dell'immagine (m)
-  const alt = larg * 0.75; // lato corto (immagini 4:3)
+  const alt = larg * (cam.rapporto || 0.75); // lato corto (4:3 nelle camere normali, 5:4 nelle termiche)
   const traStrisciate = larg * (1 - (Number(laterale) || 0) / 100);
   const traScatti = alt * (1 - (Number(frontale) || 0) / 100);
   const lato = Math.sqrt(Math.max(0, Number(ettari) || 0) * 10000); // area pensata come un quadrato
@@ -7713,13 +7706,20 @@ function calcolaMissioneRilievo({ cam, modo, valore, frontale, laterale, ettari,
   };
 }
 
-function CalcolatoreRilievo() {
-  const [camKey, setCamKey] = useState("p4rtk");
+function CalcolatoreRilievo({ drone, altezzaZona }) {
+  // parto dalla camera del drone scelto nel piano, se lo riconosco
+  const [camKey, setCamKey] = useState(() => (drone && cameraDelDrone(drone.modello, drone.nome)) || "p4rtk:rgb");
   const [manuale, setManuale] = useState({ sensore: "13.2", focale: "8.8", px: "5472" });
+  const [focaleZoom, setFocaleZoom] = useState("");
   const [modo, setModo] = useState("altezza");
   const [c, setC] = useState({ valore: "80", frontale: "80", laterale: "70", ettari: "5", velocita: "8", autonomia: "25" });
-  const base = FOTOCAMERE_RILIEVO.find((x) => x.key === camKey);
-  const cam = camKey === "manuale" ? { ...base, sensore: Number(manuale.sensore) || 1, focale: Number(manuale.focale) || 1, px: Number(manuale.px) || 1 } : base;
+  const trovata = trovaCamera(camKey);
+  const base = trovata ? trovata.camera : CAMERA_MANUALE;
+  const zoom = base.zoom;
+  const fZoom = zoom ? Math.min(zoom[1], Math.max(zoom[0], Number(String(focaleZoom).replace(",", ".")) || zoom[0])) : null;
+  const cam = camKey === "manuale"
+    ? { ...base, sensore: Number(manuale.sensore) || 1, focale: Number(manuale.focale) || 1, px: Number(manuale.px) || 1 }
+    : zoom ? { ...base, focale: fZoom } : base;
   const r = calcolaMissioneRilievo({ cam, modo, ...c });
   const f1 = (n) => n.toLocaleString("it-IT", { maximumFractionDigits: 1 });
   const campo = (k, etichetta, unita, oggetto = c, set = setC) => (
@@ -7739,9 +7739,34 @@ function CalcolatoreRilievo() {
   );
   return (
     <div>
-      <select value={camKey} onChange={(e) => setCamKey(e.target.value)} style={{ ...inputStyle, fontSize: 12.5 }}>
-        {FOTOCAMERE_RILIEVO.map((x) => <option key={x.key} value={x.key}>{x.nome}</option>)}
+      <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 3 }}>Drone e camera che usi</label>
+      <select value={camKey} onChange={(e) => { setCamKey(e.target.value); setFocaleZoom(""); }} style={{ ...inputStyle, fontSize: 12.5 }}>
+        {DRONI_CAMERE.map((d) => (
+          <optgroup key={d.key} label={d.nome}>
+            {d.camere.map((x) => <option key={x.key} value={`${d.key}:${x.key}`}>{`${d.nome.replace(/^DJI /, "")} · ${x.nome}`}</option>)}
+          </optgroup>
+        ))}
+        <option value="manuale">{CAMERA_MANUALE.nome}</option>
       </select>
+      {zoom && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, alignItems: "flex-end" }}>
+          <label style={{ fontSize: 11, color: "#6b7480", display: "flex", flexDirection: "column", gap: 3, flex: "1 1 110px" }}>
+            Focale reale dello zoom
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input type="number" inputMode="decimal" value={focaleZoom} placeholder={String(zoom[0])} onChange={(e) => setFocaleZoom(e.target.value)} style={{ ...inputStyle, padding: "6px 8px" }} />
+              <span style={{ fontSize: 11, color: "#8b95a3" }}>mm</span>
+            </span>
+          </label>
+          <span style={{ fontSize: 11, color: "#8b95a3", flex: "2 1 160px", paddingBottom: 6 }}>Ottico da {zoom[0]} a {zoom[1]} mm. Usa lo stesso valore che imposti nella missione.</span>
+        </div>
+      )}
+      {(base.termica || /zoom|tele/i.test(base.nome)) && (
+        <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "6px 0 0 0", lineHeight: 1.5 }}>
+          {base.termica
+            ? "Camera termica: poche righe di pixel, quindi a parità di altezza il dettaglio è molto più basso. Nel fotovoltaico punta ad almeno 5 × 5 pixel per cella."
+            : "Con lo zoom ogni foto copre poco terreno: più dettaglio, ma molte più foto e strisciate. Lo zoom digitale non aggiunge dettaglio: conta solo l'ottica."}
+        </p>
+      )}
       {camKey === "manuale" && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
           {campo("sensore", "Larghezza sensore", "mm", manuale, setManuale)}
@@ -7774,8 +7799,15 @@ function CalcolatoreRilievo() {
         {risultato("Batterie", `${r.batterie}`)}
       </div>
       {r.H > 120 && <p style={{ fontSize: 11.5, color: "#f5b942", margin: "6px 0 0 0" }}>Oltre 120 m non si vola in categoria Open: abbassa la quota o aumenta il GSD.</p>}
+      {altezzaZona != null && altezzaZona < 120 && r.H > altezzaZona && (
+        <p style={{ fontSize: 11.5, color: "#f87171", margin: "6px 0 0 0", lineHeight: 1.5 }}>
+          {altezzaZona > 0
+            ? `Nel punto controllato la zona permette al massimo ${altezzaZona} m dal suolo senza autorizzazione: a ${Math.round(r.H)} m la missione è troppo alta. Abbassa la quota (il dettaglio migliora, ma servono più foto) oppure chiedi l'autorizzazione.`
+            : `Nel punto controllato non si può volare senza autorizzazione.`}
+        </p>
+      )}
       {r.intervallo < 2 && <p style={{ fontSize: 11.5, color: "#f5b942", margin: "6px 0 0 0" }}>Uno scatto ogni meno di 2 secondi: molte fotocamere non ce la fanno. Rallenta o vola più in alto.</p>}
-      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Stima per un'area quadrata pianeggiante, con il 25% di batteria di riserva. Dati delle fotocamere indicativi: controlla la scheda tecnica della tua. Per rilievi di qualche ettaro di solito bastano 6–8 punti di controllo a terra ben distribuiti, più 2–3 punti di verifica.</p>
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>L'altezza è dal suolo (AGL), come i limiti delle zone. Su terreno in pendenza o lungo un fiume usa il volo che segue il terreno (Terrain Follow con il DSM, in DJI Pilot 2), così il dettaglio resta uguale su tutta l'area. Il controllo della zona vale per il punto scelto: se l'area è grande o vicina al bordo di una zona, controlla anche i bordi. Stima per un'area quadrata, con il 25% di batteria di riserva. Dati delle fotocamere indicativi: controlla la scheda tecnica della tua. Per rilievi di qualche ettaro di solito bastano 6–8 punti di controllo a terra ben distribuiti, più 2–3 punti di verifica.</p>
     </div>
   );
 }
@@ -8339,11 +8371,11 @@ function GuideVolo({ droni = [], incorporata = false }) {
   );
 }
 
-function StrumentiLavoro({ tipo }) {
+function StrumentiLavoro({ tipo, drone, altezzaZona }) {
   const [aperto, setAperto] = useState(false);
   const cfg = {
-    rilievo: { titolo: "📐 Calcolatore missione di fotogrammetria", sotto: "Altezza, dettaglio (GSD), sovrapposizioni, numero di foto, tempo e batterie", comp: <CalcolatoreRilievo /> },
-    agricoltura: { titolo: "🌾 Calcolo del lavoro in campo", sotto: "Miscela, pieni del serbatoio e ore; per la mappatura NDVI usa il calcolatore di fotogrammetria", comp: <><CalcolatoreTrattamento /><div style={{ borderTop: "1px solid #262b33", marginTop: 12, paddingTop: 10 }}><p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 6px 0" }}>Mappatura (NDVI) dei campi</p><CalcolatoreRilievo /></div></> },
+    rilievo: { titolo: "📐 Calcolatore missione di fotogrammetria", sotto: "Altezza, dettaglio (GSD), sovrapposizioni, numero di foto, tempo e batterie", comp: <CalcolatoreRilievo drone={drone} altezzaZona={altezzaZona} /> },
+    agricoltura: { titolo: "🌾 Calcolo del lavoro in campo", sotto: "Miscela, pieni del serbatoio e ore; per la mappatura NDVI usa il calcolatore di fotogrammetria", comp: <><CalcolatoreTrattamento /><div style={{ borderTop: "1px solid #262b33", marginTop: 12, paddingTop: 10 }}><p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 6px 0" }}>Mappatura (NDVI) dei campi</p><CalcolatoreRilievo drone={drone} altezzaZona={altezzaZona} /></div></> },
     pulizia: { titolo: "🧽 Calcolo superficie e area di sicurezza", sotto: "Metri quadri, ore di lavoro e zona da delimitare a terra", comp: <CalcolatorePulizia /> },
   }[tipo];
   if (!cfg) return null;
@@ -8936,7 +8968,7 @@ function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, 
             sole={sole ? { ...sole, ora: oraSole } : null}
           />
 
-          <StrumentiLavoro key={tipoIspezione} tipo={tipoIspezione} />
+          <StrumentiLavoro key={tipoIspezione + (droneSelId || "")} tipo={tipoIspezione} drone={droneSelezionato} altezzaZona={zonaEsito && zonaEsito.altezzaLibera != null ? zonaEsito.altezzaLibera : null} />
 
           <CalcolatoreSTS
             valore={stsDati}
