@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { AvvisaFineNotam, NotamInItaliano } from "./avvisiNotam.jsx";
-import { leggiZoneSalvate, messaggioBreve, motivoZona, sistemaZona, zonaFinita, controllaPunto, altezzaSenzaPermessi, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
+import { leggiZoneSalvate, messaggioBreve, motivoZona, sistemaZona, zonaFinita, controllaPunto, altezzaSenzaPermessi, altezzaLibera, limiteVicino, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
 
 const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
 
@@ -191,6 +191,11 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
   const zoneValide = useMemo(() => (archivio ? archivio.zone.filter((z) => !zonaFinita(z)) : null), [archivio]);
   const esito = useMemo(() => (archivio && punto ? controllaPunto(zoneValide, punto, { raggio: 300 }) : !archivio && punto && aMano !== undefined ? { dentro: aMano ? [aMano] : [], vicine: [] } : null), [archivio, zoneValide, punto, aMano]);
   const altezzaQui = archivio && punto ? altezzaSenzaPermessi(zoneValide, punto) : null;
+  // nel punto esatto (solo le zone che lo contengono, come su D-Flight) e la zona più vicina con un limite:
+  // se il punto è fuori ma a pochi metri c'è un limite, lo dico come avviso e non come limite del punto
+  const altezzaNelPunto = archivio && esito ? altezzaLibera(esito.dentro) : null;
+  const vicinoBasso = archivio && esito ? limiteVicino(esito.vicine, 100) : null;
+  const limiteAccanto = vicinoBasso && altezzaNelPunto != null && vicinoBasso.altezza < altezzaNelPunto ? vicinoBasso : null;
   const cercaAlternative = () => {
     setAlternative("cerco");
     setTimeout(async () => {
@@ -373,10 +378,17 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
             );
           })}
 
-          {altezzaQui != null && altezzaQui < 120 && (
+          {limiteAccanto && (
+            <div style={{ border: "1px solid #f5b94255", background: "#f5b9420d", borderRadius: 10, padding: 12, marginTop: 12 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#4ade80" }}>{altezzaNelPunto >= 120 ? "✅ Nel punto esatto sei fuori dalle zone: fino a 120 m con le regole Open" : `📍 Nel punto esatto: fino a ${altezzaNelPunto} m senza autorizzazione`}</div>
+              <div style={{ fontSize: 12.5, color: "#ffd68a", marginTop: 4 }}>⚠️ A {limiteAccanto.distanza} m c'è una zona {limiteAccanto.altezza > 0 ? `con limite di ${limiteAccanto.altezza} m` : "dove serve l'autorizzazione"}{limiteAccanto.nome ? ` (${limiteAccanto.nome})` : ""}: se mentre voli ci entri, lì {limiteAccanto.altezza > 0 ? `resta sotto i ${limiteAccanto.altezza} m` : "serve il permesso"}. Controlla il punto sulla mappa: se il puntino non è proprio dove decolli, spostalo col dito.</div>
+            </div>
+          )}
+
+          {altezzaNelPunto != null && altezzaNelPunto < 120 && altezzaQui != null && altezzaQui < 120 && (
             <div style={{ border: "1px solid #4ade8055", background: "#4ade800d", borderRadius: 10, padding: 12, marginTop: 12 }}>
               <div style={{ fontSize: 13.5, fontWeight: 700, color: "#4ade80" }}>🔄 Non vuoi chiedere il permesso?</div>
-              <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{altezzaQui > 0 ? `Qui senza permessi sali al massimo a ${altezzaQui} m. ` : ""}Ti cerco un posto qui vicino dove voli {categoria === "open" ? "in Open" : ""} senza chiedere niente a nessuno.</div>
+              <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{altezzaNelPunto > 0 ? `Qui senza permessi sali al massimo a ${altezzaNelPunto} m. ` : ""}Ti cerco un posto qui vicino dove voli {categoria === "open" ? "in Open" : ""} senza chiedere niente a nessuno.</div>
               {alternative === null && <button type="button" onClick={cercaAlternative} style={{ ...st.secondario, marginTop: 8, borderColor: "#4ade8066" }}>🔎 Cerca un posto vicino</button>}
               {alternative === "cerco" && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 8 }}>Cerco nel raggio di 8 km…</div>}
               {Array.isArray(alternative) && alternative.length === 0 && <div style={{ fontSize: 12.5, color: "#f5b942", marginTop: 8 }}>Nel raggio di 8 km non trovo posti senza zone: qui conviene chiedere il permesso.</div>}
