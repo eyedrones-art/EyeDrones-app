@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -29,6 +29,9 @@ const UltimaNotizia = lazy(() => import("./Notizie.jsx").then((m) => ({ default:
 const PostiVicini = lazy(() => import("./Posti.jsx").then((m) => ({ default: m.PostiVicini })));
 const Collaboratori = lazy(() => import("./Collaboratori.jsx"));
 const Agricoltura = lazy(() => import("./Agricoltura.jsx"));
+const AnalisiAI = lazy(() => import("./AnalisiAI.jsx"));
+// analisi foto con l'AI: in prova solo su questi account (il server controlla di nuovo con AI_UTENTI)
+const AI_IN_PROVA = ["eyedrones@libero.it"];
 const PaginaPrivacy = lazy(() => import("./Legali.jsx").then((m) => ({ default: m.Privacy })));
 const PaginaTermini = lazy(() => import("./Legali.jsx").then((m) => ({ default: m.Termini })));
 // navigazione da componenti lontani (es. «Come si fa?» nella verifica zona): window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }))
@@ -1837,7 +1840,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi", "analisi-ai"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2278,6 +2281,11 @@ function AppShell({ session }) {
               onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} />
           </Suspense>
         )}
+        {page === "analisi-ai" && AI_IN_PROVA.includes(String(session.user.email || "").toLowerCase()) && (
+          <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
+            <AnalisiAI supabase={supabase} droni={droni} inputStyle={inputStyle} />
+          </Suspense>
+        )}
         {page === "campi" && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
             <Agricoltura supabase={supabase} inputStyle={inputStyle} clienti={clienti} droni={droni} azienda={azienda} />
@@ -2707,6 +2715,7 @@ function Login({ modoIniziale = "login", onTorna }) {
 // --- Sidebar -----------------------------------------------------------
 
 function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, usaAgricoltura, batterieAvvisi, richiesteNuove, onControllo }) {
+  const usaAI = AI_IN_PROVA.includes(String(userEmail || "").toLowerCase());
   const items = [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
     ...(usaIspezioni ? [
@@ -2722,6 +2731,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { key: "pianificazione", label: "Pianificazione volo", icon: CalendarDays },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "galleria", label: "Foto e video", icon: Camera },
+    ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
     { key: "posti", label: "Posti", icon: Compass },
     { intestazione: "Pilota" },
