@@ -8,7 +8,7 @@ import { AvvisaFineNotam, NotamFiniti, NotamInItaliano } from "./avvisiNotam.jsx
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo, inMs, numVento, ventoInMsScelto, scegliUnitaVento } from "./Riprese.jsx";
 import { droneNoto } from "./droniNoti.js";
-import { areeSts, misuraArea } from "./areaSts.js";
+import { areeSts, misuraArea, zoneDellArea, leggiMissioneDji } from "./areaSts.js";
 import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
@@ -7623,12 +7623,44 @@ async function disegnaMappaSTS({ lat, lon, sts, titolo, aree }) {
   return { dataUrl, blob, conMappa: tessere > 0 };
 }
 
+// zone D-Flight trovate su tutta l'area di volo e contingenza dello STS-01
+function ZoneDellAreaSts({ esito, archivio, pronto, altezza, altezzaContingenza }) {
+  const box = (colore, figli) => <div style={{ marginTop: 8, background: colore + "14", border: `1px solid ${colore}55`, borderRadius: 6, padding: "8px 10px", fontSize: 12, lineHeight: 1.5 }}>{figli}</div>;
+  if (archivio === undefined || !pronto) return null;
+  if (!archivio) return box("#8b95a3", <span style={{ color: "#c3cad4" }}>Per controllare le zone D-Flight su tutta l'area carica il file delle zone nella pagina Controllo.</span>);
+  if (!esito) return null;
+  if (!esito.zone.length) return box("#4ade80", <span style={{ color: "#bbf7d0" }}>✓ Nessuna zona D-Flight tocca l'area di volo e la contingenza (file delle zone del {formatData(String(archivio.caricato || "").slice(0, 10))}).</span>);
+  const troppoAlto = Math.max(altezza || 0, altezzaContingenza || 0) > esito.altezzaMax;
+  const colore = troppoAlto ? "#f87171" : "#f5b942";
+  return box(colore, (
+    <>
+      <div style={{ fontWeight: 700, color: troppoAlto ? "#fca5a5" : "#fde68a" }}>
+        {esito.altezzaMax > 0
+          ? `Su tutta l'area (contingenza compresa) senza autorizzazione: fino a ${esito.altezzaMax} m dal suolo`
+          : "In una parte dell'area non si vola senza autorizzazione"}
+      </div>
+      {troppoAlto && <div style={{ color: "#fca5a5" }}>Con {altezza} m (contingenza fino a {altezzaContingenza} m) superi il limite in una parte dell'area: abbassa la quota, restringi l'area o chiedi l'autorizzazione.</div>}
+      {esito.zone.map((t, i) => {
+        const d = descriviRestrizione(t.zona.restrizione);
+        return (
+          <div key={i} style={{ color: "#c3cad4", marginTop: 3 }}>
+            <span style={{ color: d.colore }}>●</span> {t.zona.nome} · {d.etichetta}{t.zona.restrizione !== "NO_RESTRICTION" ? ` · fino a ${t.altezza} m` : ""} · {t.tutta ? "tutta l'area" : "una parte dell'area"}
+          </div>
+        );
+      })}
+    </>
+  ));
+}
+
 function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
   const [aperto, setAperto] = useState(!!valore);
   const daValore = (v) => ({ altezza: String(v?.altezza ?? 60), raggio: String(v?.raggio ?? 50), velocita: String(v?.velocita ?? 5), pesante: !!v?.pesante, forma: v?.forma === "disegno" ? "disegno" : "cerchio", poligono: Array.isArray(v?.poligono) ? v.poligono : [] });
   const [campi, setCampi] = useState(() => daValore(valore));
   const [immagine, setImmagine] = useState(null); // { dataUrl, blob } appena disegnata
   const [disegnando, setDisegnando] = useState(false);
+  const [archivio, setArchivio] = useState(undefined); // file zone D-Flight salvato nel telefono
+  const [missione, setMissione] = useState(null); // esito dell'ultimo file missione caricato
+  useEffect(() => { leggiZoneSalvate().then(async (d) => setArchivio(d && Array.isArray(d.zone) ? d : (await riprendiCopiaZone()) || null)); }, []);
   // cambia piano (aperto, nuovo o annullato): riparto dai valori salvati in quel piano
   useEffect(() => {
     setAperto(!!valore);
@@ -7652,6 +7684,36 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
     [poligonoOk, JSON.stringify(campi.poligono), r.contingenza, r.buffer],
   );
   const misura = poligonoOk ? misuraArea(campi.poligono) : null;
+  // zone D-Flight su tutta l'area di volo + contingenza (col cerchio: il cerchio della contingenza)
+  const anelloControllo = React.useMemo(() => {
+    if (aMano) return aree ? (aree.contingenza?.length > 2 ? aree.contingenza : aree.volo) : null;
+    if (!punto || !(r.raggioContingenza > 0)) return null;
+    const k = Math.cos((punto.lat * Math.PI) / 180);
+    return [...Array(72)].map((_, i) => {
+      const t = (i / 72) * 2 * Math.PI;
+      return [punto.lat + (Math.sin(t) * r.raggioContingenza) / 111195, punto.lon + (Math.cos(t) * r.raggioContingenza) / (111195 * k)];
+    });
+  }, [aMano, aree, punto?.lat, punto?.lon, r.raggioContingenza]);
+  const zoneArea = React.useMemo(
+    () => (archivio && anelloControllo ? zoneDellArea(archivio.zone, anelloControllo) : null),
+    [archivio, anelloControllo],
+  );
+  const caricaMissione = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const m = await leggiMissioneDji(file);
+      const nuovi = { ...campi, forma: "disegno", poligono: m.punti };
+      if (m.altezza && m.altezzaUsabile) nuovi.altezza = String(m.altezza);
+      setCampi(nuovi);
+      setImmagine(null);
+      onCambia(pacchetto(nuovi));
+      setMissione({ ...m, file: file.name });
+    } catch (err) {
+      setMissione({ errore: err?.message || String(err) });
+    }
+  };
   const aggiorna = (k, v) => {
     const nuovi = { ...campi, [k]: v };
     setCampi(nuovi);
@@ -7708,13 +7770,30 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
         {!aMano && campo("raggio", "Raggio dell'area di volo", "m")}
         {campo("velocita", "Velocità massima", "m/s")}
       </div>
+      <label style={{ display: "inline-block", marginTop: 8, background: "#262b33", border: "1px solid #a78bfa66", color: "#c4b5fd", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+        📂 Carica la missione da DJI Pilot 2 (.kmz)
+        <input type="file" accept=".kmz,.kml,.wpml,application/vnd.google-earth.kmz,application/vnd.google-earth.kml+xml" onChange={caricaMissione} style={{ display: "none" }} />
+      </label>
+      {!missione && <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Il file .kmz della rotta si esporta dalla libreria delle rotte di DJI Pilot 2. L'area della missione diventa l'area di volo, con contingenza e buffer attorno.</p>}
+      {missione && (
+        missione.errore
+          ? <p style={{ fontSize: 12, color: "#ff9c9c", margin: "6px 0 0 0" }}>{missione.errore}</p>
+          : <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 0 0", lineHeight: 1.5 }}>
+              ✓ {missione.file}: {missione.daPunti ? "area ricavata dai punti della rotta" : "area della missione"} caricata.{" "}
+              {missione.altezza
+                ? missione.altezzaUsabile
+                  ? `Altezza della missione: ${missione.altezza} m, messa come altezza massima (controllala).`
+                  : `Nella missione l'altezza è sul livello del mare (${missione.altezza} m): qui scrivi l'altezza dal suolo.`
+                : "Altezza non trovata nel file: scrivila tu."}
+            </p>
+      )}
       {aMano && (
         <div style={{ marginTop: 8 }}>
           <p style={{ fontSize: 12, color: "#c3cad4", margin: 0, lineHeight: 1.5 }}>
             Tocca la mappa per mettere i vertici dell'area di volo, uno dopo l'altro (almeno 3). I punti bianchi si trascinano per correggerli. Contingenza e buffer si disegnano da soli tutto attorno.
           </p>
           <Suspense fallback={<div style={{ height: 340, marginTop: 8, borderRadius: 8, background: "#0e1116" }} />}>
-            <MappaAreaSTS centro={punto} punti={campi.poligono} aree={aree} onCambia={(pp) => aggiorna("poligono", pp)} />
+            <MappaAreaSTS centro={punto} punti={campi.poligono} aree={aree} zone={zoneArea ? zoneArea.zone.map((t) => t.zona) : null} onCambia={(pp) => aggiorna("poligono", pp)} />
           </Suspense>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6, alignItems: "center" }}>
             <button type="button" disabled={!campi.poligono.length} onClick={() => aggiorna("poligono", campi.poligono.slice(0, -1))} style={{ background: "#262b33", border: "1px solid #333a45", color: campi.poligono.length ? "#e7eaee" : "#6b7480", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>↶ Togli l'ultimo punto</button>
@@ -7738,6 +7817,7 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
         {r.fuoriScenario
           ? <p style={{ fontSize: 12, color: "#ff9c9c", margin: "6px 0 0 0" }}>Oltre 120 m di altezza si esce dallo scenario STS-01.</p>
           : riga("#d32f2f", "Buffer rischio a terra", aMano ? `+${r.buffer} m attorno alla contingenza (area controllata a terra)` : `+${r.buffer} m → area controllata a terra: raggio ${r.raggioTotale} m`)}
+        <ZoneDellAreaSts esito={zoneArea} archivio={archivio} pronto={!!anelloControllo} altezza={r.altezza} altezzaContingenza={r.altezzaContingenza} />
         <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Buffer dalla tabella STS-01 (Reg. UE 2019/947, Appendice 1). Contingenza stimata con GPS 3 m + reazione 1 s + frenata, minimo 10 m: usa sempre i valori del tuo manuale operativo STS.</p>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, alignItems: "center" }}>

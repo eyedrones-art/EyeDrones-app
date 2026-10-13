@@ -14,7 +14,9 @@ const VERTICE = L.divIcon({
   iconAnchor: [8, 8],
 });
 
-export default function MappaAreaSTS({ centro, punti, aree, onCambia, altezza = 340 }) {
+const COLORE_ZONA = { PROHIBITED: "#ff4d4d", REQ_AUTHORISATION: "#ff8c42", CONDITIONAL: "#f5b942", NO_RESTRICTION: "#3d8bfd" };
+
+export default function MappaAreaSTS({ centro, punti, aree, zone, onCambia, altezza = 340 }) {
   const contenitore = useRef(null);
   const mappa = useRef(null);
   const strato = useRef(null);
@@ -24,12 +26,14 @@ export default function MappaAreaSTS({ centro, punti, aree, onCambia, altezza = 
   const ultimi = useRef(punti);
   ultimi.current = punti;
   const [satellite, setSatellite] = useState(true);
+  const stratoZone = useRef(null);
 
   useEffect(() => {
     const m = L.map(contenitore.current, { zoomControl: true, attributionControl: true });
     if (punti && punti.length >= 2) m.fitBounds(L.latLngBounds(punti), { padding: [40, 40], maxZoom: 18 });
     else if (centro) m.setView([centro.lat, centro.lon], 16);
     else m.setView([42.5, 12.5], 6);
+    stratoZone.current = L.layerGroup().addTo(m);
     strato.current = L.layerGroup().addTo(m);
     m.on("click", (e) => cambia.current([...(ultimi.current || []), [e.latlng.lat, e.latlng.lng]]));
     mappa.current = m;
@@ -63,6 +67,19 @@ export default function MappaAreaSTS({ centro, punti, aree, onCambia, altezza = 
       });
     });
   }, [punti, aree]);
+
+  // zone D-Flight che toccano l'area, tratteggiate sotto le aree dello STS
+  useEffect(() => {
+    const g = stratoZone.current;
+    g.clearLayers();
+    (zone || []).forEach((z) => {
+      const colore = COLORE_ZONA[z.restrizione] || "#f5b942";
+      const stile = { color: colore, weight: 2, dashArray: "6 5", fillColor: colore, fillOpacity: 0.08 };
+      const nome = z.nome || "Zona";
+      (z.poligoni || []).forEach((pol) => L.polygon(pol.map((anello) => anello.map(([lon, lat]) => [lat, lon])), stile).bindTooltip(nome, { sticky: true }).addTo(g));
+      (z.cerchi || []).forEach(({ c, r }) => L.circle([c[1], c[0]], { ...stile, radius: r }).bindTooltip(nome, { sticky: true }).addTo(g));
+    });
+  }, [zone]);
 
   return (
     <div style={{ position: "relative", marginTop: 8 }}>
