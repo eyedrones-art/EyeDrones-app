@@ -8,6 +8,7 @@ import { AvvisaFineNotam, NotamFiniti, NotamInItaliano } from "./avvisiNotam.jsx
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo, inMs, numVento, ventoInMsScelto, scegliUnitaVento } from "./Riprese.jsx";
 import { droneNoto } from "./droniNoti.js";
+import { areeSts, misuraArea, zoneDellArea, leggiMissioneDji } from "./areaSts.js";
 import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
@@ -19,6 +20,7 @@ import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, si
 // la mappa si carica solo quando la apri, così l'app resta leggera
 const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
 const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
+const MappaAreaSTS = lazy(() => import("./MappaAreaSTS.jsx"));
 const AssistentePermessi = lazy(() => import("./AssistentePermessi.jsx"));
 const Impara = lazy(() => import("./Impara.jsx"));
 const GuidaZonaRossa = lazy(() => import("./Impara.jsx").then((m) => ({ default: m.ZonaRossa })));
@@ -1144,9 +1146,10 @@ function costruisciPDFControllo({ azienda, operatore, attestati, drone, permessi
     y += 5;
     if (y > 240) { doc.addPage(); y = 20; }
     sottotitolo(`Volumi ${sts.scenario || "STS-01"}`);
-    riga("Area di volo", `raggio ${sts.raggio} m — altezza max ${sts.altezza} m`);
-    riga("Contingenza", `+${sts.contingenza} m (raggio ${sts.raggioContingenza} m) — altezza ${sts.altezzaContingenza} m`);
-    if (sts.buffer != null) riga("Buffer rischio a terra", `+${sts.buffer} m — area controllata a terra raggio ${sts.raggioTotale} m`);
+    const t = testiSts(sts);
+    riga("Area di volo", t.volo);
+    riga("Contingenza", t.contingenza);
+    if (t.buffer) riga("Buffer rischio a terra", t.buffer);
     if (stsImg) {
       try {
         const pr = doc.getImageProperties(stsImg);
@@ -7508,6 +7511,17 @@ const BUFFER_STS01 = [
   { altezza: 120, leggero: 25, pesante: 60 },
 ];
 
+// righe descrittive delle tre aree (cerchio o area disegnata), per immagine e PDF
+function testiSts(sts) {
+  const disegno = Array.isArray(sts.poligono) && sts.poligono.length >= 3;
+  const ha = disegno && sts.ettari != null ? `${Number(sts.ettari).toLocaleString("it-IT", { maximumFractionDigits: 2 })} ha` : "";
+  return {
+    volo: disegno ? `area disegnata${ha ? ` (${ha})` : ""} · altezza max ${sts.altezza} m` : `raggio ${sts.raggio} m · altezza max ${sts.altezza} m`,
+    contingenza: disegno ? `+${sts.contingenza} m tutto attorno all'area · altezza ${sts.altezzaContingenza} m` : `+${sts.contingenza} m (raggio ${sts.raggioContingenza} m) · altezza ${sts.altezzaContingenza} m`,
+    buffer: sts.buffer == null ? null : disegno ? `+${sts.buffer} m attorno alla contingenza (area controllata a terra)` : `+${sts.buffer} m (area controllata a terra: raggio ${sts.raggioTotale} m)`,
+  };
+}
+
 function calcolaSTS({ altezza, raggio, pesante, velocita }) {
   const H = Math.max(0, Number(altezza) || 0), R = Math.max(0, Number(raggio) || 0), V = Math.max(0, Number(velocita) || 0);
   const frenata = (V * V) / (2 * 9.81);
@@ -7524,13 +7538,21 @@ function calcolaSTS({ altezza, raggio, pesante, velocita }) {
 }
 
 // disegna le tre aree su una mappa OpenStreetMap (se le tessere non si caricano, su sfondo neutro)
-async function disegnaMappaSTS({ lat, lon, sts, titolo }) {
+async function disegnaMappaSTS({ lat, lon, sts, titolo, aree }) {
   const L = 800, LEG = 150;
   const canvas = document.createElement("canvas");
   canvas.width = L; canvas.height = L + LEG;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#e9ecef"; ctx.fillRect(0, 0, L, L);
-  const rMax = Math.max(sts.raggioTotale || sts.raggioContingenza || 50, 20);
+  // area disegnata a mano: centro e scala dal suo ingombro (fascia esterna compresa)
+  const esterno = aree && (aree.buffer?.length > 2 ? aree.buffer : aree.contingenza?.length > 2 ? aree.contingenza : aree.volo);
+  if (esterno) {
+    const la = esterno.map((q) => q[0]), lo = esterno.map((q) => q[1]);
+    lat = (Math.min(...la) + Math.max(...la)) / 2; lon = (Math.min(...lo) + Math.max(...lo)) / 2;
+  }
+  const rMax = esterno
+    ? Math.max(20, ...esterno.map(([a, b]) => Math.max(Math.abs(a - lat) * 111195, Math.abs(b - lon) * 111195 * Math.cos((lat * Math.PI) / 180))))
+    : Math.max(sts.raggioTotale || sts.raggioContingenza || 50, 20);
   const cosLat = Math.cos((lat * Math.PI) / 180);
   const z = Math.max(3, Math.min(19, Math.floor(Math.log2((156543.03392 * cosLat * 330) / rMax))));
   const mpp = (156543.03392 * cosLat) / 2 ** z;
@@ -7558,10 +7580,26 @@ async function disegnaMappaSTS({ lat, lon, sts, titolo }) {
     ctx.beginPath(); ctx.arc(L / 2, L / 2, r / mpp, 0, Math.PI * 2);
     ctx.fillStyle = riempi; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = bordo; ctx.stroke();
   };
-  if (sts.raggioTotale) cerchio(sts.raggioTotale, "rgba(220,50,50,0.22)", "#d32f2f");
-  cerchio(sts.raggioContingenza, "rgba(245,160,40,0.30)", "#e68a00");
-  cerchio(sts.raggio, "rgba(46,160,90,0.35)", "#2e7d32");
-  ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(L / 2, L / 2, 5, 0, Math.PI * 2); ctx.fill();
+  const poligono = (punti, riempi, bordo) => {
+    if (!punti || punti.length < 3) return;
+    ctx.beginPath();
+    punti.forEach(([a, b], i) => {
+      const r = (a * Math.PI) / 180;
+      const x = ((b + 180) / 360) * scala - x0, y = ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * scala - y0;
+      if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    });
+    ctx.closePath(); ctx.fillStyle = riempi; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = bordo; ctx.stroke();
+  };
+  if (aree) {
+    poligono(aree.buffer, "rgba(220,50,50,0.22)", "#d32f2f");
+    poligono(aree.contingenza, "rgba(245,160,40,0.30)", "#e68a00");
+    poligono(aree.volo, "rgba(46,160,90,0.35)", "#2e7d32");
+  } else {
+    if (sts.raggioTotale) cerchio(sts.raggioTotale, "rgba(220,50,50,0.22)", "#d32f2f");
+    cerchio(sts.raggioContingenza, "rgba(245,160,40,0.30)", "#e68a00");
+    cerchio(sts.raggio, "rgba(46,160,90,0.35)", "#2e7d32");
+    ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(L / 2, L / 2, 5, 0, Math.PI * 2); ctx.fill();
+  }
   // barra della scala
   const passi = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
   const m = passi.find((x) => x / mpp >= 80) || 1000;
@@ -7574,42 +7612,121 @@ async function disegnaMappaSTS({ lat, lon, sts, titolo }) {
   ctx.fillStyle = "#ffffff"; ctx.fillRect(0, L, L, LEG);
   ctx.fillStyle = "#111"; ctx.font = "bold 18px sans-serif"; ctx.fillText(titolo || "STS-01 · volume operativo", 16, L + 28);
   const voce = (y, colore, testo) => { ctx.fillStyle = colore; ctx.fillRect(16, y - 12, 16, 16); ctx.fillStyle = "#222"; ctx.font = "15px sans-serif"; ctx.fillText(testo, 40, y + 1); };
-  voce(L + 56, "#2e7d32", `Area di volo: raggio ${sts.raggio} m · altezza max ${sts.altezza} m`);
-  voce(L + 82, "#e68a00", `Contingenza: +${sts.contingenza} m (raggio ${sts.raggioContingenza} m) · altezza ${sts.altezzaContingenza} m`);
-  if (sts.raggioTotale) voce(L + 108, "#d32f2f", `Buffer rischio a terra: +${sts.buffer} m (area controllata a terra: raggio ${sts.raggioTotale} m)`);
+  const t = testiSts(sts);
+  voce(L + 56, "#2e7d32", `Area di volo: ${t.volo}`);
+  voce(L + 82, "#e68a00", `Contingenza: ${t.contingenza}`);
+  if (t.buffer) voce(L + 108, "#d32f2f", `Buffer rischio a terra: ${t.buffer}`);
   ctx.fillStyle = "#666"; ctx.font = "12px sans-serif";
-  ctx.fillText(`Centro ${lat.toFixed(5)}, ${lon.toFixed(5)}${tessere === 0 ? " · mappa non disponibile, solo le aree" : ""}`, 16, L + 136);
+  ctx.fillText(`${aree ? "Area disegnata, centro" : "Centro"} ${lat.toFixed(5)}, ${lon.toFixed(5)}${tessere === 0 ? " · mappa non disponibile, solo le aree" : ""}`, 16, L + 136);
   const dataUrl = canvas.toDataURL("image/png");
   const blob = await new Promise((ok) => canvas.toBlob(ok, "image/png"));
   return { dataUrl, blob, conMappa: tessere > 0 };
 }
 
+// zone D-Flight trovate su tutta l'area di volo e contingenza dello STS-01
+function ZoneDellAreaSts({ esito, archivio, pronto, altezza, altezzaContingenza }) {
+  const box = (colore, figli) => <div style={{ marginTop: 8, background: colore + "14", border: `1px solid ${colore}55`, borderRadius: 6, padding: "8px 10px", fontSize: 12, lineHeight: 1.5 }}>{figli}</div>;
+  if (archivio === undefined || !pronto) return null;
+  if (!archivio) return box("#8b95a3", <span style={{ color: "#c3cad4" }}>Per controllare le zone D-Flight su tutta l'area carica il file delle zone nella pagina Controllo.</span>);
+  if (!esito) return null;
+  if (!esito.zone.length) return box("#4ade80", <span style={{ color: "#bbf7d0" }}>✓ Nessuna zona D-Flight tocca l'area di volo e la contingenza (file delle zone del {formatData(String(archivio.caricato || "").slice(0, 10))}).</span>);
+  const troppoAlto = Math.max(altezza || 0, altezzaContingenza || 0) > esito.altezzaMax;
+  const colore = troppoAlto ? "#f87171" : "#f5b942";
+  return box(colore, (
+    <>
+      <div style={{ fontWeight: 700, color: troppoAlto ? "#fca5a5" : "#fde68a" }}>
+        {esito.altezzaMax > 0
+          ? `Su tutta l'area (contingenza compresa) senza autorizzazione: fino a ${esito.altezzaMax} m dal suolo`
+          : "In una parte dell'area non si vola senza autorizzazione"}
+      </div>
+      {troppoAlto && <div style={{ color: "#fca5a5" }}>Con {altezza} m (contingenza fino a {altezzaContingenza} m) superi il limite in una parte dell'area: abbassa la quota, restringi l'area o chiedi l'autorizzazione.</div>}
+      {esito.zone.map((t, i) => {
+        const d = descriviRestrizione(t.zona.restrizione);
+        return (
+          <div key={i} style={{ color: "#c3cad4", marginTop: 3 }}>
+            <span style={{ color: d.colore }}>●</span> {t.zona.nome} · {d.etichetta}{t.zona.restrizione !== "NO_RESTRICTION" ? ` · fino a ${t.altezza} m` : ""} · {t.tutta ? "tutta l'area" : "una parte dell'area"}
+          </div>
+        );
+      })}
+    </>
+  ));
+}
+
 function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
   const [aperto, setAperto] = useState(!!valore);
-  const [campi, setCampi] = useState(() => ({ altezza: String(valore?.altezza ?? 60), raggio: String(valore?.raggio ?? 50), velocita: String(valore?.velocita ?? 5), pesante: !!valore?.pesante }));
+  const daValore = (v) => ({ altezza: String(v?.altezza ?? 60), raggio: String(v?.raggio ?? 50), velocita: String(v?.velocita ?? 5), pesante: !!v?.pesante, forma: v?.forma === "disegno" ? "disegno" : "cerchio", poligono: Array.isArray(v?.poligono) ? v.poligono : [] });
+  const [campi, setCampi] = useState(() => daValore(valore));
   const [immagine, setImmagine] = useState(null); // { dataUrl, blob } appena disegnata
   const [disegnando, setDisegnando] = useState(false);
+  const [archivio, setArchivio] = useState(undefined); // file zone D-Flight salvato nel telefono
+  const [missione, setMissione] = useState(null); // esito dell'ultimo file missione caricato
+  useEffect(() => { leggiZoneSalvate().then(async (d) => setArchivio(d && Array.isArray(d.zone) ? d : (await riprendiCopiaZone()) || null)); }, []);
   // cambia piano (aperto, nuovo o annullato): riparto dai valori salvati in quel piano
   useEffect(() => {
     setAperto(!!valore);
-    if (valore) setCampi({ altezza: String(valore.altezza ?? 60), raggio: String(valore.raggio ?? 50), velocita: String(valore.velocita ?? 5), pesante: !!valore.pesante });
+    if (valore) setCampi(daValore(valore));
     setImmagine(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chiave]);
   const r = calcolaSTS(campi);
+  const aMano = campi.forma === "disegno";
+  const poligonoOk = aMano && campi.poligono.length >= 3;
+  // dati salvati nel piano: con l'area disegnata salvo anche i vertici e gli ettari
+  const pacchetto = (c) => {
+    const base = { ...calcolaSTS(c), scenario: "STS-01", immagine_url: null, forma: c.forma };
+    if (c.forma !== "disegno") return base;
+    return { ...base, poligono: c.poligono, ettari: c.poligono.length >= 3 ? Math.round(misuraArea(c.poligono).m2 / 100) / 100 : null };
+  };
+  // le fasce attorno all'area disegnata: le ricalcolo solo quando cambiano forma o distanze
+  const aree = React.useMemo(
+    () => (poligonoOk ? areeSts(campi.poligono, r) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [poligonoOk, JSON.stringify(campi.poligono), r.contingenza, r.buffer],
+  );
+  const misura = poligonoOk ? misuraArea(campi.poligono) : null;
+  // zone D-Flight su tutta l'area di volo + contingenza (col cerchio: il cerchio della contingenza)
+  const anelloControllo = React.useMemo(() => {
+    if (aMano) return aree ? (aree.contingenza?.length > 2 ? aree.contingenza : aree.volo) : null;
+    if (!punto || !(r.raggioContingenza > 0)) return null;
+    const k = Math.cos((punto.lat * Math.PI) / 180);
+    return [...Array(72)].map((_, i) => {
+      const t = (i / 72) * 2 * Math.PI;
+      return [punto.lat + (Math.sin(t) * r.raggioContingenza) / 111195, punto.lon + (Math.cos(t) * r.raggioContingenza) / (111195 * k)];
+    });
+  }, [aMano, aree, punto?.lat, punto?.lon, r.raggioContingenza]);
+  const zoneArea = React.useMemo(
+    () => (archivio && anelloControllo ? zoneDellArea(archivio.zone, anelloControllo) : null),
+    [archivio, anelloControllo],
+  );
+  const caricaMissione = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const m = await leggiMissioneDji(file);
+      const nuovi = { ...campi, forma: "disegno", poligono: m.punti };
+      if (m.altezza && m.altezzaUsabile) nuovi.altezza = String(m.altezza);
+      setCampi(nuovi);
+      setImmagine(null);
+      onCambia(pacchetto(nuovi));
+      setMissione({ ...m, file: file.name });
+    } catch (err) {
+      setMissione({ errore: err?.message || String(err) });
+    }
+  };
   const aggiorna = (k, v) => {
     const nuovi = { ...campi, [k]: v };
     setCampi(nuovi);
     setImmagine(null);
-    onCambia({ ...calcolaSTS(nuovi), scenario: "STS-01", immagine_url: null });
+    onCambia(pacchetto(nuovi));
   };
   const disegna = async () => {
-    if (!punto) return;
+    if (aMano ? !poligonoOk : !punto) return;
     setDisegnando(true);
     try {
-      const img = await disegnaMappaSTS({ lat: punto.lat, lon: punto.lon, sts: r, titolo: `STS-01 · ${nomeLuogo || "volume operativo"}` });
+      const img = await disegnaMappaSTS({ lat: punto?.lat, lon: punto?.lon, sts: pacchetto(campi), aree, titolo: `STS-01 · ${nomeLuogo || "volume operativo"}` });
       setImmagine(img);
-      onCambia({ ...r, scenario: "STS-01", immagine_url: null, immagineNuova: img });
+      onCambia({ ...pacchetto(campi), immagineNuova: img });
     } catch (e) {
       alert("Non sono riuscito a disegnare la mappa: " + (e?.message || e));
     }
@@ -7626,7 +7743,7 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
   );
   if (!aperto) {
     return (
-      <button type="button" onClick={() => { setAperto(true); onCambia({ ...r, scenario: "STS-01", immagine_url: null }); }} style={{ marginTop: 10, background: "#161a1f", border: "1px dashed #a78bfa88", color: "#c4b5fd", borderRadius: 6, padding: "10px 12px", fontSize: 12.5, fontWeight: 600, textAlign: "left", width: "100%" }}>
+      <button type="button" onClick={() => { setAperto(true); onCambia(pacchetto(campi)); }} style={{ marginTop: 10, background: "#161a1f", border: "1px dashed #a78bfa88", color: "#c4b5fd", borderRadius: 6, padding: "10px 12px", fontSize: 12.5, fontWeight: 600, textAlign: "left", width: "100%" }}>
         📐 Voli in STS-01? Calcola contingenza e buffer e disegnali sulla mappa
       </button>
     );
@@ -7643,29 +7760,76 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
         <span style={{ fontSize: 13, fontWeight: 700 }}>📐 Volumi STS-01<EtichettaPro /></span>
         <button type="button" onClick={() => { setAperto(false); setImmagine(null); onCambia(null); }} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12 }}>Togli</button>
       </div>
+      <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+        {[["cerchio", "⭕ Cerchio attorno al punto"], ["disegno", "✏️ Disegno l'area sulla mappa"]].map(([v, t]) => (
+          <button key={v} type="button" onClick={() => aggiorna("forma", v)} style={{ background: campi.forma === v ? "#a78bfa22" : "#262b33", border: `1px solid ${campi.forma === v ? "#a78bfa" : "#333a45"}`, color: campi.forma === v ? "#c4b5fd" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>{t}</button>
+        ))}
+      </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
         {campo("altezza", "Altezza massima di volo", "m")}
-        {campo("raggio", "Raggio dell'area di volo", "m")}
+        {!aMano && campo("raggio", "Raggio dell'area di volo", "m")}
         {campo("velocita", "Velocità massima", "m/s")}
       </div>
+      <label style={{ display: "inline-block", marginTop: 8, background: "#262b33", border: "1px solid #a78bfa66", color: "#c4b5fd", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+        📂 Carica la missione da DJI Pilot 2 (.kmz)
+        <input type="file" accept=".kmz,.kml,.wpml,application/vnd.google-earth.kmz,application/vnd.google-earth.kml+xml" onChange={caricaMissione} style={{ display: "none" }} />
+      </label>
+      {!missione && <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Il file .kmz della rotta si esporta dalla libreria delle rotte di DJI Pilot 2. L'area della missione diventa l'area di volo, con contingenza e buffer attorno.</p>}
+      {missione && (
+        missione.errore
+          ? <p style={{ fontSize: 12, color: "#ff9c9c", margin: "6px 0 0 0" }}>{missione.errore}</p>
+          : <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 0 0", lineHeight: 1.5 }}>
+              ✓ {missione.file}: {missione.daPunti ? "area ricavata dai punti della rotta" : "area della missione"} caricata.{" "}
+              {missione.altezza
+                ? missione.altezzaUsabile
+                  ? `Altezza della missione: ${missione.altezza} m, messa come altezza massima (controllala).`
+                  : `Nella missione l'altezza è sul livello del mare (${missione.altezza} m): qui scrivi l'altezza dal suolo.`
+                : "Altezza non trovata nel file: scrivila tu."}
+            </p>
+      )}
+      {aMano && (
+        <div style={{ marginTop: 8 }}>
+          <p style={{ fontSize: 12, color: "#c3cad4", margin: 0, lineHeight: 1.5 }}>
+            Tocca la mappa per mettere i vertici dell'area di volo, uno dopo l'altro (almeno 3). I punti bianchi si trascinano per correggerli. Contingenza e buffer si disegnano da soli tutto attorno.
+          </p>
+          <Suspense fallback={<div style={{ height: 340, marginTop: 8, borderRadius: 8, background: "#0e1116" }} />}>
+            <MappaAreaSTS centro={punto} punti={campi.poligono} aree={aree} zone={zoneArea ? zoneArea.zone.map((t) => t.zona) : null} onCambia={(pp) => aggiorna("poligono", pp)} />
+          </Suspense>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6, alignItems: "center" }}>
+            <button type="button" disabled={!campi.poligono.length} onClick={() => aggiorna("poligono", campi.poligono.slice(0, -1))} style={{ background: "#262b33", border: "1px solid #333a45", color: campi.poligono.length ? "#e7eaee" : "#6b7480", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>↶ Togli l'ultimo punto</button>
+            <button type="button" disabled={!campi.poligono.length} onClick={() => { if (confirm("Cancello l'area disegnata?")) aggiorna("poligono", []); }} style={{ background: "#262b33", border: "1px solid #333a45", color: campi.poligono.length ? "#e7eaee" : "#6b7480", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>Ricomincia</button>
+            <span style={{ fontSize: 11.5, color: "#8b95a3" }}>
+              {poligonoOk
+                ? `${campi.poligono.length} punti · ${(misura.m2 / 10000).toLocaleString("it-IT", { maximumFractionDigits: 2 })} ha · perimetro ${Math.round(misura.perimetro)} m`
+                : `${campi.poligono.length} punti: ne servono almeno 3`}
+            </span>
+          </div>
+        </div>
+      )}
       <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
         {[[false, "Fino a 10 kg"], [true, "Oltre 10 kg"]].map(([v, t]) => (
           <button key={t} type="button" onClick={() => aggiorna("pesante", v)} style={{ background: campi.pesante === v ? "#a78bfa22" : "#262b33", border: `1px solid ${campi.pesante === v ? "#a78bfa" : "#333a45"}`, color: campi.pesante === v ? "#c4b5fd" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>{t} al decollo</button>
         ))}
       </div>
       <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid #262b33" }}>
-        {riga("#2e7d32", "Area di volo", `raggio ${r.raggio} m · fino a ${r.altezza} m`)}
-        {riga("#e68a00", "Contingenza", `+${r.contingenza} m (raggio ${r.raggioContingenza} m) · fino a ${r.altezzaContingenza} m`)}
+        {riga("#2e7d32", "Area di volo", aMano ? `${poligonoOk ? `area disegnata, ${(misura.m2 / 10000).toLocaleString("it-IT", { maximumFractionDigits: 2 })} ha` : "da disegnare"} · fino a ${r.altezza} m` : `raggio ${r.raggio} m · fino a ${r.altezza} m`)}
+        {riga("#e68a00", "Contingenza", aMano ? `+${r.contingenza} m tutto attorno · fino a ${r.altezzaContingenza} m` : `+${r.contingenza} m (raggio ${r.raggioContingenza} m) · fino a ${r.altezzaContingenza} m`)}
         {r.fuoriScenario
           ? <p style={{ fontSize: 12, color: "#ff9c9c", margin: "6px 0 0 0" }}>Oltre 120 m di altezza si esce dallo scenario STS-01.</p>
-          : riga("#d32f2f", "Buffer rischio a terra", `+${r.buffer} m → area controllata a terra: raggio ${r.raggioTotale} m`)}
+          : riga("#d32f2f", "Buffer rischio a terra", aMano ? `+${r.buffer} m attorno alla contingenza (area controllata a terra)` : `+${r.buffer} m → area controllata a terra: raggio ${r.raggioTotale} m`)}
+        <ZoneDellAreaSts esito={zoneArea} archivio={archivio} pronto={!!anelloControllo} altezza={r.altezza} altezzaContingenza={r.altezzaContingenza} />
         <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Buffer dalla tabella STS-01 (Reg. UE 2019/947, Appendice 1). Contingenza stimata con GPS 3 m + reazione 1 s + frenata, minimo 10 m: usa sempre i valori del tuo manuale operativo STS.</p>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, alignItems: "center" }}>
-        <button type="button" onClick={disegna} disabled={!punto || disegnando || r.fuoriScenario} style={{ background: punto ? "#a78bfa" : "#333a45", color: punto ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>
-          {disegnando ? "Disegno…" : "🗺️ Disegna sulla mappa"}
-        </button>
-        {!punto && <span style={{ fontSize: 11.5, color: "#f5b942" }}>Serve il punto: coordinate, indirizzo trovato o «Controlla meteo».</span>}
+        {(() => {
+          const pronto = aMano ? poligonoOk : !!punto;
+          return (
+            <button type="button" onClick={disegna} disabled={!pronto || disegnando || r.fuoriScenario} style={{ background: pronto ? "#a78bfa" : "#333a45", color: pronto ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>
+              {disegnando ? "Disegno…" : aMano ? "🖼️ Crea l'immagine per il fascicolo" : "🗺️ Disegna sulla mappa"}
+            </button>
+          );
+        })()}
+        {!aMano && !punto && <span style={{ fontSize: 11.5, color: "#f5b942" }}>Serve il punto: coordinate, indirizzo trovato o «Controlla meteo».</span>}
         {immagine && <a href={immagine.dataUrl} download={`sts01-${(nomeLuogo || "volo").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`} style={{ color: "#c4b5fd", fontSize: 12.5 }}>⬇️ Scarica immagine</a>}
       </div>
       {immagine ? (
@@ -12305,9 +12469,10 @@ async function costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, a
     const sts = piano.checklist_stato?.sts;
     if (sts) {
       riga("Scenario", sts.scenario || "STS-01", [20, 20, 20]);
-      riga("Area di volo", `raggio ${sts.raggio} m · altezza max ${sts.altezza} m · velocità max ${sts.velocita} m/s · ${sts.pesante ? "oltre" : "fino a"} 10 kg`);
-      riga("Contingenza", `+${sts.contingenza} m (raggio ${sts.raggioContingenza} m) · altezza ${sts.altezzaContingenza} m`);
-      if (sts.buffer != null) riga("Buffer rischio a terra", `+${sts.buffer} m · area controllata a terra raggio ${sts.raggioTotale} m`);
+      const t = testiSts(sts);
+      riga("Area di volo", `${t.volo} · velocità max ${sts.velocita} m/s · ${sts.pesante ? "oltre" : "fino a"} 10 kg`);
+      riga("Contingenza", t.contingenza);
+      if (t.buffer) riga("Buffer rischio a terra", t.buffer);
       if (sts.immagine_url) {
         const img = await immaginePerPdf(sts.immagine_url);
         if (img) {
