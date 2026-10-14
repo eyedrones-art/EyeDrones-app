@@ -9,6 +9,7 @@ window.addEventListener("vite:preloadError", (e) => {
     const ultima = Number(sessionStorage.getItem("eyedrones_ricarica_versione") || 0);
     if (Date.now() - ultima < 60000) return; // già ricaricato da poco: lascio stare per non entrare in un giro
     sessionStorage.setItem("eyedrones_ricarica_versione", String(Date.now()));
+    window.__eyedronesInRicarica = true;
     e.preventDefault();
     location.reload();
   } catch { /* niente */ }

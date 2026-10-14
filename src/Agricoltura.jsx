@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import MappaCampi from "./MappaCampi.jsx";
+import { pdfConsegnaAgricoltura } from "./reportConsegna.js";
 import { leggiFileConfini, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
 
 // Agricoltura (fase 1): appezzamenti con i confini sulla mappa, registro dei trattamenti con PDF,
@@ -266,7 +267,8 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
   const [form, setForm] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [meteoStato, setMeteoStato] = useState("");
-  const [filtro, setFiltro] = useState({ campo: "", da: "", a: "" });
+  const [filtro, setFiltro] = useState({ campo: "", azienda: "", da: "", a: "" });
+  const [consegna, setConsegna] = useState(null); // dati del report di consegna, quando il riquadro è aperto
 
   // arrivo da un campo («Registra un lavoro»): apro il modulo già compilato
   useEffect(() => {
@@ -328,7 +330,8 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
     onCambiati();
   };
 
-  const filtrati = trattamenti.filter((t) => (!filtro.campo || t.appezzamento_id === filtro.campo) && (!filtro.da || t.data >= filtro.da) && (!filtro.a || t.data <= filtro.a));
+  const aziende = [...new Set(campi.map((c) => c.azienda).filter(Boolean))].sort();
+  const filtrati = trattamenti.filter((t) => (!filtro.campo || t.appezzamento_id === filtro.campo) && (!filtro.azienda || t.azienda === filtro.azienda || (campi.find((c) => c.id === t.appezzamento_id) || {}).azienda === filtro.azienda) && (!filtro.da || t.data >= filtro.da) && (!filtro.a || t.data <= filtro.a));
 
   if (form) {
     const f = form;
@@ -395,10 +398,42 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <button type="button" onClick={() => nuovo(null)} disabled={bloccato} style={btn(true)}>➕ Nuovo lavoro</button>
         <button type="button" onClick={() => pdfRegistro(filtrati, campi, azienda, filtro)} disabled={!filtrati.length} style={btn(false)}>📄 Scarica il registro in PDF</button>
+        <button type="button" onClick={() => setConsegna(consegna ? null : { cliente: filtro.azienda || "", note: "", pilota: azienda?.nome || "", attestato: "", stato: "" })} disabled={!filtrati.length} style={btn(false)}>📦 Report di consegna</button>
       </div>
+      {consegna && (
+        <div style={{ ...scheda, marginBottom: 12 }}>
+          <strong style={{ fontSize: 13.5 }}>📦 Report di consegna per il cliente</strong>
+          <p style={{ fontSize: 12, color: "#8b95a3", margin: "4px 0 10px 0" }}>Usa i {filtrati.length === 1 ? "lavoro mostrato" : `${filtrati.length} lavori mostrati`} qui sotto: scegli prima azienda e periodo con i filtri. Nel PDF: riepilogo, mappa dei campi, ogni intervento con meteo, note e firma.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10 }}>
+            <div><label style={etichetta}>Cliente</label><input value={consegna.cliente} onChange={(e) => setConsegna({ ...consegna, cliente: e.target.value })} style={inputStyle} placeholder="es. Az. Agricola Rossi" /></div>
+            <div><label style={etichetta}>Firma: pilota o operatore</label><input value={consegna.pilota} onChange={(e) => setConsegna({ ...consegna, pilota: e.target.value })} style={inputStyle} /></div>
+            <div><label style={etichetta}>Attestato / n. operatore</label><input value={consegna.attestato} onChange={(e) => setConsegna({ ...consegna, attestato: e.target.value })} style={inputStyle} placeholder="es. Operatore ITA-xxxx" /></div>
+          </div>
+          <div style={{ marginTop: 10 }}><label style={etichetta}>Note per il cliente (se vuoto metto un testo standard)</label><textarea value={consegna.note} onChange={(e) => setConsegna({ ...consegna, note: e.target.value })} rows={3} style={{ ...inputStyle, resize: "vertical" }} /></div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+            <button type="button" style={btn(true)} onClick={async () => {
+              setConsegna((c) => ({ ...c, stato: "Preparo il PDF…" }));
+              try {
+                const periodo = filtro.da || filtro.a ? `Periodo: ${filtro.da ? dataIt(filtro.da) : "…"} – ${filtro.a ? dataIt(filtro.a) : "…"}` : null;
+                const doc = await pdfConsegnaAgricoltura({ lavori: filtrati, campi, azienda, cliente: consegna.cliente, periodo, note: consegna.note, pilota: consegna.pilota, attestato: consegna.attestato });
+                doc.save(`consegna-lavori${consegna.cliente ? `-${consegna.cliente.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : ""}-${oggi()}.pdf`);
+                setConsegna((c) => ({ ...c, stato: "✓ PDF scaricato" }));
+              } catch (e) {
+                setConsegna((c) => ({ ...c, stato: "Non sono riuscito a creare il PDF: " + (e?.message || e) }));
+              }
+            }}>📄 Crea il PDF</button>
+            {consegna.stato && <span style={{ fontSize: 12, color: "#8b95a3" }}>{consegna.stato}</span>}
+          </div>
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        {aziende.length > 0 && (
+          <select value={filtro.azienda} onChange={(e) => setFiltro({ ...filtro, azienda: e.target.value, campo: "" })} style={{ ...inputStyle, width: "auto", minWidth: 160 }}>
+            <option value="">Tutte le aziende</option>{aziende.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        )}
         <select value={filtro.campo} onChange={(e) => setFiltro({ ...filtro, campo: e.target.value })} style={{ ...inputStyle, width: "auto", minWidth: 180 }}>
-          <option value="">Tutti i campi</option>{campi.map((c) => <option key={c.id} value={c.id}>{c.azienda ? `${c.azienda} · ` : ""}{c.nome}</option>)}
+          <option value="">Tutti i campi</option>{campi.filter((c) => !filtro.azienda || c.azienda === filtro.azienda).map((c) => <option key={c.id} value={c.id}>{c.azienda ? `${c.azienda} · ` : ""}{c.nome}</option>)}
         </select>
         <label style={{ fontSize: 12, color: "#8b95a3", display: "flex", alignItems: "center", gap: 6 }}>dal <input type="date" value={filtro.da} onChange={(e) => setFiltro({ ...filtro, da: e.target.value })} style={{ ...inputStyle, width: "auto" }} /></label>
         <label style={{ fontSize: 12, color: "#8b95a3", display: "flex", alignItems: "center", gap: 6 }}>al <input type="date" value={filtro.a} onChange={(e) => setFiltro({ ...filtro, a: e.target.value })} style={{ ...inputStyle, width: "auto" }} /></label>

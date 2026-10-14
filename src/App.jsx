@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -9,6 +9,8 @@ import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra";
 import { VentoInQuota, PrevisioneCielo, inMs, numVento, ventoInMsScelto, scegliUnitaVento } from "./Riprese.jsx";
 import { droneNoto } from "./droniNoti.js";
 import { areeSts, misuraArea, zoneDellArea, leggiMissioneDji } from "./areaSts.js";
+import { pdfConsegnaRilievo, FILE_RILIEVO, SISTEMI_RIFERIMENTO } from "./reportConsegna.js";
+import { ORARIO_AREE_TATTICHE, FONTE_AREE_AIP } from "./areeAip.js";
 import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
@@ -29,6 +31,9 @@ const UltimaNotizia = lazy(() => import("./Notizie.jsx").then((m) => ({ default:
 const PostiVicini = lazy(() => import("./Posti.jsx").then((m) => ({ default: m.PostiVicini })));
 const Collaboratori = lazy(() => import("./Collaboratori.jsx"));
 const Agricoltura = lazy(() => import("./Agricoltura.jsx"));
+const AnalisiAI = lazy(() => import("./AnalisiAI.jsx"));
+// analisi foto con l'AI: in prova solo su questi account (il server controlla di nuovo con AI_UTENTI)
+const AI_IN_PROVA = ["eyedrones@libero.it"];
 const PaginaPrivacy = lazy(() => import("./Legali.jsx").then((m) => ({ default: m.Privacy })));
 const PaginaTermini = lazy(() => import("./Legali.jsx").then((m) => ({ default: m.Termini })));
 // navigazione da componenti lontani (es. «Come si fa?» nella verifica zona): window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }))
@@ -1837,7 +1842,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi", "analisi-ai"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2278,6 +2283,11 @@ function AppShell({ session }) {
               onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} />
           </Suspense>
         )}
+        {page === "analisi-ai" && AI_IN_PROVA.includes(String(session.user.email || "").toLowerCase()) && (
+          <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
+            <AnalisiAI supabase={supabase} droni={droni} inputStyle={inputStyle} />
+          </Suspense>
+        )}
         {page === "campi" && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
             <Agricoltura supabase={supabase} inputStyle={inputStyle} clienti={clienti} droni={droni} azienda={azienda} />
@@ -2707,6 +2717,7 @@ function Login({ modoIniziale = "login", onTorna }) {
 // --- Sidebar -----------------------------------------------------------
 
 function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, usaAgricoltura, batterieAvvisi, richiesteNuove, onControllo }) {
+  const usaAI = AI_IN_PROVA.includes(String(userEmail || "").toLowerCase());
   const items = [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
     ...(usaIspezioni ? [
@@ -2722,6 +2733,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { key: "pianificazione", label: "Pianificazione volo", icon: CalendarDays },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "galleria", label: "Foto e video", icon: Camera },
+    ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
     { key: "posti", label: "Posti", icon: Compass },
     { intestazione: "Pilota" },
@@ -6988,7 +7000,7 @@ function FileZoneVeloce() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: archivio ? "#1b2028" : "#3a2a12", border: `1px solid ${archivio ? "#2b313d" : "#f5b94266"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, maxWidth: 620, fontSize: 12.5, color: archivio ? "#c3cad4" : "#ffd9a0" }}>
       <span style={{ flex: "1 1 220px" }}>
-        🛡️ <strong>File zone di D-Flight</strong>: {archivio ? <>caricato il {formatData(String(archivio.caricato || "").slice(0, 10))} ({archivio.zone.length} zone){giorni > 28 ? <span style={{ color: "#f5b942" }}> · ⚠ aggiornalo</span> : " ✓"}</> : "non ancora caricato. Serve per sapere se nel posto puoi volare."}
+        🛡️ <strong>File zone di D-Flight</strong>: {archivio ? <>caricato il {formatData(String(archivio.caricato || "").slice(0, 10))} ({archivio.zone.length} zone){giorni > 14 ? <span style={{ color: "#f5b942" }}> · ⚠ aggiornalo</span> : " ✓"}</> : "non ancora caricato. Serve per sapere se nel posto puoi volare."}
         {errore && <span style={{ display: "block", color: "#ff9c9c", marginTop: 4 }}>{errore}</span>}
       </span>
       <label style={{ display: "inline-block", background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
@@ -7135,11 +7147,17 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     const scritta = z.restrizione === "NO_RESTRICTION" ? null : altezzaDaTesto(z);
     const sopra = z.restrizione === "PROHIBITED" ? "vietato" : z.restrizione === "REQ_AUTHORISATION" ? "serve autorizzazione" : "con le condizioni della zona";
     // la zona comincia sopra il suolo: fino a quell'altezza si vola con le regole normali
-    const d = parte > 0
+    const d0 = parte > 0
       ? { ...base, colore: "#f5b942", etichetta: `Libero fino a ${parte} m · sopra ${sopra}`, consiglio: `Fino a ${parte} m dal suolo puoi volare senza autorizzazione, con le regole della tua categoria. Per salire oltre i ${parte} m ${z.restrizione === "PROHIBITED" ? "non si può" : z.restrizione === "REQ_AUTHORISATION" ? "chiedi l'autorizzazione all'ente indicato (spesso tramite D-Flight)" : "rispetta le condizioni scritte qui sotto o chiedi all'ente indicato"}.` }
       : scritta != null && z.restrizione !== "PROHIBITED"
         ? { ...base, colore: "#f5b942", etichetta: `Massimo ${scritta} m · ${base.etichetta.toLowerCase()}`, consiglio: `Secondo il messaggio della zona qui si vola al massimo a ${scritta} m dal suolo. ${base.consiglio}` }
         : base;
+    // aree tattiche militari (dall'AIP, non sono nel file D-Flight): dico se all'ora del volo sono attive
+    const d = z.areaTattica
+      ? z.nonAttiva
+        ? { ...d0, colore: "#4ade80", etichetta: "Area militare non attiva all'ora del volo", consiglio: `Quest'area vale ${ORARIO_AREE_TATTICHE}: nel giorno e nell'ora che hai scelto non è attiva, quindi valgono le regole normali. Se cambi giorno o ora, ricontrolla. Guarda comunque i NOTAM.` }
+        : { ...d0, consiglio: `Quando è attiva (${ORARIO_AREE_TATTICHE}) qui si vola al massimo a 45 m dal suolo, per la presenza di aerei ed elicotteri militari a bassissima quota. ${z.oraNota ? "Nel giorno e nell'ora del tuo volo risulta attiva." : "Scegli giorno e ora del volo e ti dico se è attiva: per ora la considero attiva."}` }
+      : d0;
     const limiti = formattaLimiti(z.limiti);
     const autorita = (z.autorita || []).map((a) => ({ ...a, nome: valoreReale(a.nome), servizio: valoreReale(a.servizio), email: valoreReale(a.email), telefono: valoreReale(a.telefono), sito: valoreReale(a.sito), preavviso: valoreReale(a.preavviso) }))
       .filter((a) => a.nome || a.email || a.telefono || a.sito);
@@ -7153,8 +7171,9 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         <div style={{ fontSize: 12.5, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
         {limiti && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {limiti}</div>}
         {motivo && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Motivo: {motivo}</div>}
+        {!vicina && z.areaTattica && <div style={{ fontSize: 11.5, color: "#ffd9a0", marginTop: 3 }}>🪖 Area tattica per l'attività militare a bassissima quota. D-Flight la mostra sulla mappa ma non la mette nel file zone: l'ha aggiunta EyeDrones da {FONTE_AREE_AIP}.</div>}
         {!vicina && notam && valoreReale(z.messaggio) && <NotamInItaliano testo={z.messaggio} />}
-        {!vicina && !notam && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{messaggioBreve(z.messaggio)}</div>}
+        {!vicina && !notam && !z.areaTattica && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{messaggioBreve(z.messaggio)}</div>}
         {!vicina && zonaR && <div style={{ fontSize: 11.5, color: "#ffd9a0", marginTop: 3 }}>⏰ Zona LI-R: vale <strong>solo quando è attiva</strong>. Gli orari sono nell'AIP Italia (ENR 5.1.2): su D-Flight tocca la zona → «Regole dell'aria». Può essere attivata anche con un NOTAM.</div>}
         {!vicina && valoreReale(z.condizioni) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
         {z.fuoriPeriodo && <div style={{ fontSize: 11.5, color: "#ffb877", marginTop: 3 }}>⚠ Secondo il file questa zona non vale il giorno del volo, ma le date del file potrebbero essere solo vecchie: per sicurezza la considero attiva. Aggiorna il file e controlla su D-Flight.</div>}
@@ -7185,8 +7204,8 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 13, fontWeight: 700 }}>🛡️ Zona di volo<EtichettaPro /></span>
         {archivio && (
-          <label style={{ fontSize: 11, color: giorniFile > 28 ? "#f5b942" : "#8b95a3", cursor: "pointer" }}>
-            {ripreso ? "☁️ Ripreso dal tuo account · " : ""}File zone del {formatData(String(archivio.caricato || "").slice(0, 10))}{giorniFile > 28 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
+          <label style={{ fontSize: 11, color: giorniFile > 14 ? "#f5b942" : "#8b95a3", cursor: "pointer" }}>
+            {ripreso ? "☁️ Ripreso dal tuo account · " : ""}File zone del {formatData(String(archivio.caricato || "").slice(0, 10))}{giorniFile > 14 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
             <input type="file" onChange={caricaFile} style={{ display: "none" }} />
           </label>
         )}
@@ -7262,8 +7281,9 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
 
           {esito && esito.dentro.length === 0 && (
             <div style={{ borderLeft: "3px solid #4ade80", background: "#4ade8012", borderRadius: 4, padding: "8px 10px", marginTop: 8, fontSize: 12.5 }}>
-              <div style={{ fontWeight: 700, color: "#4ade80" }}>✓ Nessuna zona geografica UAS su questo punto</div>
+              <div style={{ fontWeight: 700, color: "#4ade80" }}>✓ Nel file D-Flight qui non risulta nessuna zona</div>
               <div style={{ color: "#c3cad4", marginTop: 2, fontSize: 12 }}>Valgono le regole generali della categoria Open: massimo 120 m dal suolo, drone sempre in vista, niente voli sopra assembramenti di persone.</div>
+              <div style={{ color: "#ffd9a0", marginTop: 4, fontSize: 11.5 }}>Prima di volare guarda anche la mappa di D-Flight: alcuni strati (per esempio parchi e siti Natura 2000) non sono nel file. Se lì vedi un limite, vale quello.</div>
             </div>
           )}
           {esito && esito.dentro.length > 0 && (() => {
@@ -11793,14 +11813,21 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
     if (!form.nome.trim()) return;
     if (!editingId && limiteRaggiunto) { setMostraLimite(true); setShowForm(false); return; }
     setSalvando(true);
+    // numeri interi: «20.254» o «20 254» scritti con il separatore delle migliaia diventano 20254
+    const intero = (v) => {
+      let t = String(v ?? "").trim().replace(/\s/g, "");
+      if (/^\d{1,3}([.']\d{3})+$/.test(t)) t = t.replace(/[.']/g, "");
+      const n = Number(t.replace(",", "."));
+      return t && Number.isFinite(n) ? Math.round(n) : null;
+    };
     const payload = {
       nome: form.nome.trim(),
       tipo: form.tipo,
-      celle: form.tipo !== "intelligent" && form.celle ? Number(form.celle) : null,
-      capacita_mah: form.capacita ? Number(form.capacita) : null,
+      celle: form.tipo !== "intelligent" && form.celle ? intero(form.celle) : null,
+      capacita_mah: form.capacita ? intero(form.capacita) : null,
       drone_id: form.drone_id || null,
-      soglia_cicli: Number(form.soglia) > 0 ? Number(form.soglia) : 150,
-      cicli: Math.max(0, Number(form.cicli) || 0),
+      soglia_cicli: intero(form.soglia) > 0 ? intero(form.soglia) : 150,
+      cicli: Math.max(0, intero(form.cicli) || 0),
       note: form.note.trim() || null,
     };
     const { error } = editingId
@@ -12561,6 +12588,168 @@ async function apriFascicoloVolo(volo, { drone, batterie, media, eventi, azienda
     if (finestra) finestra.close();
     alert("Non sono riuscito a creare il fascicolo: " + (err?.message || err));
   }
+}
+
+// report di consegna per il cliente di un rilievo fotogrammetrico: dati precompilati dal volo, salvati in voli.dettagli.consegna
+function ReportConsegnaRilievo({ volo, drone, azienda, piano, passQuestoMese, onVaiAbbonamento, onAggiornato }) {
+  const pro = sbloccatoPro(piano, volo);
+  const [aperto, setAperto] = useState(false);
+  const det = volo.dettagli || {};
+  const [d, setD] = useState(() => {
+    const cam = drone ? trovaCamera(cameraDelDrone(drone.modello, drone.nome)) : null;
+    return {
+      cliente: volo.cliente || "", oggetto: "", area_ha: det.area_ha || "", camera: cam ? `${cam.drone.nome.replace(/^DJI /, "")} · ${cam.camera.nome}` : "",
+      altezza: volo.altezza_max ? String(volo.altezza_max) : "", segue_terreno: false, gsd: det.gsd || "", frontale: "80", laterale: "70", foto: det.foto || "", voli: "", condizioni: "",
+      sistema: SISTEMI_RIFERIMENTO[0], quote: "Ortometriche (s.l.m.)", metodo: "GCP misurati con GNSS RTK", gcp: det.gcp || "", verifica: "", precisione: det.precisione || "", rmse_xy: "", rmse_z: "",
+      software: "", files: [], altri_file: det.consegna || "", link: "", scadenza_link: "", note: "", pilota: azienda?.nome || "", attestato: "", poligono: null,
+      ...(det.consegna_report || {}),
+    };
+  });
+  const [immagini, setImmagini] = useState([]);
+  const [stato, setStato] = useState("");
+  const cambia = (k, v) => setD((x) => ({ ...x, [k]: v }));
+  const campo = (k, etichetta, opz = {}) => (
+    <label style={{ fontSize: 11, color: "#6b7480", display: "flex", flexDirection: "column", gap: 3, flex: opz.largo ? "1 1 100%" : "1 1 150px" }}>
+      {etichetta}
+      {opz.righe
+        ? <textarea value={d[k]} onChange={(e) => cambia(k, e.target.value)} rows={opz.righe} placeholder={opz.placeholder} style={{ ...inputStyle, padding: "6px 8px", resize: "vertical" }} />
+        : opz.scelte
+          ? <select value={d[k]} onChange={(e) => cambia(k, e.target.value)} style={{ ...inputStyle, padding: "6px 8px" }}>{opz.scelte.map((x) => <option key={x}>{x}</option>)}</select>
+          : <input type={opz.tipo || "text"} inputMode={opz.numero ? "decimal" : undefined} value={d[k]} placeholder={opz.placeholder} onChange={(e) => cambia(k, e.target.value)} style={{ ...inputStyle, padding: "6px 8px" }} />}
+    </label>
+  );
+  const caricaArea = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const m = await leggiMissioneDji(file);
+      setD((x) => ({ ...x, poligono: m.punti, area_ha: x.area_ha || String(Math.round(misuraArea(m.punti).m2 / 100) / 100) }));
+      setStato(`✓ Area caricata da ${file.name}`);
+    } catch (err) { setStato(err?.message || String(err)); }
+  };
+  const aggiungiImmagine = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1800 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      setImmagini((l) => [...l, { dataUrl: c.toDataURL("image/jpeg", 0.85), didascalia: file.name.replace(/\.[^.]+$/, ""), rapporto: c.height / c.width }].slice(0, 3));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); setStato("Immagine non leggibile: usa un JPG o PNG (per l'ortofoto, esportane un'anteprima)."); };
+    img.src = url;
+  };
+  const genera = async () => {
+    const finestra = window.open("", "_blank");
+    setStato("Preparo il PDF…");
+    try {
+      // l'area: quella caricata, altrimenti quella disegnata nel piano STS di quel giorno
+      let area = d.poligono;
+      if (!area) {
+        const { data: piani } = await supabase.from("piani_volo").select("impianto_nome, checklist_stato").eq("data_prevista", volo.data);
+        const p = (piani || []).find((x) => stessoLuogo(x.impianto_nome, volo.luogo)) || ((piani || []).length === 1 ? piani[0] : null);
+        area = p?.checklist_stato?.sts?.poligono || null;
+      }
+      const doc = await pdfConsegnaRilievo({ volo, d, azienda, drone, area, immagini });
+      const url = doc.output("bloburl");
+      if (finestra) finestra.location.href = url; else window.open(url, "_blank");
+      // salvo i dati (non le immagini) nel volo, così la prossima volta il modulo è già compilato
+      const dettagli = { ...(volo.dettagli || {}), consegna_report: d };
+      const { error } = await supabase.from("voli").update({ dettagli }).eq("id", volo.id);
+      if (!error && onAggiornato) onAggiornato({ ...volo, dettagli });
+      setStato(error ? "PDF pronto (i dati non sono stati salvati nel volo)." : "✓ PDF pronto. I dati restano salvati nel volo.");
+    } catch (err) {
+      if (finestra) finestra.close();
+      setStato("Non sono riuscito a creare il PDF: " + (err?.message || err));
+    }
+  };
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #262b33" }}>
+      <button type="button" onClick={() => setAperto(!aperto)} style={{ background: "#1f2530", border: "1px solid #ffb02088", color: "#ffd07a", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 }}>
+        📦 Report di consegna per il cliente {aperto ? "▾" : "▸"}
+      </button> <EtichettaPro />
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>Relazione in PDF con il tuo logo: area sulla mappa, acquisizione, precisione, file consegnati e firma.</p>
+      {aperto && !pro && <InvitoPro volo={volo} cosa="Il report di consegna" passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />}
+      {aperto && pro && (
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {campo("cliente", "Cliente")}
+            {campo("area_ha", "Area rilevata (ha)", { numero: true })}
+            {campo("oggetto", "Oggetto del lavoro (facoltativo)", { largo: true, righe: 2, placeholder: "es. Rilievo dell'area di cava per il calcolo dei volumi" })}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <label style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>
+              🗺️ {d.poligono ? "Cambia l'area" : "Carica l'area (KMZ/KML della missione)"}
+              <input type="file" accept=".kmz,.kml,.wpml" onChange={caricaArea} style={{ display: "none" }} />
+            </label>
+            <span style={{ fontSize: 11, color: "#8b95a3" }}>{d.poligono ? `${d.poligono.length} punti` : "Se non la carichi, uso l'area disegnata nel piano STS di quel giorno (se c'è)."}</span>
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#c3cad4" }}>Acquisizione</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {campo("camera", "Drone e camera")}
+            {campo("altezza", "Altezza di volo (m)", { numero: true })}
+            {campo("gsd", "GSD (cm/px)", { numero: true })}
+            {campo("frontale", "Sovrapp. frontale (%)", { numero: true })}
+            {campo("laterale", "Sovrapp. laterale (%)", { numero: true })}
+            {campo("foto", "Foto acquisite", { numero: true })}
+            {campo("voli", "Voli / batterie", { placeholder: "es. 3 voli" })}
+            {campo("condizioni", "Condizioni", { placeholder: "es. sereno, vento debole" })}
+          </div>
+          <label style={{ fontSize: 12, color: "#c3cad4", display: "flex", gap: 6, alignItems: "center" }}><input type="checkbox" checked={!!d.segue_terreno} onChange={(e) => cambia("segue_terreno", e.target.checked)} /> Volo che segue il terreno (altezza costante dal suolo)</label>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#c3cad4" }}>Georeferenziazione e precisione</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {campo("sistema", "Sistema di riferimento", { scelte: [...new Set([d.sistema, ...SISTEMI_RIFERIMENTO])] })}
+            {campo("quote", "Quote", { scelte: [...new Set([d.quote, "Ortometriche (s.l.m.)", "Ellissoidiche"])] })}
+            {campo("metodo", "Metodo", { scelte: [...new Set([d.metodo, "GCP misurati con GNSS RTK", "Drone RTK/PPK con punti di verifica", "Drone RTK/PPK senza punti a terra", "Senza georeferenziazione precisa"])] })}
+            {campo("gcp", "Punti di controllo (GCP)", { numero: true })}
+            {campo("verifica", "Punti di verifica", { numero: true })}
+            {campo("precisione", "Precisione (cm)", { numero: true })}
+            {campo("rmse_xy", "RMSE planimetrico (cm)", { numero: true })}
+            {campo("rmse_z", "RMSE in quota (cm)", { numero: true })}
+            {campo("software", "Software di elaborazione", { placeholder: "es. DJI Terra, Pix4D, Metashape" })}
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#c3cad4" }}>File consegnati</div>
+          <div style={{ display: "flex", gap: "4px 14px", flexWrap: "wrap" }}>
+            {FILE_RILIEVO.map((f) => (
+              <label key={f} style={{ fontSize: 12, color: "#c3cad4", display: "flex", gap: 6, alignItems: "center" }}>
+                <input type="checkbox" checked={d.files.includes(f)} onChange={(e) => cambia("files", e.target.checked ? [...d.files, f] : d.files.filter((x) => x !== f))} /> {f}
+              </label>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {campo("altri_file", "Altri file (uno per riga)", { righe: 2, largo: true })}
+            {campo("link", "Link per scaricarli", { placeholder: "https://…" })}
+            {campo("scadenza_link", "Disponibili fino al", { tipo: "date" })}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <label style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>
+              🖼️ Aggiungi un'anteprima (ortofoto, modello…)
+              <input type="file" accept="image/*" onChange={aggiungiImmagine} style={{ display: "none" }} />
+            </label>
+            {immagini.map((im, i) => (
+              <span key={i} style={{ fontSize: 11, color: "#c3cad4" }}>{im.didascalia} <button type="button" onClick={() => setImmagini(immagini.filter((_, k) => k !== i))} style={{ background: "none", border: "none", color: "#ff9c9c", fontSize: 11 }}>✕</button></span>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {campo("note", "Note e limiti (se vuoto metto un testo standard)", { righe: 3, largo: true })}
+            {campo("pilota", "Firma: nome del pilota o dell'operatore")}
+            {campo("attestato", "Attestato / n. operatore", { placeholder: "es. Operatore ITA-xxxx · A2" })}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button type="button" onClick={genera} style={{ background: "#ffb020", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>📄 Crea il PDF</button>
+            {stato && <span style={{ fontSize: 11.5, color: "#8b95a3" }}>{stato}</span>}
+          </div>
+          <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>Le anteprime vanno solo nel PDF, non vengono salvate.</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function FascicoloVolo({ volo, drone, batterie, media, eventi, azienda, piano, passQuestoMese, onVaiAbbonamento }) {
@@ -13463,6 +13652,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         <div id={`volo-${v.id}-condividi`} style={{ scrollMarginTop: 80 }}><CondivisioneVolo volo={v} nMedia={mediaVolo.length} media={mediaVolo} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
                         <div id={`volo-${v.id}-liberatorie`} style={{ scrollMarginTop: 80 }}><LiberatorieVolo volo={v} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
                         <EventiVolo volo={v} azienda={azienda} droni={droni} batterie={batterie} onCambiato={onEventiCambiati} />
+                        {v.tipo_attivita === "rilievo" && <ReportConsegnaRilievo volo={v} drone={(droni || []).find((d) => d.id === v.drone_id) || null} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} onAggiornato={(nuovo) => setVoli((vs) => vs.map((x) => (x.id === nuovo.id ? { ...x, ...nuovo } : x)))} />}
                         <div id={`volo-${v.id}-fascicolo`} style={{ scrollMarginTop: 80 }}><FascicoloVolo volo={v} drone={(droni || []).find((d) => d.id === v.drone_id) || null} batterie={batterie} media={mediaVolo} eventi={(eventiVolo || []).filter((e) => e.volo_id === String(v.id))} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
 
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
