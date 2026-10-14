@@ -2381,8 +2381,13 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 }
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10l";
+const VERSIONE_NOVITA = "2026-10m";
 const NOVITA = [
+  { emoji: "🌳", testo: "Zona di volo: ora ti dice anche se sei in un parco, in una riserva o in un sito Natura 2000 (D-Flight non li mette nel file zone)", pagina: "pianificazione" },
+  { emoji: "🪖", testo: "Zona di volo: aggiunte le aree militari a bassa quota (massimo 45 m quando sono attive), con il giorno e l'ora del tuo volo", pagina: "pianificazione" },
+  { emoji: "✏️", testo: "STS-01: disegni l'area di volo con il dito o la importi da DJI Pilot 2, e controlla le zone su tutta l'area", pagina: "pianificazione" },
+  { emoji: "📦", testo: "Report di consegna per fotogrammetria e agricoltura: il PDF da dare al cliente con mappa, file e dati del lavoro", pagina: "registro-voli" },
+  { emoji: "📐", testo: "Calcolatore del rilievo: scegli drone e camera (anche zoom e termica del Mavic 3T) e ti dà altezza, GSD e sovrapposizioni", pagina: "pianificazione" },
   { emoji: "📲", testo: "Scorciatoie: tieni premuta l'icona di EyeDrones sul telefono e scegli «Sono sul posto» (meteo, vento e zona dove sei) o «Prossimi voli». Su Android, con l'app installata", pagina: "dashboard" },
   { emoji: "🧭", testo: "Assistente permessi: dici dove voli e ti dice se puoi chiedere, a chi, quanti giorni prima e quanto costa. Compila da solo il Modello ATM-09A di ENAC e la richiesta di nulla osta", pagina: "permessi" },
   { emoji: "▶️", testo: "Modalità riprese: sul posto una scena alla volta, a tutto schermo, con la foto grande e il promemoria della scheda SD", pagina: "dashboard" },
@@ -2426,7 +2431,7 @@ function RiquadroNovita({ onVai }) {
 
 const FUNZIONI_PRESENTAZIONE = [
   { emoji: "🌅", titolo: "Pianificazione e ora d'oro", testo: "Meteo ora per ora con le ore migliori, vento rispetto al tuo drone, indice Kp, alba, tramonto, ora d'oro, direzione del sole e filtri ND." },
-  { emoji: "🛡️", titolo: "Zona di volo e regole", testo: "Scrivi la via: con il file ufficiale D-Flight vedi se la zona è libera, fino a che altezza e chi contattare, più le regole della classe del tuo drone." },
+  { emoji: "🛡️", titolo: "Zona di volo e regole", testo: "Scrivi la via: con il file ufficiale D-Flight vedi se la zona è libera, fino a che altezza e chi contattare, più le regole della classe del tuo drone. In più quello che nel file non c'è: aree militari a bassa quota, parchi, riserve e siti Natura 2000." },
   { emoji: "✈️", titolo: "Il prossimo volo in primo piano", testo: "Il giorno del volo lo trovi in apertura: meteo dell'ora prevista, zona, avviso batterie col freddo, le riprese da fare con gli stick e il promemoria nel calendario." },
   { emoji: "🎓", titolo: "Lezioni e quiz A1/A3 e A2", testo: "Le regole spiegate semplici, quiz con la spiegazione di ogni risposta e la simulazione d'esame con tempo e punteggio come all'ENAC. Più la guida per volare in zona rossa." },
   { emoji: "📍", titolo: "Posti belli vicino a te", testo: "Scrivi dove sei o usa la posizione: punti panoramici, castelli, laghi e i posti consigliati dagli altri piloti, con la zona di volo già controllata." },
@@ -2434,12 +2439,13 @@ const FUNZIONI_PRESENTAZIONE = [
   { emoji: "📒", titolo: "Registro voli", testo: "Data, luogo, drone, batterie, durata, foto e video. Importa i voli dai file .SRT dei DJI, ritrovali su mappa o cercando la data." },
   { emoji: "🚔", titolo: "Pronto per i controlli", testo: "Attestati, assicurazione, drone, permessi e zona a schermo pieno con un tocco, anche senza campo: una copia resta sul telefono. Più PDF e avvisi prima delle scadenze." },
   { emoji: "📁", titolo: "Fascicolo del volo", testo: "Se dopo un volo ti chiedono spiegazioni (forze dell'ordine, ENAC, assicurazione o un cliente), in un solo PDF hai tutto: documenti validi quel giorno, piano, zona, checklist, manutenzione, liberatorie." },
-  { emoji: "📐", titolo: "Volumi STS-01", testo: "Contingenza e buffer per il rischio a terra calcolati e disegnati sulla mappa, pronti per il manuale operativo e per il fascicolo." },
+  { emoji: "📐", titolo: "Volumi STS-01", testo: "Disegni l'area con il dito o la importi da DJI Pilot 2: contingenza e buffer calcolati e disegnati sulla mappa, zone controllate su tutta l'area, pronti per il manuale operativo e per il fascicolo." },
   { emoji: "📤", titolo: "Consegna al cliente", testo: "Una galleria con il tuo logo, PIN, filigrana e preferiti: il cliente sceglie le foto e scarica solo quando sblocchi tu." },
   { emoji: "✍️", titolo: "Liberatorie firmate", testo: "Il cliente o la persona ripresa firma col dito sul telefono: PDF con la firma salvato insieme al volo." },
   { emoji: "💶", titolo: "Preventivi con il prezzo giusto", testo: "Pacchetti pronti, fascia di prezzo del mercato e il tuo prezzo minimo calcolato dai costi, poi il PDF da mandare. Rubrica clienti con WhatsApp a un tocco e lavori pagati o da incassare." },
   { emoji: "🔋", titolo: "Batterie e manutenzione", testo: "Cicli e stato di carica delle batterie, registro di eliche, firmware e riparazioni di ogni drone." },
   { emoji: "🔍", titolo: "Ispezioni e report", testo: "Fotovoltaico, edifici, danni: anomalie sulle foto termiche e report PDF professionali per il cliente." },
+  { emoji: "📦", titolo: "Report di consegna", testo: "Per fotogrammetria e agricoltura: un PDF con mappa dell'area, file consegnati, sistema di riferimento e dati del lavoro, pronto da dare al cliente." },
 ];
 
 function Presentazione({ onAccedi, onRegistrati }) {
