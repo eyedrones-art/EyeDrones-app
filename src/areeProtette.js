@@ -3,7 +3,7 @@
 // in riquadri di 1° x 1° in /aree-protette/<lat>_<lon>.json: l'app scarica solo il riquadro che serve.
 // Non sono zone vietate: dentro un'area protetta ci possono essere limiti al volo decisi dall'ente.
 
-export const FONTE_AREE_PROTETTE = "Agenzia europea dell'ambiente (EEA), Natura 2000 fine 2024, licenza CC BY 4.0";
+export const FONTE_AREE_PROTETTE = "Agenzia europea dell'ambiente (EEA): Natura 2000 fine 2024 e aree protette nazionali luglio 2026, licenza CC BY 4.0";
 
 // tipo del sito Natura 2000: A = ZPS (uccelli), B = SIC/ZSC (habitat), C = tutte e due
 export const TIPI_NATURA = { A: "ZPS", B: "ZSC/SIC", C: "ZSC/SIC e ZPS" };

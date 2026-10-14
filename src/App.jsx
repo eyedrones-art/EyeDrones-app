@@ -7023,7 +7023,7 @@ function AreeProtetteDelPunto({ protette }) {
   const scheda = (a) => (
     <div key={a.codice} style={{ fontSize: 12.5, color: "#e7eaee", marginTop: 3 }}>
       {a.nome}
-      <span style={{ color: "#8b95a3", fontSize: 11.5 }}> · {a.parco ? a.tipo : `Natura 2000 ${a.tipo} · ${a.codice}`}{a.distanza != null ? ` · a ${a.distanza} m` : ""}</span>
+      <span style={{ color: "#8b95a3", fontSize: 11.5 }}> · {a.parco ? (a.nome.toLowerCase().startsWith(a.tipo.toLowerCase()) ? "area protetta" : a.tipo) : `Natura 2000 ${a.tipo} · ${a.codice}`}{a.distanza != null ? ` · a ${a.distanza} m` : ""}</span>
     </div>
   );
   if (!dentro.length && !vicine.length) {
@@ -7035,7 +7035,8 @@ function AreeProtetteDelPunto({ protette }) {
         <>
           <div style={{ fontSize: 12.5, fontWeight: 700, color: "#f5b942" }}>🌳 Sei dentro {dentro.length === 1 ? (dentro[0].parco ? "un'area protetta" : "un sito Natura 2000") : "aree protette"}</div>
           {dentro.map(scheda)}
-          <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 Non è una zona vietata da D-Flight, ma l'ente che gestisce l'area può vietare o limitare il volo dei droni (per esempio nel periodo in cui nidificano gli uccelli) o chiedere un'autorizzazione. Prima di volare controlla il regolamento dell'ente e la mappa di D-Flight.</div>
+          {dentro.some((a) => a.tipo === "Parco nazionale") && <div style={{ fontSize: 11.5, color: "#ffd9a0", marginTop: 4, fontWeight: 600 }}>⚠ Nei parchi nazionali la legge quadro sulle aree protette (L. 394/1991, art. 11) vieta il sorvolo non autorizzato: per volare serve il permesso dell'Ente parco.</div>}
+          <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 Nel file D-Flight non c'è come zona, ma l'ente che gestisce l'area può vietare o limitare il volo dei droni (per esempio nel periodo in cui nidificano gli uccelli) o chiedere un'autorizzazione. Prima di volare controlla il regolamento dell'ente e la mappa di D-Flight.</div>
         </>
       )}
       {vicine.length > 0 && (
