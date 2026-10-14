@@ -11,6 +11,7 @@ import { droneNoto } from "./droniNoti.js";
 import { areeSts, misuraArea, zoneDellArea, leggiMissioneDji } from "./areaSts.js";
 import { pdfConsegnaRilievo, FILE_RILIEVO, SISTEMI_RIFERIMENTO } from "./reportConsegna.js";
 import { ORARIO_AREE_TATTICHE, FONTE_AREE_AIP } from "./areeAip.js";
+import { cercaAreeProtette, FONTE_AREE_PROTETTE } from "./areeProtette.js";
 import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
@@ -7011,6 +7012,44 @@ function FileZoneVeloce() {
   );
 }
 
+// parchi e siti Natura 2000 nel punto del volo: avviso arancione, non è un divieto
+function AreeProtetteDelPunto({ protette }) {
+  if (!protette || protette.carico) return null;
+  const nota = { fontSize: 10.5, color: "#6b7480", marginTop: 4 };
+  if (protette.errore) {
+    return <div style={{ fontSize: 11.5, color: "#ffd9a0", marginTop: 8 }}>🌳 Non sono riuscito a controllare parchi e siti Natura 2000 (serve la rete). Guardali sulla mappa di D-Flight.</div>;
+  }
+  const { dentro, vicine } = protette;
+  const scheda = (a) => (
+    <div key={a.codice} style={{ fontSize: 12.5, color: "#e7eaee", marginTop: 3 }}>
+      {a.nome}
+      <span style={{ color: "#8b95a3", fontSize: 11.5 }}> · {a.parco ? a.tipo : `Natura 2000 ${a.tipo} · ${a.codice}`}{a.distanza != null ? ` · a ${a.distanza} m` : ""}</span>
+    </div>
+  );
+  if (!dentro.length && !vicine.length) {
+    return <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 8 }}>🌳 Nessun parco o sito Natura 2000 in questo punto.</div>;
+  }
+  return (
+    <div style={{ borderLeft: "3px solid #f5b942", background: "#f5b94212", borderRadius: 4, padding: "8px 10px", marginTop: 8 }}>
+      {dentro.length > 0 && (
+        <>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#f5b942" }}>🌳 Sei dentro {dentro.length === 1 ? (dentro[0].parco ? "un'area protetta" : "un sito Natura 2000") : "aree protette"}</div>
+          {dentro.map(scheda)}
+          <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 Non è una zona vietata da D-Flight, ma l'ente che gestisce l'area può vietare o limitare il volo dei droni (per esempio nel periodo in cui nidificano gli uccelli) o chiedere un'autorizzazione. Prima di volare controlla il regolamento dell'ente e la mappa di D-Flight.</div>
+        </>
+      )}
+      {vicine.length > 0 && (
+        <>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#f5b942", marginTop: dentro.length ? 8 : 0 }}>{dentro.length ? "Vicino (entro 300 m)" : "🌳 Vicino c'è un'area protetta (entro 300 m)"}</div>
+          {vicine.slice(0, 4).map(scheda)}
+          {!dentro.length && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 Se l'area di volo ci entra, valgono le regole dell'ente che la gestisce.</div>}
+        </>
+      )}
+      <div style={nota}>Confini semplificati: vicino al bordo controlla su D-Flight. Fonte: {FONTE_AREE_PROTETTE}.</div>
+    </div>
+  );
+}
+
 function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, onPuntoCercato, dataPrevista, oraPrevista, piano, onEsito, onStato }) {
   const [archivio, setArchivio] = useState(undefined); // undefined = sto leggendo, null = nessun file
   const [leggendoFile, setLeggendoFile] = useState(false);
@@ -7106,6 +7145,19 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [zone, latP, lonP, dataPrevista, oraPrevista]
   );
+
+  // parchi e siti Natura 2000 (non sono nel file D-Flight): scarico il riquadro del punto
+  const [protette, setProtette] = useState(null);
+  const proZona = sbloccatoPro(piano);
+  useEffect(() => {
+    if (!proZona || latP == null) { setProtette(null); return undefined; }
+    let annullato = false;
+    setProtette({ carico: true });
+    cercaAreeProtette({ lat: latP, lon: lonP }, { raggio: 300 })
+      .then((r) => { if (!annullato) setProtette(r); })
+      .catch(() => { if (!annullato) setProtette({ errore: true }); });
+    return () => { annullato = true; };
+  }, [proZona, latP, lonP]);
 
   // al riquadro delle regole dico se la zona è stata davvero controllata (se no, niente «120 m» che sembra un via libera)
   const pro = sbloccatoPro(piano);
@@ -7283,7 +7335,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
             <div style={{ borderLeft: "3px solid #4ade80", background: "#4ade8012", borderRadius: 4, padding: "8px 10px", marginTop: 8, fontSize: 12.5 }}>
               <div style={{ fontWeight: 700, color: "#4ade80" }}>✓ Nel file D-Flight qui non risulta nessuna zona</div>
               <div style={{ color: "#c3cad4", marginTop: 2, fontSize: 12 }}>Valgono le regole generali della categoria Open: massimo 120 m dal suolo, drone sempre in vista, niente voli sopra assembramenti di persone.</div>
-              <div style={{ color: "#ffd9a0", marginTop: 4, fontSize: 11.5 }}>Prima di volare guarda anche la mappa di D-Flight: alcuni strati (per esempio parchi e siti Natura 2000) non sono nel file. Se lì vedi un limite, vale quello.</div>
+              <div style={{ color: "#ffd9a0", marginTop: 4, fontSize: 11.5 }}>Parchi e siti Natura 2000 non sono nel file: li controllo qui sotto. Guarda comunque anche la mappa di D-Flight: se lì vedi un limite, vale quello.</div>
             </div>
           )}
           {esito && esito.dentro.length > 0 && (() => {
@@ -7311,6 +7363,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
               ✓ <strong style={{ color: "#4ade80" }}>{z.nome}</strong>: qui c'è un NOTAM ({(z.validita || []).map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}), ma il giorno del volo non è attivo.
             </div>
           ))}
+          {esito && <AreeProtetteDelPunto protette={protette} />}
           {esito && esito.vicine.length > 0 && (
             <>
               <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "10px 0 0 0" }}>Zone vicine (entro 500 m): attento a non sconfinare.</p>
