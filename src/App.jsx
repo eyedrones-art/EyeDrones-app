@@ -10,6 +10,7 @@ import { VentoInQuota, PrevisioneCielo, inMs, numVento, ventoInMsScelto, scegliU
 import { droneNoto } from "./droniNoti.js";
 import { areeSts, misuraArea, zoneDellArea, leggiMissioneDji } from "./areaSts.js";
 import { pdfConsegnaRilievo, FILE_RILIEVO, SISTEMI_RIFERIMENTO } from "./reportConsegna.js";
+import { ORARIO_AREE_TATTICHE, FONTE_AREE_AIP } from "./areeAip.js";
 import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
@@ -6999,7 +7000,7 @@ function FileZoneVeloce() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: archivio ? "#1b2028" : "#3a2a12", border: `1px solid ${archivio ? "#2b313d" : "#f5b94266"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, maxWidth: 620, fontSize: 12.5, color: archivio ? "#c3cad4" : "#ffd9a0" }}>
       <span style={{ flex: "1 1 220px" }}>
-        🛡️ <strong>File zone di D-Flight</strong>: {archivio ? <>caricato il {formatData(String(archivio.caricato || "").slice(0, 10))} ({archivio.zone.length} zone){giorni > 28 ? <span style={{ color: "#f5b942" }}> · ⚠ aggiornalo</span> : " ✓"}</> : "non ancora caricato. Serve per sapere se nel posto puoi volare."}
+        🛡️ <strong>File zone di D-Flight</strong>: {archivio ? <>caricato il {formatData(String(archivio.caricato || "").slice(0, 10))} ({archivio.zone.length} zone){giorni > 14 ? <span style={{ color: "#f5b942" }}> · ⚠ aggiornalo</span> : " ✓"}</> : "non ancora caricato. Serve per sapere se nel posto puoi volare."}
         {errore && <span style={{ display: "block", color: "#ff9c9c", marginTop: 4 }}>{errore}</span>}
       </span>
       <label style={{ display: "inline-block", background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
@@ -7146,11 +7147,17 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     const scritta = z.restrizione === "NO_RESTRICTION" ? null : altezzaDaTesto(z);
     const sopra = z.restrizione === "PROHIBITED" ? "vietato" : z.restrizione === "REQ_AUTHORISATION" ? "serve autorizzazione" : "con le condizioni della zona";
     // la zona comincia sopra il suolo: fino a quell'altezza si vola con le regole normali
-    const d = parte > 0
+    const d0 = parte > 0
       ? { ...base, colore: "#f5b942", etichetta: `Libero fino a ${parte} m · sopra ${sopra}`, consiglio: `Fino a ${parte} m dal suolo puoi volare senza autorizzazione, con le regole della tua categoria. Per salire oltre i ${parte} m ${z.restrizione === "PROHIBITED" ? "non si può" : z.restrizione === "REQ_AUTHORISATION" ? "chiedi l'autorizzazione all'ente indicato (spesso tramite D-Flight)" : "rispetta le condizioni scritte qui sotto o chiedi all'ente indicato"}.` }
       : scritta != null && z.restrizione !== "PROHIBITED"
         ? { ...base, colore: "#f5b942", etichetta: `Massimo ${scritta} m · ${base.etichetta.toLowerCase()}`, consiglio: `Secondo il messaggio della zona qui si vola al massimo a ${scritta} m dal suolo. ${base.consiglio}` }
         : base;
+    // aree tattiche militari (dall'AIP, non sono nel file D-Flight): dico se all'ora del volo sono attive
+    const d = z.areaTattica
+      ? z.nonAttiva
+        ? { ...d0, colore: "#4ade80", etichetta: "Area militare non attiva all'ora del volo", consiglio: `Quest'area vale ${ORARIO_AREE_TATTICHE}: nel giorno e nell'ora che hai scelto non è attiva, quindi valgono le regole normali. Se cambi giorno o ora, ricontrolla. Guarda comunque i NOTAM.` }
+        : { ...d0, consiglio: `Quando è attiva (${ORARIO_AREE_TATTICHE}) qui si vola al massimo a 45 m dal suolo, per la presenza di aerei ed elicotteri militari a bassissima quota. ${z.oraNota ? "Nel giorno e nell'ora del tuo volo risulta attiva." : "Scegli giorno e ora del volo e ti dico se è attiva: per ora la considero attiva."}` }
+      : d0;
     const limiti = formattaLimiti(z.limiti);
     const autorita = (z.autorita || []).map((a) => ({ ...a, nome: valoreReale(a.nome), servizio: valoreReale(a.servizio), email: valoreReale(a.email), telefono: valoreReale(a.telefono), sito: valoreReale(a.sito), preavviso: valoreReale(a.preavviso) }))
       .filter((a) => a.nome || a.email || a.telefono || a.sito);
@@ -7164,8 +7171,9 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         <div style={{ fontSize: 12.5, color: "#e7eaee", marginTop: 2 }}>{z.nome}</div>
         {limiti && <div style={{ fontSize: 12, color: "#c3cad4", marginTop: 2 }}>↕️ Zona {limiti}</div>}
         {motivo && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>Motivo: {motivo}</div>}
+        {!vicina && z.areaTattica && <div style={{ fontSize: 11.5, color: "#ffd9a0", marginTop: 3 }}>🪖 Area tattica per l'attività militare a bassissima quota. D-Flight la mostra sulla mappa ma non la mette nel file zone: l'ha aggiunta EyeDrones da {FONTE_AREE_AIP}.</div>}
         {!vicina && notam && valoreReale(z.messaggio) && <NotamInItaliano testo={z.messaggio} />}
-        {!vicina && !notam && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{messaggioBreve(z.messaggio)}</div>}
+        {!vicina && !notam && !z.areaTattica && valoreReale(z.messaggio) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 4, whiteSpace: "pre-wrap" }}>{messaggioBreve(z.messaggio)}</div>}
         {!vicina && zonaR && <div style={{ fontSize: 11.5, color: "#ffd9a0", marginTop: 3 }}>⏰ Zona LI-R: vale <strong>solo quando è attiva</strong>. Gli orari sono nell'AIP Italia (ENR 5.1.2): su D-Flight tocca la zona → «Regole dell'aria». Può essere attivata anche con un NOTAM.</div>}
         {!vicina && valoreReale(z.condizioni) && <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 2 }}>Condizioni: {z.condizioni}</div>}
         {z.fuoriPeriodo && <div style={{ fontSize: 11.5, color: "#ffb877", marginTop: 3 }}>⚠ Secondo il file questa zona non vale il giorno del volo, ma le date del file potrebbero essere solo vecchie: per sicurezza la considero attiva. Aggiorna il file e controlla su D-Flight.</div>}
@@ -7196,8 +7204,8 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 13, fontWeight: 700 }}>🛡️ Zona di volo<EtichettaPro /></span>
         {archivio && (
-          <label style={{ fontSize: 11, color: giorniFile > 28 ? "#f5b942" : "#8b95a3", cursor: "pointer" }}>
-            {ripreso ? "☁️ Ripreso dal tuo account · " : ""}File zone del {formatData(String(archivio.caricato || "").slice(0, 10))}{giorniFile > 28 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
+          <label style={{ fontSize: 11, color: giorniFile > 14 ? "#f5b942" : "#8b95a3", cursor: "pointer" }}>
+            {ripreso ? "☁️ Ripreso dal tuo account · " : ""}File zone del {formatData(String(archivio.caricato || "").slice(0, 10))}{giorniFile > 14 ? " ⚠ aggiornalo" : ""} · <span style={{ color: "#3d8bfd" }}>{leggendoFile ? "lettura…" : "aggiorna"}</span>
             <input type="file" onChange={caricaFile} style={{ display: "none" }} />
           </label>
         )}
@@ -7273,8 +7281,9 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
 
           {esito && esito.dentro.length === 0 && (
             <div style={{ borderLeft: "3px solid #4ade80", background: "#4ade8012", borderRadius: 4, padding: "8px 10px", marginTop: 8, fontSize: 12.5 }}>
-              <div style={{ fontWeight: 700, color: "#4ade80" }}>✓ Nessuna zona geografica UAS su questo punto</div>
+              <div style={{ fontWeight: 700, color: "#4ade80" }}>✓ Nel file D-Flight qui non risulta nessuna zona</div>
               <div style={{ color: "#c3cad4", marginTop: 2, fontSize: 12 }}>Valgono le regole generali della categoria Open: massimo 120 m dal suolo, drone sempre in vista, niente voli sopra assembramenti di persone.</div>
+              <div style={{ color: "#ffd9a0", marginTop: 4, fontSize: 11.5 }}>Prima di volare guarda anche la mappa di D-Flight: alcuni strati (per esempio parchi e siti Natura 2000) non sono nel file. Se lì vedi un limite, vale quello.</div>
             </div>
           )}
           {esito && esito.dentro.length > 0 && (() => {

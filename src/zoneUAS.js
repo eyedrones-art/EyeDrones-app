@@ -1,4 +1,5 @@
 // Zone geografiche UAS dal file ufficiale di D-Flight (standard EUROCAE ED-269, oppure GeoJSON in stile ED-318).
+import { conZoneAip, areaTatticaAttiva } from "./areeAip.js";
 // Il file lo scarica ogni pilota dal proprio profilo D-Flight ("Download UAS Zone Geo"): qui lo semplifico,
 // lo salvo solo su questo dispositivo (IndexedDB) e controllo se un punto cade dentro o vicino a una zona.
 
@@ -184,7 +185,7 @@ export function leggiFileZone(json) {
     const z = zonaDa(f, geometrie);
     if (z) zone.push(z);
   });
-  return zone.map(sistemaZona);
+  return conZoneAip(zone.map(sistemaZona));
 }
 
 // --- controllo di un punto ------------------------------------------------------------------------
@@ -254,9 +255,11 @@ export function controllaPunto(zone, { lat, lon }, { raggio = 500, quando = null
     // solo quelle di validità dei dati (il file è vecchio). La tengo, segnata, e chiedo di controllare
     const { valida, temporanea } = validaIl(z, quando);
     const fuoriPeriodo = !valida;
+    // aree tattiche militari: valgono solo nei giorni e nelle ore di attività (se so quando si vola)
+    const nonAttiva = !!(z.areaTattica && quando && !areaTatticaAttiva(quando));
     const d = distanzaZona(punto, z);
-    if (d === 0) dentro.push({ ...z, temporanea, fuoriPeriodo });
-    else if (d <= raggio) vicine.push({ ...z, temporanea, fuoriPeriodo, distanza: Math.round(d) });
+    if (d === 0) dentro.push({ ...z, temporanea, fuoriPeriodo, nonAttiva, oraNota: !!quando });
+    else if (d <= raggio) vicine.push({ ...z, temporanea, fuoriPeriodo, nonAttiva, distanza: Math.round(d) });
   }
   const peso = (z) => GRAVITA[z.restrizione] ?? 1;
   dentro.sort((a, b) => peso(b) - peso(a));
@@ -362,7 +365,7 @@ export function altezzaDaTesto(z) {
 export function altezzaLibera(dentro) {
   let max = 120;
   for (const z of dentro || []) {
-    if (z.restrizione === "NO_RESTRICTION") continue;
+    if (z.restrizione === "NO_RESTRICTION" || z.nonAttiva) continue;
     const parte = partenzaZona(z);
     if (z.restrizione === "PROHIBITED" || z.restrizione === "REQ_AUTHORISATION") max = Math.min(max, parte);
     else if (parte > 0) max = Math.min(max, parte);
@@ -456,7 +459,8 @@ export function sistemaZona(z) {
   const autorita = (z.autorita || []).filter((a) => vero(a.nome) || vero(a.email) || vero(a.telefono));
   return { ...z, nome, codice, tipoUAS: tipoDa(nomeFile, codice, z.motivo), messaggio, autorita: autorita.length ? z.autorita : entiDalMessaggio(messaggio) };
 }
-export const sistemaArchivio = (d) => (d && Array.isArray(d.zone) && d.zone.some((z) => !z.tipoUAS) ? { ...d, zone: d.zone.map(sistemaZona) } : d);
+// sistema le zone salvate con versioni vecchie e aggiunge (o aggiorna) le zone che D-Flight non mette nel file (aree AIP)
+export const sistemaArchivio = (d) => (d && Array.isArray(d.zone) ? { ...d, zone: conZoneAip(d.zone.some((z) => !z.tipoUAS) ? d.zone.map(sistemaZona) : d.zone) } : d);
 
 // la zona è già finita (un NOTAM scaduto)? Le zone senza date o permanenti non finiscono mai
 export const zonaFinita = (z, ora = Date.now()) => !!(z && z.validita && z.validita.length && z.validita.every((v) => v.a && new Date(v.a).getTime() < ora));
