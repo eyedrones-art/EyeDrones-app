@@ -10,6 +10,8 @@ export function installaSegnalazioneErrori(supabase) {
   const segnala = (errore, extra = "") => {
     try {
       const messaggio = pulisci(errore?.message || errore, 500);
+      // durante la ricarica dopo un aggiornamento i pezzi vecchi falliscono di sicuro: non è un errore vero
+      if (window.__eyedronesInRicarica) return;
       if (!messaggio || DA_IGNORARE.test(messaggio) || visti.has(messaggio) || inviati >= 10) return;
       visti.add(messaggio); inviati += 1;
       let pagina = "";

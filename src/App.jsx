@@ -11804,14 +11804,21 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
     if (!form.nome.trim()) return;
     if (!editingId && limiteRaggiunto) { setMostraLimite(true); setShowForm(false); return; }
     setSalvando(true);
+    // numeri interi: «20.254» o «20 254» scritti con il separatore delle migliaia diventano 20254
+    const intero = (v) => {
+      let t = String(v ?? "").trim().replace(/\s/g, "");
+      if (/^\d{1,3}([.']\d{3})+$/.test(t)) t = t.replace(/[.']/g, "");
+      const n = Number(t.replace(",", "."));
+      return t && Number.isFinite(n) ? Math.round(n) : null;
+    };
     const payload = {
       nome: form.nome.trim(),
       tipo: form.tipo,
-      celle: form.tipo !== "intelligent" && form.celle ? Number(form.celle) : null,
-      capacita_mah: form.capacita ? Number(form.capacita) : null,
+      celle: form.tipo !== "intelligent" && form.celle ? intero(form.celle) : null,
+      capacita_mah: form.capacita ? intero(form.capacita) : null,
       drone_id: form.drone_id || null,
-      soglia_cicli: Number(form.soglia) > 0 ? Number(form.soglia) : 150,
-      cicli: Math.max(0, Number(form.cicli) || 0),
+      soglia_cicli: intero(form.soglia) > 0 ? intero(form.soglia) : 150,
+      cicli: Math.max(0, intero(form.cicli) || 0),
       note: form.note.trim() || null,
     };
     const { error } = editingId
