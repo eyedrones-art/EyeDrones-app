@@ -11,6 +11,7 @@ import { droneNoto } from "./droniNoti.js";
 import { areeSts, misuraArea, zoneDellArea, leggiMissioneDji } from "./areaSts.js";
 import { pdfConsegnaRilievo, FILE_RILIEVO, SISTEMI_RIFERIMENTO } from "./reportConsegna.js";
 import { ORARIO_AREE_TATTICHE, FONTE_AREE_AIP } from "./areeAip.js";
+import { cercaAreeProtette, FONTE_AREE_PROTETTE } from "./areeProtette.js";
 import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
@@ -2380,8 +2381,13 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
 }
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10l";
+const VERSIONE_NOVITA = "2026-10m";
 const NOVITA = [
+  { emoji: "🌳", testo: "Zona di volo: ora ti dice anche se sei in un parco, in una riserva o in un sito Natura 2000 (D-Flight non li mette nel file zone)", pagina: "pianificazione" },
+  { emoji: "🪖", testo: "Zona di volo: aggiunte le aree militari a bassa quota (massimo 45 m quando sono attive), con il giorno e l'ora del tuo volo", pagina: "pianificazione" },
+  { emoji: "✏️", testo: "STS-01: disegni l'area di volo con il dito o la importi da DJI Pilot 2, e controlla le zone su tutta l'area", pagina: "pianificazione" },
+  { emoji: "📦", testo: "Report di consegna per fotogrammetria e agricoltura: il PDF da dare al cliente con mappa, file e dati del lavoro", pagina: "registro-voli" },
+  { emoji: "📐", testo: "Calcolatore del rilievo: scegli drone e camera (anche zoom e termica del Mavic 3T) e ti dà altezza, GSD e sovrapposizioni", pagina: "pianificazione" },
   { emoji: "📲", testo: "Scorciatoie: tieni premuta l'icona di EyeDrones sul telefono e scegli «Sono sul posto» (meteo, vento e zona dove sei) o «Prossimi voli». Su Android, con l'app installata", pagina: "dashboard" },
   { emoji: "🧭", testo: "Assistente permessi: dici dove voli e ti dice se puoi chiedere, a chi, quanti giorni prima e quanto costa. Compila da solo il Modello ATM-09A di ENAC e la richiesta di nulla osta", pagina: "permessi" },
   { emoji: "▶️", testo: "Modalità riprese: sul posto una scena alla volta, a tutto schermo, con la foto grande e il promemoria della scheda SD", pagina: "dashboard" },
@@ -2425,7 +2431,7 @@ function RiquadroNovita({ onVai }) {
 
 const FUNZIONI_PRESENTAZIONE = [
   { emoji: "🌅", titolo: "Pianificazione e ora d'oro", testo: "Meteo ora per ora con le ore migliori, vento rispetto al tuo drone, indice Kp, alba, tramonto, ora d'oro, direzione del sole e filtri ND." },
-  { emoji: "🛡️", titolo: "Zona di volo e regole", testo: "Scrivi la via: con il file ufficiale D-Flight vedi se la zona è libera, fino a che altezza e chi contattare, più le regole della classe del tuo drone." },
+  { emoji: "🛡️", titolo: "Zona di volo e regole", testo: "Scrivi la via: con il file ufficiale D-Flight vedi se la zona è libera, fino a che altezza e chi contattare, più le regole della classe del tuo drone. In più quello che nel file non c'è: aree militari a bassa quota, parchi, riserve e siti Natura 2000." },
   { emoji: "✈️", titolo: "Il prossimo volo in primo piano", testo: "Il giorno del volo lo trovi in apertura: meteo dell'ora prevista, zona, avviso batterie col freddo, le riprese da fare con gli stick e il promemoria nel calendario." },
   { emoji: "🎓", titolo: "Lezioni e quiz A1/A3 e A2", testo: "Le regole spiegate semplici, quiz con la spiegazione di ogni risposta e la simulazione d'esame con tempo e punteggio come all'ENAC. Più la guida per volare in zona rossa." },
   { emoji: "📍", titolo: "Posti belli vicino a te", testo: "Scrivi dove sei o usa la posizione: punti panoramici, castelli, laghi e i posti consigliati dagli altri piloti, con la zona di volo già controllata." },
@@ -2433,12 +2439,13 @@ const FUNZIONI_PRESENTAZIONE = [
   { emoji: "📒", titolo: "Registro voli", testo: "Data, luogo, drone, batterie, durata, foto e video. Importa i voli dai file .SRT dei DJI, ritrovali su mappa o cercando la data." },
   { emoji: "🚔", titolo: "Pronto per i controlli", testo: "Attestati, assicurazione, drone, permessi e zona a schermo pieno con un tocco, anche senza campo: una copia resta sul telefono. Più PDF e avvisi prima delle scadenze." },
   { emoji: "📁", titolo: "Fascicolo del volo", testo: "Se dopo un volo ti chiedono spiegazioni (forze dell'ordine, ENAC, assicurazione o un cliente), in un solo PDF hai tutto: documenti validi quel giorno, piano, zona, checklist, manutenzione, liberatorie." },
-  { emoji: "📐", titolo: "Volumi STS-01", testo: "Contingenza e buffer per il rischio a terra calcolati e disegnati sulla mappa, pronti per il manuale operativo e per il fascicolo." },
+  { emoji: "📐", titolo: "Volumi STS-01", testo: "Disegni l'area con il dito o la importi da DJI Pilot 2: contingenza e buffer calcolati e disegnati sulla mappa, zone controllate su tutta l'area, pronti per il manuale operativo e per il fascicolo." },
   { emoji: "📤", titolo: "Consegna al cliente", testo: "Una galleria con il tuo logo, PIN, filigrana e preferiti: il cliente sceglie le foto e scarica solo quando sblocchi tu." },
   { emoji: "✍️", titolo: "Liberatorie firmate", testo: "Il cliente o la persona ripresa firma col dito sul telefono: PDF con la firma salvato insieme al volo." },
   { emoji: "💶", titolo: "Preventivi con il prezzo giusto", testo: "Pacchetti pronti, fascia di prezzo del mercato e il tuo prezzo minimo calcolato dai costi, poi il PDF da mandare. Rubrica clienti con WhatsApp a un tocco e lavori pagati o da incassare." },
   { emoji: "🔋", titolo: "Batterie e manutenzione", testo: "Cicli e stato di carica delle batterie, registro di eliche, firmware e riparazioni di ogni drone." },
   { emoji: "🔍", titolo: "Ispezioni e report", testo: "Fotovoltaico, edifici, danni: anomalie sulle foto termiche e report PDF professionali per il cliente." },
+  { emoji: "📦", titolo: "Report di consegna", testo: "Per fotogrammetria e agricoltura: un PDF con mappa dell'area, file consegnati, sistema di riferimento e dati del lavoro, pronto da dare al cliente." },
 ];
 
 function Presentazione({ onAccedi, onRegistrati }) {
@@ -7011,6 +7018,45 @@ function FileZoneVeloce() {
   );
 }
 
+// parchi e siti Natura 2000 nel punto del volo: avviso arancione, non è un divieto
+function AreeProtetteDelPunto({ protette }) {
+  if (!protette || protette.carico) return null;
+  const nota = { fontSize: 10.5, color: "#6b7480", marginTop: 4 };
+  if (protette.errore) {
+    return <div style={{ fontSize: 11.5, color: "#ffd9a0", marginTop: 8 }}>🌳 Non sono riuscito a controllare parchi e siti Natura 2000 (serve la rete). Guardali sulla mappa di D-Flight.</div>;
+  }
+  const { dentro, vicine } = protette;
+  const scheda = (a) => (
+    <div key={a.codice} style={{ fontSize: 12.5, color: "#e7eaee", marginTop: 3 }}>
+      {a.nome}
+      <span style={{ color: "#8b95a3", fontSize: 11.5 }}> · {a.parco ? (a.nome.toLowerCase().startsWith(a.tipo.toLowerCase()) ? "area protetta" : a.tipo) : `Natura 2000 ${a.tipo} · ${a.codice}`}{a.distanza != null ? ` · a ${a.distanza} m` : ""}</span>
+    </div>
+  );
+  if (!dentro.length && !vicine.length) {
+    return <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 8 }}>🌳 Nessun parco o sito Natura 2000 in questo punto.</div>;
+  }
+  return (
+    <div style={{ borderLeft: "3px solid #f5b942", background: "#f5b94212", borderRadius: 4, padding: "8px 10px", marginTop: 8 }}>
+      {dentro.length > 0 && (
+        <>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#f5b942" }}>🌳 Sei dentro {dentro.length === 1 ? (dentro[0].parco ? "un'area protetta" : "un sito Natura 2000") : "aree protette"}</div>
+          {dentro.map(scheda)}
+          {dentro.some((a) => a.tipo === "Parco nazionale") && <div style={{ fontSize: 11.5, color: "#ffd9a0", marginTop: 4, fontWeight: 600 }}>⚠ Nei parchi nazionali la legge quadro sulle aree protette (L. 394/1991, art. 11) vieta il sorvolo non autorizzato: per volare serve il permesso dell'Ente parco.</div>}
+          <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 Nel file D-Flight non c'è come zona, ma l'ente che gestisce l'area può vietare o limitare il volo dei droni (per esempio nel periodo in cui nidificano gli uccelli) o chiedere un'autorizzazione. Prima di volare controlla il regolamento dell'ente e la mappa di D-Flight.</div>
+        </>
+      )}
+      {vicine.length > 0 && (
+        <>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#f5b942", marginTop: dentro.length ? 8 : 0 }}>{dentro.length ? "Vicino (entro 300 m)" : "🌳 Vicino c'è un'area protetta (entro 300 m)"}</div>
+          {vicine.slice(0, 4).map(scheda)}
+          {!dentro.length && <div style={{ fontSize: 11.5, color: "#e7eaee", marginTop: 4 }}>👉 Se l'area di volo ci entra, valgono le regole dell'ente che la gestisce.</div>}
+        </>
+      )}
+      <div style={nota}>Confini semplificati: vicino al bordo controlla su D-Flight. Fonte: {FONTE_AREE_PROTETTE}.</div>
+    </div>
+  );
+}
+
 function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, onPuntoCercato, dataPrevista, oraPrevista, piano, onEsito, onStato }) {
   const [archivio, setArchivio] = useState(undefined); // undefined = sto leggendo, null = nessun file
   const [leggendoFile, setLeggendoFile] = useState(false);
@@ -7106,6 +7152,19 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [zone, latP, lonP, dataPrevista, oraPrevista]
   );
+
+  // parchi e siti Natura 2000 (non sono nel file D-Flight): scarico il riquadro del punto
+  const [protette, setProtette] = useState(null);
+  const proZona = sbloccatoPro(piano);
+  useEffect(() => {
+    if (!proZona || latP == null) { setProtette(null); return undefined; }
+    let annullato = false;
+    setProtette({ carico: true });
+    cercaAreeProtette({ lat: latP, lon: lonP }, { raggio: 300 })
+      .then((r) => { if (!annullato) setProtette(r); })
+      .catch(() => { if (!annullato) setProtette({ errore: true }); });
+    return () => { annullato = true; };
+  }, [proZona, latP, lonP]);
 
   // al riquadro delle regole dico se la zona è stata davvero controllata (se no, niente «120 m» che sembra un via libera)
   const pro = sbloccatoPro(piano);
@@ -7283,7 +7342,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
             <div style={{ borderLeft: "3px solid #4ade80", background: "#4ade8012", borderRadius: 4, padding: "8px 10px", marginTop: 8, fontSize: 12.5 }}>
               <div style={{ fontWeight: 700, color: "#4ade80" }}>✓ Nel file D-Flight qui non risulta nessuna zona</div>
               <div style={{ color: "#c3cad4", marginTop: 2, fontSize: 12 }}>Valgono le regole generali della categoria Open: massimo 120 m dal suolo, drone sempre in vista, niente voli sopra assembramenti di persone.</div>
-              <div style={{ color: "#ffd9a0", marginTop: 4, fontSize: 11.5 }}>Prima di volare guarda anche la mappa di D-Flight: alcuni strati (per esempio parchi e siti Natura 2000) non sono nel file. Se lì vedi un limite, vale quello.</div>
+              <div style={{ color: "#ffd9a0", marginTop: 4, fontSize: 11.5 }}>Parchi e siti Natura 2000 non sono nel file: li controllo qui sotto. Guarda comunque anche la mappa di D-Flight: se lì vedi un limite, vale quello.</div>
             </div>
           )}
           {esito && esito.dentro.length > 0 && (() => {
@@ -7311,6 +7370,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
               ✓ <strong style={{ color: "#4ade80" }}>{z.nome}</strong>: qui c'è un NOTAM ({(z.validita || []).map((v) => `${v.da ? formatData(String(v.da).slice(0, 10)) : "…"} → ${v.a ? formatData(String(v.a).slice(0, 10)) : "…"}`).join(" · ")}), ma il giorno del volo non è attivo.
             </div>
           ))}
+          {esito && <AreeProtetteDelPunto protette={protette} />}
           {esito && esito.vicine.length > 0 && (
             <>
               <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "10px 0 0 0" }}>Zone vicine (entro 500 m): attento a non sconfinare.</p>
