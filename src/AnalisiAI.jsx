@@ -2,11 +2,23 @@ import React, { useEffect, useRef, useState } from "react";
 
 // Analisi di una foto con l'AI: difetti di foto/video, foto termiche, colore.
 // La foto viene rimpicciolita nel telefono e mandata alla funzione analisi-foto (la chiave dell'AI resta sul server)
+// ogni spazio vede le sue analisi (senza spazio scelto: tutte)
 const TIPI = [
-  { key: "problema", titolo: "🔧 Cosa non va?", sotto: "Bande, righe, macchie, immagine mossa, colori strani" },
-  { key: "termica", titolo: "🌡️ Foto termica", sotto: "Pannelli, tetti, facciate: punti caldi e anomalie" },
-  { key: "colore", titolo: "🎨 Colore e LUT", sotto: "Esposizione, bilanciamento, che look usare" },
+  { key: "problema", titolo: "🔧 Cosa non va?", sotto: "Bande, righe, macchie, immagine mossa, colori strani", spazi: ["video", "ispezioni", "rilievi", "agricoltura"] },
+  { key: "colore", titolo: "🎨 Colore e LUT", sotto: "Esposizione, bilanciamento, che look usare", spazi: ["video"] },
+  { key: "termica", titolo: "🌡️ Foto termica", sotto: "Pannelli, tetti, facciate: punti caldi e anomalie", spazi: ["ispezioni"] },
+  { key: "coltura", titolo: "🌱 Cosa ha il campo?", sotto: "Chiazze gialle, piante secche, macchie sulle foglie", spazi: ["agricoltura"] },
+  { key: "trattamento", titolo: "💧 Trattamento venuto bene?", sotto: "Strisce, zone saltate o passate due volte, deriva", spazi: ["agricoltura"] },
+  { key: "erbacce", titolo: "🌿 Erbacce", sotto: "Dove sono e quanto sono fitte: tutto il campo o solo zone?", spazi: ["agricoltura"] },
+  { key: "rilievo", titolo: "📐 Foto buone per il rilievo?", sotto: "Mosse, bruciate, ombre forti, poca texture: rifare il volo?", spazi: ["rilievi"] },
 ];
+const PRIMO = { video: "problema", ispezioni: "termica", agricoltura: "coltura", rilievi: "rilievo" };
+const TITOLI = {
+  video: ["L'Esperto di foto e video", "Carica una foto o un video: l'AI ti dice cosa non va e come sistemare il colore."],
+  ispezioni: ["L'Esperto per le ispezioni", "Carica una foto termica o normale: l'AI ti dice cosa vede e cosa controllare."],
+  agricoltura: ["L'Esperto per l'agricoltura", "Carica una foto del campo: l'AI ti dice cosa sembra e cosa controllare. Non dà dosi né prodotti: quelli li dicono l'etichetta e l'agronomo."],
+  rilievi: ["L'Esperto per i rilievi", "Carica alcune foto del volo: l'AI ti dice se vanno bene per la fotogrammetria o se conviene rifare."],
+};
 
 const DOMANDE = {
   problema: [
@@ -21,6 +33,26 @@ const DOMANDE = {
   colore: [
     ["Hai girato in profilo piatto (D-Log o simili)?", ["Sì", "No, colore normale", "Non so"]],
     ["Che risultato vuoi?", ["Naturale", "Caldo / cinematografico", "Freddo / moderno", "Consigliami tu"]],
+  ],
+  coltura: [
+    ["Che coltura è?", ["Vite", "Cereali", "Mais", "Frutteto", "Ortaggi", "Altro"]],
+    ["Da dove è fatta la foto?", ["Dal drone, dall'alto", "Da terra, da vicino"]],
+    ["Il problema è…", ["A chiazze", "A righe o file", "Su tutto il campo", "Solo ai bordi"]],
+    ["Che tempo ha fatto di recente?", ["Secco, caldo", "Molta pioggia", "Grandine o gelo", "Normale"]],
+  ],
+  trattamento: [
+    ["Cosa hai distribuito?", ["Fitofarmaco", "Concime fogliare", "Seme o granulare", "Altro"]],
+    ["Quanti giorni fa?", ["Oggi", "2-5 giorni", "Più di una settimana"]],
+    ["Com'era il vento?", ["Calmo", "Leggero", "A raffiche", "Non so"]],
+  ],
+  erbacce: [
+    ["Che coltura è?", ["Vite", "Cereali", "Mais", "Frutteto", "Ortaggi", "Altro"]],
+    ["Da dove è fatta la foto?", ["Dal drone, dall'alto", "Da terra, da vicino"]],
+  ],
+  rilievo: [
+    ["Che cosa stai rilevando?", ["Terreno o cava", "Edificio o facciata", "Strada o cantiere", "Altro"]],
+    ["Che otturatore ha il drone?", ["Meccanico", "Elettronico (rolling)", "Non so"]],
+    ["Com'era la luce?", ["Sole pieno", "Velato", "Nuvoloso uniforme", "Sole basso"]],
   ],
 };
 
@@ -53,8 +85,10 @@ const VOLO = {
   no: ["#f87171", "⛔ Meglio non volare finché non è risolto"],
 };
 
-export default function AnalisiAI({ supabase, droni, inputStyle }) {
-  const [tipo, setTipo] = useState("problema");
+export default function AnalisiAI({ supabase, droni, inputStyle, spazio }) {
+  const tipi = TIPI.filter((t) => !spazio || t.spazi.includes(spazio));
+  const [tipo, setTipo] = useState(PRIMO[spazio] || "problema");
+  const [titolo, sottotitolo] = TITOLI[spazio] || ["Analisi foto con l'AI", "Carica una foto o un video, rispondi a qualche domanda e l'AI ti dice cosa vede e cosa controllare."];
   const [foto, setFoto] = useState(null); // { anteprima, dati }
   const [video, setVideo] = useState(null); // url del video da cui prendere un fotogramma
   const [risposte, setRisposte] = useState({});
@@ -107,11 +141,11 @@ export default function AnalisiAI({ supabase, droni, inputStyle }) {
 
   return (
     <div style={{ maxWidth: 720 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>Analisi foto con l'AI <span style={{ fontSize: 11, fontWeight: 700, color: "#c4b5fd", border: "1px solid #a78bfa66", borderRadius: 4, padding: "1px 6px", verticalAlign: "middle" }}>PROVA</span></h1>
-      <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 14px 0" }}>Carica una foto o un video, rispondi a qualche domanda e l'AI ti dice cosa vede e cosa controllare.</p>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>{titolo} <span style={{ fontSize: 11, fontWeight: 700, color: "#c4b5fd", border: "1px solid #a78bfa66", borderRadius: 4, padding: "1px 6px", verticalAlign: "middle" }}>PROVA</span></h1>
+      <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 14px 0" }}>{sottotitolo}</p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 8 }}>
-        {TIPI.map((t) => (
+        {tipi.map((t) => (
           <button key={t.key} type="button" onClick={() => { setTipo(t.key); setRisposte({}); setStato(null); }} style={{ ...bottone(tipo === t.key), textAlign: "left", padding: "10px 12px" }}>
             <div style={{ fontSize: 13.5, fontWeight: 700 }}>{t.titolo}</div>
             <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>{t.sotto}</div>
@@ -153,7 +187,7 @@ export default function AnalisiAI({ supabase, droni, inputStyle }) {
         )}
         <label style={{ display: "block", fontSize: 12.5, color: "#c3cad4", marginTop: 12 }}>
           Vuoi aggiungere qualcosa? <span style={{ color: "#6b7480" }}>(facoltativo)</span>
-          <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2} placeholder="es. è successo volando vicino a un traliccio" style={{ ...inputStyle, marginTop: 4, resize: "vertical" }} />
+          <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2} placeholder={{ agricoltura: "es. passata a 3 m di altezza, larghezza 6 m", rilievi: "es. volo a 80 m, sovrapposizione 75%", ispezioni: "es. impianto da 200 kW, ore 12" }[spazio] || "es. è successo volando vicino a un traliccio"} style={{ ...inputStyle, marginTop: 4, resize: "vertical" }} />
         </label>
 
         <button type="button" onClick={analizza} disabled={!foto || stato === "invio"} style={{ marginTop: 12, background: foto ? "#a78bfa" : "#333a45", color: foto ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13.5, fontWeight: 700 }}>
@@ -173,7 +207,7 @@ export default function AnalisiAI({ supabase, droni, inputStyle }) {
           )}
           {esito.cause?.length > 0 && (
             <>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#8b95a3", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 14 }}>Cause probabili</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#8b95a3", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 14 }}>{tipo === "rilievo" || tipo === "erbacce" ? "Cosa ho notato" : "Cause probabili"}</div>
               {esito.cause.map((c, i) => {
                 const [col, et] = PROBABILITA[c.probabilita] || PROBABILITA.bassa;
                 return (

@@ -2326,7 +2326,7 @@ function AppShell({ session }) {
         )}
         {page === "analisi-ai" && AI_IN_PROVA.includes(String(session.user.email || "").toLowerCase()) && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
-            <AnalisiAI supabase={supabase} droni={droni} inputStyle={inputStyle} />
+            <AnalisiAI key={spazioAperto?.key || "tutti"} supabase={supabase} droni={droni} inputStyle={inputStyle} spazio={spazioAperto?.key} />
           </Suspense>
         )}
         {page === "rilievi" && <PaginaRilievi voli={voliDashboard} onNav={vai} onNuovo={() => { setPrefillVolo({ tipo_attivita: "rilievo" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
@@ -2829,19 +2829,21 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
   const vociSpazio = k === "video" ? [
     { intestazione: spazio.nome },
     { key: "galleria", label: "Foto e video", icon: Camera },
-    ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }] : []),
+    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
     { key: "posti", label: "Posti", icon: Compass },
   ] : k === "ispezioni" ? [
     { intestazione: spazio.nome },
     { key: "impianti", label: "Impianti", icon: Sun },
     { key: "nuova", label: "Nuova ispezione", icon: Plus },
-    ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }] : []),
+    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
   ] : k === "agricoltura" ? [
     { intestazione: spazio.nome },
     { key: "campi", label: "Campi e trattamenti", icon: Sprout },
+    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
   ] : k === "rilievi" ? [
     { intestazione: spazio.nome },
     { key: "rilievi", label: "Rilievi", icon: Ruler },
+    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
   ] : null;
   const items = vociSpazio ? [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
