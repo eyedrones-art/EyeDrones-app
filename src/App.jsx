@@ -1944,6 +1944,7 @@ function AppShell({ session }) {
   const [moduli, setModuli] = useState(null); // null = non ancora scelto; se no gli spazi attivi separati da virgola (ispezioni, riprese, agricoltura, rilievi)
   const [moduliCaricati, setModuliCaricati] = useState(false);
   const [spazioScelto, setSpazioScelto] = useState(() => spazioDalLink() || leggiSpazio());
+  const [inCartelle, setInCartelle] = useState(() => !spazioDalLink()); // la Home con le cartelle (solo per chi ne ha più di una)
   const [obiettivoFormativo, setObiettivoFormativo] = useState("");
   const [voliManuali, setVoliManuali] = useState([]);
   const [nuovoVolo, setNuovoVolo] = useState(false);
@@ -2154,8 +2155,11 @@ function AppShell({ session }) {
   // lo spazio aperto (Foto e video, Ispezioni, Agricoltura, Fotogrammetria): decide Home, menu e secondo tasto.
   // Chi non ha ancora scelto (moduli vuoti) vede tutto come prima, con la scelta in Home.
   const spazi = spaziAttivi(moduli);
-  const spazioAperto = spazi.find((x) => x.key === spazioScelto) || spazi[0] || null;
-  const cambiaSpazio = (key) => { scriviSpazio(key); setSpazioScelto(key); setPage("dashboard"); window.scrollTo(0, 0); };
+  // le cartelle: chi ha più spazi parte dalla Home con le cartelle, ne tocca una ed entra (dentro vede solo quel lavoro)
+  const allaRadice = inCartelle && spazi.length > 1;
+  const spazioAperto = allaRadice ? null : spazi.find((x) => x.key === spazioScelto) || spazi[0] || null;
+  const cambiaSpazio = (key) => { scriviSpazio(key); setSpazioScelto(key); setInCartelle(false); setPage("dashboard"); window.scrollTo(0, 0); };
+  const apriCartelle = () => { setInCartelle(true); setPage("dashboard"); window.scrollTo(0, 0); };
   // scegliere uno spazio dalla prima schermata o da un link lo attiva anche nel profilo
   const entraNelloSpazio = async (key) => {
     const s = SPAZI.find((x) => x.key === key);
@@ -2234,7 +2238,13 @@ function AppShell({ session }) {
         .home-striscia { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
         .home-azione .corto { display: none; }
         .home-due { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
+        .cartelle { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+        .cartella { position: relative; display: block; text-align: left; background: linear-gradient(160deg, #241d16, #1b2028 60%); border: 1px solid #ff8c4255; border-radius: 4px 14px 14px 14px; padding: 18px 14px 14px; margin-top: 10px; color: #e7eaee; min-height: 128px; transition: border-color .15s, transform .15s; }
+        .cartella:hover { border-color: #ff8c42; transform: translateY(-1px); }
+        .cartella-linguetta { position: absolute; top: -10px; left: -1px; width: 46%; height: 11px; background: #241d16; border: 1px solid #ff8c4255; border-bottom: none; border-radius: 8px 10px 0 0; }
+        .cartella-nuova { background: transparent; border: 1px dashed #333a45; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         @media (max-width: 680px) {
+          .cartelle { grid-template-columns: 1fr 1fr; gap: 10px; }
           .app-shell { flex-direction: column; }
           .sidebar { display: none !important; }
           .home { padding: 16px !important; }
@@ -2259,7 +2269,7 @@ function AppShell({ session }) {
         }
       `}</style>
 
-      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} spazio={spazioAperto} spazi={spazi} onCambiaSpazio={cambiaSpazio} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
+      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} spazio={spazioAperto} spazi={spazi} onCambiaSpazio={cambiaSpazio} cartelle={allaRadice} onCartelle={apriCartelle} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AvvisoInstallaApp />
@@ -2297,7 +2307,7 @@ function AppShell({ session }) {
           </div>
         )}
         {page !== "dashboard" && <BarraPrimiPassi pagina={page} droni={droni} attestati={attestati} voli={voliDashboard} preventivi={preventivi} onNav={vai} />}
-        {page === "dashboard" && <Dashboard spazio={spazioAperto} onEntraSpazio={entraNelloSpazio} impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} nomeSaluto={azienda.nomeImpostato ? azienda.nome : ""} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "dashboard" && <Dashboard spazio={spazioAperto} cartelle={allaRadice ? spazi : null} onEntraSpazio={entraNelloSpazio} impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} nomeSaluto={azienda.nomeImpostato ? azienda.nome : ""} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
@@ -2822,7 +2832,7 @@ function Login({ modoIniziale = "login", onTorna }) {
 
 // --- Sidebar -----------------------------------------------------------
 
-function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, usaAgricoltura, spazio, spazi = [], onCambiaSpazio, batterieAvvisi, richiesteNuove, onControllo }) {
+function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, usaAgricoltura, spazio, spazi = [], onCambiaSpazio, cartelle, onCartelle, batterieAvvisi, richiesteNuove, onControllo }) {
   const usaAI = AI_IN_PROVA.includes(String(userEmail || "").toLowerCase());
   const k = spazio ? spazio.key : null;
   // con uno spazio aperto: prima le sue voci, poi quelle in comune. Senza spazio (non ancora scelto): tutto come prima
@@ -2844,7 +2854,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
     { intestazione: spazio.nome },
     { key: "rilievi", label: "Rilievi", icon: Ruler },
     ...(usaAI ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
-  ] : null;
+  ] : cartelle ? [] : null; // nella Home delle cartelle: solo le voci in comune
   const items = vociSpazio ? [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
     ...vociSpazio,
@@ -2914,14 +2924,22 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
         <span className="sidebar-brand-label" style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>EyeDrones</span>
         <div style={{ position: "absolute", bottom: -1, left: 0, width: 46, height: 2, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
       </div>
-      {spazio && (
+      {(spazio || cartelle) && (
         <div className="sidebar-label" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 4px 4px 4px" }}>
-          {spazi.map((x) => (
-            <button key={x.key} type="button" onClick={() => onCambiaSpazio(x.key)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: x.key === spazio.key ? "1px solid #ff8c42" : "1px solid #2b313d", background: x.key === spazio.key ? "#241d16" : "transparent", color: x.key === spazio.key ? "#fff" : "#9aa4b2", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
-              <span>{x.emoji}</span>{x.nome}
+          {spazi.length > 1 && (
+            <button type="button" onClick={onCartelle} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: cartelle ? "1px solid #ff8c42" : "1px solid #2b313d", background: cartelle ? "#241d16" : "transparent", color: cartelle ? "#fff" : "#9aa4b2", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
+              <span>📁</span>Tutte le cartelle
             </button>
-          ))}
-          <button type="button" onClick={() => setPage("impostazioni")} style={{ background: "none", border: "none", color: "#6b7480", fontSize: 11.5, textAlign: "left", padding: "2px 10px" }}>＋ Aggiungi uno spazio</button>
+          )}
+          {spazi.map((x) => {
+            const su = spazio && x.key === spazio.key;
+            return (
+              <button key={x.key} type="button" onClick={() => onCambiaSpazio(x.key)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: su ? "1px solid #ff8c42" : "1px solid #2b313d", background: su ? "#241d16" : "transparent", color: su ? "#fff" : "#9aa4b2", fontSize: 13, fontWeight: 600, textAlign: "left", marginLeft: spazi.length > 1 ? 10 : 0 }}>
+                <span>{x.emoji}</span>{x.nome}
+              </button>
+            );
+          })}
+          <button type="button" onClick={() => setPage("impostazioni")} style={{ background: "none", border: "none", color: "#6b7480", fontSize: 11.5, textAlign: "left", padding: "2px 10px" }}>＋ Aggiungi una cartella</button>
         </div>
       )}
       {items.map((it) => {
@@ -2999,7 +3017,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
         </button>
       </div>
     </div>
-    <MenuTelefono items={items} page={page} setPage={setPage} userEmail={userEmail} piano={piano} usaIspezioni={usaIspezioni} avvisi={avvisi} onControllo={onControllo} spazio={spazio} spazi={spazi} onCambiaSpazio={onCambiaSpazio} />
+    <MenuTelefono items={items} page={page} setPage={setPage} userEmail={userEmail} piano={piano} usaIspezioni={usaIspezioni} avvisi={avvisi} onControllo={onControllo} spazio={spazio} spazi={spazi} onCambiaSpazio={onCambiaSpazio} cartelle={cartelle} onCartelle={onCartelle} />
     </>
   );
 }
@@ -3070,15 +3088,15 @@ function AvvisoInstallaApp() {
 
 // menu per il telefono: barra fissa in basso con le 5 voci principali, il resto nel pannello "Altro"
 const ICONE_TAB = { galleria: Camera, impianti: Sun, campi: Sprout, rilievi: Ruler };
-function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, avvisi, onControllo, spazio, spazi = [], onCambiaSpazio }) {
+function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, avvisi, onControllo, spazio, spazi = [], onCambiaSpazio, cartelle, onCartelle }) {
   const [altroAperto, setAltroAperto] = useState(false);
   const [sceltaSpazio, setSceltaSpazio] = useState(false);
   const principali = [
     { key: "dashboard", label: "Home", icon: LayoutDashboard },
-    spazio ? { key: spazio.tab.key, label: spazio.tab.label, icon: ICONE_TAB[spazio.tab.key] || Camera } : usaIspezioni ? { key: "impianti", label: "Impianti", icon: Sun } : { key: "galleria", label: "Galleria", icon: Camera },
+    spazio ? { key: spazio.tab.key, label: spazio.tab.label, icon: ICONE_TAB[spazio.tab.key] || Camera } : cartelle ? null : usaIspezioni ? { key: "impianti", label: "Impianti", icon: Sun } : { key: "galleria", label: "Galleria", icon: Camera },
     { key: "registro-voli", label: "Registro", icon: BookOpen },
     { key: "pianificazione", label: "Pianifica", icon: CalendarDays },
-  ];
+  ].filter(Boolean);
   const chiaviPrincipali = principali.map((p) => p.key);
   const attivo = (key) => page === key || (page === "impianto" && key === "impianti");
   const altroAttivo = !chiaviPrincipali.some(attivo) && page !== "impianto";
@@ -3103,9 +3121,12 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
       <header className="mt-topbar">
         <img src={LOGO_EYEDRONES} alt="" style={{ width: 28, height: 28 }} />
         {spazio ? (
-          <button type="button" onClick={() => setSceltaSpazio(true)} aria-label="Cambia spazio" style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, background: "#241d16", border: "1px solid #ff8c4288", color: "#ffd2b0", borderRadius: 999, padding: "3px 10px", fontSize: 12.5, fontWeight: 700 }}>
-            {spazio.emoji} {spazio.nome}{spazi.length > 1 ? " ▾" : ""}
+          // dentro una cartella: il tocco riporta a tutte le cartelle (con una sola, apre la scelta per aggiungerne)
+          <button type="button" onClick={() => { setAltroAperto(false); if (spazi.length > 1) onCartelle(); else setSceltaSpazio(true); }} aria-label="Cartelle" style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, background: "#241d16", border: "1px solid #ff8c4288", color: "#ffd2b0", borderRadius: 999, padding: "3px 10px", fontSize: 12.5, fontWeight: 700 }}>
+            {spazi.length > 1 ? "‹ " : ""}{spazio.emoji} {spazio.nome}
           </button>
+        ) : cartelle ? (
+          <button type="button" onClick={onCartelle} aria-label="Cartelle" style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, background: "#241d16", border: "1px solid #ff8c4288", color: "#ffd2b0", borderRadius: 999, padding: "3px 10px", fontSize: 12.5, fontWeight: 700 }}>📁 Cartelle</button>
         ) : <span style={{ fontWeight: 700, fontSize: 15 }}>EyeDrones</span>}
         {titoloPagina && titoloPagina !== "Panoramica" && <span style={{ color: "#6b7480", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {titoloPagina}</span>}
         {onControllo && page !== "dashboard" && (
@@ -3136,9 +3157,9 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
 
       {sceltaSpazio && (
         <div className="mt-overlay" onClick={() => setSceltaSpazio(false)}>
-          <div className="mt-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Scegli lo spazio">
+          <div className="mt-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Le tue cartelle">
             <div style={{ width: 40, height: 4, borderRadius: 2, background: "#333a45", margin: "0 auto 10px auto" }} />
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#c3cad4", padding: "0 6px 8px" }}>I tuoi spazi</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#c3cad4", padding: "0 6px 8px" }}>Le tue cartelle</div>
             {spazi.map((x) => (
               <button key={x.key} type="button" onClick={() => { setSceltaSpazio(false); onCambiaSpazio(x.key); }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 10px", borderRadius: 10, marginBottom: 6, background: spazio && x.key === spazio.key ? "#241d16" : "#1b2028", border: spazio && x.key === spazio.key ? "1px solid #ff8c42" : "1px solid #2b313d", color: "#e7eaee", textAlign: "left" }}>
                 <span style={{ fontSize: 24 }}>{x.emoji}</span>
@@ -3146,7 +3167,7 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
                 {spazio && x.key === spazio.key && <span style={{ color: "#ff8c42" }}>✓</span>}
               </button>
             ))}
-            <button type="button" onClick={() => { setSceltaSpazio(false); setPage("impostazioni"); }} style={{ display: "block", width: "100%", padding: "10px", background: "none", border: "1px dashed #333a45", borderRadius: 10, color: "#8b95a3", fontSize: 13 }}>＋ Aggiungi o togli uno spazio</button>
+            <button type="button" onClick={() => { setSceltaSpazio(false); setPage("impostazioni"); }} style={{ display: "block", width: "100%", padding: "10px", background: "none", border: "1px dashed #333a45", borderRadius: 10, color: "#8b95a3", fontSize: 13 }}>＋ Aggiungi o togli una cartella</button>
           </div>
         </div>
       )}
@@ -3640,7 +3661,7 @@ const DRONE_TESTATA = (
   </svg>
 );
 
-function Dashboard({ spazio, onEntraSpazio, impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [], nomeSaluto }) {
+function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [], nomeSaluto }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
 
@@ -3730,10 +3751,12 @@ function Dashboard({ spazio, onEntraSpazio, impianti, loading, onOpenImpianto, o
           </div>
         </section>
 
-        {!spazio && (
+        {cartelle && <Cartelle spazi={cartelle} impianti={impianti} voli={voli} onApri={onEntraSpazio} onAggiungi={() => onNav("impostazioni")} />}
+
+        {!spazio && !cartelle && (
           <div style={{ background: "linear-gradient(135deg, #241d16, #1b2028)", border: "1px solid #ff8c4288", borderRadius: 12, padding: 18, marginBottom: 22 }}>
             <h3 style={{ fontSize: 17, fontWeight: 800, margin: "0 0 4px 0" }}>Cosa fai col drone?</h3>
-            <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0" }}>Scegli il tuo spazio: l'app ti mostra solo quello che ti serve. Se fai più cose, poi ne aggiungi altri in Impostazioni e passi dall'uno all'altro con un tocco in alto.</p>
+            <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0" }}>Scegli la tua cartella: dentro trovi solo quello che ti serve. Se fai più cose, ne aggiungi altre in Impostazioni e in Home le trovi tutte.</p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
               {SPAZI.map((x) => (
                 <button key={x.key} type="button" onClick={() => onEntraSpazio(x.key)} style={{ display: "flex", gap: 12, alignItems: "flex-start", textAlign: "left", background: "#161a1f", border: "1px solid #333a45", borderRadius: 10, padding: "14px", color: "#e7eaee" }}>
@@ -3806,9 +3829,9 @@ function Dashboard({ spazio, onEntraSpazio, impianti, loading, onOpenImpianto, o
         {spazio && spazio.key === "agricoltura" && <Suspense fallback={null}><HomeAgricoltura supabase={supabase} onNav={onNav} /></Suspense>}
         {spazio && spazio.key === "rilievi" && <HomeRilievi rilievi={rilievi} onNav={onNav} onNuovoVolo={onNuovoVolo} />}
 
-        {(!spazio || spazio.key === "video") && <StrisciaLavori media={media} onApri={() => onNav("registro-voli")} />}
+        {!cartelle && (!spazio || spazio.key === "video") && <StrisciaLavori media={media} onApri={() => onNav("registro-voli")} />}
 
-        {(usaIspezioni || usaRiprese) && (!spazio || spazio.key === "video" || spazio.key === "ispezioni") && (
+        {!cartelle && (usaIspezioni || usaRiprese) && (!spazio || spazio.key === "video" || spazio.key === "ispezioni") && (
           <section style={{ marginBottom: 28 }}>
             <TitoloSezione emoji="🕑" titolo="Ultime attività" azione={
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -3870,6 +3893,41 @@ function Dashboard({ spazio, onEntraSpazio, impianti, loading, onOpenImpianto, o
 }
 
 // --- Fotogrammetria: i rilievi del registro, il calcolatore e il report di consegna ---------------------
+// la Home delle cartelle: una per ogni spazio attivo, con una riga su cosa c'è dentro
+function Cartelle({ spazi, impianti = [], voli = [], onApri, onAggiungi }) {
+  const rilievi = voli.filter((v) => v.tipo_attivita === "rilievo");
+  const daFare = rilievi.filter((v) => statoRilievo(v) !== "consegnato").length;
+  const anomalie = impianti.reduce((t, i) => t + (i.anomalie || 0), 0);
+  const riga = {
+    video: "Galleria, scaletta, colore e liberatorie",
+    ispezioni: impianti.length ? `${impianti.length} ${impianti.length === 1 ? "impianto" : "impianti"}${anomalie ? ` · ${anomalie} ${anomalie === 1 ? "anomalia aperta" : "anomalie aperte"}` : ""}` : "Impianti, termografia e report",
+    agricoltura: "Campi, trattamenti, meteo e SCIA",
+    rilievi: rilievi.length ? (daFare ? `${daFare} ${daFare === 1 ? "rilievo" : "rilievi"} da completare` : `${rilievi.length} ${rilievi.length === 1 ? "rilievo" : "rilievi"}, tutti consegnati`) : "Calcolatore, lista e report di consegna",
+  };
+  const avviso = { ispezioni: anomalie > 0, rilievi: daFare > 0 };
+  return (
+    <section style={{ marginBottom: 22 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#c3cad4", marginBottom: 10 }}>📁 Le tue cartelle</div>
+      <div className="cartelle">
+        {spazi.map((x) => (
+          <button key={x.key} type="button" onClick={() => onApri(x.key)} className="cartella">
+            <span className="cartella-linguetta" aria-hidden="true" />
+            <span style={{ fontSize: 30, lineHeight: 1 }}>{x.emoji}</span>
+            <span style={{ display: "block", fontSize: 15.5, fontWeight: 800, marginTop: 8 }}>{x.nome}</span>
+            <span style={{ display: "block", fontSize: 12, color: avviso[x.key] ? "#f5b942" : "#8b95a3", marginTop: 3, lineHeight: 1.35 }}>{riga[x.key]}</span>
+          </button>
+        ))}
+        {spazi.length < SPAZI.length && (
+          <button type="button" onClick={onAggiungi} className="cartella cartella-nuova">
+            <span style={{ fontSize: 26, lineHeight: 1, color: "#6b7480" }}>＋</span>
+            <span style={{ display: "block", fontSize: 13.5, fontWeight: 700, marginTop: 8, color: "#8b95a3" }}>Aggiungi una cartella</span>
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function HomeRilievi({ rilievi, onNav, onNuovoVolo }) {
   const daElaborare = rilievi.filter((v) => statoRilievo(v) === "volato").length;
   const daConsegnare = rilievi.filter((v) => statoRilievo(v) === "elaborato").length;
