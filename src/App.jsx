@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -12,6 +12,7 @@ import { areeSts, misuraArea, zoneDellArea, leggiMissioneDji } from "./areaSts.j
 import { pdfConsegnaRilievo, FILE_RILIEVO, SISTEMI_RIFERIMENTO } from "./reportConsegna.js";
 import { ORARIO_AREE_TATTICHE, FONTE_AREE_AIP } from "./areeAip.js";
 import { cercaAreeProtette, FONTE_AREE_PROTETTE } from "./areeProtette.js";
+import { SPAZI, spaziAttivi, moduliDa, leggiSpazio, scriviSpazio, spazioDalLink, linkUsato } from "./spazi.js";
 import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
@@ -36,6 +37,7 @@ const UltimaNotizia = pigro(() => import("./Notizie.jsx"), "UltimaNotizia");
 const PostiVicini = pigro(() => import("./Posti.jsx"), "PostiVicini");
 const Collaboratori = pigro(() => import("./Collaboratori.jsx"));
 const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
+const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
 const AnalisiAI = pigro(() => import("./AnalisiAI.jsx"));
 // analisi foto con l'AI: in prova solo su questi account (il server controlla di nuovo con AI_UTENTI)
 const AI_IN_PROVA = ["eyedrones@libero.it"];
@@ -1847,7 +1849,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi", "analisi-ai"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi", "analisi-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -1939,7 +1941,9 @@ function AppShell({ session }) {
   const [permessi, setPermessi] = useState([]);
   const [attestati, setAttestati] = useState([]);
   const [droni, setDroni] = useState([]);
-  const [moduli, setModuli] = useState(null); // null = non ancora scelto ("ispezioni", "riprese" o entrambi separati da virgola)
+  const [moduli, setModuli] = useState(null); // null = non ancora scelto; se no gli spazi attivi separati da virgola (ispezioni, riprese, agricoltura, rilievi)
+  const [moduliCaricati, setModuliCaricati] = useState(false);
+  const [spazioScelto, setSpazioScelto] = useState(() => spazioDalLink() || leggiSpazio());
   const [obiettivoFormativo, setObiettivoFormativo] = useState("");
   const [voliManuali, setVoliManuali] = useState([]);
   const [nuovoVolo, setNuovoVolo] = useState(false);
@@ -1969,6 +1973,7 @@ function AppShell({ session }) {
     if (profilo) {
       setPiano(profilo.piano || "free");
       setModuli(profilo.moduli || null);
+      setModuliCaricati(true);
       setObiettivoFormativo(profilo.obiettivo_formativo || "");
       setDflightScadenza("dflight_scadenza" in profilo ? profilo.dflight_scadenza || "" : undefined);
       setAzienda({
@@ -2146,9 +2151,29 @@ function AppShell({ session }) {
   };
   const paginaMenu = page === "registro-voli" && vistaVoli === "galleria" ? "galleria" : page;
 
-  const usaIspezioni = !moduli || moduli.includes("ispezioni");
-  const usaRiprese = !moduli || moduli.includes("riprese");
-  const usaAgricoltura = !!moduli && moduli.includes("agricoltura");
+  // lo spazio aperto (Foto e video, Ispezioni, Agricoltura, Fotogrammetria): decide Home, menu e secondo tasto.
+  // Chi non ha ancora scelto (moduli vuoti) vede tutto come prima, con la scelta in Home.
+  const spazi = spaziAttivi(moduli);
+  const spazioAperto = spazi.find((x) => x.key === spazioScelto) || spazi[0] || null;
+  const cambiaSpazio = (key) => { scriviSpazio(key); setSpazioScelto(key); setPage("dashboard"); window.scrollTo(0, 0); };
+  // scegliere uno spazio dalla prima schermata o da un link lo attiva anche nel profilo
+  const entraNelloSpazio = async (key) => {
+    const s = SPAZI.find((x) => x.key === key);
+    if (!s) return;
+    const m = moduliDa(moduli);
+    if (!m.includes(s.modulo)) await salvaModuli([...m, s.modulo].join(","));
+    cambiaSpazio(key);
+  };
+  // link diretto (app.eyedrones.it/agri…): appena so quali spazi ha, apro quello
+  useEffect(() => {
+    if (!moduliCaricati) return;
+    const daLink = spazioDalLink();
+    if (daLink) { linkUsato(); entraNelloSpazio(daLink); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moduliCaricati]);
+  const usaIspezioni = spazioAperto ? spazioAperto.key === "ispezioni" : true;
+  const usaRiprese = spazioAperto ? spazioAperto.key === "video" || spazioAperto.key === "rilievi" : true;
+  const usaAgricoltura = spazioAperto ? spazioAperto.key === "agricoltura" : false;
   const voliDashboard = [...voliManuali, ...costruisciVoliDaIspezioni(ispezioni, impianti)].sort((a, b) => {
     const da = `${a.data || ""} ${a.ora ? String(a.ora).slice(0, 5) : "00:00"}`;
     const db = `${b.data || ""} ${b.ora ? String(b.ora).slice(0, 5) : "00:00"}`;
@@ -2234,7 +2259,7 @@ function AppShell({ session }) {
         }
       `}</style>
 
-      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
+      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} spazio={spazioAperto} spazi={spazi} onCambiaSpazio={cambiaSpazio} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AvvisoInstallaApp />
@@ -2272,11 +2297,11 @@ function AppShell({ session }) {
           </div>
         )}
         {page !== "dashboard" && <BarraPrimiPassi pagina={page} droni={droni} attestati={attestati} voli={voliDashboard} preventivi={preventivi} onNav={vai} />}
-        {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} nomeSaluto={azienda.nomeImpostato ? azienda.nome : ""} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "dashboard" && <Dashboard spazio={spazioAperto} onEntraSpazio={entraNelloSpazio} impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} nomeSaluto={azienda.nomeImpostato ? azienda.nome : ""} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
-        {page === "pianificazione" && <PianificazioneVolo azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} luogoIniziale={luogoDaPianificare} onLuogoUsato={() => setLuogoDaPianificare(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "pianificazione" && <PianificazioneVolo tipoPredefinito={spazioAperto ? spazioAperto.tipoPiano : null} azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} luogoIniziale={luogoDaPianificare} onLuogoUsato={() => setLuogoDaPianificare(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} schermoPienoSubito={controlloSubito} onSchermoPienoAperto={() => setControlloSubito(false)} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
@@ -2304,6 +2329,7 @@ function AppShell({ session }) {
             <AnalisiAI supabase={supabase} droni={droni} inputStyle={inputStyle} />
           </Suspense>
         )}
+        {page === "rilievi" && <PaginaRilievi voli={voliDashboard} onNav={vai} onNuovo={() => { setPrefillVolo({ tipo_attivita: "rilievo" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "campi" && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
             <Agricoltura supabase={supabase} inputStyle={inputStyle} clienti={clienti} droni={droni} azienda={azienda} />
@@ -2796,9 +2822,53 @@ function Login({ modoIniziale = "login", onTorna }) {
 
 // --- Sidebar -----------------------------------------------------------
 
-function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, usaAgricoltura, batterieAvvisi, richiesteNuove, onControllo }) {
+function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, usaAgricoltura, spazio, spazi = [], onCambiaSpazio, batterieAvvisi, richiesteNuove, onControllo }) {
   const usaAI = AI_IN_PROVA.includes(String(userEmail || "").toLowerCase());
-  const items = [
+  const k = spazio ? spazio.key : null;
+  // con uno spazio aperto: prima le sue voci, poi quelle in comune. Senza spazio (non ancora scelto): tutto come prima
+  const vociSpazio = k === "video" ? [
+    { intestazione: spazio.nome },
+    { key: "galleria", label: "Foto e video", icon: Camera },
+    ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }] : []),
+    { key: "posti", label: "Posti", icon: Compass },
+  ] : k === "ispezioni" ? [
+    { intestazione: spazio.nome },
+    { key: "impianti", label: "Impianti", icon: Sun },
+    { key: "nuova", label: "Nuova ispezione", icon: Plus },
+    ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }] : []),
+  ] : k === "agricoltura" ? [
+    { intestazione: spazio.nome },
+    { key: "campi", label: "Campi e trattamenti", icon: Sprout },
+  ] : k === "rilievi" ? [
+    { intestazione: spazio.nome },
+    { key: "rilievi", label: "Rilievi", icon: Ruler },
+  ] : null;
+  const items = vociSpazio ? [
+    { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
+    ...vociSpazio,
+    { intestazione: "Voli" },
+    { key: "pianificazione", label: "Pianificazione volo", icon: CalendarDays },
+    { key: "registro-voli", label: "Registro voli", icon: BookOpen },
+    ...(k !== "video" ? [{ key: "galleria", label: "Foto e video", icon: Camera }] : []),
+    { key: "batterie", label: "Batterie", icon: BatteryCharging },
+    ...(k !== "video" ? [{ key: "posti", label: "Posti", icon: Compass }] : []),
+    { intestazione: "Pilota" },
+    { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
+    { key: "impara", label: "Impara e quiz", icon: GraduationCap },
+    { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
+    { key: "permessi", label: "Permessi", icon: ClipboardCheck },
+    { key: "attestati", label: "Attestati", icon: Award },
+    { key: "droni", label: "I miei droni", icon: Plane },
+    { intestazione: "Lavoro" },
+    { key: "preventivi", label: "Preventivi", icon: FileText },
+    { key: "clienti", label: "Clienti", icon: Users },
+    { key: "collaboratori", label: "Collaboratori", icon: Handshake },
+    { key: "pagina-pilota", label: "La mia pagina", icon: Globe },
+    { intestazione: "Account" },
+    { key: "abbonamento", label: "Abbonamento", icon: Zap },
+    { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
+    { key: "suggerimenti", label: "Suggerimenti", icon: MessageSquare },
+  ] : [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
     ...(usaIspezioni ? [
       { intestazione: "Ispezioni" },
@@ -2842,6 +2912,16 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
         <span className="sidebar-brand-label" style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>EyeDrones</span>
         <div style={{ position: "absolute", bottom: -1, left: 0, width: 46, height: 2, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
       </div>
+      {spazio && (
+        <div className="sidebar-label" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 4px 4px 4px" }}>
+          {spazi.map((x) => (
+            <button key={x.key} type="button" onClick={() => onCambiaSpazio(x.key)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: x.key === spazio.key ? "1px solid #ff8c42" : "1px solid #2b313d", background: x.key === spazio.key ? "#241d16" : "transparent", color: x.key === spazio.key ? "#fff" : "#9aa4b2", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
+              <span>{x.emoji}</span>{x.nome}
+            </button>
+          ))}
+          <button type="button" onClick={() => setPage("impostazioni")} style={{ background: "none", border: "none", color: "#6b7480", fontSize: 11.5, textAlign: "left", padding: "2px 10px" }}>＋ Aggiungi uno spazio</button>
+        </div>
+      )}
       {items.map((it) => {
         if (it.intestazione) {
           return (
@@ -2917,7 +2997,7 @@ function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiI
         </button>
       </div>
     </div>
-    <MenuTelefono items={items} page={page} setPage={setPage} userEmail={userEmail} piano={piano} usaIspezioni={usaIspezioni} avvisi={avvisi} onControllo={onControllo} />
+    <MenuTelefono items={items} page={page} setPage={setPage} userEmail={userEmail} piano={piano} usaIspezioni={usaIspezioni} avvisi={avvisi} onControllo={onControllo} spazio={spazio} spazi={spazi} onCambiaSpazio={onCambiaSpazio} />
     </>
   );
 }
@@ -2987,11 +3067,13 @@ function AvvisoInstallaApp() {
 }
 
 // menu per il telefono: barra fissa in basso con le 5 voci principali, il resto nel pannello "Altro"
-function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, avvisi, onControllo }) {
+const ICONE_TAB = { galleria: Camera, impianti: Sun, campi: Sprout, rilievi: Ruler };
+function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, avvisi, onControllo, spazio, spazi = [], onCambiaSpazio }) {
   const [altroAperto, setAltroAperto] = useState(false);
+  const [sceltaSpazio, setSceltaSpazio] = useState(false);
   const principali = [
     { key: "dashboard", label: "Home", icon: LayoutDashboard },
-    usaIspezioni ? { key: "impianti", label: "Impianti", icon: Sun } : { key: "galleria", label: "Galleria", icon: Camera },
+    spazio ? { key: spazio.tab.key, label: spazio.tab.label, icon: ICONE_TAB[spazio.tab.key] || Camera } : usaIspezioni ? { key: "impianti", label: "Impianti", icon: Sun } : { key: "galleria", label: "Galleria", icon: Camera },
     { key: "registro-voli", label: "Registro", icon: BookOpen },
     { key: "pianificazione", label: "Pianifica", icon: CalendarDays },
   ];
@@ -3018,7 +3100,11 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
     <div className="menu-telefono">
       <header className="mt-topbar">
         <img src={LOGO_EYEDRONES} alt="" style={{ width: 28, height: 28 }} />
-        <span style={{ fontWeight: 700, fontSize: 15 }}>EyeDrones</span>
+        {spazio ? (
+          <button type="button" onClick={() => setSceltaSpazio(true)} aria-label="Cambia spazio" style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, background: "#241d16", border: "1px solid #ff8c4288", color: "#ffd2b0", borderRadius: 999, padding: "3px 10px", fontSize: 12.5, fontWeight: 700 }}>
+            {spazio.emoji} {spazio.nome}{spazi.length > 1 ? " ▾" : ""}
+          </button>
+        ) : <span style={{ fontWeight: 700, fontSize: 15 }}>EyeDrones</span>}
         {titoloPagina && titoloPagina !== "Panoramica" && <span style={{ color: "#6b7480", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {titoloPagina}</span>}
         {onControllo && page !== "dashboard" && (
           <button type="button" onClick={() => { setAltroAperto(false); onControllo(); window.scrollTo(0, 0); }} aria-label="Controllo: mostra i documenti" title="Controllo: mostra i documenti" style={{ marginLeft: "auto", flexShrink: 0, display: "flex", alignItems: "center", gap: 4, background: "#13233d", border: "1px solid #2f5aa8", color: "#e7eaee", borderRadius: 6, padding: "3px 8px", fontSize: 12, fontWeight: 700 }}>👮 Controllo</button>
@@ -3046,6 +3132,22 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
         </button>
       </nav>
 
+      {sceltaSpazio && (
+        <div className="mt-overlay" onClick={() => setSceltaSpazio(false)}>
+          <div className="mt-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Scegli lo spazio">
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#333a45", margin: "0 auto 10px auto" }} />
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#c3cad4", padding: "0 6px 8px" }}>I tuoi spazi</div>
+            {spazi.map((x) => (
+              <button key={x.key} type="button" onClick={() => { setSceltaSpazio(false); onCambiaSpazio(x.key); }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 10px", borderRadius: 10, marginBottom: 6, background: spazio && x.key === spazio.key ? "#241d16" : "#1b2028", border: spazio && x.key === spazio.key ? "1px solid #ff8c42" : "1px solid #2b313d", color: "#e7eaee", textAlign: "left" }}>
+                <span style={{ fontSize: 24 }}>{x.emoji}</span>
+                <span style={{ flex: 1 }}><span style={{ display: "block", fontSize: 14.5, fontWeight: 700 }}>{x.nome}</span><span style={{ display: "block", fontSize: 12, color: "#8b95a3", marginTop: 2 }}>{x.testo}</span></span>
+                {spazio && x.key === spazio.key && <span style={{ color: "#ff8c42" }}>✓</span>}
+              </button>
+            ))}
+            <button type="button" onClick={() => { setSceltaSpazio(false); setPage("impostazioni"); }} style={{ display: "block", width: "100%", padding: "10px", background: "none", border: "1px dashed #333a45", borderRadius: 10, color: "#8b95a3", fontSize: 13 }}>＋ Aggiungi o togli uno spazio</button>
+          </div>
+        </div>
+      )}
       {altroAperto && (
         <div className="mt-overlay" onClick={() => setAltroAperto(false)}>
           <div className="mt-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Altre sezioni">
@@ -3098,17 +3200,17 @@ function TitoloSezione({ emoji, titolo, azione }) {
 
 // scelta di cosa fa il pilota con il drone: decide quali sezioni vedere nel menu e nella prima pagina
 function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
-  const daModuli = (m) => ({ ispezioni: !m || m.includes("ispezioni"), riprese: !m || m.includes("riprese"), agricoltura: !!m && m.includes("agricoltura") });
+  const daModuli = (m) => ({ ispezioni: !m || m.includes("ispezioni"), riprese: !m || m.includes("riprese"), agricoltura: !!m && m.includes("agricoltura"), rilievi: !!m && m.includes("rilievi") });
   const [sel, setSel] = useState(daModuli(moduli));
   const [salvando, setSalvando] = useState(false);
   const [salvato, setSalvato] = useState(false);
   useEffect(() => { setSel(daModuli(moduli)); }, [moduli]);
-  const nessuno = !sel.ispezioni && !sel.riprese && !sel.agricoltura;
+  const nessuno = !sel.ispezioni && !sel.riprese && !sel.agricoltura && !sel.rilievi;
 
   const salva = async () => {
     if (nessuno) return;
     setSalvando(true);
-    await onSave([sel.ispezioni ? "ispezioni" : null, sel.riprese ? "riprese" : null, sel.agricoltura ? "agricoltura" : null].filter(Boolean).join(","));
+    await onSave([sel.riprese ? "riprese" : null, sel.ispezioni ? "ispezioni" : null, sel.agricoltura ? "agricoltura" : null, sel.rilievi ? "rilievi" : null].filter(Boolean).join(","));
     setSalvando(false);
     setSalvato(true);
     setTimeout(() => setSalvato(false), 2500);
@@ -3131,9 +3233,7 @@ function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        {opzione("ispezioni", "🔍", "Ispezioni tecniche", "Fotovoltaico, edifici, danni, impianti elettrici: impianti, report con foto e anomalie, pianificazione dei voli.")}
-        {opzione("riprese", "🎬", "Video, foto e FPV", "Registro voli con galleria di foto e video, per chi vola per riprese, lavoro o passione.")}
-        {opzione("agricoltura", "🌾", "Agricoltura", "Appezzamenti dei clienti con i confini sulla mappa, registro dei trattamenti in PDF e meteo per irrorare.")}
+        {SPAZI.map((x) => opzione(x.modulo, x.emoji, x.nome, x.testo))}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
         <button type="button" onClick={salva} disabled={nessuno || salvando} style={{ background: nessuno ? "#333a45" : "#ff8c42", color: nessuno ? "#6b7480" : "#161a1f", border: "none", padding: "8px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
@@ -3538,7 +3638,7 @@ const DRONE_TESTATA = (
   </svg>
 );
 
-function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [], nomeSaluto }) {
+function Dashboard({ spazio, onEntraSpazio, impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [], nomeSaluto }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
 
@@ -3591,10 +3691,13 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
     </section>
   );
 
-  const sottotitolo = [
-    usaIspezioni ? `${impianti.length} ${impianti.length === 1 ? "impianto monitorato" : "impianti monitorati"}` : null,
-    usaRiprese ? `${voli.length} ${voli.length === 1 ? "volo registrato" : "voli registrati"}` : null,
-  ].filter(Boolean).join(" · ");
+  const rilievi = voli.filter((v) => v.tipo_attivita === "rilievo");
+  const sottotitolo = spazio && spazio.key === "agricoltura" ? "🌾 Agricoltura · campi, trattamenti e SCIA"
+    : spazio && spazio.key === "rilievi" ? `📐 ${rilievi.length} ${rilievi.length === 1 ? "rilievo" : "rilievi"} nel registro`
+    : [
+      usaIspezioni ? `${impianti.length} ${impianti.length === 1 ? "impianto monitorato" : "impianti monitorati"}` : null,
+      usaRiprese ? `${voli.length} ${voli.length === 1 ? "volo registrato" : "voli registrati"}` : null,
+    ].filter(Boolean).join(" · ");
   const btnPrimario = { display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 };
 
   const ora = new Date();
@@ -3625,11 +3728,18 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           </div>
         </section>
 
-        {moduli === null && (
-          <div style={{ background: "linear-gradient(135deg, #241d16, #1b2028)", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginBottom: 22 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px 0" }}>Come usi il drone?</h3>
-            <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0" }}>Scegli cosa ti serve: mostreremo solo le sezioni giuste nel menu e in questa pagina. Puoi cambiare idea quando vuoi da Impostazioni.</p>
-            <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Conferma" />
+        {!spazio && (
+          <div style={{ background: "linear-gradient(135deg, #241d16, #1b2028)", border: "1px solid #ff8c4288", borderRadius: 12, padding: 18, marginBottom: 22 }}>
+            <h3 style={{ fontSize: 17, fontWeight: 800, margin: "0 0 4px 0" }}>Cosa fai col drone?</h3>
+            <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0" }}>Scegli il tuo spazio: l'app ti mostra solo quello che ti serve. Se fai più cose, poi ne aggiungi altri in Impostazioni e passi dall'uno all'altro con un tocco in alto.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+              {SPAZI.map((x) => (
+                <button key={x.key} type="button" onClick={() => onEntraSpazio(x.key)} style={{ display: "flex", gap: 12, alignItems: "flex-start", textAlign: "left", background: "#161a1f", border: "1px solid #333a45", borderRadius: 10, padding: "14px", color: "#e7eaee" }}>
+                  <span style={{ fontSize: 30, lineHeight: 1 }}>{x.emoji}</span>
+                  <span><span style={{ display: "block", fontSize: 15, fontWeight: 800 }}>{x.nome}</span><span style={{ display: "block", fontSize: 12, color: "#8b95a3", marginTop: 3, lineHeight: 1.4 }}>{x.testo}</span></span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -3691,9 +3801,12 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
           </div>}
         </div>
 
-        <StrisciaLavori media={media} onApri={() => onNav("registro-voli")} />
+        {spazio && spazio.key === "agricoltura" && <Suspense fallback={null}><HomeAgricoltura supabase={supabase} onNav={onNav} /></Suspense>}
+        {spazio && spazio.key === "rilievi" && <HomeRilievi rilievi={rilievi} onNav={onNav} onNuovoVolo={onNuovoVolo} />}
 
-        {(usaIspezioni || usaRiprese) && (
+        {(!spazio || spazio.key === "video") && <StrisciaLavori media={media} onApri={() => onNav("registro-voli")} />}
+
+        {(usaIspezioni || usaRiprese) && (!spazio || spazio.key === "video" || spazio.key === "ispezioni") && (
           <section style={{ marginBottom: 28 }}>
             <TitoloSezione emoji="🕑" titolo="Ultime attività" azione={
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -3748,6 +3861,56 @@ function Dashboard({ impianti, loading, onOpenImpianto, onNuova, numIspezioni, u
               )}
             </div>
           </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Fotogrammetria: i rilievi del registro, il calcolatore e il report di consegna ---------------------
+function HomeRilievi({ rilievi, onNav, onNuovoVolo }) {
+  const daConsegnare = rilievi.filter((v) => !(v.dettagli && v.dettagli.consegna_report));
+  return (
+    <section style={{ background: "#1b2028", border: "1px solid #22d3ee55", borderRadius: 12, padding: "14px 16px", marginBottom: 22 }}>
+      <div style={{ fontSize: 15, fontWeight: 800 }}>📐 I tuoi rilievi</div>
+      <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>{rilievi.length === 0 ? "Nessun rilievo ancora: registra il primo volo di rilievo." : `${rilievi.length} ${rilievi.length === 1 ? "rilievo" : "rilievi"} · ${daConsegnare.length} senza report di consegna`}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+        <button type="button" onClick={() => onNav("rilievi")} style={{ background: "#22d3ee", color: "#0f1216", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 800 }}>Apri i rilievi ›</button>
+        <button type="button" onClick={() => onNav("pianificazione")} style={{ background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }}>📐 Calcola GSD e sovrapposizioni</button>
+        <button type="button" onClick={onNuovoVolo} style={{ background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }}>＋ Registra un volo</button>
+      </div>
+    </section>
+  );
+}
+
+function PaginaRilievi({ voli, onNav, onNuovo }) {
+  const rilievi = voli.filter((v) => v.tipo_attivita === "rilievo");
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <div style={{ maxWidth: 820 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>📐 Rilievi</h1>
+        <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 16px 0" }}>I voli di rilievo e fotogrammetria. Dentro ogni volo trovi il <strong>report di consegna</strong> con la mappa dell'area, i file e il sistema di riferimento.</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          <button type="button" onClick={onNuovo} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13.5, fontWeight: 800 }}>＋ Nuovo rilievo</button>
+          <button type="button" onClick={() => onNav("pianificazione")} style={{ background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "10px 16px", fontSize: 13.5, fontWeight: 700 }}>📐 Pianifica: GSD, sovrapposizioni e area STS</button>
+        </div>
+        {rilievi.length === 0 ? (
+          <EmptyState text="Nessun rilievo ancora. Tocca «Nuovo rilievo»: nel registro il tipo di volo è già «Rilievo»." />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {rilievi.map((v) => {
+              const fatto = !!(v.dettagli && v.dettagli.consegna_report);
+              return (
+                <button key={v.id} type="button" onClick={() => onNav("registro-voli")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, textAlign: "left", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "10px 14px", color: "#e7eaee" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600 }}>{formatData(v.data)}{v.luogo ? ` · ${v.luogo}` : ""}</div>
+                    <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>{[v.drone_nome, v.durata_minuti ? formattaDurata(v.durata_minuti) : null].filter(Boolean).join(" · ") || "—"}</div>
+                  </div>
+                  <span style={{ flex: "none", fontSize: 11.5, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: fatto ? "#4ade8022" : "#f5b94222", color: fatto ? "#4ade80" : "#f5b942" }}>{fatto ? "✓ Report pronto" : "Report da fare"}</span>
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
@@ -8741,9 +8904,9 @@ const CAMPI_DETTAGLI = {
   ],
 };
 
-function PianificazioneVolo({ azienda, impianti, onVaiRegistroConDati, session, piano, pianoIniziale, onPianoAperto, luogoIniziale, onLuogoUsato }) {
+function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroConDati, session, piano, pianoIniziale, onPianoAperto, luogoIniziale, onLuogoUsato }) {
   const [impiantoSel, setImpiantoSel] = useState(null);
-  const [tipoIspezione, setTipoIspezione] = useState("fotovoltaico");
+  const [tipoIspezione, setTipoIspezione] = useState(tipoPredefinito || "fotovoltaico");
   const [dataPrevista, setDataPrevista] = useState(() => new Date().toISOString().slice(0, 10));
   const [meteo, setMeteo] = useState(null);
   const [meteoSpaziale, setMeteoSpaziale] = useState(null);

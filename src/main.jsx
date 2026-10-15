@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
+import { spazioDalLink } from "./spazi.js";
 
 // dopo un aggiornamento dell'app, chi aveva la versione vecchia aperta non trova più alcuni pezzi
 // («Failed to fetch dynamically imported module», «Importing a module script failed»): ricarico una volta
@@ -34,6 +35,9 @@ class ProtezioneErrori extends React.Component {
     );
   }
 }
+
+// link diretto a uno spazio (/agri, /ispezioni…): lo ricordo subito, così vale anche dopo il login
+spazioDalLink();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

@@ -24,7 +24,7 @@ const VUOTO = {
 const dataIt = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" }) : "");
 const scaduta = (d) => !!d && new Date(`${d}T23:59:59`) < new Date();
 const pieno = (v) => String(v ?? "").trim() !== "";
-const unisci = (d) => ({
+export const unisci = (d) => ({
   impresa: { ...VUOTO.impresa, ...(d?.impresa || {}) },
   piloti: d?.piloti?.length ? d.piloti.map((p) => ({ ...VUOTO.piloti[0], ...p })) : VUOTO.piloti,
   mezzi: d?.mezzi?.length ? d.mezzi.map((m) => ({ ...VUOTO.mezzi[0], ...m })) : VUOTO.mezzi,
