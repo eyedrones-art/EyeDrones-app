@@ -1857,8 +1857,18 @@ function AppShell({ session }) {
   // altre scorciatoie dell'icona: ?vai=qui (sono sul posto: meteo e zona dove sei) e ?vai=voli (i voli pianificati)
   const [vaiAQui] = useState(() => new URLSearchParams(window.location.search).get("vai") === "qui");
   const [vaiAVoli] = useState(() => new URLSearchParams(window.location.search).get("vai") === "voli");
-  const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : vaiAControllo ? "documenti-controllo" : vaiAVoli ? "pianificazione" : vaiAQui ? "dashboard" : PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard"));
-  useEffect(() => { if (vaiARichieste || vaiAControllo || vaiAQui || vaiAVoli) window.history.replaceState(null, "", window.location.pathname); }, []);
+  // link dalle email: ?vai=droni, ?vai=attestati… apre quella pagina (con la barra della guida); ?vai=primi la Home con i primi passi
+  const [vaiAltro] = useState(() => {
+    const v = new URLSearchParams(window.location.search).get("vai");
+    const passo = { droni: "drone", attestati: "attestato" }[v];
+    if (v === "primi") { try { ["eyedrones_primi_passi_rimanda", "eyedrones_primi_passi_chiuso2", "eyedrones_primi_passi_chiuso"].forEach((k) => localStorage.removeItem(k)); } catch { /* niente */ } return "dashboard"; }
+    if (v && PAGINE_RIPRISTINABILI.includes(v)) { if (passo) { try { sessionStorage.setItem("eyedrones_guida_passo", passo); } catch { /* niente */ } } return v; }
+    return null;
+  });
+  const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : vaiAControllo ? "documenti-controllo" : vaiAVoli ? "pianificazione" : vaiAQui ? "dashboard" : vaiAltro || (PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard")));
+  useEffect(() => { if (vaiARichieste || vaiAControllo || vaiAQui || vaiAVoli || vaiAltro) window.history.replaceState(null, "", window.location.pathname); }, []);
+  // primi passi: il tasto Controllo è «provato» appena si apre la sua pagina
+  useEffect(() => { if (page === "documenti-controllo") { try { localStorage.setItem("eyedrones_controllo_provato", new Date().toISOString()); } catch { /* niente */ } } }, [page]);
   const [paginaPrecedente, setPaginaPrecedente] = useState(null); // da dove si apre «Suggerimenti», per capire dove c'è un problema
   const setPage = (p) => {
     if (p === "suggerimenti") setPaginaPrecedente((prec) => (page !== "suggerimenti" ? page : prec));
@@ -2261,6 +2271,7 @@ function AppShell({ session }) {
             </div>
           </div>
         )}
+        {page !== "dashboard" && <BarraPrimiPassi pagina={page} droni={droni} attestati={attestati} voli={voliDashboard} preventivi={preventivi} onNav={vai} />}
         {page === "dashboard" && <Dashboard impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} nomeSaluto={azienda.nomeImpostato ? azienda.nome : ""} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
@@ -2313,10 +2324,37 @@ function AppShell({ session }) {
 
 // --- Pagina di presentazione (prima del login) -----------------------------------------------
 
-// «Primi passi» in Home: le 6 cose che fanno funzionare l'app, si spuntano da sole man mano che le fai
-const CHIAVE_PRIMI_PASSI = "eyedrones_primi_passi_chiuso";
+// «Primi passi» in Home: le cose che fanno funzionare l'app, si spuntano da sole man mano che le fai.
+// Le prime (drone, attestato e assicurazione, file zone, tasto Controllo) mettono il pilota «in regola»:
+// sono quelle che fanno tornare nell'app, quindi la guida le propone una alla volta, con un pulsante grande.
+const CHIAVE_PRIMI_PASSI = "eyedrones_primi_passi_chiuso2"; // "si" = non mostrarlo più
+// chi aveva chiuso i vecchi «primi passi» li rivede solo se non è ancora in regola
+const CHIAVE_PRIMI_PASSI_VECCHIA = "eyedrones_primi_passi_chiuso";
+const CHIAVE_PRIMI_PASSI_RIMANDA = "eyedrones_primi_passi_rimanda"; // data fino a cui resta nascosto
+const CHIAVE_GUIDA = "eyedrones_guida_passo"; // il passo aperto dalla guida (per la barra nelle altre pagine)
+const CHIAVE_CONTROLLO_PROVATO = "eyedrones_controllo_provato";
+const leggiLocale = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const scriviLocale = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* niente */ } };
+
+function passiPrimi({ droni, attestati, voli, preventivi, haPiano }) {
+  const oggi = new Date();
+  const validi = (attestati || []).filter((a) => !a.data_scadenza || new Date(a.data_scadenza) >= oggi);
+  const haAttestato = validi.some((a) => /A1|A2|A3|STS/i.test(a.tipo || ""));
+  const haAssicurazione = validi.some((a) => /assicura/i.test(a.tipo || ""));
+  return [
+    { chiave: "account", fatto: true, titolo: "Crea il tuo account" },
+    { chiave: "drone", regola: true, fatto: (droni || []).length > 0, titolo: "Aggiungi il tuo drone", bottone: "Aggiungi il drone", perche: "così l'app sa le regole della sua classe e fin dove puoi volare", pagina: "droni", aiuto: "Tocca «+ Nuovo drone», scegli il modello e salva. Bastano marca e modello; il codice operatore D-Flight se ce l'hai." },
+    { chiave: "attestato", regola: true, fatto: haAttestato && haAssicurazione, titolo: "Carica attestato e assicurazione", bottone: "Carica i documenti", perche: haAttestato && !haAssicurazione ? "manca l'assicurazione: in Italia è obbligatoria" : !haAttestato && haAssicurazione ? "manca l'attestato del pilota" : "se ti fermano per un controllo li mostri con un tocco, anche senza campo", pagina: "attestati", aiuto: "Tocca «+ Nuovo attestato»: aggiungi l'attestato (A1/A3 o A2) e poi l'assicurazione, con la data di scadenza. Puoi allegare la foto o il PDF." },
+    { chiave: "zone", regola: true, fatto: !!leggiLocale("eyedrones_zone_caricate"), titolo: "Carica il file zone di D-Flight", bottone: "Carica il file zone", perche: "si fa una volta sola: poi scrivi la via e sai subito dove puoi volare", pagina: "pianificazione", aiuto: "Nel riquadro «🛡️ Zona di volo» trovi i passi per scaricarlo da D-Flight e il pulsante per caricarlo." },
+    { chiave: "controllo", regola: true, fatto: !!leggiLocale(CHIAVE_CONTROLLO_PROVATO), titolo: "Prova il tasto 👮 Controllo", bottone: "Prova il Controllo", perche: "è quello che mostri se ti fermano: documenti, drone e zona a schermo pieno", pagina: "documenti-controllo", aiuto: "Questa è la schermata da mostrare in caso di controllo. Una copia resta sul telefono, anche senza campo." },
+    { chiave: "volo", fatto: !!haPiano || (voli || []).length > 0, titolo: "Prepara il tuo primo volo", bottone: "Prepara un volo", perche: "meteo, luce, zona, regole e le riprese da fare, tutto in una pagina", pagina: "pianificazione" },
+    { chiave: "preventivo", fatto: (preventivi || []).length > 0, titolo: "Fai il tuo primo preventivo", bottone: "Fai un preventivo", perche: "in PDF, con i pacchetti pronti e il prezzo consigliato", pagina: "preventivi" },
+  ];
+}
+
 function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
-  const [chiuso, setChiuso] = useState(() => { try { return localStorage.getItem(CHIAVE_PRIMI_PASSI) === "si"; } catch { return false; } });
+  const nascosto = () => leggiLocale(CHIAVE_PRIMI_PASSI) === "si" || (leggiLocale(CHIAVE_PRIMI_PASSI_RIMANDA) || "") > dataLocale();
+  const [chiuso, setChiuso] = useState(nascosto);
   const [haPiano, setHaPiano] = useState(null);
   useEffect(() => {
     if (chiuso) return undefined;
@@ -2328,58 +2366,89 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
   }, [chiuso]);
   if (chiuso) return null;
 
-  const oggi = new Date();
-  const validi = (attestati || []).filter((a) => !a.data_scadenza || new Date(a.data_scadenza) >= oggi);
-  const haAttestato = validi.some((a) => /A1|A2|A3|STS/i.test(a.tipo || ""));
-  const haAssicurazione = validi.some((a) => /assicura/i.test(a.tipo || ""));
-  const zoneCaricate = (() => { try { return !!localStorage.getItem("eyedrones_zone_caricate"); } catch { return false; } })();
-  const passi = [
-    { fatto: true, titolo: "Crea il tuo account" },
-    { fatto: (droni || []).length > 0, titolo: "Aggiungi il tuo drone", perche: "così l'app sa le regole della sua classe e fin dove puoi volare", pagina: "droni" },
-    { fatto: haAttestato && haAssicurazione, titolo: "Carica attestato e assicurazione", perche: haAttestato && !haAssicurazione ? "manca l'assicurazione: in Italia è obbligatoria" : !haAttestato && haAssicurazione ? "manca l'attestato del pilota" : "se ti fermano per un controllo li mostri con un tocco, anche senza campo", pagina: "attestati" },
-    { fatto: zoneCaricate, titolo: "Carica il file zone di D-Flight", perche: "si fa una volta sola: poi scrivi la via e sai subito dove puoi volare", pagina: "pianificazione" },
-    { fatto: !!haPiano || (voli || []).length > 0, titolo: "Prepara il tuo primo volo", perche: "meteo, luce, zona, regole e le riprese da fare, tutto in una pagina", pagina: "pianificazione" },
-    { fatto: (preventivi || []).length > 0, titolo: "Fai il tuo primo preventivo", perche: "in PDF, con i pacchetti pronti e il prezzo consigliato", pagina: "preventivi" },
-  ];
+  const passi = passiPrimi({ droni, attestati, voli, preventivi, haPiano });
   const fatti = passi.filter((x) => x.fatto).length;
   const tutti = fatti === passi.length;
+  const regole = passi.filter((x) => x.regola);
+  const inRegola = regole.every((x) => x.fatto);
   const prossimo = passi.find((x) => !x.fatto);
-  const chiudi = () => { try { localStorage.setItem(CHIAVE_PRIMI_PASSI, "si"); } catch { /* niente */ } setChiuso(true); };
+  const chiudi = () => { scriviLocale(CHIAVE_PRIMI_PASSI, "si"); setChiuso(true); };
+  // la × non lo fa sparire per sempre: torna fra 3 giorni (chi si iscrive e chiude subito se ne dimenticherebbe)
+  const rimanda = () => { const d = new Date(); d.setDate(d.getDate() + 3); scriviLocale(CHIAVE_PRIMI_PASSI_RIMANDA, d.toISOString().slice(0, 10)); setChiuso(true); };
+  const apri = (x) => { try { sessionStorage.setItem(CHIAVE_GUIDA, x.chiave); } catch { /* niente */ } onNav(x.pagina); };
   if (haPiano === null) return null; // aspetto di sapere se c'è già un piano, così non spunto a scatti
 
+  if (inRegola && leggiLocale(CHIAVE_PRIMI_PASSI_VECCHIA) === "si") return null;
+  const fattiRegole = regole.filter((x) => x.fatto).length;
   return (
-    <div style={{ position: "relative", background: "linear-gradient(135deg, #16202c, #1b2028)", border: "1px solid #2b4a6a", borderRadius: 12, padding: "14px 16px", marginBottom: 18, maxWidth: 720 }}>
-      <button type="button" onClick={chiudi} aria-label="Chiudi i primi passi" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
-      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#7fb0ff", paddingRight: 32 }}>{tutti ? "🎉 Tutto pronto!" : `🚀 Primi passi con EyeDrones · ${fatti} di ${passi.length}`}</div>
-      <div style={{ height: 6, background: "#262b33", borderRadius: 3, margin: "8px 0 10px 0", overflow: "hidden" }}>
-        <div style={{ width: `${Math.round((fatti / passi.length) * 100)}%`, height: "100%", background: tutti ? "#4ade80" : "#3d8bfd", transition: "width .4s" }} />
-      </div>
+    <div style={{ position: "relative", background: inRegola ? "linear-gradient(135deg, #142619, #1b2028)" : "linear-gradient(135deg, #16202c, #1b2028)", border: `1px solid ${inRegola ? "#2f6b45" : "#3d8bfd88"}`, borderRadius: 12, padding: "14px 16px", marginBottom: 18, maxWidth: 720 }}>
+      <button type="button" onClick={rimanda} aria-label="Nascondi per qualche giorno" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
       {tutti ? (
         <div style={{ fontSize: 13, color: "#c3cad4" }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80", marginBottom: 4 }}>🎉 Tutto pronto!</div>
           Hai fatto tutto: l'app è pronta per i tuoi voli. Se ti serve una mano, in <strong>Impara</strong> trovi regole, manovre e consigli.
           <div><button type="button" onClick={chiudi} style={{ marginTop: 10, background: "#4ade80", color: "#12151a", border: "none", borderRadius: 6, padding: "8px 16px", minHeight: 40, fontSize: 13, fontWeight: 700 }}>Perfetto, chiudi</button></div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {passi.map((x) => {
-            const attivo = x === prossimo;
-            const riga = (
-              <>
-                <span style={{ width: 22, height: 22, flex: "none", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, background: x.fatto ? "#4ade80" : "transparent", color: x.fatto ? "#12151a" : "#8b95a3", border: x.fatto ? "none" : `1.5px solid ${attivo ? "#3d8bfd" : "#4a505a"}` }}>{x.fatto ? "✓" : ""}</span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: "block", fontSize: 13.5, fontWeight: attivo ? 700 : 500, color: x.fatto ? "#6b7480" : "#e7eaee", textDecoration: x.fatto ? "line-through" : "none" }}>{x.titolo}</span>
-                  {attivo && x.perche && <span style={{ display: "block", fontSize: 12, color: "#aab3bf", marginTop: 2, lineHeight: 1.4 }}>{x.perche}</span>}
-                </span>
-                {!x.fatto && <span style={{ color: attivo ? "#3d8bfd" : "#6b7480", fontSize: attivo ? 12.5 : 14, fontWeight: 600, whiteSpace: "nowrap" }}>{attivo ? "Inizia ›" : "›"}</span>}
-              </>
-            );
-            const stile = { display: "flex", gap: 10, alignItems: attivo ? "flex-start" : "center", textAlign: "left", padding: attivo ? "8px 10px" : "6px 10px", margin: "0 -10px", borderRadius: 8, background: attivo ? "#3d8bfd14" : "none", border: "none", color: "#e7eaee", minHeight: 40 };
-            return x.fatto || !x.pagina
-              ? <div key={x.titolo} style={stile}>{riga}</div>
-              : <button key={x.titolo} type="button" onClick={() => onNav(x.pagina)} style={stile}>{riga}</button>;
-          })}
-        </div>
+        <>
+          {inRegola ? (
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80", paddingRight: 32 }}>✅ Sei in regola!</div>
+          ) : (
+            <div style={{ paddingRight: 32 }}>
+              <div style={{ fontSize: 15.5, fontWeight: 800, color: "#e7eaee" }}>🚀 In regola in 3 minuti</div>
+              <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>Così, se arriva un controllo, hai tutto sul telefono. Passo {Math.min(fattiRegole + 1, regole.length)} di {regole.length}.</div>
+            </div>
+          )}
+          <div style={{ height: 6, background: "#262b33", borderRadius: 3, margin: "10px 0", overflow: "hidden" }}>
+            <div style={{ width: `${Math.round(((inRegola ? fatti : fattiRegole) / (inRegola ? passi.length : regole.length)) * 100)}%`, height: "100%", background: inRegola ? "#4ade80" : "#3d8bfd", transition: "width .4s" }} />
+          </div>
+          {prossimo && (
+            <div style={{ background: "#3d8bfd14", border: "1px solid #3d8bfd55", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#e7eaee" }}>{inRegola ? "Prossimo: " : ""}{prossimo.titolo}</div>
+              {prossimo.perche && <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2, lineHeight: 1.4 }}>{prossimo.perche}</div>}
+              <button type="button" onClick={() => apri(prossimo)} style={{ marginTop: 10, width: "100%", background: "linear-gradient(90deg, #3d8bfd, #5aa2ff)", color: "#0f1216", border: "none", borderRadius: 8, padding: "11px 14px", minHeight: 46, fontSize: 14.5, fontWeight: 800 }}>{prossimo.bottone || "Inizia"} ›</button>
+            </div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {(inRegola ? passi : regole.concat(passi.filter((x) => x.chiave === "account"))).filter((x) => x !== prossimo).sort((x, y) => passi.indexOf(x) - passi.indexOf(y)).map((x) => (
+              <button key={x.chiave} type="button" disabled={x.fatto || !x.pagina} onClick={() => apri(x)} style={{ display: "flex", gap: 10, alignItems: "center", textAlign: "left", padding: "5px 2px", background: "none", border: "none", color: "#e7eaee", minHeight: 36 }}>
+                <span style={{ width: 20, height: 20, flex: "none", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, background: x.fatto ? "#4ade80" : "transparent", color: "#12151a", border: x.fatto ? "none" : "1.5px solid #4a505a" }}>{x.fatto ? "✓" : ""}</span>
+                <span style={{ flex: 1, fontSize: 13, color: x.fatto ? "#6b7480" : "#c3cad4", textDecoration: x.fatto ? "line-through" : "none" }}>{x.titolo}</span>
+                {!x.fatto && x.pagina && <span style={{ color: "#6b7480" }}>›</span>}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={chiudi} style={{ marginTop: 6, background: "none", border: "none", color: "#6b7480", fontSize: 11.5, padding: 0, textDecoration: "underline" }}>Non mostrarlo più</button>
+        </>
       )}
+    </div>
+  );
+}
+
+// barra in cima alle pagine aperte dai primi passi: dice cosa fare lì e, appena è fatto, porta al passo dopo
+function BarraPrimiPassi({ pagina, droni, attestati, voli, preventivi, onNav }) {
+  const [passo, setPasso] = useState(() => { try { return sessionStorage.getItem(CHIAVE_GUIDA); } catch { return null; } });
+  const [, ridisegna] = useState(0);
+  // il file zone e il tasto Controllo si segnano nel telefono: ricontrollo ogni tanto
+  useEffect(() => { if (!passo) return undefined; const t = setInterval(() => ridisegna((n) => n + 1), 1500); return () => clearInterval(t); }, [passo]);
+  if (!passo) return null;
+  const passi = passiPrimi({ droni, attestati, voli, preventivi, haPiano: false });
+  const qui = passi.find((x) => x.chiave === passo);
+  if (!qui || qui.pagina !== pagina) return null;
+  const chiudi = () => { try { sessionStorage.removeItem(CHIAVE_GUIDA); } catch { /* niente */ } setPasso(null); };
+  const dopo = passi.find((x) => !x.fatto && x.regola && x !== qui);
+  const vaiDopo = () => { if (!dopo) { chiudi(); onNav("dashboard"); return; } try { sessionStorage.setItem(CHIAVE_GUIDA, dopo.chiave); } catch { /* niente */ } setPasso(dopo.chiave); onNav(dopo.pagina); };
+  const n = passi.filter((x) => x.regola).indexOf(qui) + 1;
+  return (
+    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "12px 16px 0", padding: "10px 12px", borderRadius: 10, background: qui.fatto ? "#4ade8018" : "#3d8bfd14", border: `1px solid ${qui.fatto ? "#4ade8066" : "#3d8bfd55"}`, maxWidth: 720 }}>
+      <div style={{ flex: "1 1 220px", fontSize: 12.5, color: "#c3cad4", lineHeight: 1.45 }}>
+        {qui.fatto
+          ? <><strong style={{ color: "#4ade80" }}>✅ Fatto!</strong> {dopo ? `Prossimo passo: ${dopo.titolo.toLowerCase()}.` : "Sei in regola: se arriva un controllo hai tutto sul telefono."}</>
+          : <><strong style={{ color: "#7fb0ff" }}>🚀 Passo {n} di 4 · {qui.titolo}</strong><br />{qui.aiuto}</>}
+      </div>
+      {qui.fatto
+        ? <button type="button" onClick={vaiDopo} style={{ background: "#4ade80", color: "#12151a", border: "none", borderRadius: 8, padding: "9px 14px", minHeight: 42, fontSize: 13.5, fontWeight: 800 }}>{dopo ? `${dopo.bottone} ›` : "Torna alla Home"}</button>
+        : <button type="button" onClick={chiudi} aria-label="Chiudi la guida" style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 18, minWidth: 36, minHeight: 36 }}>×</button>}
     </div>
   );
 }
