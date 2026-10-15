@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import MappaCampi from "./MappaCampi.jsx";
 import { pdfConsegnaAgricoltura } from "./reportConsegna.js";
+import FascicoloScia, { controlliScia, unisci } from "./FascicoloScia.jsx";
 import { leggiFileConfini, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
 
 // Agricoltura (fase 1): appezzamenti con i confini sulla mappa, registro dei trattamenti con PDF,
@@ -18,8 +19,56 @@ const scheda = { background: "#1b2028", border: "1px solid #2b313d", borderRadiu
 const etichetta = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
 const btn = (primario) => ({ background: primario ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#1f2530", color: primario ? "#161a1f" : "#e7eaee", border: primario ? "none" : "1px solid #333a45", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 });
 
+const CHIAVE_VISTA = "eyedrones_agri_vista";
+
+// Home dello spazio Agricoltura: campi, ultimi lavori, a che punto è il fascicolo SCIA, scorciatoie
+export function HomeAgricoltura({ supabase, onNav }) {
+  const [d, setD] = useState(null);
+  useEffect(() => {
+    let annullato = false;
+    Promise.all([
+      supabase.from("appezzamenti").select("id, nome, azienda, coltura, ettari"),
+      supabase.from("trattamenti").select("id, data, campo_nome, prodotto, tipo, ettari").order("data", { ascending: false }).limit(3),
+      supabase.from("agri_fascicolo").select("dati").maybeSingle(),
+    ]).then(([a, t, f]) => {
+      if (annullato) return;
+      const campi = a.data || [];
+      setD({ manca: !!(a.error && manca(a.error.message)), campi, lavori: t.data || [], scia: f.error ? null : controlliScia(unisci(f.data && f.data.dati), campi) });
+    }).catch(() => { if (!annullato) setD({ manca: false, campi: [], lavori: [], scia: null }); });
+    return () => { annullato = true; };
+  }, [supabase]);
+  const vai = (vista) => { try { sessionStorage.setItem(CHIAVE_VISTA, vista); } catch { /* niente */ } onNav("campi"); };
+  if (!d) return null;
+  const ettari = d.campi.reduce((x, c) => x + (Number(c.ettari) || 0), 0);
+  const bott = (testo, vista, primario) => <button type="button" onClick={() => vai(vista)} style={btn(primario)}>{testo}</button>;
+  return (
+    <section style={{ ...scheda, border: "1px solid #4ade8055", marginBottom: 22 }}>
+      <div style={{ fontSize: 15, fontWeight: 800 }}>🌾 In campo</div>
+      <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>
+        {d.manca ? "Per iniziare serve lo script supabase/agricoltura.sql (una volta sola)." : d.campi.length === 0 ? "Nessun appezzamento ancora: aggiungi il primo con i confini sulla mappa." : `${d.campi.length} ${d.campi.length === 1 ? "appezzamento" : "appezzamenti"} · ${formattaEttari(ettari)}`}
+      </div>
+      {d.lavori.length > 0 && (
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+          {d.lavori.map((l) => <div key={l.id} style={{ fontSize: 12.5, color: "#c3cad4" }}>🧪 {dataIt(l.data)} · {l.campo_nome || "campo"}{l.prodotto ? ` · ${l.prodotto}` : ""}</div>)}
+        </div>
+      )}
+      {d.scia && (
+        <button type="button" onClick={() => vai("scia")} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 10, textAlign: "left", background: "#161a1f", border: `1px solid ${d.scia.fatte === d.scia.voci.length ? "#4ade8066" : "#ff8c4266"}`, borderRadius: 8, padding: "9px 12px", color: "#e7eaee" }}>
+          <span>📁</span><span style={{ flex: 1, fontSize: 12.5 }}><strong>Fascicolo SCIA</strong> · {d.scia.fatte === d.scia.voci.length ? "pronto ✅" : `${d.scia.fatte} di ${d.scia.voci.length}: mancano ${d.scia.voci.length - d.scia.fatte} cose`}</span><span style={{ color: "#8b95a3" }}>›</span>
+        </button>
+      )}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+        {bott("🧪 Registra un trattamento", "trattamenti", true)}
+        {bott("🌦️ Meteo per irrorare", "meteo")}
+        {bott("🗺️ Appezzamenti", "campi")}
+      </div>
+    </section>
+  );
+}
+
 export default function Agricoltura({ supabase, inputStyle, clienti = [], droni = [], azienda = {} }) {
-  const [vista, setVista] = useState("campi");
+  // dalla Home dello spazio Agricoltura si può arrivare direttamente a una scheda (es. il fascicolo SCIA)
+  const [vista, setVista] = useState(() => { try { const v = sessionStorage.getItem(CHIAVE_VISTA); sessionStorage.removeItem(CHIAVE_VISTA); return v || "campi"; } catch { return "campi"; } });
   const [campi, setCampi] = useState(null);
   const [trattamenti, setTrattamenti] = useState([]);
   const [mancaTabella, setMancaTabella] = useState(false);
@@ -42,7 +91,7 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
   const apriLavoro = (campo) => { setNuovoLavoro(campo ? { campo } : {}); setVista("trattamenti"); window.scrollTo(0, 0); };
   const apriMeteo = (campo) => { setCampoMeteo(campo ? campo.id : null); setVista("meteo"); window.scrollTo(0, 0); };
 
-  const linguette = [["campi", "🗺️ Appezzamenti"], ["trattamenti", "🧪 Registro lavori"], ["meteo", "🌦️ Meteo trattamenti"]];
+  const linguette = [["campi", "🗺️ Appezzamenti"], ["trattamenti", "🧪 Registro lavori"], ["meteo", "🌦️ Meteo trattamenti"], ["scia", "📁 Fascicolo SCIA"]];
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
@@ -65,6 +114,8 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
           <Appezzamenti supabase={supabase} inputStyle={inputStyle} clienti={clienti} campi={campi} trattamenti={trattamenti} selezionato={selezionato} setSelezionato={setSelezionato} onCambiati={carica} onLavoro={apriLavoro} onMeteo={apriMeteo} nomeCliente={nomeCliente} bloccato={mancaTabella} />
         ) : vista === "trattamenti" ? (
           <RegistroLavori supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} droni={droni} azienda={azienda} iniziale={nuovoLavoro} onIniziale={() => setNuovoLavoro(null)} onCambiati={carica} bloccato={mancaTabella} />
+        ) : vista === "scia" ? (
+          <FascicoloScia supabase={supabase} inputStyle={inputStyle} campi={campi} droni={droni} azienda={azienda} />
         ) : (
           <MeteoTrattamenti inputStyle={inputStyle} campi={campi} campoId={campoMeteo} setCampoId={setCampoMeteo} onLavoro={apriLavoro} />
         )}

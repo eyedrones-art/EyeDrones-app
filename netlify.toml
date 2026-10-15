@@ -25,6 +25,27 @@
     X-Robots-Tag = "noindex, nofollow"
 
 # pagina pubblica del pilota: app.eyedrones.it/p/<nome> apre l'app, che mostra la pagina senza login
+# link diretti agli spazi: app.eyedrones.it/agri, /ispezioni, /video, /rilievi aprono l'app in quello spazio
+[[redirects]]
+  from = "/agri"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/ispezioni"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/video"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/rilievi"
+  to = "/index.html"
+  status = 200
+
 [[redirects]]
   from = "/privacy"
   to = "/index.html"
