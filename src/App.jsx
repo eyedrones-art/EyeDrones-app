@@ -2329,7 +2329,7 @@ function AppShell({ session }) {
             <AnalisiAI key={spazioAperto?.key || "tutti"} supabase={supabase} droni={droni} inputStyle={inputStyle} spazio={spazioAperto?.key} />
           </Suspense>
         )}
-        {page === "rilievi" && <PaginaRilievi voli={voliDashboard} onNav={vai} onNuovo={() => { setPrefillVolo({ tipo_attivita: "rilievo" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "rilievi" && <PaginaRilievi voli={voliDashboard} droni={droni} azienda={azienda} piano={piano} onCambiato={caricaVoli} onNav={vai} onNuovo={() => { setPrefillVolo({ tipo_attivita: "rilievo" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "campi" && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
             <Agricoltura supabase={supabase} inputStyle={inputStyle} clienti={clienti} droni={droni} azienda={azienda} />
@@ -3871,11 +3871,12 @@ function Dashboard({ spazio, onEntraSpazio, impianti, loading, onOpenImpianto, o
 
 // --- Fotogrammetria: i rilievi del registro, il calcolatore e il report di consegna ---------------------
 function HomeRilievi({ rilievi, onNav, onNuovoVolo }) {
-  const daConsegnare = rilievi.filter((v) => !(v.dettagli && v.dettagli.consegna_report));
+  const daElaborare = rilievi.filter((v) => statoRilievo(v) === "volato").length;
+  const daConsegnare = rilievi.filter((v) => statoRilievo(v) === "elaborato").length;
   return (
     <section style={{ background: "#1b2028", border: "1px solid #22d3ee55", borderRadius: 12, padding: "14px 16px", marginBottom: 22 }}>
       <div style={{ fontSize: 15, fontWeight: 800 }}>📐 I tuoi rilievi</div>
-      <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>{rilievi.length === 0 ? "Nessun rilievo ancora: registra il primo volo di rilievo." : `${rilievi.length} ${rilievi.length === 1 ? "rilievo" : "rilievi"} · ${daConsegnare.length} senza report di consegna`}</div>
+      <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>{rilievi.length === 0 ? "Nessun rilievo ancora: registra il primo volo di rilievo." : `${rilievi.length} ${rilievi.length === 1 ? "rilievo" : "rilievi"} · ${daElaborare} da elaborare · ${daConsegnare} da consegnare`}</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
         <button type="button" onClick={() => onNav("rilievi")} style={{ background: "#22d3ee", color: "#0f1216", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 800 }}>Apri i rilievi ›</button>
         <button type="button" onClick={() => onNav("pianificazione")} style={{ background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }}>📐 Calcola GSD e sovrapposizioni</button>
@@ -3885,34 +3886,185 @@ function HomeRilievi({ rilievi, onNav, onNuovoVolo }) {
   );
 }
 
-function PaginaRilievi({ voli, onNav, onNuovo }) {
-  const rilievi = voli.filter((v) => v.tipo_attivita === "rilievo");
+// stato di un rilievo: volato → elaborato (foto passate nel software) → consegnato (report di consegna fatto)
+const statoRilievo = (v) => {
+  const det = v.dettagli || {};
+  if (det.consegna_report) return "consegnato";
+  if (det.elaborato) return "elaborato";
+  return "volato";
+};
+const ettariRilievo = (v) => {
+  const det = v.dettagli || {};
+  const n = Number(String((det.consegna_report && det.consegna_report.area_ha) || det.area_ha || "").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+};
+
+const LISTA_RILIEVO = [
+  ["Prima di partire", [
+    "Area e quota decise col cliente (GSD voluto, cosa serve: ortofoto, 3D, volumi)",
+    "Zona controllata e, se serve, scenario STS o autorizzazione pronti",
+    "Batterie cariche per tutti i voli calcolati + una di scorta",
+    "Scheda SD vuota e formattata nel drone",
+  ]],
+  ["Sul posto, prima del volo", [
+    "Punti di controllo (GCP) posati bene in vista, sparsi su tutta l'area e anche ai bordi",
+    "GCP misurati con il GNSS RTK e salvati (nome, coordinate, sistema di riferimento)",
+    "RTK del drone collegato e in «FIX» (se lo usi)",
+    "Sovrapposizioni impostate: circa 80% in avanti e 70% di lato",
+    "Otturatore meccanico, oppure velocità più bassa con quello elettronico",
+    "Luce uniforme: niente sole basso, meglio cielo velato o ore centrali",
+    "Esposizione bloccata o controllata: niente foto bruciate sul bianco",
+  ]],
+  ["Dopo il volo", [
+    "Numero di foto giusto e nessun buco sulla mappa del volo",
+    "Qualche foto controllata a schermo intero: non mosse né sfocate",
+    "Copia delle foto in due posti diversi prima di formattare la scheda",
+    "Annotati i GCP usati e il sistema di riferimento per il report",
+  ]],
+];
+const CHIAVE_LISTA_RILIEVO = "eyedrones_lista_rilievo";
+
+function ListaRilievo() {
+  const [fatti, setFatti] = useState(() => { try { return JSON.parse(localStorage.getItem(CHIAVE_LISTA_RILIEVO) || "{}"); } catch { return {}; } });
+  const salva = (x) => { setFatti(x); try { localStorage.setItem(CHIAVE_LISTA_RILIEVO, JSON.stringify(x)); } catch { /* niente */ } };
+  const totale = LISTA_RILIEVO.reduce((n, [, voci]) => n + voci.length, 0);
+  const n = Object.values(fatti).filter(Boolean).length;
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <div style={{ fontSize: 13, color: "#aab3bf" }}>{n} di {totale} fatte</div>
+        <button type="button" onClick={() => salva({})} style={{ background: "#1f2530", color: "#c3cad4", border: "1px solid #333a45", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>↺ Ricomincia per un nuovo rilievo</button>
+      </div>
+      {LISTA_RILIEVO.map(([titolo, voci]) => (
+        <div key={titolo} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#67e8f9", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{titolo}</div>
+          {voci.map((voce) => (
+            <label key={voce} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "6px 0", fontSize: 13.5, color: fatti[voce] ? "#8b95a3" : "#e7eaee", textDecoration: fatti[voce] ? "line-through" : "none", cursor: "pointer" }}>
+              <input type="checkbox" checked={!!fatti[voce]} onChange={() => salva({ ...fatti, [voce]: !fatti[voce] })} style={{ marginTop: 3, accentColor: "#22d3ee" }} />
+              {voce}
+            </label>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const FILTRI_RILIEVI = [["tutti", "Tutti"], ["volato", "Da elaborare"], ["elaborato", "Da consegnare"], ["consegnato", "Consegnati"]];
+const PASSI_RILIEVO = [["volato", "Volato"], ["elaborato", "Elaborato"], ["consegnato", "Consegnato"]];
+
+function PaginaRilievi({ voli, droni = [], azienda, piano, onNav, onNuovo, onCambiato }) {
+  const [vista, setVista] = useState("rilievi");
+  const [filtro, setFiltro] = useState("tutti");
+  const [aperto, setAperto] = useState(null);
+  const [errore, setErrore] = useState("");
+  const rilievi = voli.filter((v) => v.tipo_attivita === "rilievo" && !v.da_ispezione);
+  const conta = (st) => rilievi.filter((v) => statoRilievo(v) === st).length;
+  const ettari = rilievi.reduce((t, v) => t + ettariRilievo(v), 0);
+  const mostrati = filtro === "tutti" ? rilievi : rilievi.filter((v) => statoRilievo(v) === filtro);
+  const meseCorrente = new Date().toISOString().slice(0, 7);
+  const passQuestoMese = voli.filter((v) => v.pass_lavoro && String(v.pass_lavoro).slice(0, 7) === meseCorrente).length;
+  // il drone per il calcolatore: il primo di cui conosco la camera
+  const droneCalcolo = droni.find((d) => cameraDelDrone(d.modello, d.nome)) || droni[0] || null;
+
+  const segnaElaborato = async (v, si) => {
+    setErrore("");
+    const dettagli = { ...(v.dettagli || {}), elaborato: si };
+    const { error } = await supabase.from("voli").update({ dettagli }).eq("id", v.id);
+    if (error) setErrore("Non sono riuscito a salvare: riprova tra poco."); else if (onCambiato) onCambiato();
+  };
+  const scheda = (k, t) => (
+    <button key={k} type="button" onClick={() => setVista(k)} style={{ background: vista === k ? "#22d3ee22" : "#1f2530", border: `1px solid ${vista === k ? "#22d3ee" : "#333a45"}`, color: vista === k ? "#67e8f9" : "#c3cad4", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700 }}>{t}</button>
+  );
+  const numero = (t, v, col) => (
+    <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "10px 12px", minWidth: 0 }}>
+      <div className="mono" style={{ fontSize: 20, fontWeight: 700, color: col || "#e7eaee" }}>{v}</div>
+      <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>{t}</div>
+    </div>
+  );
+
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 820 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>📐 Rilievi</h1>
-        <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 16px 0" }}>I voli di rilievo e fotogrammetria. Dentro ogni volo trovi il <strong>report di consegna</strong> con la mappa dell'area, i file e il sistema di riferimento.</p>
+        <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 14px 0" }}>Tutto il lavoro di fotogrammetria in un posto: calcolo della missione, lista sul campo, a che punto è ogni rilievo e il report di consegna per il cliente.</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-          <button type="button" onClick={onNuovo} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13.5, fontWeight: 800 }}>＋ Nuovo rilievo</button>
-          <button type="button" onClick={() => onNav("pianificazione")} style={{ background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "10px 16px", fontSize: 13.5, fontWeight: 700 }}>📐 Pianifica: GSD, sovrapposizioni e area STS</button>
+          {scheda("rilievi", "📋 I rilievi")}
+          {scheda("calcolo", "📐 Calcolatore")}
+          {scheda("lista", "✅ Lista sul campo")}
         </div>
-        {rilievi.length === 0 ? (
-          <EmptyState text="Nessun rilievo ancora. Tocca «Nuovo rilievo»: nel registro il tipo di volo è già «Rilievo»." />
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {rilievi.map((v) => {
-              const fatto = !!(v.dettagli && v.dettagli.consegna_report);
-              return (
-                <button key={v.id} type="button" onClick={() => onNav("registro-voli")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, textAlign: "left", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "10px 14px", color: "#e7eaee" }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600 }}>{formatData(v.data)}{v.luogo ? ` · ${v.luogo}` : ""}</div>
-                    <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>{[v.drone_nome, v.durata_minuti ? formattaDurata(v.durata_minuti) : null].filter(Boolean).join(" · ") || "—"}</div>
-                  </div>
-                  <span style={{ flex: "none", fontSize: 11.5, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: fatto ? "#4ade8022" : "#f5b94222", color: fatto ? "#4ade80" : "#f5b942" }}>{fatto ? "✓ Report pronto" : "Report da fare"}</span>
-                </button>
-              );
-            })}
+
+        {vista === "calcolo" && (
+          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 10, padding: 14 }}>
+            <p style={{ fontSize: 12.5, color: "#aab3bf", margin: "0 0 10px 0" }}>Scegli la camera e parti dall'altezza o dal dettaglio che vuoi (GSD): ti dico foto, strisciate, tempo e batterie.</p>
+            <CalcolatoreRilievo drone={droneCalcolo} />
+            <button type="button" onClick={() => onNav("pianificazione")} style={{ marginTop: 12, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }}>🗺️ Pianifica il volo: zona, meteo e area STS ›</button>
           </div>
+        )}
+
+        {vista === "lista" && <ListaRilievo />}
+
+        {vista === "rilievi" && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, marginBottom: 14 }}>
+              {numero("rilievi", rilievi.length)}
+              {numero("ettari rilevati", ettari.toLocaleString("it-IT", { maximumFractionDigits: 1 }), "#67e8f9")}
+              {numero("da elaborare", conta("volato"), conta("volato") ? "#f5b942" : undefined)}
+              {numero("da consegnare", conta("elaborato"), conta("elaborato") ? "#ff9d5c" : undefined)}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+              <button type="button" onClick={onNuovo} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13.5, fontWeight: 800 }}>＋ Nuovo rilievo</button>
+              {rilievi.length > 0 && FILTRI_RILIEVI.map(([k, t]) => (
+                <button key={k} type="button" onClick={() => setFiltro(k)} style={{ background: filtro === k ? "#22d3ee22" : "transparent", border: `1px solid ${filtro === k ? "#22d3ee" : "#333a45"}`, color: filtro === k ? "#67e8f9" : "#aab3bf", borderRadius: 999, padding: "5px 10px", fontSize: 12 }}>{t}</button>
+              ))}
+            </div>
+            {errore && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "0 0 10px 0" }}>{errore}</p>}
+            {rilievi.length === 0 ? (
+              <EmptyState text="Nessun rilievo ancora. Tocca «Nuovo rilievo»: nel registro il tipo di volo è già «Rilievo»." />
+            ) : mostrati.length === 0 ? (
+              <EmptyState text="Nessun rilievo in questo gruppo." />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {mostrati.map((v) => {
+                  const st = statoRilievo(v);
+                  const indice = PASSI_RILIEVO.findIndex(([k]) => k === st);
+                  const ha = ettariRilievo(v);
+                  const drone = droni.find((d) => d.id === v.drone_id) || null;
+                  const suo = aperto === v.id;
+                  return (
+                    <div key={v.id} style={{ background: "#1b2028", border: `1px solid ${suo ? "#22d3ee66" : "#2b313d"}`, borderRadius: 10, padding: "10px 14px" }}>
+                      <button type="button" onClick={() => setAperto(suo ? null : v.id)} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: "#e7eaee", padding: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600, minWidth: 0 }}>{formatData(v.data)}{v.luogo ? ` · ${v.luogo}` : ""}</div>
+                          <span style={{ color: "#8b95a3", fontSize: 12 }}>{suo ? "▾" : "▸"}</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>{[v.cliente, v.drone_nome, v.durata_minuti ? formattaDurata(v.durata_minuti) : null, ha ? `${ha.toLocaleString("it-IT", { maximumFractionDigits: 1 })} ha` : null].filter(Boolean).join(" · ") || "—"}</div>
+                        <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+                          {PASSI_RILIEVO.map(([k, t], i) => (
+                            <div key={k} style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ height: 4, borderRadius: 2, background: i <= indice ? (i === 2 ? "#4ade80" : "#22d3ee") : "#333a45" }} />
+                              <div style={{ fontSize: 10.5, marginTop: 3, color: i <= indice ? "#c3cad4" : "#6b7480", fontWeight: i === indice ? 700 : 400 }}>{i <= indice ? "✓ " : ""}{t}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </button>
+                      {suo && (
+                        <div style={{ marginTop: 10 }}>
+                          {st !== "consegnato" && (
+                            <button type="button" onClick={() => segnaElaborato(v, st === "volato")} style={{ background: st === "volato" ? "#22d3ee" : "#1f2530", color: st === "volato" ? "#0f1216" : "#c3cad4", border: st === "volato" ? "none" : "1px solid #333a45", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>
+                              {st === "volato" ? "✓ Ho elaborato le foto" : "↺ Non ancora elaborato"}
+                            </button>
+                          )}
+                          <ReportConsegnaRilievo volo={v} drone={drone} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={() => onNav("abbonamento")} onAggiornato={() => onCambiato && onCambiato()} />
+                          <button type="button" onClick={() => onNav("registro-voli")} style={{ marginTop: 10, background: "none", border: "none", color: "#67e8f9", fontSize: 12.5, padding: 0 }}>Apri il volo nel registro ›</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
