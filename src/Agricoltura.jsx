@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import MappaCampi from "./MappaCampi.jsx";
 import { pdfConsegnaAgricoltura } from "./reportConsegna.js";
+import FascicoloScia from "./FascicoloScia.jsx";
 import { leggiFileConfini, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
 
 // Agricoltura (fase 1): appezzamenti con i confini sulla mappa, registro dei trattamenti con PDF,
@@ -42,7 +43,7 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
   const apriLavoro = (campo) => { setNuovoLavoro(campo ? { campo } : {}); setVista("trattamenti"); window.scrollTo(0, 0); };
   const apriMeteo = (campo) => { setCampoMeteo(campo ? campo.id : null); setVista("meteo"); window.scrollTo(0, 0); };
 
-  const linguette = [["campi", "🗺️ Appezzamenti"], ["trattamenti", "🧪 Registro lavori"], ["meteo", "🌦️ Meteo trattamenti"]];
+  const linguette = [["campi", "🗺️ Appezzamenti"], ["trattamenti", "🧪 Registro lavori"], ["meteo", "🌦️ Meteo trattamenti"], ["scia", "📁 Fascicolo SCIA"]];
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
@@ -65,6 +66,8 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
           <Appezzamenti supabase={supabase} inputStyle={inputStyle} clienti={clienti} campi={campi} trattamenti={trattamenti} selezionato={selezionato} setSelezionato={setSelezionato} onCambiati={carica} onLavoro={apriLavoro} onMeteo={apriMeteo} nomeCliente={nomeCliente} bloccato={mancaTabella} />
         ) : vista === "trattamenti" ? (
           <RegistroLavori supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} droni={droni} azienda={azienda} iniziale={nuovoLavoro} onIniziale={() => setNuovoLavoro(null)} onCambiati={carica} bloccato={mancaTabella} />
+        ) : vista === "scia" ? (
+          <FascicoloScia supabase={supabase} inputStyle={inputStyle} campi={campi} droni={droni} azienda={azienda} />
         ) : (
           <MeteoTrattamenti inputStyle={inputStyle} campi={campi} campoId={campoMeteo} setCampoId={setCampoMeteo} onLavoro={apriLavoro} />
         )}
