@@ -13916,7 +13916,7 @@ function SpazioEPromemoria() {
       {promemoria !== null && promemoria !== undefined && (
         <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, cursor: "pointer" }}>
           <input type="checkbox" checked={promemoria} onChange={(e) => cambia(e.target.checked)} style={{ marginTop: 3 }} />
-          <span><strong>⏰ Promemoria scadenze per email</strong><br /><span style={{ fontSize: 12, color: "#8b95a3" }}>Ti scriviamo 30 giorni prima, 7 giorni prima e il giorno della scadenza di attestati, assicurazione, manutenzioni e abbonamento D-Flight.</span></span>
+          <span><strong>⏰ Email di EyeDrones</strong><br /><span style={{ fontSize: 12, color: "#8b95a3" }}>I promemoria delle scadenze (30 giorni prima, 7 giorni prima e il giorno stesso) di attestati, assicurazione, manutenzioni e abbonamento D-Flight. Più, una volta sola, i consigli per i primi passi.</span></span>
         </label>
       )}
     </div>

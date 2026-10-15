@@ -1,5 +1,7 @@
 // EyeDrones — promemoria via email delle scadenze (attestati, assicurazione, manutenzioni, abbonamento D-Flight)
 // e riepilogo giornaliero per l'amministratore (errori dell'app, spazio usato).
+// In più, una volta sola, l'email «primi passi» a chi si è iscritto da almeno 2 giorni e non ha ancora messo il drone
+// (script supabase/benvenuto-primi-passi.sql).
 // La chiama ogni mattina il database (script supabase/errori-spazio-promemoria.sql) con l'elenco già pronto.
 // È una funzione «background»: Netlify risponde subito e lei ha fino a 15 minuti per mandare le email.
 // Variabili su Netlify (le stesse dell'avviso delle richieste):
@@ -51,6 +53,42 @@ function emailUtente(u) {
   return { oggetto, testo, corpo };
 }
 
+// «In regola in 3 minuti»: una sola volta, a chi si è iscritto e non ha ancora messo il drone
+function emailPrimiPassi(u) {
+  const link = `${APP_URL}/?vai=primi`;
+  const ciao = `Ciao${u.nome ? ` ${u.nome}` : ""}!`;
+  const oggetto = "Il tuo drone è in regola? Bastano 3 minuti ✈️";
+  const testo = [
+    ciao, "",
+    "ti sei iscritto a EyeDrones: grazie!", "",
+    "Se ti fermano per un controllo mentre voli, devi mostrare attestato, assicurazione e dati del drone.",
+    "Con EyeDrones li hai tutti in una schermata, anche senza campo.", "",
+    "Per prepararla bastano 3 minuti:",
+    "1. aggiungi il tuo drone",
+    "2. carica attestato e assicurazione",
+    "3. carica il file zone di D-Flight (così sai subito dove puoi volare)", "",
+    `L'app ti guida passo passo. Comincia da qui: ${link}`, "",
+    "È tutto gratis fino al 31 gennaio 2027.",
+    "Se qualcosa non è chiaro, o manca qualcosa che ti servirebbe, scrivi a info@eyedrones.it: leggo tutto io.", "",
+    "Buoni voli!", "Ivan · EyeDrones", "",
+    "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
+  ].join("\n");
+  const passo = (n, t) => `<tr><td style="width:34px;padding:6px 0;vertical-align:top"><span style="display:inline-block;width:26px;height:26px;line-height:26px;border-radius:50%;background:#e0552f;color:#fff;text-align:center;font-weight:bold;font-size:14px">${n}</span></td><td style="padding:8px 0;font-size:15px">${t}</td></tr>`;
+  const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
+    <h2 style="color:#e0552f;margin:0 0 12px">✈️ In regola in 3 minuti</h2>
+    <p style="font-size:15px">${html(ciao)} Ti sei iscritto a EyeDrones: grazie!</p>
+    <p style="font-size:15px">Se ti fermano per un controllo mentre voli, devi mostrare <b>attestato, assicurazione e dati del drone</b>. Con EyeDrones li hai tutti in una schermata, <b>anche senza campo</b>.</p>
+    <p style="font-size:15px;margin-bottom:4px">Per prepararla bastano 3 minuti:</p>
+    <table style="border-collapse:collapse">${passo(1, "Aggiungi il tuo drone")}${passo(2, "Carica attestato e assicurazione")}${passo(3, "Carica il file zone di D-Flight, così sai subito dove puoi volare")}</table>
+    <p style="font-size:15px">L'app ti guida passo passo.</p>
+    <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Comincia da qui ›</a></p>
+    <p style="font-size:14px;color:#444">È tutto gratis fino al 31 gennaio 2027. Se qualcosa non è chiaro, o manca qualcosa che ti servirebbe, scrivi a <a href="mailto:info@eyedrones.it">info@eyedrones.it</a>: leggo tutto io.</p>
+    <p style="font-size:15px">Buoni voli!<br>Ivan · EyeDrones</p>
+    <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
+  </div>`;
+  return { oggetto, testo, corpo };
+}
+
 function emailAmministratore(a) {
   const e = a.errori || { quanti: 0, esempi: [] };
   const mb = a.spazio_byte != null ? Math.round(a.spazio_byte / 1048576) : null;
@@ -84,10 +122,18 @@ exports.handler = async (event) => {
   let dati;
   try { dati = JSON.parse(event.body || "{}"); } catch { return { statusCode: 400 }; }
 
-  for (const u of (dati.utenti || []).slice(0, 90)) { // Resend gratuito: 100 email al giorno
+  // Resend gratuito: 100 email al giorno in tutto. Prima le scadenze, poi i «primi passi» con quelle che restano
+  let restano = 90;
+  for (const u of (dati.utenti || []).slice(0, restano)) {
     if (!emailValida(u.email) || !(u.voci || []).length) continue;
     await invia(chiave, mittente, u.email, emailUtente(u));
+    restano -= 1;
     await pausa(600); // Resend gratuito: al massimo 2 invii al secondo
+  }
+  for (const u of (dati.primi_passi || []).slice(0, Math.max(0, restano))) {
+    if (!emailValida(u.email)) continue;
+    await invia(chiave, mittente, u.email, emailPrimiPassi(u));
+    await pausa(600);
   }
   const amm = dati.amministratore;
   if (amm && emailValida(amm.email)) {
@@ -97,4 +143,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi };
