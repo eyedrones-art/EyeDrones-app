@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>EyeDrones Agri</title>
+<meta name="description" content="L'app per chi tratta i campi con il drone: appezzamenti, registro trattamenti, meteo per irrorare e fascicolo per la SCIA. Gratis fino al 31 gennaio 2027.">
+<meta property="og:title" content="EyeDrones Agri — campi, trattamenti e SCIA dal telefono">
+<meta property="og:description" content="Per contoterzisti e aziende agricole con il drone: appezzamenti, registro trattamenti, meteo per irrorare e fascicolo SCIA.">
+<meta property="og:image" content="https://app.eyedrones.it/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root {
+  --bg: #12151c; --surface: #1b2028; --surface-2: #161a1f; --line: #2b313d;
+  --fg: #e7eaee; --muted: #9aa4b1; --faint: #6b7480;
+  --accent: #ff8c42; --accent-deep: #e0552f; --violet: #a78bfa; --ok: #4ade80; --on-accent: #161a1f;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+    --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+    --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+  --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+  --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 16px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.12; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(34px, 6vw, 54px); }
+h2 { font-size: clamp(24px, 4vw, 32px); margin-bottom: 14px; }
+h3 { font-size: 19px; margin-bottom: 6px; }
+p { margin: 0; }
+a { color: var(--accent); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 18px; }
+.marchio { font-family: var(--display); font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; }
+.occhio { width: 30px; height: 18px; border-radius: 50%; border: 2.5px solid var(--accent); position: relative; }
+.occhio::after { content: ""; position: absolute; inset: 3px 9px; border-radius: 50%; background: var(--violet); }
+.top a.link { font-family: var(--mono); font-size: 13px; text-decoration: none; }
+.hero { padding-block: 32px 48px; display: grid; gap: 18px; }
+.hero p.lead { font-size: 19px; color: var(--muted); max-width: 640px; }
+.cta { display: inline-block; background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; font-weight: 700; padding: 13px 22px; border-radius: 10px; text-decoration: none; font-size: 16px; }
+section { padding-block: 32px; border-top: 1px solid var(--line); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.card .emoji { font-size: 26px; margin-bottom: 8px; display: block; }
+.numeri { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.numero { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.numero b { display: block; font-family: var(--display); font-size: 38px; color: var(--accent); line-height: 1.1; }
+.esempio { background: var(--surface-2); border: 1px dashed var(--line); border-radius: 12px; padding: 14px 16px; margin-top: 14px; color: var(--muted); }
+ol.passi { margin: 0; padding-left: 22px; display: grid; gap: 10px; }
+ul.regole { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--muted); }
+form { display: grid; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+input, select, textarea { width: 100%; background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; font: inherit; font-weight: 400; min-height: 44px; }
+textarea { min-height: 96px; resize: vertical; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; color: var(--muted); }
+.check input { width: 20px; min-height: 20px; margin-top: 3px; }
+button { background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; border: none; border-radius: 10px; padding: 13px 22px; font-weight: 700; font-size: 16px; cursor: pointer; min-height: 48px; }
+.esito { display: none; padding: 14px 16px; border-radius: 10px; }
+.esito.ok { display: block; background: color-mix(in srgb, var(--ok) 14%, transparent); border: 1px solid var(--ok); }
+.esito.ko { display: block; background: color-mix(in srgb, #ff6b6b 14%, transparent); border: 1px solid #ff6b6b; }
+.nascosto { display: none; }
+.vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.vs .card ul { margin: 8px 0 0 0; padding-left: 20px; color: var(--muted); display: grid; gap: 6px; }
+.prezzo b { color: var(--ok); }
+.cta-2 { display: inline-block; margin-left: 10px; color: var(--fg); text-decoration: none; border: 1px solid var(--line); padding: 12px 18px; border-radius: 10px; }
+footer { padding-block: 28px 40px; color: var(--faint); font-size: 13px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="marchio" href="https://app.eyedrones.it/agri?ref=agri-pagina"><span class="occhio" aria-hidden="true"></span>EyeDrones Agri</a>
+    <a class="link" href="https://app.eyedrones.it/agri?ref=agri-pagina">Apri l'app ↗</a>
+  </header>
+  <div class="hero">
+    <span class="eyebrow">Per chi tratta i campi con il drone</span>
+    <h1>Campi, trattamenti e SCIA.<br>Tutto dal telefono.</h1>
+    <p class="lead">L'app per contoterzisti e aziende agricole che lavorano con droni come DJI Agras: i confini dei campi sulla mappa, il registro dei trattamenti con il meteo, l'ora giusta per irrorare e il fascicolo con i documenti per la SCIA.</p>
+    <p><a class="cta" href="https://app.eyedrones.it/agri?ref=agri-pagina">Prova gratis</a><a class="cta-2" href="#scrivici">Scrivici</a></p>
+    <p class="muted prezzo"><b>Gratis con tutte le funzioni fino al 31 gennaio 2027.</b> Chi si iscrive adesso paga il primo anno a metà prezzo.</p>
+  </div>
+
+  <section>
+    <h2>Cosa fa</h2>
+    <div class="grid">
+      <div class="card"><span class="emoji">🗺️</span><h3>Appezzamenti</h3><p class="muted">I campi dei tuoi clienti con i confini sulla mappa e gli ettari calcolati. Importi i confini da DJI SmartFarm, DJI Terra, Google Earth o QGIS (KML, KMZ, GeoJSON, SHP).</p></div>
+      <div class="card"><span class="emoji">🧪</span><h3>Registro dei trattamenti</h3><p class="muted">Ogni intervento con campo, prodotto, data e meteo del momento. Il registro esce in PDF, con la mappa dei campi e la firma, pronto per il cliente e per i controlli.</p></div>
+      <div class="card"><span class="emoji">🌦️</span><h3>Meteo per irrorare</h3><p class="muted">Ora per ora: vento, raffiche, pioggia, temperatura, umidità e Delta T. Ti dice quando la goccia evapora o c'è rischio di inversione termica. Le soglie le scegli tu.</p></div>
+      <div class="card"><span class="emoji">📁</span><h3>Fascicolo per la SCIA</h3><p class="muted">Impresa, piloti, droni, assicurazione e relazione con i campi trattati, in un posto solo. L'app controlla cosa manca e ti prepara il PDF.</p></div>
+      <div class="card"><span class="emoji">📦</span><h3>Report per il cliente</h3><p class="muted">A fine lavoro mandi all'azienda agricola un PDF con il tuo logo: campi, ettari, interventi e meteo di ogni giorno.</p></div>
+      <div class="card"><span class="emoji">🛠️</span><h3>Drone e pilota in regola</h3><p class="muted">Zone di volo, attestati, assicurazione, batterie e manutenzione con gli avvisi prima delle scadenze. Registro voli e documenti per i controlli.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Per chi è</h2>
+    <div class="vs">
+      <div class="card"><span class="emoji">🚜</span><h3>Contoterzisti</h3><p class="muted">Tanti clienti e tanti campi: trovi tutto per azienda, con il registro e il report da mandare a ognuno.</p></div>
+      <div class="card"><span class="emoji">🌾</span><h3>Aziende agricole con il drone</h3><p class="muted">I tuoi campi, i tuoi trattamenti e i documenti per la SCIA, senza fogli sparsi.</p></div>
+      <div class="card"><span class="emoji">🏪</span><h3>Rivenditori e scuole</h3><p class="muted">Consigliala a chi compra o impara a usare un drone agricolo. Con il <a href="/diventa-partner/">programma partner</a> guadagni su ogni abbonamento.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Come si inizia</h2>
+    <ol class="passi">
+      <li><b>Ti iscrivi</b> da <a href="https://app.eyedrones.it/agri?ref=agri-pagina">app.eyedrones.it/agri</a>: funziona dal telefono e dal computer, non serve scaricare niente.</li>
+      <li><b>Carichi i confini dei campi</b> o li disegni sulla mappa.</li>
+      <li><b>Registri il primo trattamento</b>: il meteo lo prende da solo.</li>
+      <li><b>Compili il fascicolo SCIA</b> un pezzo alla volta: l'app ti dice cosa manca.</li>
+    </ol>
+  </section>
+
+  <section id="scrivici">
+    <h2>Scrivici</h2>
+    <p class="muted" style="margin-bottom:14px">Hai una domanda, vuoi una cosa che ancora non c'è o vuoi usarla con i tuoi clienti? Scrivi qui: rispondiamo per email.</p>
+    <form name="agri" method="POST" data-netlify="true" netlify-honeypot="campo-trappola" id="modulo">
+      <input type="hidden" name="form-name" value="agri">
+      <p class="nascosto"><label>Non compilare: <input name="campo-trappola"></label></p>
+      <label>Nome e cognome<input name="nome" required autocomplete="name"></label>
+      <label>Email<input name="email" type="email" required autocomplete="email"></label>
+      <label>Chi sei
+        <select name="tipo" required>
+          <option value="">— scegli —</option>
+          <option>Contoterzista</option>
+          <option>Azienda agricola</option>
+          <option>Rivenditore di droni</option>
+          <option>Scuola di volo</option>
+          <option>Altro</option>
+        </select>
+      </label>
+      <label>Che drone usi (facoltativo)<input name="drone" placeholder="es. DJI Agras T50"></label>
+      <label>Messaggio<textarea name="messaggio" required></textarea></label>
+      <label class="check"><input type="checkbox" name="privacy" value="si" required><span>Ho letto l'<a href="https://app.eyedrones.it/privacy" target="_blank" rel="noreferrer">informativa privacy</a> e accetto di essere ricontattato per email.</span></label>
+      <button type="submit">Invia</button>
+      <div class="esito" id="esito" role="status"></div>
+    </form>
+    <p class="muted" style="margin-top:12px">Preferisci l'email? Scrivi a <a href="mailto:info@eyedrones.it?subject=EyeDrones%20Agri">info@eyedrones.it</a>.</p>
+  </section>
+  <footer>EyeDrones · Ivan Ravinale, Grugliasco (TO) · <a href="https://app.eyedrones.it/termini">Termini</a> · <a href="https://app.eyedrones.it/privacy">Privacy</a></footer>
+</div>
+<script>
+// invio senza cambiare pagina (Netlify Forms); se qualcosa va storto propongo l'email
+document.getElementById("modulo").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target, esito = document.getElementById("esito"), bottone = f.querySelector("button");
+  bottone.disabled = true; bottone.textContent = "Invio…";
+  try {
+    const r = await fetch("/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(new FormData(f)).toString() });
+    if (!r.ok) throw new Error(r.status);
+    f.reset();
+    esito.className = "esito ok"; esito.textContent = "Grazie! Messaggio ricevuto: ti rispondiamo per email.";
+  } catch (err) {
+    esito.className = "esito ko"; esito.innerHTML = 'Invio non riuscito. Scrivi a <a href="mailto:info@eyedrones.it?subject=EyeDrones%20Agri">info@eyedrones.it</a>, ti rispondiamo noi.';
+  }
+  bottone.disabled = false; bottone.textContent = "Invia";
+});
+</script>
+</body>
+</html>
