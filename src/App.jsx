@@ -20,23 +20,27 @@ import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./S
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
 
-// la mappa si carica solo quando la apri, così l'app resta leggera
-const MappaVoli = lazy(() => import("./MappaVoli.jsx"));
-const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
-const MappaAreaSTS = lazy(() => import("./MappaAreaSTS.jsx"));
-const AssistentePermessi = lazy(() => import("./AssistentePermessi.jsx"));
-const Impara = lazy(() => import("./Impara.jsx"));
-const GuidaZonaRossa = lazy(() => import("./Impara.jsx").then((m) => ({ default: m.ZonaRossa })));
-const Posti = lazy(() => import("./Posti.jsx"));
-const UltimaNotizia = lazy(() => import("./Notizie.jsx").then((m) => ({ default: m.UltimaNotizia })));
-const PostiVicini = lazy(() => import("./Posti.jsx").then((m) => ({ default: m.PostiVicini })));
-const Collaboratori = lazy(() => import("./Collaboratori.jsx"));
-const Agricoltura = lazy(() => import("./Agricoltura.jsx"));
-const AnalisiAI = lazy(() => import("./AnalisiAI.jsx"));
+// la mappa si carica solo quando la apri, così l'app resta leggera.
+// Subito dopo un aggiornamento i pezzi vecchi non ci sono più: main.jsx ricarica l'app e l'import
+// arriva vuoto. In quel momento mostro niente invece di rompere la pagina (si ricarica da sola).
+const VUOTO = () => null;
+const pigro = (carica, nome = "default") => lazy(() => carica().then((m) => ({ default: (m && m[nome]) || VUOTO })));
+const MappaVoli = pigro(() => import("./MappaVoli.jsx"));
+const MappaPunto = pigro(() => import("./MappaPunto.jsx"));
+const MappaAreaSTS = pigro(() => import("./MappaAreaSTS.jsx"));
+const AssistentePermessi = pigro(() => import("./AssistentePermessi.jsx"));
+const Impara = pigro(() => import("./Impara.jsx"));
+const GuidaZonaRossa = pigro(() => import("./Impara.jsx"), "ZonaRossa");
+const Posti = pigro(() => import("./Posti.jsx"));
+const UltimaNotizia = pigro(() => import("./Notizie.jsx"), "UltimaNotizia");
+const PostiVicini = pigro(() => import("./Posti.jsx"), "PostiVicini");
+const Collaboratori = pigro(() => import("./Collaboratori.jsx"));
+const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
+const AnalisiAI = pigro(() => import("./AnalisiAI.jsx"));
 // analisi foto con l'AI: in prova solo su questi account (il server controlla di nuovo con AI_UTENTI)
 const AI_IN_PROVA = ["eyedrones@libero.it"];
-const PaginaPrivacy = lazy(() => import("./Legali.jsx").then((m) => ({ default: m.Privacy })));
-const PaginaTermini = lazy(() => import("./Legali.jsx").then((m) => ({ default: m.Termini })));
+const PaginaPrivacy = pigro(() => import("./Legali.jsx"), "Privacy");
+const PaginaTermini = pigro(() => import("./Legali.jsx"), "Termini");
 // navigazione da componenti lontani (es. «Come si fa?» nella verifica zona): window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }))
 const vaiA = (detail) => window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail }));
 

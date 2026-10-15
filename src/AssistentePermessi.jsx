@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "rea
 import { AvvisaFineNotam, NotamInItaliano } from "./avvisiNotam.jsx";
 import { leggiZoneSalvate, messaggioBreve, motivoZona, sistemaZona, zonaFinita, controllaPunto, altezzaSenzaPermessi, altezzaLibera, limiteVicino, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
 
-const MappaPunto = lazy(() => import("./MappaPunto.jsx"));
+const MappaPunto = lazy(() => import("./MappaPunto.jsx").then((m) => m || { default: () => null })); // vuoto se l'app si sta ricaricando dopo un aggiornamento
 
 // «Assistente permessi»: dici dove voli, l'app legge le zone dal file ufficiale di D-Flight e ti dice
 // se puoi chiedere il permesso, a chi, quanti giorni prima e con quale modulo. Poi prepara la richiesta.

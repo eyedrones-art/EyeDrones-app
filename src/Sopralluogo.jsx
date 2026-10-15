@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useState } from "react";
 
 // «Sopralluogo»: quello che si guarda prima del lavoro (matrimoni, eventi, FPV, pubblicità, ispezioni).
 // Si salva nel piano (checklist_stato.sopralluogo = { voci, note, punti, orari }).
-const MappaSopralluogo = lazy(() => import("./MappaSopralluogo.jsx"));
+const MappaSopralluogo = lazy(() => import("./MappaSopralluogo.jsx").then((m) => m || { default: () => null })); // vuoto se l'app si sta ricaricando dopo un aggiornamento
 
 export const SOPRALLUOGO_VUOTO = { voci: {}, note: "", punti: [], orari: [] };
 
