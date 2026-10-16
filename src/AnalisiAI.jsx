@@ -85,7 +85,14 @@ const VOLO = {
   no: ["#f87171", "⛔ Meglio non volare finché non è risolto"],
 };
 
-export default function AnalisiAI({ supabase, droni, inputStyle, spazio }) {
+// i pacchetti di analisi (gli stessi di netlify/functions/esperto-acquisto.js)
+const PACCHETTI = [
+  { key: "p10", analisi: 10, prezzo: "2,99 €" },
+  { key: "p30", analisi: 30, prezzo: "6,99 €", nota: "consigliato" },
+  { key: "p100", analisi: 100, prezzo: "17,99 €" },
+];
+
+export default function AnalisiAI({ supabase, droni, inputStyle, spazio, admin }) {
   const tipi = TIPI.filter((t) => !spazio || t.spazi.includes(spazio));
   const [tipo, setTipo] = useState(PRIMO[spazio] || "problema");
   const [titolo, sottotitolo] = TITOLI[spazio] || ["Analisi foto con l'AI", "Carica una foto o un video, rispondi a qualche domanda e l'AI ti dice cosa vede e cosa controllare."];
@@ -95,7 +102,38 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio }) {
   const [droneId, setDroneId] = useState(() => (droni && droni[0] ? droni[0].id : ""));
   const [nota, setNota] = useState("");
   const [stato, setStato] = useState(null); // "invio" | { esito, costo } | { errore }
+  const [crediti, setCrediti] = useState(null); // analisi rimaste (null = non ancora lette o amministratore)
+  const [grazie, setGrazie] = useState(() => { try { const g = sessionStorage.getItem("eyedrones_esperto_grazie") === "1"; sessionStorage.removeItem("eyedrones_esperto_grazie"); return g; } catch { return false; } });
+  const [acquisto, setAcquisto] = useState(null); // pacchetto in apertura | { errore }
   const videoRef = useRef(null);
+  const leggiCrediti = async () => {
+    if (admin || !supabase) return;
+    const { data, error } = await supabase.rpc("crediti_esperto");
+    if (!error && typeof data === "number") setCrediti(data);
+  };
+  useEffect(() => {
+    leggiCrediti();
+    if (!grazie) return;
+    // tornato dal pagamento: i crediti arrivano da Stripe in pochi secondi, ricontrollo un paio di volte
+    const t1 = setTimeout(leggiCrediti, 4000), t2 = setTimeout(leggiCrediti, 12000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const compra = async (pacchetto) => {
+    setAcquisto(pacchetto);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const r = await fetch("/.netlify/functions/esperto-acquisto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${data?.session?.access_token || ""}` },
+        body: JSON.stringify({ pacchetto }),
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.url) { setAcquisto({ errore: (j && j.errore) || `Errore ${r.status}, riprova tra poco.` }); return; }
+      window.location.href = j.url;
+    } catch {
+      setAcquisto({ errore: "Connessione assente o interrotta: riprova quando hai campo." });
+    }
+  };
   useEffect(() => () => { if (video) URL.revokeObjectURL(video); }, [video]);
 
   const scegliFile = async (e) => {
@@ -125,12 +163,14 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio }) {
         body: JSON.stringify({ tipo, immagine: foto.dati, formato: "image/jpeg", risposte, nota, drone: drone ? [drone.modello, drone.nome].filter(Boolean).join(" · ") : "" }),
       });
       const j = await r.json().catch(() => null);
+      if (r.status === 402) { setCrediti(0); setStato(null); return; }
       if (!r.ok || !j || !j.esito) {
         const lento = r.status === 502 || r.status === 504;
         setStato({ errore: (j && j.errore) || (lento ? "L'analisi ci ha messo troppo. Riprova: la seconda volta di solito va." : `Errore ${r.status}, riprova tra poco.`) });
         return;
       }
       setStato({ esito: j.esito, costo: j.costo_centesimi });
+      if (typeof j.crediti === "number") setCrediti(j.crediti);
     } catch {
       setStato({ errore: "Connessione assente o interrotta: riprova quando hai campo." });
     }
@@ -138,11 +178,38 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio }) {
 
   const bottone = (attivo) => ({ background: attivo ? "#a78bfa22" : "#262b33", border: `1px solid ${attivo ? "#a78bfa" : "#333a45"}`, color: attivo ? "#c4b5fd" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 });
   const esito = stato && stato.esito;
+  const finite = !admin && crediti === 0;
+  const pacchetti = (
+    <div style={{ marginTop: 12, background: "#161a1f", border: "1px solid #a78bfa55", borderRadius: 8, padding: 12 }}>
+      <div style={{ fontSize: 14, fontWeight: 700 }}>{finite ? "Hai usato tutte le analisi" : "Altre analisi"}</div>
+      <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "4px 0 10px 0", lineHeight: 1.5 }}>Scegli un pacchetto: lo paghi una volta sola, nessun abbonamento. Le analisi non scadono.</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+        {PACCHETTI.map((p) => (
+          <button key={p.key} type="button" onClick={() => compra(p.key)} disabled={acquisto === p.key} style={{ ...bottone(p.nota), textAlign: "left", padding: "10px 12px" }}>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{p.analisi} analisi</div>
+            <div style={{ fontSize: 13, marginTop: 2 }}>{acquisto === p.key ? "Apro il pagamento…" : p.prezzo}</div>
+            {p.nota && <div style={{ fontSize: 11, color: "#8b95a3", marginTop: 2 }}>{p.nota}</div>}
+          </button>
+        ))}
+      </div>
+      {acquisto && acquisto.errore && <p style={{ marginTop: 8, fontSize: 12.5, color: "#ff9c9c" }}>{acquisto.errore}</p>}
+      <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Pagamento sicuro con Stripe (carta, Apple Pay, Google Pay).</p>
+    </div>
+  );
 
   return (
     <div style={{ maxWidth: 720 }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>{titolo} <span style={{ fontSize: 11, fontWeight: 700, color: "#c4b5fd", border: "1px solid #a78bfa66", borderRadius: 4, padding: "1px 6px", verticalAlign: "middle" }}>PROVA</span></h1>
       <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 14px 0" }}>{sottotitolo}</p>
+      {grazie && (
+        <div style={{ marginBottom: 12, background: "#1f8a4c22", border: "1px solid #4ade8066", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#bbf7d0" }}>
+          ✅ Grazie! Il pagamento è andato a buon fine: le analisi arrivano entro qualche secondo.
+          <button type="button" onClick={() => setGrazie(false)} style={{ marginLeft: 8, background: "none", border: "none", color: "#8b95a3", fontSize: 12 }}>Chiudi</button>
+        </div>
+      )}
+      {!admin && crediti != null && crediti > 0 && (
+        <p style={{ fontSize: 12.5, color: "#c4b5fd", margin: "0 0 12px 0" }}>{crediti === 1 ? "Ti resta 1 analisi" : `Ti restano ${crediti} analisi`}</p>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 8 }}>
         {tipi.map((t) => (
@@ -190,9 +257,11 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio }) {
           <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2} placeholder={{ agricoltura: "es. passata a 3 m di altezza, larghezza 6 m", rilievi: "es. volo a 80 m, sovrapposizione 75%", ispezioni: "es. impianto da 200 kW, ore 12" }[spazio] || "es. è successo volando vicino a un traliccio"} style={{ ...inputStyle, marginTop: 4, resize: "vertical" }} />
         </label>
 
-        <button type="button" onClick={analizza} disabled={!foto || stato === "invio"} style={{ marginTop: 12, background: foto ? "#a78bfa" : "#333a45", color: foto ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13.5, fontWeight: 700 }}>
-          {stato === "invio" ? "Analizzo… (qualche secondo)" : "✨ Analizza"}
-        </button>
+        {finite ? pacchetti : (
+          <button type="button" onClick={analizza} disabled={!foto || stato === "invio"} style={{ marginTop: 12, background: foto ? "#a78bfa" : "#333a45", color: foto ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13.5, fontWeight: 700 }}>
+            {stato === "invio" ? "Analizzo… (qualche secondo)" : "✨ Analizza"}
+          </button>
+        )}
       </div>
 
       {stato && stato.errore && <p style={{ marginTop: 10, fontSize: 13, color: "#ff9c9c" }}>{stato.errore}</p>}
@@ -229,10 +298,11 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio }) {
           )}
           {esito.serve_sapere && <p style={{ fontSize: 12.5, color: "#fde68a", margin: "12px 0 0 0" }}>💬 Per esserne sicuri: {esito.serve_sapere}</p>}
           <p style={{ fontSize: 10.5, color: "#6b7480", margin: "12px 0 0 0" }}>
-            Analisi automatica: indica le cause più probabili, non è una certezza né una perizia.{stato.costo != null ? ` Costo di questa analisi: circa ${String(stato.costo).replace(".", ",")} centesimi.` : ""}
+            Analisi automatica: indica le cause più probabili, non è una certezza né una perizia.{admin && stato.costo != null ? ` Costo di questa analisi: circa ${String(stato.costo).replace(".", ",")} centesimi.` : ""}
           </p>
         </div>
       )}
+      {!admin && crediti != null && crediti > 0 && crediti <= 1 && pacchetti}
     </div>
   );
 }

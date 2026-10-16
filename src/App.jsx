@@ -1866,12 +1866,21 @@ function AppShell({ session }) {
   const [vaiAltro] = useState(() => {
     const v = new URLSearchParams(window.location.search).get("vai");
     const passo = { droni: "drone", attestati: "attestato" }[v];
+    // ritorno dal pagamento di un pacchetto dell'Esperto: la pagina mostra il grazie
+    if (v === "analisi-ai" && new URLSearchParams(window.location.search).get("esperto") === "grazie") { try { sessionStorage.setItem("eyedrones_esperto_grazie", "1"); } catch { /* niente */ } }
     if (v === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", "{}"); } catch { /* niente */ } return "posti"; }
     if (v === "primi") { try { ["eyedrones_primi_passi_rimanda", "eyedrones_primi_passi_chiuso2", "eyedrones_primi_passi_chiuso"].forEach((k) => localStorage.removeItem(k)); } catch { /* niente */ } return "dashboard"; }
     if (v && PAGINE_RIPRISTINABILI.includes(v)) { if (passo) { try { sessionStorage.setItem("eyedrones_guida_passo", passo); } catch { /* niente */ } } return v; }
     return null;
   });
   const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : vaiAControllo ? "documenti-controllo" : vaiAVoli ? "pianificazione" : vaiAQui ? "qui" : vaiAltro || (PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard")));
+  // Esperto (AI): l'amministratore lo vede sempre; gli altri solo quando su Netlify c'è ESPERTO_PER_TUTTI=si
+  const adminAI = AI_IN_PROVA.includes(String(session.user.email || "").toLowerCase());
+  const [espertoAperto, setEspertoAperto] = useState(false);
+  useEffect(() => {
+    if (adminAI) return;
+    fetch("/.netlify/functions/analisi-foto").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.aperto === true) setEspertoAperto(true); }).catch(() => { /* resta spento */ });
+  }, [adminAI]);
   useEffect(() => { if (vaiARichieste || vaiAControllo || vaiAQui || vaiAVoli || vaiAltro) window.history.replaceState(null, "", window.location.pathname); }, []);
   // primi passi: il tasto Controllo è «provato» appena si apre la sua pagina
   useEffect(() => { if (page === "documenti-controllo") { try { localStorage.setItem("eyedrones_controllo_provato", new Date().toISOString()); } catch { /* niente */ } } }, [page]);
@@ -2274,7 +2283,7 @@ function AppShell({ session }) {
         }
       `}</style>
 
-      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} spazio={spazioAperto} spazi={spazi} onCambiaSpazio={cambiaSpazio} cartelle={allaRadice} onCartelle={apriCartelle} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
+      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} usaAI={adminAI || espertoAperto} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} spazio={spazioAperto} spazi={spazi} onCambiaSpazio={cambiaSpazio} cartelle={allaRadice} onCartelle={apriCartelle} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AvvisoInstallaApp />
@@ -2349,9 +2358,9 @@ function AppShell({ session }) {
               onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} />
           </Suspense>
         )}
-        {page === "analisi-ai" && AI_IN_PROVA.includes(String(session.user.email || "").toLowerCase()) && (
+        {page === "analisi-ai" && (adminAI || espertoAperto) && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
-            <AnalisiAI key={spazioAperto?.key || "tutti"} supabase={supabase} droni={droni} inputStyle={inputStyle} spazio={spazioAperto?.key} />
+            <AnalisiAI key={spazioAperto?.key || "tutti"} supabase={supabase} droni={droni} inputStyle={inputStyle} spazio={spazioAperto?.key} admin={adminAI} />
           </Suspense>
         )}
         {page === "rilievi" && <PaginaRilievi voli={voliDashboard} droni={droni} azienda={azienda} piano={piano} onCambiato={caricaVoli} onNav={vai} onNuovo={() => { setPrefillVolo({ tipo_attivita: "rilievo" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
@@ -2847,8 +2856,7 @@ function Login({ modoIniziale = "login", onTorna }) {
 
 // --- Sidebar -----------------------------------------------------------
 
-function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, usaAgricoltura, spazio, spazi = [], onCambiaSpazio, cartelle, onCartelle, batterieAvvisi, richiesteNuove, onControllo }) {
-  const usaAI = AI_IN_PROVA.includes(String(userEmail || "").toLowerCase());
+function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, usaAgricoltura, spazio, spazi = [], onCambiaSpazio, cartelle, onCartelle, batterieAvvisi, richiesteNuove, onControllo }) {
   const k = spazio ? spazio.key : null;
   // con uno spazio aperto: prima le sue voci, poi quelle in comune. Senza spazio (non ancora scelto): tutto come prima
   const vociSpazio = k === "video" ? [
