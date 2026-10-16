@@ -89,6 +89,38 @@ function emailPrimiPassi(u) {
   return { oggetto, testo, corpo };
 }
 
+// la community dei posti: una sola volta a tutti (con le email di EyeDrones accese), «consiglia un posto»
+function emailCommunity(u) {
+  const link = `${APP_URL}/?vai=consiglia`;
+  const ciao = `Ciao${u.nome ? ` ${u.nome}` : ""}!`;
+  const oggetto = "Hai un posto del cuore dove volare? Consiglialo ⭐";
+  const testo = [
+    ciao, "",
+    "ti chiedo un piccolo aiuto per far crescere EyeDrones insieme.", "",
+    "Nell'app c'è la mappa dei posti belli dove volare: quelli consigliati dai piloti hanno la stellina ⭐ e si vedono per primi.",
+    "Più posti ci sono, più è utile a tutti: quando arrivi in un posto nuovo, trovi subito dove volare, con la zona già controllata.", "",
+    "Hai un posto dove hai volato e che consiglieresti? Un belvedere, un lago, un castello, un campo tranquillo?",
+    "Bastano 30 secondi: nome, un tocco sulla mappa e, se vuoi, una dritta (parcheggio, vento, orario migliore).",
+    "Gli altri piloti vedono il posto e la tua nota, mai il tuo nome.", "",
+    `Consiglia un posto da qui: ${link}`, "",
+    "Lo trovi anche in Home («⭐ Conosci un bel posto dove volare?») e su ogni volo del registro.", "",
+    "Grazie, buoni voli!", "Ivan · EyeDrones", "",
+    "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
+  ].join("\n");
+  const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
+    <h2 style="color:#e0552f;margin:0 0 12px">⭐ Il tuo posto del cuore, per gli altri piloti</h2>
+    <p style="font-size:15px">${html(ciao)} Ti chiedo un piccolo aiuto per far crescere EyeDrones insieme.</p>
+    <p style="font-size:15px">Nell'app c'è la <b>mappa dei posti belli dove volare</b>: quelli consigliati dai piloti hanno la stellina ⭐ e si vedono per primi. Più posti ci sono, più è utile a tutti: quando arrivi in un posto nuovo, trovi subito dove volare, con la zona già controllata.</p>
+    <p style="font-size:15px">Hai un posto dove hai volato e che consiglieresti? Un belvedere, un lago, un castello, un campo tranquillo? Bastano <b>30 secondi</b>: nome, un tocco sulla mappa e, se vuoi, una dritta (parcheggio, vento, orario migliore).</p>
+    <p style="font-size:14px;color:#444">Gli altri piloti vedono il posto e la tua nota, <b>mai il tuo nome</b>.</p>
+    <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">⭐ Consiglia un posto ›</a></p>
+    <p style="font-size:14px;color:#444">Lo trovi anche in Home («⭐ Conosci un bel posto dove volare?») e su ogni volo del registro.</p>
+    <p style="font-size:15px">Grazie, buoni voli!<br>Ivan · EyeDrones</p>
+    <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
+  </div>`;
+  return { oggetto, testo, corpo };
+}
+
 function emailAmministratore(a) {
   const e = a.errori || { quanti: 0, esempi: [] };
   const mb = a.spazio_byte != null ? Math.round(a.spazio_byte / 1048576) : null;
@@ -133,6 +165,13 @@ exports.handler = async (event) => {
   for (const u of (dati.primi_passi || []).slice(0, Math.max(0, restano))) {
     if (!emailValida(u.email)) continue;
     await invia(chiave, mittente, u.email, emailPrimiPassi(u));
+    restano -= 1;
+    await pausa(600);
+  }
+  for (const u of (dati.community || []).slice(0, Math.max(0, restano))) {
+    if (!emailValida(u.email)) continue;
+    await invia(chiave, mittente, u.email, emailCommunity(u));
+    restano -= 1;
     await pausa(600);
   }
   const amm = dati.amministratore;
@@ -143,4 +182,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailCommunity };

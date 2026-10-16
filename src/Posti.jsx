@@ -194,6 +194,16 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
   const [nelGiro, setNelGiro] = useState({});
 
   useEffect(() => { leggiZoneSalvate().then((d) => setZone(d && Array.isArray(d.zone) ? d.zone : null)).catch(() => setZone(null)); }, []);
+  // arrivo da «⭐ Consiglia un posto» (Home, un volo, Qui e ora): apro subito il modulo
+  useEffect(() => {
+    let d = null;
+    try { d = JSON.parse(sessionStorage.getItem("eyedrones_consiglia") || "null"); sessionStorage.removeItem("eyedrones_consiglia"); } catch { /* niente */ }
+    if (!d) return;
+    const conPunto = Number.isFinite(d.lat) && Number.isFinite(d.lon);
+    setNuovo({ nome: d.nome || "", tipo: "", nota: "", voto: 5, ...(conPunto ? { lat: d.lat, lon: d.lon } : {}) });
+    if (conPunto) carica({ lat: d.lat, lon: d.lon, etichetta: d.nome || "il posto scelto" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const carica = async (c, km = raggio) => {
     setCentro(c); setCaricando(true); setCaricandoMappe(true); setErrore(null); setPosti([]); setConsigli([]);

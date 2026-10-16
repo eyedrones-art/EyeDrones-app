@@ -1866,6 +1866,7 @@ function AppShell({ session }) {
   const [vaiAltro] = useState(() => {
     const v = new URLSearchParams(window.location.search).get("vai");
     const passo = { droni: "drone", attestati: "attestato" }[v];
+    if (v === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", "{}"); } catch { /* niente */ } return "posti"; }
     if (v === "primi") { try { ["eyedrones_primi_passi_rimanda", "eyedrones_primi_passi_chiuso2", "eyedrones_primi_passi_chiuso"].forEach((k) => localStorage.removeItem(k)); } catch { /* niente */ } return "dashboard"; }
     if (v && PAGINE_RIPRISTINABILI.includes(v)) { if (passo) { try { sessionStorage.setItem("eyedrones_guida_passo", passo); } catch { /* niente */ } } return v; }
     return null;
@@ -2051,6 +2052,7 @@ function AppShell({ session }) {
       else if (d.pagina === "permessi" || d.pagina === "nuova" || d.pagina === "attestati") { setGuidaSopra(null); setPage(d.pagina); window.scrollTo(0, 0); }
       else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
       else if (d.pagina === "qui") { setPage("qui"); window.scrollTo(0, 0); }
+      else if (d.pagina === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", JSON.stringify(d.posto || {})); } catch { /* niente */ } setPage("posti"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
     return () => window.removeEventListener("eyedrones-vai", ascolta);
@@ -2333,6 +2335,7 @@ function AppShell({ session }) {
         {page === "qui" && (
           <Suspense fallback={<LoadingBlock />}>
             <QuiEOra supabase={supabase}
+              onConsiglia={(l) => vaiA({ pagina: "consiglia", posto: l })}
               onPianifica={(l) => { setLuogoDaPianificare(l); setPage("pianificazione"); window.scrollTo(0, 0); }}
               onAlGiro={(l) => aggiungiAllaCoda(l)}
               onCaricaZone={() => { setPage("pianificazione"); window.scrollTo(0, 0); }} />
@@ -3805,6 +3808,12 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
           <span style={{ fontSize: 16 }}>🧭</span>
           <span style={{ flex: 1 }}>Zona rossa o devi chiedere un permesso? <strong>Ti guido io</strong>, il modulo si compila da solo</span>
           <span style={{ color: "#7fb0ff" }}>→</span>
+        </button>
+        {/* la community: chi conosce un bel posto lo consiglia agli altri piloti */}
+        <button type="button" onClick={() => vaiA({ pagina: "consiglia" })} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "#1f1a0e", border: "1px solid #f5b94255", borderRadius: 8, padding: "8px 12px", margin: "-12px 0 22px", fontSize: 12.5, color: "#ffe2a8" }}>
+          <span style={{ fontSize: 16 }}>⭐</span>
+          <span style={{ flex: 1 }}>Conosci un bel posto dove volare? <strong>Consiglialo</strong> agli altri piloti</span>
+          <span style={{ color: "#f5b942" }}>→</span>
         </button>
 
         {bloccoScadenze}
@@ -14184,6 +14193,9 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         <div id={`volo-${v.id}-condividi`} style={{ scrollMarginTop: 80 }}><CondivisioneVolo volo={v} nMedia={mediaVolo.length} media={mediaVolo} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
                         <div id={`volo-${v.id}-liberatorie`} style={{ scrollMarginTop: 80 }}><LiberatorieVolo volo={v} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
                         <EventiVolo volo={v} azienda={azienda} droni={droni} batterie={batterie} onCambiato={onEventiCambiati} />
+                        {leggiCoordinate(v.coordinate_gps) && (
+                          <button type="button" onClick={() => vaiA({ pagina: "consiglia", posto: { ...leggiCoordinate(v.coordinate_gps), nome: v.luogo || "" } })} style={{ alignSelf: "flex-start", background: "#1f1a0e", border: "1px solid #f5b94266", color: "#ffd07a", borderRadius: 6, padding: "6px 12px", fontSize: 12.5, fontWeight: 600 }}>⭐ Ti è piaciuto il posto? Consiglialo agli altri piloti</button>
+                        )}
                         {v.tipo_attivita === "rilievo" && <ReportConsegnaRilievo volo={v} drone={(droni || []).find((d) => d.id === v.drone_id) || null} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} onAggiornato={(nuovo) => setVoli((vs) => vs.map((x) => (x.id === nuovo.id ? { ...x, ...nuovo } : x)))} />}
                         <div id={`volo-${v.id}-fascicolo`} style={{ scrollMarginTop: 80 }}><FascicoloVolo volo={v} drone={(droni || []).find((d) => d.id === v.drone_id) || null} batterie={batterie} media={mediaVolo} eventi={(eventiVolo || []).filter((e) => e.volo_id === String(v.id))} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
 
