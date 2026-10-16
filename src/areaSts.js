@@ -227,10 +227,19 @@ function leggiKmlMissione(testo) {
   // altrimenti waypoint e linee (missioni a punti, strisciate): prendo l'involucro dei punti
   const tutti = [...tag(doc, "Point"), ...tag(doc, "LineString")].flatMap((e) => coordinateDa(tag(e, "coordinates")[0])).map(([lon, lat]) => [lat, lon]);
   const altezze = tag(doc, "executeHeight").concat(tag(doc, "height")).map((e) => Number(e.textContent)).filter((n) => Number.isFinite(n) && n > 0);
+  // traccia di un volo vero (AirData, registri esportati): quote sul livello del mare e un punto «Home» del decollo.
+  // L'altezza del volo è la quota più alta meno quella del decollo
+  let altezzaTraccia = null;
+  if (!altezze.length) {
+    const home = tag(doc, "Placemark").find((pm) => /^home/i.test((tag(pm, "name")[0] || {}).textContent || "") && tag(pm, "Point").length);
+    const zHome = home ? (coordinateDa(tag(tag(home, "Point")[0], "coordinates")[0])[0] || [])[2] : null;
+    const zTraccia = tag(doc, "LineString").flatMap((e) => coordinateDa(tag(e, "coordinates")[0])).map((c) => c[2]).filter(Number.isFinite);
+    if (Number.isFinite(zHome) && zTraccia.length) { const h = Math.max(...zTraccia) - zHome; if (h > 0 && h < 1000) altezzaTraccia = h; }
+  }
   return {
     area, punti: tutti,
-    altezza: altezze.length ? Math.max(...altezze) : Number(valore("globalHeight")) || Number(valore("globalShootHeight")) || null,
-    modoAltezza: valore("executeHeightMode") || valore("heightMode") || null,
+    altezza: altezze.length ? Math.max(...altezze) : altezzaTraccia || Number(valore("globalHeight")) || Number(valore("globalShootHeight")) || null,
+    modoAltezza: altezzaTraccia ? "relativeToStartPoint" : valore("executeHeightMode") || valore("heightMode") || null,
     tipo: valore("templateType"),
   };
 }
