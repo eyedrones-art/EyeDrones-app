@@ -12,6 +12,7 @@ import { areeSts, misuraArea, zoneDellArea, leggiMissioneDji } from "./areaSts.j
 import { pdfConsegnaRilievo, FILE_RILIEVO, SISTEMI_RIFERIMENTO } from "./reportConsegna.js";
 import { ORARIO_AREE_TATTICHE, FONTE_AREE_AIP } from "./areeAip.js";
 import { cercaAreeProtette, FONTE_AREE_PROTETTE } from "./areeProtette.js";
+import { GIRO_VUOTO, giroUsato, aggiungiAllaCoda, prendiCoda, tappaDa, MAX_TAPPE } from "./giro.js";
 import { SPAZI, spaziAttivi, moduliDa, leggiSpazio, scriviSpazio, spazioDalLink, linkUsato } from "./spazi.js";
 import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
@@ -35,6 +36,7 @@ const GuidaZonaRossa = pigro(() => import("./Impara.jsx"), "ZonaRossa");
 const Posti = pigro(() => import("./Posti.jsx"));
 const UltimaNotizia = pigro(() => import("./Notizie.jsx"), "UltimaNotizia");
 const PostiVicini = pigro(() => import("./Posti.jsx"), "PostiVicini");
+const GiroGiornata = pigro(() => import("./GiroGiornata.jsx"));
 const Collaboratori = pigro(() => import("./Collaboratori.jsx"));
 const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
 const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
@@ -2331,6 +2333,7 @@ function AppShell({ session }) {
           <Suspense fallback={<LoadingBlock />}>
             <Posti supabase={supabase} cercaIndirizzo={cercaIndirizzoItalia} voli={voliDashboard} inputStyle={inputStyle}
               onPianifica={(l) => { setLuogoDaPianificare(l); setPage("pianificazione"); window.scrollTo(0, 0); }}
+              onAlGiro={(l) => { if (l) aggiungiAllaCoda(l); else { setPage("pianificazione"); window.scrollTo(0, 0); } }}
               onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} />
           </Suspense>
         )}
@@ -9137,6 +9140,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
   const [lavoroScelto, setLavoroScelto] = useState(""); // nome della scaletta pronta usata (es. Matrimonio)
   const [scene, setScene] = useState([]); // piano delle scene per video, foto e FPV (checklist_stato.scene)
   const [sopralluogo, setSopralluogo] = useState(SOPRALLUOGO_VUOTO); // lista, punti, orari e note (checklist_stato.sopralluogo)
+  const [giro, setGiro] = useState(GIRO_VUOTO); // altre tappe della giornata (checklist_stato.giro)
   // scegliendo l'ora del volo, anche la direzione del sole si calcola per quell'ora
   const scegliOraPrevista = (ora) => { setOraPrevista(ora); if (ora) setOraSole(ora); };
   const [nuovaVoceChecklist, setNuovaVoceChecklist] = useState("");
@@ -9203,7 +9207,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
   const firmaSalvata = useRef(null);
   const datiBozza = {
     editingId, impiantoId: impiantoSel ? impiantoSel.id : null, modoLibero, luogoLibero, coordinateLibere, tipoIspezione, dataPrevista, oraPrevista,
-    droneSelId, scene, sopralluogo, manovreScelte, lavoroScelto, checklistSpuntati, checklistFpvSpuntati, zonaEsito, stsDati, puntoIndirizzo,
+    droneSelId, scene, sopralluogo, giro, manovreScelte, lavoroScelto, checklistSpuntati, checklistFpvSpuntati, zonaEsito, stsDati, puntoIndirizzo,
   };
   const firmaBozza = JSON.stringify(datiBozza);
   useEffect(() => {
@@ -9223,6 +9227,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
         setDroneSelId(d.droneSelId || "");
         setScene(Array.isArray(d.scene) ? d.scene : []);
         setSopralluogo({ ...SOPRALLUOGO_VUOTO, ...(d.sopralluogo || {}) });
+        setGiro({ ...GIRO_VUOTO, ...(d.giro || {}) });
         setManovreScelte(Array.isArray(d.manovreScelte) ? d.manovreScelte : []);
         setLavoroScelto(d.lavoroScelto || "");
         setChecklistSpuntati(d.checklistSpuntati || {}); setChecklistFpvSpuntati(d.checklistFpvSpuntati || {});
@@ -9236,7 +9241,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
   }, []);
   useEffect(() => {
     if (!bozzaPronta.current) return;
-    const vuota = !editingId && !impiantoSel && !luogoLibero.trim() && !coordinateLibere.trim() && scene.length === 0 && !sopralluogoUsato(sopralluogo);
+    const vuota = !editingId && !impiantoSel && !luogoLibero.trim() && !coordinateLibere.trim() && scene.length === 0 && !sopralluogoUsato(sopralluogo) && !giroUsato(giro);
     try {
       if (vuota || firmaBozza === firmaSalvata.current) localStorage.removeItem(CHIAVE_BOZZA);
       else localStorage.setItem(CHIAVE_BOZZA, JSON.stringify({ quando: Date.now(), dati: datiBozza }));
@@ -9244,8 +9249,17 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firmaBozza]);
 
+  // posti aggiunti dalla pagina Posti con «＋ Al giro»: entrano nel giro appena si apre Pianifica
+  useEffect(() => {
+    const coda = prendiCoda();
+    if (coda.length) setGiro((g) => ({ ...g, tappe: [...g.tappe, ...coda.map(tappaDa)].slice(0, MAX_TAPPE) }));
+  }, []);
+  const aggiungiAlGiro = (p) => setGiro((g) => (g.tappe.length >= MAX_TAPPE || g.tappe.some((t) => Math.abs(t.lat - p.lat) < 1e-4 && Math.abs(t.lon - p.lon) < 1e-4) ? g : { ...g, tappe: [...g.tappe, tappaDa(p)] }));
+
   const droneSelezionato = droniUtente.find((d) => d.id === droneSelId) || null;
   const coordinateValide = modoLibero ? leggiCoordinate(coordinateLibere) : null;
+  // il punto del luogo del piano (coordinate, indirizzo trovato, controllo zona o meteo): serve a «Posti vicini» e al giro
+  const puntoDelPiano = coordinateValide || puntoIndirizzo || leggiCoordinate(zonaEsito?.punto) || (meteo && meteo.lat != null ? { lat: meteo.lat, lon: meteo.lon } : null);
   // il posto del volo: un impianto oppure un luogo scritto a mano (nome e/o coordinate)
   const destinazione = impiantoSel
     ? { nome: impiantoSel.nome, zona: impiantoSel.zona, id: impiantoSel.id }
@@ -9410,7 +9424,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
         checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}), ...(["video", "foto", "fpv"].includes(tipoIspezione)
           ? (scene.length > 0 ? { scene, manovre: scene.map((x) => x.manovra).filter(Boolean), ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {})
           : (manovreScelte.length > 0 ? { manovre: manovreScelte, ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {})),
-          ...(sopralluogoUsato(sopralluogo) ? { sopralluogo } : {}) },
+          ...(sopralluogoUsato(sopralluogo) ? { sopralluogo } : {}), ...(giroUsato(giro) ? { giro } : {}) },
       };
       // le coordinate si salvano solo per un luogo scelto a mano
       if (!impiantoSel) payload.luogo_coordinate = coordinateValide ? `${coordinateValide.lat}, ${coordinateValide.lon}` : null;
@@ -9453,6 +9467,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
     setManovreScelte(Array.isArray(p.checklist_stato?.manovre) ? p.checklist_stato.manovre : []);
     setLavoroScelto(p.checklist_stato?.lavoro || "");
     setSopralluogo({ ...SOPRALLUOGO_VUOTO, ...(p.checklist_stato?.sopralluogo || {}) });
+    setGiro({ ...GIRO_VUOTO, ...(p.checklist_stato?.giro || {}) });
     // piani salvati prima del piano delle scene: le manovre scelte diventano scene
     setScene(Array.isArray(p.checklist_stato?.scene) ? p.checklist_stato.scene
       : ["video", "foto", "fpv"].includes(p.tipo_ispezione) && Array.isArray(p.checklist_stato?.manovre)
@@ -9488,6 +9503,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
     setLavoroScelto("");
     setScene([]);
     setSopralluogo(SOPRALLUOGO_VUOTO);
+    setGiro(GIRO_VUOTO);
     setDflightShot(null);
     setMeteo(null);
     setMeteoSpaziale(null);
@@ -9624,8 +9640,15 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
 
           <Suspense fallback={null}>
             <PostiVicini supabase={supabase} tipo={tipoIspezione}
-              punto={coordinateValide || puntoIndirizzo || leggiCoordinate(zonaEsito?.punto) || (meteo && meteo.lat != null ? { lat: meteo.lat, lon: meteo.lon } : null)}
+              punto={puntoDelPiano}
+              onAlGiro={aggiungiAlGiro} nelGiro={giro.tappe}
               onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} />
+          </Suspense>
+
+          <Suspense fallback={null}>
+            <GiroGiornata partenza={puntoDelPiano ? { ...puntoDelPiano, nome: destinazione.nome || "Luogo del piano" } : null}
+              giro={giro} onCambia={setGiro} data={dataPrevista} oraPartenza={oraPrevista}
+              cercaIndirizzo={cercaIndirizzoItalia} inputStyle={inputStyle} />
           </Suspense>
 
           <RegoleVolo

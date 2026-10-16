@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import L from "./leafletSicuro";
+import "leaflet/dist/leaflet.css";
 import { leggiZoneSalvate, controllaPunto, altezzaLibera } from "./zoneUAS";
 
 // Posti belli dove volare: punti panoramici dalle mappe pubbliche (OpenStreetMap) + consigli dei piloti EyeDrones.
@@ -128,7 +130,7 @@ async function cercaPostiOsm(c, raggioKm) {
   return tutti;
 }
 
-function statoZona(zone, p) {
+export function statoZona(zone, p) {
   if (!zone) return null;
   const { dentro } = controllaPunto(zone, p, { raggio: 0 });
   const vietata = dentro.some((z) => z.restrizione === "PROHIBITED" && !(z.limiti && z.limiti.da > 0));
@@ -139,7 +141,42 @@ function statoZona(zone, p) {
   return { colore: "#ff8c42", testo: "Serve autorizzazione già da terra" };
 }
 
-export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle, onPianifica, onZonaRossa }) {
+// la mappa dei posti: ⭐ quelli dei piloti, gli altri con la loro icona. Toccando un posto si apre la scheda;
+// con «Consiglia un posto» aperto, toccando la mappa si sceglie il punto da consigliare
+function MappaPosti({ centro, posti, scelto, onScegli, onPunto, nuovo }) {
+  const box = useRef(null);
+  const mappa = useRef(null);
+  const strato = useRef(null);
+  const punto = useRef(onPunto);
+  punto.current = onPunto;
+  useEffect(() => {
+    const m = L.map(box.current, { zoomControl: true, attributionControl: true }).setView([centro.lat, centro.lon], 11);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(m);
+    strato.current = L.layerGroup().addTo(m);
+    m.on("click", (e) => punto.current && punto.current(e.latlng.lat, e.latlng.lng));
+    mappa.current = m;
+    return () => m.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { if (mappa.current) mappa.current.setView([centro.lat, centro.lon], mappa.current.getZoom()); }, [centro.lat, centro.lon]);
+  useEffect(() => {
+    const s = strato.current;
+    if (!s) return;
+    s.clearLayers();
+    for (const p of posti) {
+      const su = scelto === p.id;
+      const piloti = p.fonte === "piloti";
+      const lato = su ? 40 : 32;
+      const icona = L.divIcon({ className: "", html: `<div style="width:${lato}px;height:${lato}px;display:flex;align-items:center;justify-content:center;font-size:${su ? 30 : 22}px;line-height:1;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7));${piloti ? "" : "opacity:.9"}">${p.emoji}</div>`, iconSize: [lato, lato], iconAnchor: [lato / 2, lato / 2] });
+      const mk = L.marker([p.lat, p.lon], { icon: icona, title: p.nome, zIndexOffset: piloti ? 500 : 0 }).addTo(s);
+      mk.on("click", (e) => { L.DomEvent.stopPropagation(e); onScegli(p.id); });
+    }
+    if (nuovo && nuovo.lat) L.marker([nuovo.lat, nuovo.lon], { icon: L.divIcon({ className: "", html: '<div style="width:32px;height:32px;font-size:30px;line-height:32px;text-align:center;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7))">📍</div>', iconSize: [32, 32], iconAnchor: [16, 30] }) }).addTo(s);
+  }, [posti, scelto, nuovo && nuovo.lat, nuovo && nuovo.lon]);
+  return <div ref={box} style={{ height: 360, borderRadius: 10, overflow: "hidden", border: "1px solid #2b313d", marginBottom: 10, cursor: nuovo ? "crosshair" : "grab" }} />;
+}
+
+export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle, onPianifica, onZonaRossa, onAlGiro }) {
   const [testo, setTesto] = useState("");
   const [centro, setCentro] = useState(null); // { lat, lon, etichetta }
   const [raggio, setRaggio] = useState(15);
@@ -153,6 +190,8 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
   const [aperto, setAperto] = useState(null);
   const [nuovo, setNuovo] = useState(null); // modulo «consiglia un posto»
   const [salvando, setSalvando] = useState(false);
+  const [vista, setVista] = useState("mappa"); // "mappa" | "elenco"
+  const [nelGiro, setNelGiro] = useState({});
 
   useEffect(() => { leggiZoneSalvate().then((d) => setZone(d && Array.isArray(d.zone) ? d.zone : null)).catch(() => setZone(null)); }, []);
 
@@ -266,11 +305,16 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
 
       {centro && !caricando && (
         <>
+          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            {[["mappa", "🗺️ Mappa"], ["elenco", "📋 Elenco"]].map(([k, t]) => <button key={k} type="button" onClick={() => setVista(k)} style={stChip(vista === k)}>{t}</button>)}
+          </div>
+          {nuovo && vista === "mappa" && <div style={{ fontSize: 12, color: "#ffb877", marginBottom: 6 }}>👆 Tocca la mappa nel punto che vuoi consigliare.</div>}
+          {vista === "mappa" && <MappaPosti centro={centro} posti={elenco.slice(0, 150)} scelto={aperto} onScegli={(id) => setAperto(id)} nuovo={nuovo} onPunto={nuovo ? (la, lo) => setNuovo((n) => (n ? { ...n, lat: la, lon: lo } : n)) : null} />}
           <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 8 }}>{elenco.length} posti entro {raggio} km da {centro.etichetta}{gruppi.length ? ` · ⭐ ${gruppi.length} consigliati dai piloti` : ""}{caricandoMappe ? " · cerco anche i punti panoramici delle mappe…" : ""}</div>
           {tipiPresenti.length > 1 && <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 8 }}><button type="button" onClick={() => setFiltro("tutti")} style={stChip(filtro === "tutti")}>Tutti</button>{tipiPresenti.map((t) => <button key={t} type="button" onClick={() => setFiltro(t)} style={stChip(filtro === t)}>{t}</button>)}</div>}
           {elenco.length === 0 && !caricandoMappe && <div style={{ fontSize: 13, color: "#8b95a3" }}>Nessun posto trovato: prova ad allargare la distanza.</div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {elenco.slice(0, 60).map((p) => {
+            {(vista === "mappa" ? elenco.filter((p) => p.id === aperto) : elenco.slice(0, 60)).map((p) => {
               const ap = aperto === p.id;
               return (
                 <div key={p.id} style={{ background: "#1b2028", border: `1px solid ${p.fonte === "piloti" ? "#5a4a16" : "#2b313d"}`, borderRadius: 10, padding: "11px 14px" }}>
@@ -289,6 +333,7 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
                       {!p.zona && <div style={{ fontSize: 11.5, color: "#8b95a3" }}>Zona di volo non controllata: verificala su D-Flight prima di andare.</div>}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button type="button" onClick={() => onPianifica({ nome: p.nome, lat: p.lat, lon: p.lon })} style={{ ...stLink, background: "#241d16", color: "#ffb877", borderColor: "#ff8c42" }}>📅 Pianifica qui</button>
+                        {onAlGiro && <button type="button" disabled={nelGiro[p.id]} onClick={() => { onAlGiro({ nome: p.nome, lat: p.lat, lon: p.lon }); setNelGiro((x) => ({ ...x, [p.id]: true })); }} style={{ ...stLink, color: nelGiro[p.id] ? "#4ade80" : "#ffb877" }}>{nelGiro[p.id] ? "✓ Nel giro" : "＋ Al giro"}</button>}
                         <a href={`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`} target="_blank" rel="noreferrer" style={stLink}>🧭 Portami lì</a>
                         <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={stLink}>🗺️ D-Flight</a>
                         {p.link && <a href={p.link} target="_blank" rel="noreferrer" style={stLink}>📖 Wikipedia</a>}
@@ -299,6 +344,8 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
               );
             })}
           </div>
+          {vista === "mappa" && !elenco.some((p) => p.id === aperto) && elenco.length > 0 && <div style={{ fontSize: 12, color: "#8b95a3" }}>Tocca un posto sulla mappa per vedere com'è, la zona e la strada. ⭐ = consigliato dai piloti.</div>}
+          {Object.keys(nelGiro).length > 0 && <div style={{ fontSize: 12.5, color: "#4ade80", marginTop: 8 }}>✓ {Object.keys(nelGiro).length} {Object.keys(nelGiro).length === 1 ? "posto aggiunto" : "posti aggiunti"} al giro: lo trovi in Pianifica → «🗺️ Giro della giornata». <button type="button" onClick={() => onAlGiro && onAlGiro(null)} style={{ background: "none", border: "none", color: "#ffb877", padding: 0, fontSize: 12.5, textDecoration: "underline" }}>Apri Pianifica</button></div>}
           <p style={{ fontSize: 10.5, color: "#6b7480", margin: "12px 0 0 0" }}>Punti da OpenStreetMap (© contributori OpenStreetMap) e Wikipedia. Un posto bello non vuol dire che lì si possa volare: controlla sempre zona, NOTAM e regole del luogo (parchi, proprietà private).</p>
         </>
       )}
@@ -308,7 +355,7 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
 
 // Riquadro compatto per la Pianificazione: i posti belli intorno al luogo del volo (es. foto suggestive agli sposi).
 // Si carica solo quando lo apri, per non chiamare le mappe a ogni piano.
-export function PostiVicini({ supabase, punto, tipo, onZonaRossa }) {
+export function PostiVicini({ supabase, punto, tipo, onZonaRossa, onAlGiro, nelGiro = [] }) {
   const [aperto, setAperto] = useState(false);
   const [km, setKm] = useState(5);
   const [stato, setStato] = useState({ caricando: false, posti: null, errore: null });
@@ -371,6 +418,9 @@ export function PostiVicini({ supabase, punto, tipo, onZonaRossa }) {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
                   <a href={`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: "#3d8bfd", textDecoration: "none", whiteSpace: "nowrap" }}>🧭 Vai</a>
+                  {onAlGiro && (nelGiro.some((x) => Math.abs(x.lat - p.lat) < 1e-4 && Math.abs(x.lon - p.lon) < 1e-4)
+                    ? <span style={{ fontSize: 11.5, color: "#4ade80", whiteSpace: "nowrap" }}>✓ Nel giro</span>
+                    : <button type="button" onClick={() => onAlGiro({ nome: p.nome, lat: p.lat, lon: p.lon })} style={{ background: "none", border: "1px solid #5a3f22", color: "#ffb877", borderRadius: 5, padding: "1px 6px", fontSize: 11.5, whiteSpace: "nowrap" }}>＋ Al giro</button>)}
                   {p.link && <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: "#3d8bfd", textDecoration: "none", whiteSpace: "nowrap" }}>📖 Info</a>}
                 </div>
               </div>
