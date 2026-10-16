@@ -13165,8 +13165,8 @@ function ReportConsegnaRilievo({ volo, drone, azienda, piano, passQuestoMese, on
     if (!file) return;
     try {
       const m = await leggiMissioneDji(file);
-      setD((x) => ({ ...x, poligono: m.punti, area_ha: x.area_ha || String(Math.round(misuraArea(m.punti).m2 / 100) / 100) }));
-      setStato(`✓ Area caricata da ${file.name}`);
+      setD((x) => ({ ...x, poligono: m.punti, area_ha: x.area_ha || String(Math.round(misuraArea(m.punti).m2 / 100) / 100), altezza: x.altezza || (m.altezza && m.altezzaUsabile ? String(m.altezza) : "") }));
+      setStato(`✓ Area caricata da ${file.name}${m.daPunti ? " (dalla traccia del volo: può essere un po' più larga dell'area rilevata)" : ""}`);
     } catch (err) { setStato(err?.message || String(err)); }
   };
   const aggiungiImmagine = async (e) => {
@@ -13226,8 +13226,8 @@ function ReportConsegnaRilievo({ volo, drone, azienda, piano, passQuestoMese, on
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <label style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>
-              🗺️ {d.poligono ? "Cambia l'area" : "Carica l'area (KMZ/KML della missione)"}
-              <input type="file" accept=".kmz,.kml,.wpml" onChange={caricaArea} style={{ display: "none" }} />
+              🗺️ {d.poligono ? "Cambia l'area" : "Carica l'area (missione KMZ, o volo KML/GPX)"}
+              <input type="file" accept=".kmz,.kml,.wpml,.gpx" onChange={caricaArea} style={{ display: "none" }} />
             </label>
             <span style={{ fontSize: 11, color: "#8b95a3" }}>{d.poligono ? `${d.poligono.length} punti` : "Se non la carichi, uso l'area disegnata nel piano STS di quel giorno (se c'è)."}</span>
           </div>
