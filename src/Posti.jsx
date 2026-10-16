@@ -119,7 +119,7 @@ async function cercaPostiWikipedia({ lat, lon }, raggioKm) {
 }
 
 // tutte e due le fonti insieme: basta che una risponda; null solo se non risponde nessuna
-async function cercaPostiOsm(c, raggioKm) {
+export async function cercaPostiOsm(c, raggioKm) {
   const ricordati = daMemoria(c, raggioKm);
   if (ricordati) return ricordati;
   const [mappe, wiki] = await Promise.all([cercaPostiMappe(c, raggioKm).catch(() => null), cercaPostiWikipedia(c, raggioKm).catch(() => null)]);

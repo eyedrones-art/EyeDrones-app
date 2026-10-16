@@ -30,7 +30,7 @@ const lista = (punti) => punti.map((p) => `${p.lon.toFixed(5)},${p.lat.toFixed(5
 const conTempo = (promessa, ms) => Promise.race([promessa, new Promise((_, no) => setTimeout(() => no(new Error("tempo scaduto")), ms))]);
 
 // tempi tra tutti i posti (per scegliere l'ordine): strade vere, altrimenti la stima
-async function matriceTempi(punti) {
+export async function matriceTempi(punti) {
   try {
     const r = await conTempo(fetch(`${OSRM}/table/v1/driving/${lista(punti)}?annotations=duration`), 8000);
     const j = await r.json();

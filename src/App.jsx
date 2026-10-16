@@ -37,6 +37,7 @@ const Posti = pigro(() => import("./Posti.jsx"));
 const UltimaNotizia = pigro(() => import("./Notizie.jsx"), "UltimaNotizia");
 const PostiVicini = pigro(() => import("./Posti.jsx"), "PostiVicini");
 const GiroGiornata = pigro(() => import("./GiroGiornata.jsx"));
+const QuiEOra = pigro(() => import("./QuiEOra.jsx"));
 const Collaboratori = pigro(() => import("./Collaboratori.jsx"));
 const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
 const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
@@ -1869,7 +1870,7 @@ function AppShell({ session }) {
     if (v && PAGINE_RIPRISTINABILI.includes(v)) { if (passo) { try { sessionStorage.setItem("eyedrones_guida_passo", passo); } catch { /* niente */ } } return v; }
     return null;
   });
-  const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : vaiAControllo ? "documenti-controllo" : vaiAVoli ? "pianificazione" : vaiAQui ? "dashboard" : vaiAltro || (PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard")));
+  const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : vaiAControllo ? "documenti-controllo" : vaiAVoli ? "pianificazione" : vaiAQui ? "qui" : vaiAltro || (PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard")));
   useEffect(() => { if (vaiARichieste || vaiAControllo || vaiAQui || vaiAVoli || vaiAltro) window.history.replaceState(null, "", window.location.pathname); }, []);
   // primi passi: il tasto Controllo è «provato» appena si apre la sua pagina
   useEffect(() => { if (page === "documenti-controllo") { try { localStorage.setItem("eyedrones_controllo_provato", new Date().toISOString()); } catch { /* niente */ } } }, [page]);
@@ -2049,12 +2050,12 @@ function AppShell({ session }) {
       else if (d.pagina === "impara") { setSchedaImpara(d.scheda || "a1a3"); setPage("impara"); window.scrollTo(0, 0); }
       else if (d.pagina === "permessi" || d.pagina === "nuova" || d.pagina === "attestati") { setGuidaSopra(null); setPage(d.pagina); window.scrollTo(0, 0); }
       else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
+      else if (d.pagina === "qui") { setPage("qui"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
     return () => window.removeEventListener("eyedrones-vai", ascolta);
   }, []);
   // scorciatoia «Sono sul posto»: come il pulsante in Home, cerco la posizione e apro Pianifica qui e ora
-  useEffect(() => { if (vaiAQui) volaQui(); }, []);
   // frasi per il report scelte sul posto: le salvo anche nell'account, così le ritrovi sul computer
   useEffect(() => {
     const salva = (e) => { supabase.auth.updateUser({ data: { frasi_report: e.detail || null } }).then(() => {}, () => {}); };
@@ -2327,6 +2328,14 @@ function AppShell({ session }) {
         {page === "collaboratori" && (
           <Suspense fallback={<LoadingBlock />}>
             <Collaboratori supabase={supabase} inputStyle={inputStyle} servizi={SERVIZI_PILOTA} />
+          </Suspense>
+        )}
+        {page === "qui" && (
+          <Suspense fallback={<LoadingBlock />}>
+            <QuiEOra supabase={supabase}
+              onPianifica={(l) => { setLuogoDaPianificare(l); setPage("pianificazione"); window.scrollTo(0, 0); }}
+              onAlGiro={(l) => aggiungiAllaCoda(l)}
+              onCaricaZone={() => { setPage("pianificazione"); window.scrollTo(0, 0); }} />
           </Suspense>
         )}
         {page === "posti" && (
@@ -3523,25 +3532,17 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
 
 // «Sono già sul posto»: niente piano preparato prima, apro Pianifica sulla posizione GPS con data e ora di adesso
 // «Sono sul posto»: cerco la posizione e apro Pianifica con meteo e zona di qui (senza GPS si sceglie il posto a mano)
-function volaQui(fatto = () => {}) {
-  const vai = (luogo) => { fatto(); vaiA({ pagina: "pianificazione", luogo: { nome: luogo ? "La mia posizione" : "", adesso: true, ...(luogo || {}) } }); };
-  if (!navigator.geolocation) { vai(null); return; }
-  navigator.geolocation.getCurrentPosition(
-    (pos) => vai({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-    () => vai(null),
-    { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
-  );
-}
 
 function VoloAdesso() {
   const [cerco, setCerco] = useState(false);
-  const premi = () => { setCerco(true); volaQui(() => setCerco(false)); };
+  // «Qui e ora»: posso volare qui, dove a piedi, e adesso dove vado (la pagina chiede da sola la posizione)
+  const premi = () => vaiA({ pagina: "qui" });
   return (
     <button type="button" onClick={premi} disabled={cerco} className="home-azione">
       <span className="home-azione-emoji" style={{ background: "#ff8c4226" }}>📍</span>
       <span>
         <span className="home-azione-titolo">{cerco ? "Cerco la posizione…" : <><span className="lungo">Sei sul posto? Vola adesso</span><span className="corto">Sono sul posto</span></>}</span>
-        <span className="home-azione-testo">Meteo, zona, regole e camera, qui e ora</span>
+        <span className="home-azione-testo">Posso volare qui? E dove vado adesso?</span>
       </span>
     </button>
   );
