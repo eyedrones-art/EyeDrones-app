@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>Trova un pilota di drone</title>
+<meta name="description" content="Termografia di pannelli e tetti, rilievi, trattamenti nei campi, riprese aeree: descrivi il lavoro e ricevi preventivi gratuiti da piloti di drone qualificati vicino a te.">
+<link rel="canonical" href="https://app.eyedrones.it/trova-pilota/">
+<meta property="og:title" content="Trova un pilota di drone vicino a te — EyeDrones">
+<meta property="og:description" content="Descrivi il lavoro, ricevi preventivi gratuiti da piloti con attestato e assicurazione. Nessun impegno.">
+<meta property="og:image" content="https://app.eyedrones.it/og-image.png">
+<meta property="og:url" content="https://app.eyedrones.it/trova-pilota/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root {
+  --bg: #12151c; --surface: #1b2028; --surface-2: #161a1f; --line: #2b313d;
+  --fg: #e7eaee; --muted: #9aa4b1; --faint: #6b7480;
+  --accent: #ff8c42; --accent-deep: #e0552f; --violet: #a78bfa; --ok: #4ade80; --on-accent: #161a1f;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+    --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+    --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+  --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+  --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 16px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.12; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(34px, 6vw, 54px); }
+h2 { font-size: clamp(24px, 4vw, 32px); margin-bottom: 14px; }
+h3 { font-size: 19px; margin-bottom: 6px; }
+p { margin: 0; }
+a { color: var(--accent); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 18px; }
+.marchio { font-family: var(--display); font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; }
+.occhio { width: 30px; height: 18px; border-radius: 50%; border: 2.5px solid var(--accent); position: relative; }
+.occhio::after { content: ""; position: absolute; inset: 3px 9px; border-radius: 50%; background: var(--violet); }
+.top a.link { font-family: var(--mono); font-size: 13px; text-decoration: none; }
+.hero { padding-block: 32px 48px; display: grid; gap: 18px; }
+.hero p.lead { font-size: 19px; color: var(--muted); max-width: 640px; }
+.cta { display: inline-block; background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; font-weight: 700; padding: 13px 22px; border-radius: 10px; text-decoration: none; font-size: 16px; }
+.cta-2 { display: inline-block; margin-left: 10px; color: var(--fg); text-decoration: none; border: 1px solid var(--line); padding: 12px 18px; border-radius: 10px; }
+section { padding-block: 32px; border-top: 1px solid var(--line); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.card .emoji { font-size: 26px; margin-bottom: 8px; display: block; }
+a.card { color: inherit; text-decoration: none; }
+a.card:hover { border-color: var(--accent); }
+ol.passi { margin: 0; padding-left: 22px; display: grid; gap: 10px; }
+ul.regole { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--muted); }
+form { display: grid; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+.due { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+input, select, textarea { width: 100%; background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; font: inherit; font-weight: 400; min-height: 44px; }
+textarea { min-height: 96px; resize: vertical; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; color: var(--muted); }
+.check input { width: 20px; min-height: 20px; margin-top: 3px; }
+fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+legend { font-size: 14px; font-weight: 600; padding-inline: 4px; }
+button { background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; border: none; border-radius: 10px; padding: 13px 22px; font-weight: 700; font-size: 16px; cursor: pointer; min-height: 48px; }
+.esito { display: none; padding: 14px 16px; border-radius: 10px; }
+.esito.ok { display: block; background: color-mix(in srgb, var(--ok) 14%, transparent); border: 1px solid var(--ok); }
+.esito.ko { display: block; background: color-mix(in srgb, #ff6b6b 14%, transparent); border: 1px solid #ff6b6b; }
+.nascosto { display: none; }
+.vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.vs .card ul { margin: 8px 0 0 0; padding-left: 20px; color: var(--muted); display: grid; gap: 6px; }
+.piloti { background: var(--surface-2); border: 1px solid var(--line); border-radius: 18px; padding: 22px 18px; margin-block: 8px 32px; }
+.prezzo b { color: var(--ok); }
+footer { padding-block: 28px 40px; color: var(--faint); font-size: 13px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="marchio" href="/trova-pilota/"><span class="occhio" aria-hidden="true"></span>EyeDrones</a>
+    <a class="link" href="#piloti">Sei un pilota? ↓</a>
+  </header>
+
+  <div class="hero">
+    <span class="eyebrow">Lavori con il drone, in tutta Italia</span>
+    <h1>Ti serve un drone?<br>Trova il pilota giusto vicino a te.</h1>
+    <p class="lead">Termografia dei pannelli, controllo di tetti e facciate, rilievi, trattamenti nei campi, riprese aeree. Descrivi il lavoro in un minuto: ti mettiamo in contatto con piloti qualificati della tua zona e ricevi i preventivi.</p>
+    <p><a class="cta" href="#richiesta">Chiedi un preventivo gratis</a><a class="cta-2" href="#come">Come funziona</a></p>
+    <p class="muted">Gratis e senza impegno: decidi tu se e con chi lavorare.</p>
+  </div>
+
+  <section>
+    <h2>Cosa possiamo fare per te</h2>
+    <div class="grid">
+      <a class="card" href="#richiesta" data-servizio="Ispezioni termografiche fotovoltaico"><span class="emoji">☀️</span><h3>Impianti fotovoltaici</h3><p class="muted">Termografia dei pannelli per trovare celle guaste e punti caldi, con un report da mandare all'installatore o all'assicurazione.</p></a>
+      <a class="card" href="#richiesta" data-servizio="Ispezioni tetti e facciate"><span class="emoji">🏠</span><h3>Tetti, facciate e condomini</h3><p class="muted">Guardi tegole, grondaie e facciate da vicino senza ponteggi né cestelli. Utile prima di un preventivo di lavori o dopo una grandinata.</p></a>
+      <a class="card" href="#richiesta" data-servizio="Agricoltura di precisione"><span class="emoji">🌾</span><h3>Agricoltura</h3><p class="muted">Trattamenti con drone, mappe della vegetazione e controllo delle colture, fatti da operatori in regola.</p></a>
+      <a class="card" href="#richiesta" data-servizio="Rilievi e fotogrammetria"><span class="emoji">📐</span><h3>Rilievi e cantieri</h3><p class="muted">Ortofoto, modelli 3D, misure di volumi e avanzamento del cantiere, per tecnici, geometri e imprese.</p></a>
+      <a class="card" href="#richiesta" data-servizio="Immobiliare e turismo"><span class="emoji">🏡</span><h3>Immobili e strutture</h3><p class="muted">Foto e video dall'alto per vendere una casa o presentare un hotel, un agriturismo o una cantina.</p></a>
+      <a class="card" href="#richiesta" data-servizio="Matrimoni ed eventi"><span class="emoji">🎥</span><h3>Eventi e video</h3><p class="muted">Matrimoni, eventi, video aziendali e riprese FPV, con i permessi di volo pensati dal pilota.</p></a>
+    </div>
+  </section>
+
+  <section id="come">
+    <h2>Come funziona</h2>
+    <ol class="passi">
+      <li><b>Descrivi il lavoro</b> qui sotto: cosa serve, dove e quando.</li>
+      <li><b>Ti contattano i piloti della tua zona</b> adatti a quel lavoro, di solito entro 48 ore.</li>
+      <li><b>Confronti i preventivi e scegli.</b> Ti accordi direttamente con il pilota: nessun costo da parte nostra.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Piloti di cui ti puoi fidare</h2>
+    <ul class="regole">
+      <li>Attestato di pilota riconosciuto dall'ENAC, adatto al tipo di volo.</li>
+      <li>Operatore registrato, con il codice ITA scritto sul drone.</li>
+      <li>Assicurazione di responsabilità civile per il lavoro.</li>
+      <li>Il pilota controlla zone di volo e permessi prima di partire, e a fine lavoro ti consegna foto, video o report.</li>
+    </ul>
+  </section>
+
+  <section id="richiesta">
+    <h2>Chiedi un preventivo</h2>
+    <p class="muted" style="margin-bottom:14px">Più dettagli dai, più i preventivi saranno precisi. I tuoi contatti li vedono solo i piloti adatti al lavoro.</p>
+    <form name="trova-pilota" method="POST" data-netlify="true" netlify-honeypot="campo-trappola" id="modulo-cliente">
+      <input type="hidden" name="form-name" value="trova-pilota">
+      <input type="hidden" name="provenienza" value="">
+      <p class="nascosto"><label>Non compilare: <input name="campo-trappola"></label></p>
+      <label>Che lavoro ti serve
+        <select name="servizio" required>
+          <option value="">— scegli —</option>
+          <option>Ispezioni termografiche fotovoltaico</option>
+          <option>Ispezioni tetti e facciate</option>
+          <option>Agricoltura di precisione</option>
+          <option>Rilievi e fotogrammetria</option>
+          <option>Monitoraggio cantieri</option>
+          <option>Immobiliare e turismo</option>
+          <option>Matrimoni ed eventi</option>
+          <option>Video per aziende</option>
+          <option>Riprese FPV</option>
+          <option>Pulizia pannelli e facciate</option>
+          <option>Altro</option>
+        </select>
+      </label>
+      <div class="due">
+        <label>Comune<input name="comune" required autocomplete="address-level2" placeholder="es. Grugliasco"></label>
+        <label>Provincia<input name="provincia" required list="elenco-province" placeholder="es. Torino (TO)"></label>
+      </div>
+      <div class="due">
+        <label>Quando (facoltativo)<input name="quando" placeholder="es. entro fine mese, 12 novembre…"></label>
+        <label>Chi sei
+          <select name="tipo_cliente" required>
+            <option value="">— scegli —</option>
+            <option>Privato</option>
+            <option>Azienda</option>
+            <option>Azienda agricola</option>
+            <option>Amministratore di condominio</option>
+            <option>Tecnico, geometra o impresa edile</option>
+            <option>Installatore o manutentore</option>
+            <option>Agenzia immobiliare</option>
+            <option>Altro</option>
+          </select>
+        </label>
+      </div>
+      <label>Descrivi il lavoro<textarea name="descrizione" required placeholder="es. impianto da 6 kW su tetto a falda, rende meno dell'anno scorso: vorrei una termografia dei pannelli"></textarea></label>
+      <label>Nome e cognome<input name="nome" required autocomplete="name"></label>
+      <div class="due">
+        <label>Email<input name="email" type="email" required autocomplete="email"></label>
+        <label>Telefono (facoltativo)<input name="telefono" type="tel" autocomplete="tel"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="privacy" value="si" required><span>Ho letto l'<a href="https://app.eyedrones.it/privacy" target="_blank" rel="noreferrer">informativa privacy</a> e accetto che la richiesta e i miei contatti siano passati ai piloti adatti al lavoro.</span></label>
+      <button type="submit">Invia la richiesta</button>
+      <div class="esito" id="esito-cliente" role="status"></div>
+    </form>
+  </section>
+
+  <section id="piloti" style="border-top:none">
+    <div class="piloti">
+      <span class="eyebrow">Per i piloti di drone</span>
+      <h2 style="margin-top:8px">Ricevi lavori nella tua zona</h2>
+      <p class="muted" style="max-width:680px;margin-bottom:18px">Le richieste che arrivano qui vanno ai piloti della provincia, in base ai servizi che offrono. Entra nella rete: è gratis. Con l'app EyeDrones hai anche tutto il resto: la tua pagina pubblica con portfolio, preventivi, registro voli, permessi, attestati, scadenze e report per i clienti.</p>
+      <div class="vs" style="margin-bottom:18px">
+        <div class="card"><span class="emoji">📩</span><h3>Richieste vere</h3><p class="muted">Clienti della tua zona che hanno già detto cosa serve, dove e quando.</p></div>
+        <div class="card"><span class="emoji">🧾</span><h3>Dal contatto al preventivo</h3><p class="muted">In app trasformi la richiesta in un preventivo in PDF con il tuo logo, in un minuto.</p></div>
+        <div class="card"><span class="emoji">✈️</span><h3>Tutto il lavoro in un posto</h3><p class="muted">Zone di volo, permessi ENAC, batterie, manutenzioni, consegna di foto e video e report di ispezione.</p></div>
+      </div>
+      <p class="muted prezzo" style="margin-bottom:18px"><b>L'app è gratis con tutte le funzioni fino al 31 gennaio 2027.</b> Chi si iscrive adesso paga poi il primo anno a metà prezzo.</p>
+      <form name="piloti-rete" method="POST" data-netlify="true" netlify-honeypot="campo-trappola" id="modulo-pilota">
+        <input type="hidden" name="form-name" value="piloti-rete">
+        <input type="hidden" name="provenienza" value="">
+        <p class="nascosto"><label>Non compilare: <input name="campo-trappola"></label></p>
+        <div class="due">
+          <label>Nome e cognome<input name="nome" required autocomplete="name"></label>
+          <label>Email<input name="email" type="email" required autocomplete="email"></label>
+        </div>
+        <div class="due">
+          <label>Provincia in cui lavori<input name="provincia" required list="elenco-province" placeholder="es. Torino (TO)"></label>
+          <label>Fin dove ti sposti
+            <select name="raggio">
+              <option>Solo la mia provincia</option>
+              <option>Anche le province vicine</option>
+              <option>Tutta la regione</option>
+              <option>Tutta Italia</option>
+            </select>
+          </label>
+        </div>
+        <fieldset>
+          <legend>Che lavori fai</legend>
+          <label class="check"><input type="checkbox" name="servizi" value="Termografia fotovoltaico"><span>Termografia fotovoltaico</span></label>
+          <label class="check"><input type="checkbox" name="servizi" value="Tetti e facciate"><span>Tetti e facciate</span></label>
+          <label class="check"><input type="checkbox" name="servizi" value="Agricoltura"><span>Agricoltura</span></label>
+          <label class="check"><input type="checkbox" name="servizi" value="Rilievi e cantieri"><span>Rilievi e cantieri</span></label>
+          <label class="check"><input type="checkbox" name="servizi" value="Immobiliare e turismo"><span>Immobiliare e turismo</span></label>
+          <label class="check"><input type="checkbox" name="servizi" value="Eventi, video e FPV"><span>Eventi, video e FPV</span></label>
+        </fieldset>
+        <div class="due">
+          <label>Attestato
+            <select name="attestato" required>
+              <option value="">— scegli —</option>
+              <option>A1/A3</option>
+              <option>A2</option>
+              <option>STS (scenari standard)</option>
+              <option>Più attestati</option>
+              <option>Non ancora</option>
+            </select>
+          </label>
+          <label>Assicurazione RC
+            <select name="assicurato" required>
+              <option value="">— scegli —</option>
+              <option>Sì</option>
+              <option>No, non ancora</option>
+            </select>
+          </label>
+        </div>
+        <label class="check"><input type="checkbox" name="privacy" value="si" required><span>Ho letto l'<a href="https://app.eyedrones.it/privacy" target="_blank" rel="noreferrer">informativa privacy</a> e accetto di ricevere per email le richieste di lavoro della mia zona.</span></label>
+        <button type="submit">Entra nella rete dei piloti</button>
+        <div class="esito" id="esito-pilota" role="status"></div>
+      </form>
+      <p class="muted" style="margin-top:14px">Vuoi già provare l'app? <a href="https://app.eyedrones.it/?ref=trova-pilota" id="link-app">Iscriviti gratis su app.eyedrones.it</a> e attiva «La mia pagina».</p>
+    </div>
+  </section>
+
+  <footer>EyeDrones · Ivan Ravinale, Grugliasco (TO) · <a href="mailto:info@eyedrones.it?subject=Trova%20un%20pilota">info@eyedrones.it</a> · <a href="https://app.eyedrones.it/termini">Termini</a> · <a href="https://app.eyedrones.it/privacy">Privacy</a></footer>
+</div>
+
+<datalist id="elenco-province"></datalist>
+
+<script>
+const PROVINCE = "Agrigento AG|Alessandria AL|Ancona AN|Aosta AO|Arezzo AR|Ascoli Piceno AP|Asti AT|Avellino AV|Bari BA|Barletta-Andria-Trani BT|Belluno BL|Benevento BN|Bergamo BG|Biella BI|Bologna BO|Bolzano BZ|Brescia BS|Brindisi BR|Cagliari CA|Caltanissetta CL|Campobasso CB|Caserta CE|Catania CT|Catanzaro CZ|Chieti CH|Como CO|Cosenza CS|Cremona CR|Crotone KR|Cuneo CN|Enna EN|Fermo FM|Ferrara FE|Firenze FI|Foggia FG|Forlì-Cesena FC|Frosinone FR|Genova GE|Gorizia GO|Grosseto GR|Imperia IM|Isernia IS|L'Aquila AQ|La Spezia SP|Latina LT|Lecce LE|Lecco LC|Livorno LI|Lodi LO|Lucca LU|Macerata MC|Mantova MN|Massa-Carrara MS|Matera MT|Messina ME|Milano MI|Modena MO|Monza e Brianza MB|Napoli NA|Novara NO|Nuoro NU|Oristano OR|Padova PD|Palermo PA|Parma PR|Pavia PV|Perugia PG|Pesaro e Urbino PU|Pescara PE|Piacenza PC|Pisa PI|Pistoia PT|Pordenone PN|Potenza PZ|Prato PO|Ragusa RG|Ravenna RA|Reggio Calabria RC|Reggio Emilia RE|Rieti RI|Rimini RN|Roma RM|Rovigo RO|Salerno SA|Sassari SS|Savona SV|Siena SI|Siracusa SR|Sondrio SO|Sud Sardegna SU|Taranto TA|Teramo TE|Terni TR|Torino TO|Trapani TP|Trento TN|Treviso TV|Trieste TS|Udine UD|Varese VA|Venezia VE|Verbano-Cusio-Ossola VB|Vercelli VC|Verona VR|Vibo Valentia VV|Vicenza VI|Viterbo VT".split("|");
+document.getElementById("elenco-province").innerHTML = PROVINCE.map((p) => {
+  const i = p.lastIndexOf(" ");
+  return `<option value="${p.slice(0, i)} (${p.slice(i + 1)})">`;
+}).join("");
+
+// ?ref=facebook-to, ?servizio=..., ?prov=TO: per sapere da quale annuncio arriva la richiesta e precompilare il modulo
+const q = new URLSearchParams(location.search);
+const rif = (q.get("ref") || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 40);
+document.querySelectorAll('input[name="provenienza"]').forEach((c) => { c.value = rif || "diretto"; });
+if (rif) document.getElementById("link-app").href = `https://app.eyedrones.it/?ref=trova-pilota-${rif}`;
+const sceltaServizio = document.querySelector('#modulo-cliente select[name="servizio"]');
+const scegli = (s) => { if ([...sceltaServizio.options].some((o) => o.value === s)) sceltaServizio.value = s; };
+if (q.get("servizio")) scegli(q.get("servizio"));
+const sigla = (q.get("prov") || "").toUpperCase();
+const prov = PROVINCE.find((p) => p.endsWith(" " + sigla));
+if (sigla && prov) document.querySelectorAll('input[name="provincia"]').forEach((c) => { c.value = `${prov.slice(0, -3)} (${sigla})`; });
+// un tocco su un servizio porta al modulo già con quel servizio scelto
+document.querySelectorAll("[data-servizio]").forEach((a) => a.addEventListener("click", () => scegli(a.dataset.servizio)));
+
+// invio senza cambiare pagina (Netlify Forms); se qualcosa va storto propongo l'email
+function invia(idModulo, idEsito, testoOk, testoBottone) {
+  document.getElementById(idModulo).addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target, esito = document.getElementById(idEsito), bottone = f.querySelector("button");
+    const dati = new FormData(f);
+    // più servizi scelti: li unisco in un campo solo, così nell'email arrivano tutti
+    if (dati.getAll("servizi").length) dati.set("servizi", dati.getAll("servizi").join(", "));
+    bottone.disabled = true; bottone.textContent = "Invio…";
+    try {
+      const r = await fetch("/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(dati).toString() });
+      if (!r.ok) throw new Error(r.status);
+      f.reset();
+      f.querySelectorAll('input[name="provenienza"]').forEach((c) => { c.value = rif || "diretto"; });
+      esito.className = "esito ok"; esito.textContent = testoOk;
+    } catch (err) {
+      esito.className = "esito ko"; esito.innerHTML = 'Invio non riuscito. Scrivi a <a href="mailto:info@eyedrones.it?subject=Trova%20un%20pilota">info@eyedrones.it</a>, ti rispondiamo noi.';
+    }
+    bottone.disabled = false; bottone.textContent = testoBottone;
+  });
+}
+invia("modulo-cliente", "esito-cliente", "Grazie! Richiesta ricevuta: entro 48 ore ti contattano i piloti della tua zona.", "Invia la richiesta");
+invia("modulo-pilota", "esito-pilota", "Fatto, sei nella rete! Ti scriviamo per email quando arriva una richiesta nella tua zona.", "Entra nella rete dei piloti");
+</script>
+</body>
+</html>
