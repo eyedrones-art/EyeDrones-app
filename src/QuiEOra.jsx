@@ -65,7 +65,7 @@ function MappaQui({ punto, liberi, zone }) {
   return <div ref={box} style={{ height: 260, borderRadius: 10, overflow: "hidden", border: "1px solid #2b313d", marginTop: 10 }} />;
 }
 
-export default function QuiEOra({ supabase, onPianifica, onAlGiro, onCaricaZone, puntoProva }) {
+export default function QuiEOra({ supabase, onPianifica, onAlGiro, onCaricaZone, onConsiglia, puntoProva }) {
   const [punto, setPunto] = useState(puntoProva || null);
   const [errorePos, setErrorePos] = useState("");
   const [zone, setZone] = useState(undefined);
@@ -226,6 +226,7 @@ export default function QuiEOra({ supabase, onPianifica, onAlGiro, onCaricaZone,
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {onConsiglia && g && g.altezza > 0 && <button type="button" onClick={() => onConsiglia({ lat: punto.lat, lon: punto.lon, nome: "" })} style={{ ...bottone, color: "#ffd07a", borderColor: "#f5b94266" }}>⭐ Bel posto? Consiglialo ai piloti</button>}
             <button type="button" onClick={prendiPosizione} style={bottone}>🔄 Aggiorna la posizione</button>
             {onPianifica && <button type="button" onClick={() => onPianifica({ nome: "La mia posizione", lat: punto.lat, lon: punto.lon, adesso: true })} style={bottone}>📋 Pianifica il volo completo qui</button>}
           </div>

@@ -1866,11 +1866,21 @@ function AppShell({ session }) {
   const [vaiAltro] = useState(() => {
     const v = new URLSearchParams(window.location.search).get("vai");
     const passo = { droni: "drone", attestati: "attestato" }[v];
+    // ritorno dal pagamento di un pacchetto dell'Esperto: la pagina mostra il grazie
+    if (v === "analisi-ai" && new URLSearchParams(window.location.search).get("esperto") === "grazie") { try { sessionStorage.setItem("eyedrones_esperto_grazie", "1"); } catch { /* niente */ } }
+    if (v === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", "{}"); } catch { /* niente */ } return "posti"; }
     if (v === "primi") { try { ["eyedrones_primi_passi_rimanda", "eyedrones_primi_passi_chiuso2", "eyedrones_primi_passi_chiuso"].forEach((k) => localStorage.removeItem(k)); } catch { /* niente */ } return "dashboard"; }
     if (v && PAGINE_RIPRISTINABILI.includes(v)) { if (passo) { try { sessionStorage.setItem("eyedrones_guida_passo", passo); } catch { /* niente */ } } return v; }
     return null;
   });
   const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : vaiAControllo ? "documenti-controllo" : vaiAVoli ? "pianificazione" : vaiAQui ? "qui" : vaiAltro || (PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard")));
+  // Esperto (AI): l'amministratore lo vede sempre; gli altri solo quando su Netlify c'è ESPERTO_PER_TUTTI=si
+  const adminAI = AI_IN_PROVA.includes(String(session.user.email || "").toLowerCase());
+  const [espertoAperto, setEspertoAperto] = useState(false);
+  useEffect(() => {
+    if (adminAI) return;
+    fetch("/.netlify/functions/analisi-foto").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.aperto === true) setEspertoAperto(true); }).catch(() => { /* resta spento */ });
+  }, [adminAI]);
   useEffect(() => { if (vaiARichieste || vaiAControllo || vaiAQui || vaiAVoli || vaiAltro) window.history.replaceState(null, "", window.location.pathname); }, []);
   // primi passi: il tasto Controllo è «provato» appena si apre la sua pagina
   useEffect(() => { if (page === "documenti-controllo") { try { localStorage.setItem("eyedrones_controllo_provato", new Date().toISOString()); } catch { /* niente */ } } }, [page]);
@@ -2051,6 +2061,7 @@ function AppShell({ session }) {
       else if (d.pagina === "permessi" || d.pagina === "nuova" || d.pagina === "attestati") { setGuidaSopra(null); setPage(d.pagina); window.scrollTo(0, 0); }
       else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
       else if (d.pagina === "qui") { setPage("qui"); window.scrollTo(0, 0); }
+      else if (d.pagina === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", JSON.stringify(d.posto || {})); } catch { /* niente */ } setPage("posti"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
     return () => window.removeEventListener("eyedrones-vai", ascolta);
@@ -2272,7 +2283,7 @@ function AppShell({ session }) {
         }
       `}</style>
 
-      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} spazio={spazioAperto} spazi={spazi} onCambiaSpazio={cambiaSpazio} cartelle={allaRadice} onCartelle={apriCartelle} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
+      <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} usaAI={adminAI || espertoAperto} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} spazio={spazioAperto} spazi={spazi} onCambiaSpazio={cambiaSpazio} cartelle={allaRadice} onCartelle={apriCartelle} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AvvisoInstallaApp />
@@ -2333,6 +2344,7 @@ function AppShell({ session }) {
         {page === "qui" && (
           <Suspense fallback={<LoadingBlock />}>
             <QuiEOra supabase={supabase}
+              onConsiglia={(l) => vaiA({ pagina: "consiglia", posto: l })}
               onPianifica={(l) => { setLuogoDaPianificare(l); setPage("pianificazione"); window.scrollTo(0, 0); }}
               onAlGiro={(l) => aggiungiAllaCoda(l)}
               onCaricaZone={() => { setPage("pianificazione"); window.scrollTo(0, 0); }} />
@@ -2346,9 +2358,9 @@ function AppShell({ session }) {
               onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} />
           </Suspense>
         )}
-        {page === "analisi-ai" && AI_IN_PROVA.includes(String(session.user.email || "").toLowerCase()) && (
+        {page === "analisi-ai" && (adminAI || espertoAperto) && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
-            <AnalisiAI key={spazioAperto?.key || "tutti"} supabase={supabase} droni={droni} inputStyle={inputStyle} spazio={spazioAperto?.key} />
+            <AnalisiAI key={spazioAperto?.key || "tutti"} supabase={supabase} droni={droni} inputStyle={inputStyle} spazio={spazioAperto?.key} admin={adminAI} />
           </Suspense>
         )}
         {page === "rilievi" && <PaginaRilievi voli={voliDashboard} droni={droni} azienda={azienda} piano={piano} onCambiato={caricaVoli} onNav={vai} onNuovo={() => { setPrefillVolo({ tipo_attivita: "rilievo" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
@@ -2844,8 +2856,7 @@ function Login({ modoIniziale = "login", onTorna }) {
 
 // --- Sidebar -----------------------------------------------------------
 
-function Sidebar({ page, setPage, userEmail, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, usaAgricoltura, spazio, spazi = [], onCambiaSpazio, cartelle, onCartelle, batterieAvvisi, richiesteNuove, onControllo }) {
-  const usaAI = AI_IN_PROVA.includes(String(userEmail || "").toLowerCase());
+function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, attestatiInScadenza, droniInScadenza, usaIspezioni, usaAgricoltura, spazio, spazi = [], onCambiaSpazio, cartelle, onCartelle, batterieAvvisi, richiesteNuove, onControllo }) {
   const k = spazio ? spazio.key : null;
   // con uno spazio aperto: prima le sue voci, poi quelle in comune. Senza spazio (non ancora scelto): tutto come prima
   const vociSpazio = k === "video" ? [
@@ -3805,6 +3816,12 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
           <span style={{ fontSize: 16 }}>🧭</span>
           <span style={{ flex: 1 }}>Zona rossa o devi chiedere un permesso? <strong>Ti guido io</strong>, il modulo si compila da solo</span>
           <span style={{ color: "#7fb0ff" }}>→</span>
+        </button>
+        {/* la community: chi conosce un bel posto lo consiglia agli altri piloti */}
+        <button type="button" onClick={() => vaiA({ pagina: "consiglia" })} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "#1f1a0e", border: "1px solid #f5b94255", borderRadius: 8, padding: "8px 12px", margin: "-12px 0 22px", fontSize: 12.5, color: "#ffe2a8" }}>
+          <span style={{ fontSize: 16 }}>⭐</span>
+          <span style={{ flex: 1 }}>Conosci un bel posto dove volare? <strong>Consiglialo</strong> agli altri piloti</span>
+          <span style={{ color: "#f5b942" }}>→</span>
         </button>
 
         {bloccoScadenze}
@@ -13156,8 +13173,8 @@ function ReportConsegnaRilievo({ volo, drone, azienda, piano, passQuestoMese, on
     if (!file) return;
     try {
       const m = await leggiMissioneDji(file);
-      setD((x) => ({ ...x, poligono: m.punti, area_ha: x.area_ha || String(Math.round(misuraArea(m.punti).m2 / 100) / 100) }));
-      setStato(`✓ Area caricata da ${file.name}`);
+      setD((x) => ({ ...x, poligono: m.punti, area_ha: x.area_ha || String(Math.round(misuraArea(m.punti).m2 / 100) / 100), altezza: x.altezza || (m.altezza && m.altezzaUsabile ? String(m.altezza) : "") }));
+      setStato(`✓ Area caricata da ${file.name}${m.daPunti ? " (dalla traccia del volo: può essere un po' più larga dell'area rilevata)" : ""}`);
     } catch (err) { setStato(err?.message || String(err)); }
   };
   const aggiungiImmagine = async (e) => {
@@ -13217,8 +13234,8 @@ function ReportConsegnaRilievo({ volo, drone, azienda, piano, passQuestoMese, on
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <label style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>
-              🗺️ {d.poligono ? "Cambia l'area" : "Carica l'area (KMZ/KML della missione)"}
-              <input type="file" accept=".kmz,.kml,.wpml" onChange={caricaArea} style={{ display: "none" }} />
+              🗺️ {d.poligono ? "Cambia l'area" : "Carica l'area (missione KMZ, o volo KML/GPX)"}
+              <input type="file" accept=".kmz,.kml,.wpml,.gpx" onChange={caricaArea} style={{ display: "none" }} />
             </label>
             <span style={{ fontSize: 11, color: "#8b95a3" }}>{d.poligono ? `${d.poligono.length} punti` : "Se non la carichi, uso l'area disegnata nel piano STS di quel giorno (se c'è)."}</span>
           </div>
@@ -14184,6 +14201,9 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         <div id={`volo-${v.id}-condividi`} style={{ scrollMarginTop: 80 }}><CondivisioneVolo volo={v} nMedia={mediaVolo.length} media={mediaVolo} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
                         <div id={`volo-${v.id}-liberatorie`} style={{ scrollMarginTop: 80 }}><LiberatorieVolo volo={v} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
                         <EventiVolo volo={v} azienda={azienda} droni={droni} batterie={batterie} onCambiato={onEventiCambiati} />
+                        {leggiCoordinate(v.coordinate_gps) && (
+                          <button type="button" onClick={() => vaiA({ pagina: "consiglia", posto: { ...leggiCoordinate(v.coordinate_gps), nome: v.luogo || "" } })} style={{ alignSelf: "flex-start", background: "#1f1a0e", border: "1px solid #f5b94266", color: "#ffd07a", borderRadius: 6, padding: "6px 12px", fontSize: 12.5, fontWeight: 600 }}>⭐ Ti è piaciuto il posto? Consiglialo agli altri piloti</button>
+                        )}
                         {v.tipo_attivita === "rilievo" && <ReportConsegnaRilievo volo={v} drone={(droni || []).find((d) => d.id === v.drone_id) || null} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} onAggiornato={(nuovo) => setVoli((vs) => vs.map((x) => (x.id === nuovo.id ? { ...x, ...nuovo } : x)))} />}
                         <div id={`volo-${v.id}-fascicolo`} style={{ scrollMarginTop: 80 }}><FascicoloVolo volo={v} drone={(droni || []).find((d) => d.id === v.drone_id) || null} batterie={batterie} media={mediaVolo} eventi={(eventiVolo || []).filter((e) => e.volo_id === String(v.id))} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
 
