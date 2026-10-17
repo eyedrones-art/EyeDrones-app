@@ -1435,6 +1435,16 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
     doc.text(righeLuogo, 15, y);
     y += righeLuogo.length * 5.5 + 6;
   }
+  if (preventivo.data_lavoro) {
+    doc.setFontSize(9.5);
+    doc.setTextColor(...grigio);
+    doc.text("DATA PREVISTA DELL'INTERVENTO", 15, y);
+    y += 5.5;
+    doc.setFontSize(11);
+    doc.setTextColor(...nero);
+    doc.text(`${formatData(preventivo.data_lavoro)} (meteo e permessi permettendo)`, 15, y);
+    y += 11.5;
+  }
 
   // --- oggetto ---
   if (preventivo.oggetto) {
@@ -2359,7 +2369,7 @@ function AppShell({ session }) {
         )}
         {page === "clienti" && <Clienti clienti={clienti} preventivi={preventivi} onCambiati={caricaClienti} onApriPreventivi={() => setPage("preventivi")} />}
         <datalist id="rubrica-clienti">{clienti.map((c) => <option key={c.id} value={c.nome} />)}</datalist>
-        {page === "preventivi" && <Preventivi preventivi={preventivi} clienti={clienti} onClientiCambiati={caricaClienti} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
+        {page === "preventivi" && <Preventivi preventivi={preventivi} clienti={clienti} onClientiCambiati={caricaClienti} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} />}
         {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} droni={droni} emailUtente={session.user.email} />}
@@ -3391,6 +3401,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
     luogo: p.impianto_nome || "",
     drone_id: p.drone_id || "",
     tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
+    ...(p.checklist_stato?.preventivo?.cliente ? { cliente: p.checklist_stato.preventivo.cliente } : {}),
     ...(punto ? { coordinate_gps: `${punto.lat.toFixed(5)}, ${punto.lon.toFixed(5)}` } : {}),
   });
 
@@ -5541,7 +5552,58 @@ function ConsigliPrezzo({ onUsa }) {
   );
 }
 
-function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, piano, onReload, onVaiAbbonamento, bozza, onBozzaUsata }) {
+// --- Preventivo automatico da una richiesta, e lavoro collegato -----------------------------------------
+// dal servizio scelto dal cliente (o dalle parole della sua descrizione): voci, fascia di prezzo e tipo di volo da pianificare.
+// L'ordine conta: «Pulizia pannelli e facciate» deve finire nella pulizia, non nelle facciate.
+const LAVORI_DA_RICHIESTA = [
+  { re: /pulizi|lavaggi/i, pacchetto: "pulizia", tipoVolo: "pulizia" },
+  { re: /fotovoltaic|pannell|termograf/i, fascia: "termografia", tipoVolo: "fotovoltaico", oggetto: "Ispezione termografica con drone dell'impianto fotovoltaico", voci: [
+    "Sopralluogo e verifica della zona di volo", "Volo termografico e visivo dell'impianto", "Analisi delle immagini termiche: celle, stringhe e punti caldi", "Report in PDF con anomalie, foto e posizione sui pannelli", "Consegna delle immagini radiometriche originali",
+  ] },
+  { re: /tett|faccia|grondai|grandin|copertur|condomin/i, fascia: "ispezione", tipoVolo: "danni", oggetto: "Ispezione con drone di tetto e facciate", voci: [
+    "Sopralluogo e verifica della zona di volo", "Volo di ispezione di coperture, facciate e grondaie", "Foto ad alta risoluzione dei punti critici", "Report in PDF con le foto e le zone da controllare",
+  ] },
+  { re: /agricol|campi|vign|trattament|ndvi/i, pacchetto: "agricoltura", tipoVolo: "agricoltura" },
+  { re: /rilie?v|fotogramm|ortofoto|cantier|volumi/i, pacchetto: "rilievo", tipoVolo: "rilievo" },
+  { re: /matrimon|spos/i, pacchetto: "matrimonio", fascia: "matrimonio", tipoVolo: "video" },
+  { re: /fpv/i, pacchetto: "fpv", fascia: "fpv", tipoVolo: "fpv" },
+  { re: /aziend/i, pacchetto: "aziendale", fascia: "aziendale", tipoVolo: "video" },
+  { re: /immobil|turism|hotel|agriturism|villa/i, pacchetto: "immobiliare", fascia: "immobiliare", tipoVolo: "foto" },
+  { re: /event|concert|festa|gara/i, pacchetto: "evento", fascia: "evento", tipoVolo: "video" },
+  { re: /ripres|video|foto/i, oggetto: "Riprese aeree con drone", voci: VOCI_MODELLO_RIPRESE, tipoVolo: "video" },
+];
+
+// il lavoro che la richiesta descrive: prima guardo il servizio scelto, poi la descrizione
+function lavoroDaRichiesta(servizio, descrizione) {
+  const trova = (testo) => (testo ? LAVORI_DA_RICHIESTA.find((l) => l.re.test(testo)) : null);
+  const l = trova(servizio) || trova(descrizione);
+  if (!l) return null;
+  const pk = l.pacchetto ? PACCHETTI_PREVENTIVO.find((x) => x.key === l.pacchetto) : null;
+  return { ...l, oggetto: l.oggetto || pk?.oggetto || servizio || "", voci: l.voci || pk?.voci || [], nome: pk?.nome || FASCE_PREZZO.find((f) => f.key === l.fascia)?.nome || servizio || "lavoro" };
+}
+
+// «impianto da 6 kW», «6,5 kWp» → 6.5
+function kwpDaTesto(testo) {
+  const m = String(testo || "").match(/(\d+(?:[.,]\d+)?)\s*kw/i);
+  const n = m ? Number(m[1].replace(",", ".")) : 0;
+  return n > 0 && n < 100000 ? n : null;
+}
+
+// quanto chiedere: le tue tariffe, poi i tuoi lavori simili già accettati, poi il prezzo tipico di mercato
+function prezzoSuggerito(lavoro, { azienda, preventivi, descrizione }) {
+  if (!lavoro) return null;
+  const kwp = lavoro.tipoVolo === "fotovoltaico" ? kwpDaTesto(descrizione) : null;
+  const base = Number(azienda?.tariffaBase) || 0, perKwp = Number(azienda?.tariffaKwp) || 0;
+  if (kwp && (base || perKwp)) return { importo: Math.round(base + kwp * perKwp), fonte: `Prezzo calcolato con le tue tariffe per ${kwp} kWp (${euro(base)} + ${euro(perKwp)}/kWp)` };
+  const simili = (preventivi || []).filter((p) => p.stato === "accettato" && Number(p.prezzo) > 0 && (p.tipo_volo ? p.tipo_volo === lavoro.tipoVolo : lavoro.re.test(p.oggetto || ""))).map((p) => Number(p.prezzo)).sort((a, b) => a - b);
+  const mezzo = Math.floor(simili.length / 2);
+  if (simili.length >= 2) return { importo: Math.round(simili.length % 2 ? simili[mezzo] : (simili[mezzo - 1] + simili[mezzo]) / 2), fonte: `Prezzo come quello tipico dei tuoi ${simili.length} lavori simili accettati` };
+  const fascia = FASCE_PREZZO.find((f) => f.key === lavoro.fascia);
+  if (fascia) return { importo: fascia.tipico, fonte: `Prezzo tipico di mercato in Italia (da ${euro(fascia.min)} a ${euro(fascia.max)})` };
+  return null;
+}
+
+function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, piano, onReload, onVaiAbbonamento, bozza, onBozzaUsata, onApriPiano }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [cliente, setCliente] = useState("");
@@ -5556,6 +5618,21 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
   const [salvataggio, setSalvataggio] = useState(false);
   const [cambiandoStato, setCambiandoStato] = useState(null);
   const [richiesta, setRichiesta] = useState(null); // il preventivo nasce da una richiesta della pagina pubblica: la mostro come promemoria
+  const [dataLavoro, setDataLavoro] = useState(""); // quando si fa il lavoro: diventa la data del volo pianificato all'accettazione
+  const [tipoVolo, setTipoVolo] = useState(""); // tipo di volo del lavoro (come in Pianificazione volo)
+  const [preparatoDa, setPreparatoDa] = useState(null); // { nome, fonte } quando il preventivo è stato compilato da solo
+  const [pianiCollegati, setPianiCollegati] = useState({}); // id preventivo → { id, data_prevista } del volo pianificato
+  const [avvisoLavoro, setAvvisoLavoro] = useState(null);
+  const [colonneLavoro, setColonneLavoro] = useState(true); // false = manca lo script supabase/preventivo-lavoro.sql
+
+  const caricaPianiCollegati = () => {
+    supabase.from("piani_volo").select("id, data_prevista, checklist_stato").then(({ data }) => {
+      const m = {};
+      (data || []).forEach((pv) => { const idP = pv.checklist_stato?.preventivo?.id; if (idP) m[idP] = { id: pv.id, data_prevista: pv.data_prevista }; });
+      setPianiCollegati(m);
+    }, () => {});
+  };
+  useEffect(caricaPianiCollegati, []);
 
   const listino = voci.reduce((s, v) => s + (Number(v.importo) || 0), 0);
   const scontoVal = Number(scontoImporto) || 0;
@@ -5607,16 +5684,30 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
     setVoci([{ descrizione: "", importo: "" }]); setScontoImporto("");
     setValiditaGiorni("30"); setNote(""); setKwp(""); setEditingId(null); setRichiesta(null);
     setDataPreventivo(new Date().toISOString().slice(0, 10));
+    setDataLavoro(""); setTipoVolo(""); setPreparatoDa(null);
   };
 
-  // arrivo da «La mia pagina» → «Crea preventivo»: compilo con i dati della richiesta del cliente
+  // arrivo da «La mia pagina» → «Crea preventivo»: preparo il preventivo dalla richiesta del cliente
+  // (voci del lavoro, prezzo suggerito, data e tipo di volo), così resta solo da controllarlo
   useEffect(() => {
     if (!bozza) return;
     resetForm();
     setRichiesta(bozza);
     setCliente(bozza.nome || "");
     setLuogoIntervento(bozza.luogo || "");
-    setOggetto(bozza.servizio || "");
+    const lavoro = lavoroDaRichiesta(bozza.servizio, bozza.descrizione);
+    setOggetto(lavoro?.oggetto || bozza.servizio || "");
+    if (bozza.data_desiderata) setDataLavoro(String(bozza.data_desiderata).slice(0, 10));
+    if (lavoro) {
+      const prezzo = prezzoSuggerito(lavoro, { azienda, preventivi, descrizione: bozza.descrizione });
+      const righe = lavoro.voci.map((descrizione) => ({ descrizione, importo: "" }));
+      if (prezzo) righe.push({ descrizione: `Compenso per il servizio (${lavoro.nome.toLowerCase()})`, importo: String(prezzo.importo) });
+      if (righe.length) setVoci(righe);
+      setTipoVolo(lavoro.tipoVolo || "");
+      const kwpLetti = lavoro.tipoVolo === "fotovoltaico" ? kwpDaTesto(bozza.descrizione) : null;
+      if (kwpLetti) setKwp(String(kwpLetti));
+      setPreparatoDa({ nome: lavoro.nome, fonte: prezzo?.fonte || null });
+    }
     setShowForm(true);
     window.scrollTo(0, 0);
     if (onBozzaUsata) onBozzaUsata();
@@ -5632,6 +5723,9 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
     setValiditaGiorni(p.validita_giorni ? String(p.validita_giorni) : "30");
     setNote(p.note || "");
     setDataPreventivo(p.data ? String(p.data).slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setDataLavoro(p.data_lavoro ? String(p.data_lavoro).slice(0, 10) : "");
+    setTipoVolo(p.tipo_volo || "");
+    setPreparatoDa(null);
     setShowForm(true);
   };
 
@@ -5655,12 +5749,18 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
       prezzo: totale,
       validita_giorni: Number(validitaGiorni) || 30,
       note: note || null,
+      data_lavoro: dataLavoro || null,
+      tipo_volo: tipoVolo || null,
     };
-    let error;
-    if (editingId) {
-      ({ error } = await supabase.from("preventivi").update(payload).eq("id", editingId));
-    } else {
-      ({ error } = await supabase.from("preventivi").insert({ ...payload, numero: generaNumero() }));
+    const scrivi = (dati) => (editingId
+      ? supabase.from("preventivi").update(dati).eq("id", editingId)
+      : supabase.from("preventivi").insert({ ...dati, numero: generaNumero() }));
+    let { error } = await scrivi(payload);
+    // colonne del lavoro non ancora create (script supabase/preventivo-lavoro.sql): salvo il preventivo senza
+    if (error && /data_lavoro|tipo_volo/i.test(error.message || "")) {
+      const { data_lavoro, tipo_volo, ...senza } = payload;
+      ({ error } = await scrivi(senza));
+      if (!error) setColonneLavoro(false);
     }
     setSalvataggio(false);
     if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
@@ -5696,8 +5796,25 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
     const conScadenza = nuovoStato === "accettato" && p && !p.scadenza_pagamento ? { scadenza_pagamento: dataLocale(GIORNI_PAGAMENTO_DEFAULT) } : {};
     const { error } = await supabase.from("preventivi").update({ stato: nuovoStato, ...conScadenza }).eq("id", id);
     if (error && conScadenza.scadenza_pagamento) await supabase.from("preventivi").update({ stato: nuovoStato }).eq("id", id); // colonna non ancora creata
+    // accettato: il lavoro entra da solo tra i voli pianificati (una volta sola)
+    if (nuovoStato === "accettato" && p && !pianiCollegati[p.id]) await pianificaLavoro(p);
     setCambiandoStato(null);
     onReload();
+  };
+
+  // crea il volo pianificato del lavoro, collegato al preventivo (checklist_stato.preventivo)
+  const pianificaLavoro = async (p) => {
+    const lavoro = lavoroDaRichiesta(p.oggetto, p.voci?.map((v) => v.descrizione).join(" "));
+    const dataPrevista = p.data_lavoro ? String(p.data_lavoro).slice(0, 10) : dataLocale(7);
+    const { data, error } = await supabase.from("piani_volo").insert({
+      impianto_nome: p.luogo_intervento || p.cliente || "Lavoro",
+      tipo_ispezione: p.tipo_volo || lavoro?.tipoVolo || "altro",
+      data_prevista: dataPrevista,
+      checklist_stato: { preventivo: { id: p.id, numero: p.numero || null, cliente: p.cliente || null, oggetto: p.oggetto || null, prezzo: Number(p.prezzo) || 0 } },
+    }).select("id, data_prevista").single();
+    if (error) { setAvvisoLavoro({ id: p.id, testo: "Non sono riuscito ad aggiungere il lavoro ai voli pianificati: " + error.message }); return; }
+    setPianiCollegati((m) => ({ ...m, [p.id]: data }));
+    setAvvisoLavoro({ id: p.id, testo: `Lavoro aggiunto ai voli pianificati per il ${formatData(data.data_prevista)}${p.data_lavoro ? "" : " (data da confermare)"}.` });
   };
 
   const cambiaScadenza = async (p, data) => {
@@ -5751,6 +5868,13 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
               <div style={{ fontSize: 11, color: "#8b95a3", marginTop: 4 }}>Solo per te: non compare nel PDF. Salvando, la richiesta passa a «Preventivo fatto».</div>
             </div>
           )}
+          {preparatoDa && !editingId && (
+            <div style={{ background: "#1d2a1f", border: "1px solid #2c5a3a", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5 }}>
+              <div style={{ fontWeight: 700, color: "#4ade80", marginBottom: 2 }}>✨ Preventivo preparato in automatico · {preparatoDa.nome}</div>
+              <div>Ho messo le voci tipiche del lavoro. {preparatoDa.fonte ? `${preparatoDa.fonte}.` : "Il prezzo scrivilo tu nella riga del compenso."} Controlla, cambia quello che serve e salva.</div>
+              <div style={{ fontSize: 11, color: "#8b95a3", marginTop: 4 }}>Quando il cliente accetta, il lavoro entra da solo tra i voli pianificati{dataLavoro ? ` del ${formatData(dataLavoro)}` : ""}.</div>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 2 }}>
               <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome cliente</label>
@@ -5776,6 +5900,30 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Luogo intervento</label>
             <input placeholder="es. Via Roma 4, Torino" value={luogoIntervento} onChange={(e) => setLuogoIntervento(e.target.value)} style={inputStyle} />
           </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 150 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Data del lavoro (se già nota)</label>
+              <input type="date" value={dataLavoro} onChange={(e) => setDataLavoro(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1, minWidth: 150 }}>
+              <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Tipo di volo</label>
+              <select value={tipoVolo} onChange={(e) => setTipoVolo(e.target.value)} style={inputStyle}>
+                <option value="">— lo scelgo dopo —</option>
+                <option value="fotovoltaico">Fotovoltaico termico</option>
+                <option value="danni">Danni / ispezione tetti</option>
+                <option value="edifici">Termografia edifici</option>
+                <option value="elettrico">Impianti elettrici/industriali</option>
+                <option value="video">Video</option>
+                <option value="foto">Foto</option>
+                <option value="fpv">FPV</option>
+                <option value="rilievo">Rilievo / fotogrammetria</option>
+                <option value="agricoltura">Agricoltura</option>
+                <option value="pulizia">Pulizia</option>
+                <option value="altro">Altro</option>
+              </select>
+            </div>
+          </div>
+          {!colonneLavoro && <p style={{ fontSize: 11, color: "#f5b942", margin: 0 }}>Data e tipo di volo non vengono ancora salvati nel preventivo: esegui una volta lo script supabase/preventivo-lavoro.sql su Supabase.</p>}
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Oggetto</label>
             <textarea placeholder="es. Rilievo aereo con drone dei danni da grandine su coperture — 7 villette" value={oggetto} onChange={(e) => setOggetto(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
@@ -5890,6 +6038,15 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
                   {promemoria && (
                     <div style={{ fontSize: 11.5, color: promemoria.colore, fontWeight: 600, marginTop: 3 }}>⏰ {promemoria.testo}</div>
                   )}
+                  {p.stato === "accettato" && (pianiCollegati[p.id] ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4, fontSize: 11.5, color: "#9fb4d6" }}>
+                      <span>📅 Lavoro pianificato il {formatData(pianiCollegati[p.id].data_prevista)}</span>
+                      {onApriPiano && <button type="button" onClick={() => onApriPiano(pianiCollegati[p.id].id)} style={{ background: "none", color: "#3d8bfd", fontWeight: 700, fontSize: 11.5, border: "1px solid #24456e", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>Apri il piano di volo</button>}
+                    </div>
+                  ) : (
+                    <button type="button" disabled={cambiandoStato === p.id} onClick={async () => { setCambiandoStato(p.id); await pianificaLavoro(p); setCambiandoStato(null); }} style={{ display: "block", marginTop: 4, background: "none", color: "#3d8bfd", fontWeight: 700, fontSize: 11.5, border: "1px solid #24456e", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>📅 Aggiungi ai voli pianificati</button>
+                  ))}
+                  {avvisoLavoro?.id === p.id && <div role="status" style={{ fontSize: 11.5, color: /Non sono/.test(avvisoLavoro.testo) ? "#ff6b6b" : "#4ade80", marginTop: 3 }}>{avvisoLavoro.testo}</div>}
                   {p.stato === "accettato" && !p.pagato && (() => {
                     const rit = giorniRitardo(p);
                     const schedaCliente = clienti.find((c) => c.nome.trim().toLowerCase() === (p.cliente || "").trim().toLowerCase());
@@ -9139,6 +9296,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
   const [stsDati, setStsDati] = useState(null); // calcolatore STS-01 (salvato nel piano)
   const [manovreScelte, setManovreScelte] = useState([]); // riprese da fare in questo volo (scaletta)
   const [lavoroScelto, setLavoroScelto] = useState(""); // nome della scaletta pronta usata (es. Matrimonio)
+  const [preventivoCollegato, setPreventivoCollegato] = useState(null); // il preventivo accettato da cui nasce il piano (checklist_stato.preventivo)
   const [scene, setScene] = useState([]); // piano delle scene per video, foto e FPV (checklist_stato.scene)
   const [sopralluogo, setSopralluogo] = useState(SOPRALLUOGO_VUOTO); // lista, punti, orari e note (checklist_stato.sopralluogo)
   const [giro, setGiro] = useState(GIRO_VUOTO); // altre tappe della giornata (checklist_stato.giro)
@@ -9425,7 +9583,8 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
         checklist_stato: { voci: checklistItems || [], spuntati: checklistSpuntati, ...(zonaEsito ? { zona: zonaEsito } : {}), ...(sts ? { sts } : {}), ...(["video", "foto", "fpv"].includes(tipoIspezione)
           ? (scene.length > 0 ? { scene, manovre: scene.map((x) => x.manovra).filter(Boolean), ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {})
           : (manovreScelte.length > 0 ? { manovre: manovreScelte, ...(lavoroScelto ? { lavoro: lavoroScelto } : {}) } : {})),
-          ...(sopralluogoUsato(sopralluogo) ? { sopralluogo } : {}), ...(giroUsato(giro) ? { giro } : {}) },
+          ...(sopralluogoUsato(sopralluogo) ? { sopralluogo } : {}), ...(giroUsato(giro) ? { giro } : {}),
+          ...(preventivoCollegato ? { preventivo: preventivoCollegato } : {}) },
       };
       // le coordinate si salvano solo per un luogo scelto a mano
       if (!impiantoSel) payload.luogo_coordinate = coordinateValide ? `${coordinateValide.lat}, ${coordinateValide.lon}` : null;
@@ -9442,6 +9601,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
       await caricaTutto();
       const eraModifica = !!editingId;
       setEditingId(null);
+      setPreventivoCollegato(null);
       firmaSalvata.current = JSON.stringify({ ...datiBozza, editingId: null });
       try { localStorage.removeItem(CHIAVE_BOZZA); } catch { /* niente */ }
       setBozzaRipresa(false);
@@ -9467,6 +9627,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
     setStsDati(p.checklist_stato?.sts || null);
     setManovreScelte(Array.isArray(p.checklist_stato?.manovre) ? p.checklist_stato.manovre : []);
     setLavoroScelto(p.checklist_stato?.lavoro || "");
+    setPreventivoCollegato(p.checklist_stato?.preventivo || null);
     setSopralluogo({ ...SOPRALLUOGO_VUOTO, ...(p.checklist_stato?.sopralluogo || {}) });
     setGiro({ ...GIRO_VUOTO, ...(p.checklist_stato?.giro || {}) });
     // piani salvati prima del piano delle scene: le manovre scelte diventano scene
@@ -9502,6 +9663,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
     setStsDati(null);
     setManovreScelte([]);
     setLavoroScelto("");
+    setPreventivoCollegato(null);
     setScene([]);
     setSopralluogo(SOPRALLUOGO_VUOTO);
     setGiro(GIRO_VUOTO);
@@ -9533,6 +9695,14 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
         Prepara un volo con giorni di anticipo: scegli dove (un tuo impianto oppure un posto qualsiasi), il drone e la data; controlla meteo e attività solare e spunta la checklist. Vale per ispezioni, video, foto e FPV.
       </p>
 
+      {preventivoCollegato && editingId && (
+        <div style={{ background: "#16263d", border: "1px solid #24456e", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, color: "#c3cad4", marginBottom: 14, maxWidth: 560 }}>
+          <strong style={{ color: "#e7eaee" }}>🧾 Lavoro per {preventivoCollegato.cliente || "il cliente"}</strong>
+          {" · "}{[preventivoCollegato.numero && `preventivo ${preventivoCollegato.numero}`, preventivoCollegato.prezzo ? euro(Number(preventivoCollegato.prezzo)) : null].filter(Boolean).join(" · ")}
+          {preventivoCollegato.oggetto && <div style={{ color: "#8b95a3", marginTop: 2 }}>{preventivoCollegato.oggetto}</div>}
+          <div style={{ fontSize: 11, color: "#8b95a3", marginTop: 4 }}>Nato dal preventivo accettato: controlla data, drone e zona, poi salva il piano.</div>
+        </div>
+      )}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: modoLibero ? 8 : 16 }}>
         <div style={{ minWidth: 220 }}>
           <label style={lblPian}>Dove voli</label>
@@ -9991,6 +10161,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
                     luogo: p.impianto_nome || "",
                     drone_id: p.drone_id || "",
                     tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
+                    ...(p.checklist_stato?.preventivo?.cliente ? { cliente: p.checklist_stato.preventivo.cliente } : {}),
                   })} style={{ background: "#241d16", border: "1px solid #ff8c42", color: "#ffb877", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, fontWeight: 600 }}>📷 Aggiungi foto/video</button>
                   <PulsantiNavigatore piano={p} />
                   <button onClick={() => apriPiano(p)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Apri / Modifica</button>
