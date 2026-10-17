@@ -128,21 +128,23 @@ function Quiz({ esameIniziale = "a1a3" }) {
   const [giro, setGiro] = useState(0);
   const banca = useMemo(() => mescolaRisposte(DOMANDE[esame]), [esame, giro]); // eslint-disable-line react-hooks/exhaustive-deps
   const conf = ESAMI[esame];
-  const erroriEsame = errori.filter((k) => k.startsWith(esame + "-"));
+  // solo gli errori che corrispondono ancora a una domanda (se l'elenco delle domande cambia, quelli vecchi si ignorano)
+  const erroriEsame = errori.filter((k) => k.startsWith(esame + "-") && banca[Number(k.split("-")[1])]);
 
   useEffect(() => { if (modo !== "simulazione" || fine) return; const t = setInterval(() => setAdesso(Date.now()), 1000); return () => clearInterval(t); }, [modo, fine]);
   useEffect(() => { if (modo === "simulazione" && scadenza && adesso >= scadenza && !fine) setFine(true); }, [adesso, scadenza, modo, fine]);
   // a fine simulazione aggiorno l'elenco degli errori da ripassare (una volta sola)
   useEffect(() => {
     if (!fine || modo !== "simulazione") return;
-    const sbagliate = new Set(ordine.filter((i) => scelte[i] != null && scelte[i] !== banca[i].ok).map((i) => `${esame}-${i}`));
-    const giuste = new Set(ordine.filter((i) => scelte[i] === banca[i].ok).map((i) => `${esame}-${i}`));
+    const sbagliate = new Set(ordine.filter((i) => banca[i] && scelte[i] != null && scelte[i] !== banca[i].ok).map((i) => `${esame}-${i}`));
+    const giuste = new Set(ordine.filter((i) => banca[i] && scelte[i] === banca[i].ok).map((i) => `${esame}-${i}`));
     const nuovi = [...new Set([...errori.filter((k) => !giuste.has(k)), ...sbagliate])];
     setErrori(nuovi); scriviErrori(nuovi);
   }, [fine]);
 
   const avvia = (m) => {
     const indici = m === "errori" ? erroriEsame.map((k) => Number(k.split("-")[1])).filter((i) => banca[i]) : banca.map((_, i) => i);
+    if (!indici.length) { setModo(null); return; }
     setOrdine(m === "simulazione" ? mescola(indici).slice(0, conf.domande) : mescola(indici));
     setGiro((g) => g + 1); setPos(0); setScelte({}); setMostra(false); setFine(false); setModo(m);
     if (m === "simulazione") { setScadenza(Date.now() + conf.minuti * 60000); setAdesso(Date.now()); }
@@ -155,7 +157,7 @@ function Quiz({ esameIniziale = "a1a3" }) {
   const scegli = (r) => {
     const i = ordine[pos];
     setScelte({ ...scelte, [i]: r });
-    if (modo !== "simulazione") { setMostra(true); segnaErrore(i, r !== banca[i].ok); }
+    if (modo !== "simulazione" && banca[i]) { setMostra(true); segnaErrore(i, r !== banca[i].ok); }
   };
   const avanti = () => { if (pos + 1 >= ordine.length) setFine(true); else { setPos(pos + 1); setMostra(false); } };
 
@@ -188,7 +190,7 @@ function Quiz({ esameIniziale = "a1a3" }) {
   }
 
   if (fine) {
-    const date = ordine.map((i) => ({ i, q: banca[i], s: scelte[i] }));
+    const date = ordine.filter((i) => banca[i]).map((i) => ({ i, q: banca[i], s: scelte[i] }));
     const giuste = date.filter((x) => x.s === x.q.ok).length;
     const sbagliate = date.filter((x) => x.s != null && x.s !== x.q.ok).length;
     const punti = giuste * conf.punti.giusta + sbagliate * conf.punti.sbagliata;
@@ -213,6 +215,15 @@ function Quiz({ esameIniziale = "a1a3" }) {
 
   const i = ordine[pos];
   const q = banca[i];
+  // domanda non trovata (elenco vuoto o cambiato): si torna alla scelta del quiz invece di bloccare la pagina
+  if (!q) {
+    return (
+      <div style={stCard}>
+        <p style={{ fontSize: 13, color: "#c3cad4", margin: "0 0 10px 0" }}>Questa domanda non c'è più. Riparti dal menu dei quiz.</p>
+        <button type="button" onClick={() => setModo(null)} style={stSecondario}>Torna ai quiz</button>
+      </div>
+    );
+  }
   const restano = scadenza ? Math.max(0, Math.round((scadenza - adesso) / 1000)) : 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
