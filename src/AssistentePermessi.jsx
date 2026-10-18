@@ -97,7 +97,8 @@ const TIPI_AEROPORTO = {
 const ENTI_LIBERI = [
   { id: "prefettura", nome: "Prefettura", esempio: "Prefettura di Torino", nota: "La Prefettura dà il nulla osta per l'ordine e la sicurezza pubblica (centri città, eventi, luoghi sensibili). Molte vogliono il loro modulo: guarda il sito della tua Prefettura («sorvoli con drone»). Di solito 10–15 giorni lavorativi prima, via PEC.", giorni: 15 },
   { id: "comune", nome: "Comune", esempio: "Comune di Caselle Torinese", nota: "Al Comune si chiede per riprese in luoghi pubblici o se c'è un'ordinanza. Per il decollo da suolo pubblico può servire l'ufficio occupazione suolo pubblico.", giorni: 10 },
-  { id: "parco", nome: "Ente parco o riserva", esempio: "Ente Parco del …", nota: "Molti parchi hanno un loro modulo «nulla osta sorvolo droni» sul sito, a volte a pagamento: se c'è, usa quello.", giorni: 15 },
+  { id: "polizia", nome: "Polizia locale", esempio: "Polizia locale di Cassino", nota: "Alla Polizia locale di solito non si chiede un permesso: si manda un avviso del volo, così sanno chi sei se qualcuno li chiama. Molti Comandi lo vogliono per voli in città, a eventi o vicino alle strade. Mandalo qualche giorno prima e porta con te la loro risposta.", giorni: 3 },
+  { id: "parco", nome: "Ente parco o riserva", esempio: "Ente Parco del …", nota: "Molti parchi hanno un loro modulo «nulla osta sorvolo droni» sul sito, a volte a pagamento: se c'è, usa quello. Alcuni parchi (soprattutto nei siti Natura 2000) chiedono anche la Valutazione di Incidenza Ambientale (VINCA), che può costare diverse centinaia di euro: chiedi prima se serve, così sai subito se il volo conviene.", giorni: 15 },
   { id: "proprietario", nome: "Proprietario o gestore del posto", esempio: "Villa …, Azienda …", nota: "Per decollare o atterrare su un terreno privato, o volare vicino a un edificio (eccezione dell'ostacolo vicino agli aeroporti), serve il permesso del proprietario.", giorni: 3 },
   { id: "capitaneria", nome: "Capitaneria di porto", esempio: "Capitaneria di porto di Genova", nota: "Per porti, spiagge e specchi d'acqua: molte Capitanerie hanno un'ordinanza sui droni. In alcune basta una comunicazione, in altre serve l'autorizzazione: guarda le ordinanze sul sito della tua Capitaneria (guardiacostiera.gov.it).", giorni: 10 },
   { id: "soprintendenza", nome: "Soprintendenza o museo", esempio: "Soprintendenza ABAP di Torino", nota: "Per riprendere monumenti, aree archeologiche o musei statali per lavoro serve la concessione all'uso delle immagini (Codice dei beni culturali, artt. 107-108). Per uso personale le riprese di beni culturali sono libere. Per volare dentro un sito chiedi anche al gestore del sito.", giorni: 15 },
@@ -421,7 +422,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
 
       {punto && (
         <div style={{ ...st.card, padding: 12 }}>
-          <div style={{ fontSize: 13, color: "#c3cad4", marginBottom: 8 }}>✍️ Devi scrivere a qualcun altro? Prefettura, Comune, un parco che non è nel file o il proprietario del posto: ti scrivo io la richiesta.</div>
+          <div style={{ fontSize: 13, color: "#c3cad4", marginBottom: 8 }}>✍️ Devi scrivere a qualcun altro? Prefettura, Comune, Polizia locale, un parco che non è nel file o il proprietario del posto: ti scrivo io la richiesta o l'avviso.</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {ENTI_LIBERI.map((e) => (
               <button key={e.id} type="button" onClick={() => setScelta({ tipo: "ente", libero: e, zona: { id: "libero-" + e.id, nome: "" }, ente: null })} style={{ ...st.secondario, minHeight: 38, padding: "6px 12px", fontSize: 12.5, borderColor: scelta?.libero?.id === e.id ? "#3d8bfd" : "#333a45" }}>{e.nome}</button>
@@ -464,9 +465,10 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
   }));
   const [fatto, setFatto] = useState(null);
   const libero = scelta.libero || null;
+  const avviso = libero?.id === "polizia"; // alla Polizia locale si manda un avviso, non una richiesta di nulla osta
   const nomeProposto = atm05
     ? (scelta.carcere ? "Ministero della Giustizia – Dipartimento dell'Amministrazione Penitenziaria – Segreteria di Sicurezza" : scelta.ente?.nome || (scelta.citta && luogo && luogo.provincia ? `Prefettura di ${luogo.provincia}` : ""))
-    : !libero || !luogo ? "" : libero.id === "prefettura" && luogo.provincia ? `Prefettura di ${luogo.provincia}` : libero.id === "comune" && luogo.comune ? `Comune di ${luogo.comune}` : "";
+    : !libero || !luogo ? "" : libero.id === "prefettura" && luogo.provincia ? `Prefettura di ${luogo.provincia}` : libero.id === "comune" && luogo.comune ? `Comune di ${luogo.comune}` : libero.id === "polizia" && luogo.comune ? `Polizia locale di ${luogo.comune}` : "";
   const emailProposta = atm05 ? (scelta.carcere ? scelta.ente?.email || PEC_DAP : scelta.ente?.email || (scelta.citta && luogo ? pecPrefettura(luogo.sigla) : "")) : libero && libero.id === "prefettura" && luogo ? pecPrefettura(luogo.sigla) : "";
   const [enteNome, setEnteNome] = useState(nomeProposto);
   const [enteEmail, setEnteEmail] = useState(emailProposta);
@@ -494,6 +496,8 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     ? `Modello ATM-05 – Richiesta di nulla osta al sorvolo della zona ${scelta.zona.nome} con drone – ${giorniOggetto}`
     : aeroporto
     ? `Modello ATM-09A – Riserva di spazio aereo per operazioni UAS – ${f.localita || coord} – ${giorniOggetto}`
+    : avviso
+    ? `Comunicazione di volo con drone – ${nomeZona} – ${giorniOggetto}`
     : `${libero && libero.id === "proprietario" ? "Richiesta di permesso" : "Richiesta di nulla osta"} per sorvolo con drone – ${nomeZona} – ${giorniOggetto}`;
   const allegati = atm05
     ? ["Modello ATM-05 compilato e firmato, con marca da bollo da 16 €", "Documento d'identità del richiedente", "Attestato del pilota remoto", "Registrazione operatore D-Flight (codice operatore)", "Polizza assicurativa RC", ...(categoria === "specific" ? ["Autorizzazione ENAC o dichiarazione dello scenario standard (STS)"] : []), "Mappa dell'area di volo"]
@@ -509,13 +513,14 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
       : [["Comando Operazioni Aeree", "di solito gratis", "per gli aeroporti militari non ci sono diritti ENAC da pagare"]])
     : libero?.id === "prefettura" ? [["Prefettura", "di solito gratis", "alcune Prefetture chiedono una marca da bollo da 16 €: è scritto sul loro modulo"]]
     : libero?.id === "comune" ? [["Comune", "di solito gratis", "se decolli da suolo pubblico per lavoro può servire il permesso di occupazione (costo secondo il Comune)"]]
-    : libero?.id === "parco" ? [["Ente parco", "dipende", "spesso gratis per uso amatoriale, a pagamento per riprese commerciali: da poche decine a centinaia di €. Guarda il regolamento del parco"]]
+    : libero?.id === "polizia" ? [["Polizia locale", "gratis", "è solo un avviso del volo"]]
+    : libero?.id === "parco" ? [["Ente parco", "dipende", "spesso gratis per uso amatoriale, a pagamento per riprese commerciali: da poche decine a centinaia di €. Guarda il regolamento del parco"], ["VINCA", "se la chiedono", "la Valutazione di Incidenza Ambientale la fa un tecnico abilitato e può costare diverse centinaia di €: nella richiesta chiedo io se serve"]]
     : libero?.id === "proprietario" ? [["Proprietario", "gratis", "salvo accordi diversi con lui"]]
     : libero?.id === "capitaneria" ? [["Capitaneria", "di solito gratis", "a volte con marca da bollo da 16 € sull'istanza: è scritto nell'ordinanza"]]
     : libero?.id === "soprintendenza" ? [["Soprintendenza", "dipende", "per uso personale gratis; per uso commerciale c'è un canone di concessione, deciso da ogni istituto"]]
     : libero?.id === "infrastruttura" ? [["Gestore", "dipende", "di solito gratis; il gestore può chiedere la tua assicurazione o di essere presente"]]
     : [["Ente", "dipende", "di solito gratis: nella richiesta chiedo io se ci sono costi"]];
-  const chiediCosti = !atm05 && !aeroporto;
+  const chiediCosti = !atm05 && !aeroporto && !avviso;
   const testoEmail = [
     "Buongiorno,",
     "",
@@ -524,7 +529,9 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
       : aeroporto
       ? `in allegato il Modello ATM-09A per la riserva di spazio aereo per operazioni UAS in ${categoriaTesto}, nella zona «${scelta.zona.nome}».`
       : libero
-        ? `con la presente chiedo ${libero.id === "proprietario" ? "il permesso di decollare, atterrare e volare con un drone" : "il nulla osta al sorvolo con drone"} a ${f.localita || "nel luogo indicato"}, con le seguenti caratteristiche:`
+        ? avviso
+          ? `con la presente comunico che effettuerò un volo con drone a ${f.localita || "nel luogo indicato"}, nel rispetto del Regolamento (UE) 2019/947 e del Regolamento ENAC UAS-IT, con le seguenti caratteristiche:`
+          : `con la presente chiedo ${libero.id === "proprietario" ? "il permesso di decollare, atterrare e volare con un drone" : "il nulla osta al sorvolo con drone"} a ${f.localita || "nel luogo indicato"}, con le seguenti caratteristiche:`
         : `con la presente chiedo il nulla osta al sorvolo con drone nella zona «${scelta.zona.nome}», con le seguenti caratteristiche:`,
     "",
     `• Richiedente: ${richiedente || "—"}`,
@@ -540,6 +547,8 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     ...allegati.map((a) => `- ${a}`),
     "",
     ...(chiediCosti ? ["Vi chiedo cortesemente di indicarmi eventuali costi, diritti o marche da bollo necessari.", ""] : []),
+    ...(libero?.id === "parco" ? ["Vi chiedo anche se per questo volo è necessaria la Valutazione di Incidenza Ambientale (VINCA).", ""] : []),
+    ...(avviso ? ["Vi chiedo cortesemente una breve conferma di ricezione, da tenere con me durante il volo.", ""] : []),
     "Resto a disposizione per qualsiasi chiarimento.",
     "Cordiali saluti,",
     f.nome,
@@ -653,7 +662,7 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     const ok = await onSalva({
       impianto: f.localita || coord,
       ente_contattato: atm05 ? `${ente?.nome || ""} (cc ENAC)` : aeroporto ? [tipoA.a.join(", "), `ENAC DA ${dir ? dir.nome : ""}`].filter(Boolean).join(" + ") : (ente?.nome || (libero ? libero.nome : scelta.zona.nome)),
-      permessi_richiesti: atm05 ? `Nulla osta zona ${scelta.zona.nome} – Modello ATM-05` : aeroporto ? `Riserva spazio aereo – Modello ATM-09A (${scelta.zona.nome})` : `${libero && libero.id === "proprietario" ? "Permesso" : "Nulla osta"} sorvolo – ${libero ? `${libero.nome}, ${nomeZona}` : scelta.zona.nome}`,
+      permessi_richiesti: atm05 ? `Nulla osta zona ${scelta.zona.nome} – Modello ATM-05` : aeroporto ? `Riserva spazio aereo – Modello ATM-09A (${scelta.zona.nome})` : `${avviso ? "Avviso di volo" : libero && libero.id === "proprietario" ? "Permesso" : "Nulla osta"} sorvolo – ${libero ? `${libero.nome}, ${nomeZona}` : scelta.zona.nome}`,
       data_richiesta: oggiIso(),
       note: [`Volo: ${periodo}`, `Area: raggio ${f.raggio} m, max ${f.altezza} m AGL, ${coord}`, giorni ? `Preavviso richiesto: ${giorni} giorni` : null].filter(Boolean).join("\n"),
     });
@@ -667,7 +676,7 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
   useEffect(() => { const t = setTimeout(() => inizio.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); return () => clearTimeout(t); }, []);
   return (
     <div ref={inizio} style={{ ...st.card, scrollMarginTop: 80 }}>
-      <Titolo n="3">{aeroporto ? "Modello ATM-09A, compilato da me" : atm05 ? "Modello ATM-05, compilato da me" : libero ? `La richiesta per: ${libero.nome}` : "La richiesta di nulla osta"}</Titolo>
+      <Titolo n="3">{aeroporto ? "Modello ATM-09A, compilato da me" : atm05 ? "Modello ATM-05, compilato da me" : libero ? `${avviso ? "L'avviso per" : "La richiesta per"}: ${libero.nome}` : "La richiesta di nulla osta"}</Titolo>
       {atm05 ? (
         <>
           <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 10px 0" }}>Zona <strong>{scelta.zona.nome}</strong>. Il nulla osta lo dà l'amministrazione che ha chiesto la zona{scelta.carcere ? ": per le carceri il DAP, solo per lavoro" : ""}. Se non è scritta nel file, la trovi nell'AIP-Italia (ENR 5.1) o toccando la zona su D-Flight.</p>
@@ -685,7 +694,7 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
           </div>
           {enteNome.trim() && (
             <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 10px 0" }}>
-              🔎 Non sai l'indirizzo? <a href={cercaSulWeb(`${enteNome} ${libero.id === "prefettura" ? "sorvolo drone PEC" : libero.id === "comune" ? "PEC protocollo" : "PEC nulla osta drone"}`)} target="_blank" rel="noreferrer" style={{ color: "#7fb0ff" }}>Cercalo sul sito di {enteNome} ↗</a>{libero.id === "prefettura" ? " (guarda se c'è la pagina «sorvoli con drone» e il loro modulo)" : ""}
+              🔎 Non sai l'indirizzo? <a href={cercaSulWeb(`${enteNome} ${libero.id === "prefettura" ? "sorvolo drone PEC" : libero.id === "comune" ? "PEC protocollo" : libero.id === "polizia" ? "email comando" : "PEC nulla osta drone"}`)} target="_blank" rel="noreferrer" style={{ color: "#7fb0ff" }}>Cercalo sul sito di {enteNome} ↗</a>{libero.id === "prefettura" ? " (guarda se c'è la pagina «sorvoli con drone» e il loro modulo)" : ""}
             </p>
           )}
         </>

@@ -35,6 +35,7 @@ export function Privacy() {
           <><strong>Profilo e attività</strong>: nome dell'attività, logo, tariffe e impostazioni che inserisci.</>,
           <><strong>Dati operativi che inserisci tu</strong>: droni, attestati e documenti (anche assicurazione e permessi), voli con data, luogo e coordinate GPS, foto e video, batterie, manutenzioni, piani di volo, preventivi, incassi.</>,
           <><strong>Dati di altre persone che inserisci tu</strong>: clienti (rubrica), collaboratori, persone riprese e liberatorie firmate, richieste di preventivo ricevute dalla tua pagina pubblica. Vedi il punto 6.</>,
+          <><strong>Richieste da «Trova un pilota»</strong>: se cerchi un pilota su app.eyedrones.it/trova-pilota, nome, contatti e descrizione del lavoro che scrivi vengono inviati, con il tuo consenso, ai piloti EyeDrones della provincia scelta (al massimo 10), che li usano solo per risponderti. La richiesta resta salvata al massimo 60 giorni per i piloti che si iscrivono dopo.</>,
           <><strong>Posizione del telefono</strong>: solo quando tocchi un pulsante che la usa (es. «Vicino a me» o «Usa la mia posizione»), per cercare luoghi, meteo e zone. Viene salvata solo se la usi per riempire un volo, un piano o un posto consigliato.</>,
           <><strong>Posti consigliati</strong>: nome, coordinate, nota e voto dei posti che consigli. Sono visibili agli altri utenti registrati, senza il tuo nome né la tua email.</>,
           <><strong>Dati tecnici</strong>: quando l'app ha un errore annotiamo la pagina, il messaggio d'errore e il tipo di browser o dispositivo (gli indirizzi email nel messaggio vengono oscurati). Annotiamo anche da quale link sei arrivato quando ti registri (es. un post o una galleria condivisa).</>,
@@ -66,6 +67,7 @@ export function Privacy() {
         <Lista voci={[
           "I dati dell'account e quelli che inserisci: finché l'account è attivo. Se lo elimini, li cancelliamo entro 30 giorni (le copie di sicurezza si sovrascrivono nei giorni successivi).",
           "Le segnalazioni di errore: 60 giorni.",
+          "Le richieste di «Trova un pilota»: 60 giorni (le copie arrivate ai piloti restano a loro, come le altre richieste).",
           "I dati che la legge ci obbliga a tenere (per esempio fatture): per il tempo previsto dalla legge.",
         ]} />
 
@@ -121,7 +123,7 @@ export function Termini() {
         <H2>6. Cose visibili ad altri</H2>
         <Lista voci={[
           "Le gallerie e i link che condividi sono visibili a chi riceve il link (con PIN, se lo imposti).",
-          "La tua pagina pilota, se la attivi, è pubblica.",
+          "La tua pagina pilota, se la attivi, è pubblica e compare in «Trova un pilota» per la tua provincia (puoi toglierla da «La mia pagina»).",
           "I posti che consigli sono visibili agli altri utenti registrati, senza il tuo nome.",
         ]} />
 

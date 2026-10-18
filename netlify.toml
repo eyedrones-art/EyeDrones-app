@@ -60,3 +60,14 @@
   from = "/p/*"
   to = "/index.html"
   status = 200
+
+# «Trova un pilota»: app.eyedrones.it/trova-pilota (e /trova-pilota/fr per una provincia) apre la pagina per i clienti
+[[redirects]]
+  from = "/trova-pilota"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/trova-pilota/*"
+  to = "/index.html"
+  status = 200

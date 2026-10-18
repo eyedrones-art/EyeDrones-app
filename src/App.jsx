@@ -1652,6 +1652,8 @@ export default function App() {
   // pagina pubblica del pilota: app.eyedrones.it/p/nome (o ?pilota=nome), senza login
   const slugPilota = slugPilotaDaIndirizzo();
   if (slugPilota) return <PaginaPilotaPubblica slug={slugPilota} />;
+  // «Trova un pilota»: i clienti cercano un pilota nella loro provincia, senza login
+  if (/^\/trova-pilota(\/[a-z]{2})?$/i.test(percorso)) return <TrovaPilota />;
   return <AppAutenticata />;
 }
 
@@ -2523,7 +2525,7 @@ const NOVITA = [
   { emoji: "📦", testo: "Report di consegna per fotogrammetria e agricoltura: il PDF da dare al cliente con mappa, file e dati del lavoro", pagina: "registro-voli" },
   { emoji: "📐", testo: "Calcolatore del rilievo: scegli drone e camera (anche zoom e termica del Mavic 3T) e ti dà altezza, GSD e sovrapposizioni", pagina: "pianificazione" },
   { emoji: "📲", testo: "Scorciatoie: tieni premuta l'icona di EyeDrones sul telefono e scegli «Sono sul posto» (meteo, vento e zona dove sei) o «Prossimi voli». Su Android, con l'app installata", pagina: "dashboard" },
-  { emoji: "🧭", testo: "Assistente permessi: dici dove voli e ti dice se puoi chiedere, a chi, quanti giorni prima e quanto costa. Compila da solo il Modello ATM-09A di ENAC e la richiesta di nulla osta", pagina: "permessi" },
+  { emoji: "🧭", testo: "Assistente permessi: dici dove voli e ti dice se puoi chiedere, a chi, quanti giorni prima e quanto costa. Compila da solo il Modello ATM-09A di ENAC, la richiesta di nulla osta e l'avviso alla Polizia locale", pagina: "permessi" },
   { emoji: "▶️", testo: "Modalità riprese: sul posto una scena alla volta, a tutto schermo, con la foto grande e il promemoria della scheda SD", pagina: "dashboard" },
   { emoji: "✏️", testo: "Disegna sulla foto della scena (fino a 3 foto per scena): percorso del drone, punti di ripresa, pericoli e soggetto. Li vedi anche in Home e nel PDF", pagina: "pianificazione" },
   { emoji: "📋", testo: "Sopralluogo: foto con GPS su ogni scena, punti di decollo e ostacoli sulla mappa, orari della giornata e il PDF da mandare", pagina: "pianificazione" },
@@ -3814,8 +3816,8 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         </div>
         {/* l'assistente permessi: per chi ha paura delle zone rosse */}
         <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } onNav("permessi"); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "#141c28", border: "1px solid #3d8bfd44", borderRadius: 8, padding: "8px 12px", margin: "-12px 0 22px", fontSize: 12.5, color: "#cfe2ff" }}>
-          <span style={{ fontSize: 16 }}>🧭</span>
-          <span style={{ flex: 1 }}>Zona rossa o devi chiedere un permesso? <strong>Ti guido io</strong>, il modulo si compila da solo</span>
+          <span style={{ fontSize: 16 }}>📝</span>
+          <span style={{ flex: 1 }}><strong>Permessi e avvisi</strong>: ENAC, Prefettura, Comune, Polizia locale, parchi. Ti dico a chi scrivere e <strong>preparo io la richiesta</strong></span>
           <span style={{ color: "#7fb0ff" }}>→</span>
         </button>
         {/* la community: chi conosce un bel posto lo consiglia agli altri piloti */}
@@ -10528,6 +10530,158 @@ const numeroWhatsapp = (v) => {
 };
 const mediaSicuro = (m) => m && typeof m.url === "string" && /^https:\/\//i.test(m.url);
 
+// province italiane: sigla → nome (per «Trova un pilota»)
+const PROVINCE_ITALIA = { AG: "Agrigento", AL: "Alessandria", AN: "Ancona", AO: "Aosta", AP: "Ascoli Piceno", AQ: "L'Aquila", AR: "Arezzo", AT: "Asti", AV: "Avellino", BA: "Bari", BG: "Bergamo", BI: "Biella", BL: "Belluno", BN: "Benevento", BO: "Bologna", BR: "Brindisi", BS: "Brescia", BT: "Barletta-Andria-Trani", BZ: "Bolzano", CA: "Cagliari", CB: "Campobasso", CE: "Caserta", CH: "Chieti", CL: "Caltanissetta", CN: "Cuneo", CO: "Como", CR: "Cremona", CS: "Cosenza", CT: "Catania", CZ: "Catanzaro", EN: "Enna", FC: "Forlì-Cesena", FE: "Ferrara", FG: "Foggia", FI: "Firenze", FM: "Fermo", FR: "Frosinone", GE: "Genova", GO: "Gorizia", GR: "Grosseto", IM: "Imperia", IS: "Isernia", KR: "Crotone", LC: "Lecco", LE: "Lecce", LI: "Livorno", LO: "Lodi", LT: "Latina", LU: "Lucca", MB: "Monza e Brianza", MC: "Macerata", ME: "Messina", MI: "Milano", MN: "Mantova", MO: "Modena", MS: "Massa-Carrara", MT: "Matera", NA: "Napoli", NO: "Novara", NU: "Nuoro", OR: "Oristano", PA: "Palermo", PC: "Piacenza", PD: "Padova", PE: "Pescara", PG: "Perugia", PI: "Pisa", PN: "Pordenone", PO: "Prato", PR: "Parma", PT: "Pistoia", PU: "Pesaro e Urbino", PV: "Pavia", PZ: "Potenza", RA: "Ravenna", RC: "Reggio Calabria", RE: "Reggio Emilia", RG: "Ragusa", RI: "Rieti", RM: "Roma", RN: "Rimini", RO: "Rovigo", SA: "Salerno", SI: "Siena", SO: "Sondrio", SP: "La Spezia", SR: "Siracusa", SS: "Sassari", SU: "Sud Sardegna", SV: "Savona", TA: "Taranto", TE: "Teramo", TN: "Trento", TO: "Torino", TP: "Trapani", TR: "Terni", TS: "Trieste", TV: "Treviso", UD: "Udine", VA: "Varese", VB: "Verbano-Cusio-Ossola", VC: "Vercelli", VE: "Venezia", VI: "Vicenza", VR: "Verona", VT: "Viterbo", VV: "Vibo Valentia" };
+const PROVINCE_IN_ORDINE = Object.entries(PROVINCE_ITALIA).sort((a, b) => a[1].localeCompare(b[1], "it"));
+
+// app.eyedrones.it/trova-pilota (o /trova-pilota/fr): la provincia scritta nell'indirizzo, se c'è
+function provinciaDaIndirizzo() {
+  const m = window.location.pathname.match(/^\/trova-pilota\/([a-z]{2})\/?$/i);
+  const q = new URLSearchParams(window.location.search).get("provincia");
+  const sigla = String((m && m[1]) || q || "").toUpperCase();
+  return PROVINCE_ITALIA[sigla] ? sigla : "";
+}
+
+// «Trova un pilota»: pagina pubblica per i clienti. Scelgono la provincia, vedono i piloti della zona e mandano una
+// richiesta che arriva a tutti loro (al massimo 10). Funzioni Supabase in supabase/trova-pilota.sql
+function TrovaPilota() {
+  const [provincia, setProvincia] = useState(provinciaDaIndirizzo);
+  const [piloti, setPiloti] = useState(null); // null = da caricare | [] | [...]
+  const [modulo, setModulo] = useState({ nome: "", email: "", telefono: "", servizio: "", luogo: "", data: "", descrizione: "", sito_web: "" });
+  const [consenso, setConsenso] = useState(false);
+  const [invio, setInvio] = useState(null); // null | "invio" | { arrivata: n } | messaggio d'errore
+  const formRef = useRef(null);
+  const nomeProvincia = PROVINCE_ITALIA[provincia] || "";
+
+  useEffect(() => {
+    document.title = nomeProvincia ? `Pilota di droni in provincia di ${nomeProvincia} — EyeDrones` : "Trova un pilota di droni — EyeDrones";
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute("content", `Cerchi un pilota di droni${nomeProvincia ? ` in provincia di ${nomeProvincia}` : ""}? Matrimoni, eventi, immobili, ispezioni e riprese aeree: descrivi cosa ti serve e ricevi i preventivi dei piloti della zona.`);
+    if (!provincia) { setPiloti(null); return; }
+    let annullato = false;
+    setPiloti(null);
+    supabase.rpc("piloti_in_zona", { p_provincia: provincia }).then(({ data, error }) => { if (!annullato) setPiloti(error ? [] : Array.isArray(data) ? data : []); });
+    try { window.history.replaceState(null, "", `/trova-pilota/${provincia.toLowerCase()}`); } catch { /* niente */ }
+    return () => { annullato = true; };
+  }, [provincia]);
+
+  const pagina = { minHeight: "100vh", color: "#e7eaee", fontFamily: "'IBM Plex Sans', sans-serif", padding: "24px 16px 40px 16px" };
+  const scheda = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: 18 };
+  const etichetta = { fontSize: 11.5, color: "#8b95a3", display: "block", marginBottom: 4 };
+  const bottonePrincipale = { background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "11px 16px", fontWeight: 700, fontSize: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 };
+  const cambia = (k) => (e) => { setModulo({ ...modulo, [k]: e.target.value }); if (invio && invio !== "invio") setInvio(null); };
+  const quanti = Array.isArray(piloti) ? piloti.length : 0;
+
+  const invia = async (e) => {
+    e.preventDefault();
+    if (modulo.sito_web) { setInvio({ arrivata: 1 }); return; } // campo nascosto compilato = robot
+    if (!provincia) { setInvio("Scegli la provincia (in alto)."); return; }
+    if (modulo.nome.trim().length < 2) { setInvio("Scrivi il tuo nome."); return; }
+    if (!modulo.email.trim() && !modulo.telefono.trim()) { setInvio("Lascia almeno un'email o un numero di telefono, così i piloti possono risponderti."); return; }
+    if (!modulo.servizio && modulo.descrizione.trim().length < 10) { setInvio("Scegli il servizio o scrivi in due parole cosa ti serve."); return; }
+    if (!consenso) { setInvio("Per inviare la richiesta serve il consenso qui sopra."); return; }
+    setInvio("invio");
+    const { data, error } = await supabase.rpc("invia_richiesta_zona", {
+      p_provincia: provincia, p_nome: modulo.nome, p_email: modulo.email, p_telefono: modulo.telefono,
+      p_servizio: modulo.servizio, p_luogo: modulo.luogo, p_data: modulo.data || null, p_descrizione: modulo.descrizione,
+    });
+    if (error) {
+      const m = error.message || "";
+      setInvio(/email non valida/i.test(m) ? "L'indirizzo email non sembra corretto." : /troppe richieste/i.test(m) ? "Hai già inviato diverse richieste: i piloti ti risponderanno presto." : "Invio non riuscito: controlla la connessione e riprova.");
+      return;
+    }
+    setInvio({ arrivata: Number(data) || 0 });
+  };
+
+  return (
+    <div style={pagina}>
+      <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+        <header style={{ ...scheda, display: "flex", flexDirection: "column", gap: 10 }}>
+          <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#8b95a3", fontSize: 13, textDecoration: "none" }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 22, height: 22 }} /> EyeDrones</a>
+          <h1 style={{ fontSize: 24, margin: 0, lineHeight: 1.2 }}>{nomeProvincia ? `Piloti di droni in provincia di ${nomeProvincia}` : "Trova un pilota di droni"}</h1>
+          <p style={{ fontSize: 14, color: "#aab3bf", margin: 0, lineHeight: 1.55 }}>Matrimoni, eventi, case e terreni, video per aziende, ispezioni di tetti e impianti. Scrivi cosa ti serve: la richiesta arriva ai piloti della tua provincia, che ti rispondono con un preventivo. È gratuita e senza impegno.</p>
+          <label style={{ marginTop: 4 }}>
+            <span style={etichetta}>La tua provincia</span>
+            <select value={provincia} onChange={(e) => { setProvincia(e.target.value); setInvio(null); }} style={{ ...inputStyle, fontSize: 15 }}>
+              <option value="">Scegli la provincia…</option>
+              {PROVINCE_IN_ORDINE.map(([sigla, nome]) => <option key={sigla} value={sigla}>{nome} ({sigla})</option>)}
+            </select>
+          </label>
+        </header>
+
+        {provincia && (
+          <section style={scheda}>
+            <h2 style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#8b95a3", margin: "0 0 10px 0" }}>Piloti della zona</h2>
+            {piloti === null ? <div style={{ fontSize: 13, color: "#8b95a3" }}>Cerco…</div>
+              : quanti === 0 ? <div style={{ fontSize: 13.5, color: "#aab3bf", lineHeight: 1.55 }}>Qui non ci sono ancora piloti con la pagina pubblica. Manda lo stesso la richiesta: resta in attesa e la ricevono i piloti della provincia che si iscrivono nei prossimi 60 giorni.</div>
+              : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
+                  {piloti.map((x) => {
+                    const logo = x.logo && !String(x.logo).startsWith(LOGO_PRECEDENTE_PREFISSO) ? x.logo : null;
+                    const iniziali = String(x.nome || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
+                    return (
+                      <a key={x.slug} href={`/p/${x.slug}`} style={{ display: "flex", gap: 10, alignItems: "center", background: "#12151a", border: "1px solid #2b313d", borderRadius: 10, padding: 10, color: "#e7eaee", textDecoration: "none" }}>
+                        {logo
+                          ? <img src={logo} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: "contain", background: "#1b2028", flexShrink: 0 }} />
+                          : <span aria-hidden="true" style={{ width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#161a1f", flexShrink: 0 }}>{iniziali}</span>}
+                        <span style={{ minWidth: 0 }}>
+                          <span style={{ display: "block", fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.nome || "Pilota di droni"}</span>
+                          <span style={{ display: "block", fontSize: 12, color: "#8b95a3", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[x.citta, (x.servizi || []).slice(0, 2).join(", ")].filter(Boolean).join(" · ")}</span>
+                          <span style={{ display: "block", fontSize: 11.5, color: "#86efac", marginTop: 2 }}>{[x.registrato && "✓ Operatore registrato", x.assicurato && "✓ Assicurato"].filter(Boolean).join(" · ")}</span>
+                        </span>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+          </section>
+        )}
+
+        <section ref={formRef} style={scheda}>
+          <h2 style={{ fontSize: 18, margin: "0 0 4px 0" }}>Cosa ti serve?</h2>
+          <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 14px 0" }}>{quanti > 0 ? `La richiesta arriva ${quanti === 1 ? "al pilota" : `ai ${Math.min(quanti, 10)} piloti`} della zona: ti rispondono direttamente.` : "I piloti della zona ti rispondono direttamente."}</p>
+          {invio && typeof invio === "object" ? (
+            <div role="status" style={{ background: "#1d3a2a", border: "1px solid #2c5a3f", borderRadius: 8, padding: 14, fontSize: 14, color: "#d5f5e0", lineHeight: 1.55 }}>
+              {invio.arrivata > 0
+                ? `✓ Richiesta inviata a ${invio.arrivata === 1 ? "1 pilota" : `${invio.arrivata} piloti`} della provincia di ${nomeProvincia}. Ti ricontattano${modulo.email && modulo.telefono ? " via email o telefono" : modulo.email ? " via email" : " al telefono"}.`
+                : `✓ Richiesta salvata. In provincia di ${nomeProvincia} non ci sono ancora piloti iscritti: appena arriva qualcuno, la riceve e ti contatta.`}
+            </div>
+          ) : (
+            <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+                <label><span style={etichetta}>Servizio</span>
+                  <select value={modulo.servizio} onChange={cambia("servizio")} style={inputStyle}>
+                    <option value="">Scegli…</option>
+                    {SERVIZI_PILOTA.map((x) => <option key={x} value={x}>{x}</option>)}
+                    <option value="Altro">Altro</option>
+                  </select>
+                </label>
+                <label><span style={etichetta}>Dove (comune o indirizzo)</span><input maxLength={120} value={modulo.luogo} onChange={cambia("luogo")} style={inputStyle} /></label>
+                <label><span style={etichetta}>Quando (se hai una data)</span><input type="date" min={dataLocale()} value={modulo.data} onChange={cambia("data")} style={inputStyle} /></label>
+                <label><span style={etichetta}>Nome e cognome o azienda *</span><input required autoComplete="name" maxLength={80} value={modulo.nome} onChange={cambia("nome")} style={inputStyle} /></label>
+                <label><span style={etichetta}>Email</span><input type="email" autoComplete="email" maxLength={120} value={modulo.email} onChange={cambia("email")} style={inputStyle} /></label>
+                <label><span style={etichetta}>Telefono</span><input type="tel" autoComplete="tel" maxLength={30} value={modulo.telefono} onChange={cambia("telefono")} style={inputStyle} /></label>
+              </div>
+              <label><span style={etichetta}>Descrivi il lavoro</span><textarea rows={4} maxLength={2000} value={modulo.descrizione} onChange={cambia("descrizione")} placeholder="es. video del matrimonio a giugno, foto aeree di un casale, ispezione di un tetto…" style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} /></label>
+              <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" value={modulo.sito_web} onChange={cambia("sito_web")} aria-hidden="true" style={{ position: "absolute", left: -9999, width: 1, height: 1, opacity: 0 }} />
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: "#aab3bf", lineHeight: 1.45 }}>
+                <input type="checkbox" checked={consenso} onChange={(e) => { setConsenso(e.target.checked); if (invio && invio !== "invio") setInvio(null); }} style={{ marginTop: 2 }} />
+                <span>Acconsento a inviare questi dati ai piloti EyeDrones della provincia scelta (al massimo 10), che li useranno solo per rispondere alla mia richiesta. <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#8b95a3" }}>Privacy</a></span>
+              </label>
+              {invio && invio !== "invio" && <p role="alert" style={{ fontSize: 13, color: "#ff9c9c", margin: 0 }}>{invio}</p>}
+              <button type="submit" disabled={invio === "invio"} style={{ ...bottonePrincipale, width: "100%", opacity: invio === "invio" ? 0.7 : 1 }}>{invio === "invio" ? "Invio…" : "Invia la richiesta"}</button>
+            </form>
+          )}
+        </section>
+
+        <footer style={{ textAlign: "center", fontSize: 12, color: "#6b7480", padding: "8px 0" }}>
+          <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ color: "#8b95a3", textDecoration: "none" }}>Sei un pilota? <span style={{ color: "#ffb877" }}>Crea la tua pagina con EyeDrones e ricevi le richieste della tua zona</span></a>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 function PaginaPilotaPubblica({ slug }) {
   const [dati, setDati] = useState(undefined); // undefined = caricamento, null = pagina non trovata
   const [lightbox, setLightbox] = useState(null);
@@ -10751,6 +10905,45 @@ function PaginaPilotaPubblica({ slug }) {
   );
 }
 
+// «Lavori nella tua zona»: richieste di «Trova un pilota» della provincia del pilota che non ha ancora ricevuto
+// (arrivate prima che attivasse la pagina, o quando erano già piene). Senza contatti finché non la prende.
+function LavoriInZona({ provincia, onPreso }) {
+  const [lavori, setLavori] = useState(null); // null = caricamento o script non eseguito
+  const [prendo, setPrendo] = useState(null);
+  const [errore, setErrore] = useState(null);
+  const carica = async () => {
+    const { data, error } = await supabase.rpc("lavori_in_zona");
+    setLavori(error ? null : Array.isArray(data) ? data : []);
+  };
+  useEffect(() => { carica(); }, [provincia]);
+  if (!lavori) return null;
+  const prendi = async (id) => {
+    setPrendo(id); setErrore(null);
+    const { error } = await supabase.rpc("prendi_lavoro_in_zona", { p_id: id });
+    setPrendo(null);
+    if (error) { setErrore(/non disponibile/i.test(error.message || "") ? "Questa richiesta non è più disponibile." : "Non sono riuscito a prenderla: riprova."); carica(); return; }
+    await carica();
+    onPreso && onPreso();
+  };
+  return (
+    <div style={{ background: "#141c28", border: "1px solid #3d8bfd44", borderRadius: 12, padding: 14, marginTop: 6 }}>
+      <div style={{ fontSize: 14.5, fontWeight: 700 }}>📍 Lavori nella tua zona ({provincia})</div>
+      <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "4px 0 10px 0", lineHeight: 1.5 }}>Clienti che hanno cercato un pilota in provincia di {provincia} con «Trova un pilota». Ogni richiesta arriva al massimo a 10 piloti: se ti interessa, prendila e vedi i contatti. Fai conoscere la pagina ai clienti: <a href={`/trova-pilota/${provincia.toLowerCase()}`} target="_blank" rel="noopener noreferrer" style={{ color: "#7fb0ff" }}>{window.location.host}/trova-pilota/{provincia.toLowerCase()} ↗</a></p>
+      {lavori.length === 0
+        ? <div style={{ fontSize: 12.5, color: "#6b7480" }}>Per ora nessuna richiesta in attesa. Quando un cliente della tua provincia scrive, ti arriva subito tra le richieste qui sopra.</div>
+        : lavori.map((l) => (
+          <div key={l.id} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 8, padding: 10, marginTop: 8 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700 }}>{l.servizio || "Richiesta"}{l.luogo ? ` · ${l.luogo}` : ""}</div>
+            <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>{l.data_desiderata ? `Per il ${new Date(l.data_desiderata + "T12:00:00").toLocaleDateString("it-IT")} · ` : ""}arrivata il {new Date(l.created_at).toLocaleDateString("it-IT")} · ancora {l.posti} {l.posti === 1 ? "posto" : "posti"}</div>
+            {l.descrizione && <div style={{ fontSize: 13, color: "#c3cad4", marginTop: 6, whiteSpace: "pre-wrap" }}>{l.descrizione}</div>}
+            <button type="button" disabled={prendo === l.id} onClick={() => prendi(l.id)} style={{ marginTop: 8, background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>{prendo === l.id ? "Un attimo…" : "Mi interessa: vedi i contatti"}</button>
+          </div>
+        ))}
+      {errore && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore}</p>}
+    </div>
+  );
+}
+
 // «La mia pagina»: il pilota compone la sua pagina pubblica e legge le richieste arrivate
 function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onRichiesteCambiate, onCreaPreventivo }) {
   const [scheda, setScheda] = useState(schedaIniziale); // "pagina" | "richieste"
@@ -10788,9 +10981,12 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
     instagram: r?.instagram || "",
     portfolio: Array.isArray(r?.portfolio) ? r.portfolio : [],
     avviso_email: r?.avviso_email !== false,
+    in_elenco: r?.in_elenco !== false,
   });
   // la colonna avviso_email esiste solo dopo lo script avviso-richieste-email.sql
   const avvisoDisponibile = !!salvata && "avviso_email" in salvata;
+  // e in_elenco solo dopo trova-pilota.sql
+  const elencoDisponibile = !!salvata && "in_elenco" in salvata;
 
   const caricaRichieste = async () => {
     const { data, error } = await supabase.from("richieste_preventivo").select("*").order("created_at", { ascending: false });
@@ -10902,6 +11098,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
       portfolio: f.portfolio.slice(0, limitePortfolio),
       aggiornata_il: new Date().toISOString(),
       ...(avvisoDisponibile ? { avviso_email: f.avviso_email } : {}),
+      ...(elencoDisponibile ? { in_elenco: f.in_elenco } : {}),
     };
     const { data, error } = await supabase.from("pagine_pilota").upsert(riga, { onConflict: "user_id" }).select().single();
     if (error) {
@@ -11008,6 +11205,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
             </div>
           )}
           {richiesteAperte.map(schedaRichiesta)}
+          {salvata?.attiva && salvata.provincia && <LavoriInZona provincia={salvata.provincia} onPreso={caricaRichieste} />}
           {richiesteArchiviate.length > 0 && (
             <details style={{ marginTop: 6 }}>
               <summary style={{ fontSize: 13, color: "#8b95a3", cursor: "pointer" }}>Archiviate ({richiesteArchiviate.length})</summary>
@@ -11136,6 +11334,13 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
               <label><span style={etichetta}>Instagram</span><input value={f.instagram} onChange={cambia("instagram")} maxLength={100} placeholder="@nomeutente" style={inputStyle} /></label>
             </div>
           </div>
+
+          {elencoDisponibile && (
+            <label style={{ ...sezione, flexDirection: "row", alignItems: "center", gap: 10, cursor: "pointer" }}>
+              <input type="checkbox" checked={f.in_elenco} onChange={cambia("in_elenco")} />
+              <span style={{ fontSize: 13.5 }}><strong>Mostrami in «Trova un pilota»</strong> <span style={{ color: "#8b95a3" }}>· i clienti della tua provincia ti trovano e ti mandano le loro richieste</span></span>
+            </label>
+          )}
 
           {avvisoDisponibile && (
             <label style={{ ...sezione, flexDirection: "row", alignItems: "center", gap: 10, cursor: "pointer" }}>
