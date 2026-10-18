@@ -7,7 +7,7 @@
 -- Come funziona
 -- 1) il cliente invia la richiesta (invia_richiesta_zona): riceve per email il link privato alle offerte
 -- 2) i piloti della provincia con «La mia pagina» attiva la vedono SENZA contatti (lavori_in_zona) e mandano un'offerta
---    (invia_offerta_zona): prezzo e messaggio. Al massimo 8 offerte per richiesta
+--    (invia_offerta_zona): prezzo, cosa comprende (video, foto, consegna, permessi…) e messaggio. Al massimo 8 per richiesta
 -- 3) il cliente apre il link (offerte_cliente) e sceglie un'offerta (scegli_offerta)
 -- 4) il pilota scelto conferma entro 48 ore (conferma_lavoro_zona). Con la commissione a 0 conferma e basta; se è accesa
 --    paga con Stripe (funzione Netlify lavoro-pagamento) e la conferma arriva da stripe-webhook (conferma_lavoro_pagato)
@@ -75,7 +75,9 @@ create table if not exists public.offerte_zona (
   unique (richiesta_id, user_id)
 );
 alter table public.offerte_zona add column if not exists da_rimborsare boolean not null default false; -- pagata ma non più possibile
-alter table public.offerte_zona add column if not exists contatto_fuori boolean;                         -- scelta decaduta: il pilota ha contattato il cliente lo stesso?
+alter table public.offerte_zona add column if not exists contatto_fuori boolean;
+-- cosa comprende l'offerta, per il cliente: { video_min, foto, reel, consegna_giorni, permessi, sopralluogo }
+alter table public.offerte_zona add column if not exists dettagli jsonb not null default '{}';                         -- scelta decaduta: il pilota ha contattato il cliente lo stesso?
 create index if not exists offerte_zona_user_idx on public.offerte_zona (user_id, created_at desc);
 alter table public.offerte_zona enable row level security;
 revoke all on public.offerte_zona from anon, authenticated;
@@ -280,7 +282,7 @@ begin
       'created_at', v_z.created_at),
     'offerte', coalesce((
       select json_agg(json_build_object(
-        'id', o.id, 'prezzo', o.prezzo,
+        'id', o.id, 'prezzo', o.prezzo, 'dettagli', o.dettagli,
         'messaggio', case when o.stato = 'confermata' then o.messaggio else privato.senza_nome(privato.senza_contatti(o.messaggio), coalesce(nullif(g.nome, ''), p.azienda_nome)) end,
         'stato', o.stato, 'created_at', o.created_at,
         'pilota', json_build_object(
@@ -375,7 +377,7 @@ begin
       'id', z.id, 'servizio', z.servizio, 'luogo', z.luogo, 'data_desiderata', z.data_desiderata, 'lat', z.lat, 'lon', z.lon,
       'descrizione', privato.senza_contatti(z.descrizione), 'created_at', z.created_at, 'stato', z.stato,
       'offerte', (select count(*) from public.offerte_zona x where x.richiesta_id = z.id and x.stato <> 'decaduta'),
-      'mia', (select json_build_object('id', o.id, 'prezzo', o.prezzo, 'messaggio', o.messaggio, 'stato', o.stato,
+      'mia', (select json_build_object('id', o.id, 'prezzo', o.prezzo, 'messaggio', o.messaggio, 'dettagli', o.dettagli, 'stato', o.stato,
                 'commissione', o.commissione, 'scade', z.scelta_il + interval '48 hours')
               from public.offerte_zona o where o.richiesta_id = z.id and o.user_id = v_uid)
     ) order by z.created_at desc)
@@ -397,7 +399,19 @@ revoke all on function public.lavori_in_zona() from public;
 grant execute on function public.lavori_in_zona() to authenticated;
 
 -- 9) il pilota manda (o cambia) la sua offerta
-create or replace function public.invia_offerta_zona(p_richiesta uuid, p_prezzo numeric, p_messaggio text)
+drop function if exists public.invia_offerta_zona(uuid, numeric, text);
+-- solo le voci previste, con numeri ragionevoli
+create or replace function privato.dettagli_offerta(d jsonb)
+returns jsonb language sql immutable as $$
+  select jsonb_strip_nulls(jsonb_build_object(
+    'video_min', case when (d->>'video_min') ~ '^\d{1,3}$' and (d->>'video_min')::int between 1 and 180 then (d->>'video_min')::int end,
+    'foto', case when (d->>'foto') ~ '^\d{1,4}$' and (d->>'foto')::int between 1 and 2000 then (d->>'foto')::int end,
+    'consegna_giorni', case when (d->>'consegna_giorni') ~ '^\d{1,3}$' and (d->>'consegna_giorni')::int between 1 and 365 then (d->>'consegna_giorni')::int end,
+    'reel', case when (d->>'reel') = 'true' then true end,
+    'permessi', case when (d->>'permessi') = 'true' then true end,
+    'sopralluogo', case when (d->>'sopralluogo') = 'true' then true end));
+$$;
+create or replace function public.invia_offerta_zona(p_richiesta uuid, p_prezzo numeric, p_messaggio text, p_dettagli jsonb default '{}')
 returns boolean
 language plpgsql volatile security definer set search_path = public
 as $$
@@ -414,9 +428,9 @@ begin
   if v_nuova and (select count(*) from public.offerte_zona where richiesta_id = v_z.id and stato <> 'decaduta') >= 8 then
     raise exception 'offerte al completo';
   end if;
-  insert into public.offerte_zona (richiesta_id, user_id, prezzo, messaggio)
-  values (v_z.id, v_uid, round(p_prezzo, 2), nullif(left(btrim(coalesce(p_messaggio, '')), 1500), ''))
-  on conflict (richiesta_id, user_id) do update set prezzo = excluded.prezzo, messaggio = excluded.messaggio
+  insert into public.offerte_zona (richiesta_id, user_id, prezzo, messaggio, dettagli)
+  values (v_z.id, v_uid, round(p_prezzo, 2), nullif(left(btrim(coalesce(p_messaggio, '')), 1500), ''), privato.dettagli_offerta(coalesce(p_dettagli, '{}')))
+  on conflict (richiesta_id, user_id) do update set prezzo = excluded.prezzo, messaggio = excluded.messaggio, dettagli = excluded.dettagli
     where public.offerte_zona.stato = 'inviata';
   if v_nuova then
     perform privato.avvisa_lavori(jsonb_build_object('tipo', 'nuova_offerta', 'a', v_z.email, 'nome', v_z.nome, 'codice', v_z.codice,
@@ -425,8 +439,8 @@ begin
   return true;
 end;
 $$;
-revoke all on function public.invia_offerta_zona(uuid, numeric, text) from public;
-grant execute on function public.invia_offerta_zona(uuid, numeric, text) to authenticated;
+revoke all on function public.invia_offerta_zona(uuid, numeric, text, jsonb) from public;
+grant execute on function public.invia_offerta_zona(uuid, numeric, text, jsonb) to authenticated;
 
 -- 10) conferma: il lavoro passa al pilota, con i contatti (uso interno)
 create or replace function privato.conferma_offerta(p_offerta uuid, p_sessione text)
