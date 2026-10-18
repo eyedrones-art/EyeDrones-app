@@ -11318,12 +11318,12 @@ function categoriaPerLavoro({ abitato, persone, tipo = "riprese", droni = [], at
 
 // le voci dell'offerta, diverse per tipo di lavoro: campi con numero e voci da spuntare (con i valori tipici di partenza)
 const VOCI_OFFERTA = {
-  riprese: { numeri: [["video_min", "🎬 Video (minuti)", "3"], ["foto", "📸 Foto", "20"], ["consegna_giorni", "📅 Consegna (giorni)", "10"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["reel", "📱 Reel per i social"], ["sopralluogo", "👀 Sopralluogo"]] },
-  ispezioni: { numeri: [["foto", "📸 Foto", "40"], ["video_min", "🎬 Video (minuti)", ""], ["consegna_giorni", "📅 Consegna (giorni)", "5"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["report", "📄 Report PDF", true], ["sopralluogo", "👀 Sopralluogo"]] },
-  termografia: { numeri: [["kwp", "☀️ Impianto (kWp)", ""], ["consegna_giorni", "📅 Consegna (giorni)", "7"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["report", "📄 Report anomalie PDF", true], ["radiometrico", "🌡️ Termico radiometrico", true]] },
-  rilievi: { numeri: [["ettari", "📏 Area (ettari)", ""], ["consegna_giorni", "📅 Consegna (giorni)", "10"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["ortofoto", "🗺️ Ortofoto", true], ["modello3d", "🧊 Modello 3D"], ["rtk", "🎯 RTK / punti a terra"]] },
-  agricoltura: { numeri: [["ettari", "📏 Area (ettari)", ""], ["consegna_giorni", "📅 Consegna (giorni)", "5"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["ortofoto", "🗺️ Mappa dei campi", true], ["report", "📄 Report e indici (NDVI)"]] },
-  trattamenti: { numeri: [["ettari", "📏 Area (ettari)", ""]], spunte: [["permessi", "📝 Permessi e SCIA a carico mio", true], ["registro", "📋 Registro del trattamento", true], ["sopralluogo", "👀 Sopralluogo"]] },
+  riprese: { numeri: [["video_min", "🎬 Minuti video", "3"], ["foto", "📸 Foto", "20"], ["consegna_giorni", "📅 Giorni consegna", "10"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["reel", "📱 Reel per i social"], ["sopralluogo", "👀 Sopralluogo"]] },
+  ispezioni: { numeri: [["foto", "📸 Foto", "40"], ["video_min", "🎬 Minuti video", ""], ["consegna_giorni", "📅 Giorni consegna", "5"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["report", "📄 Report PDF", true], ["sopralluogo", "👀 Sopralluogo"]] },
+  termografia: { numeri: [["kwp", "☀️ kWp impianto", ""], ["consegna_giorni", "📅 Giorni consegna", "7"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["report", "📄 Report anomalie PDF", true], ["radiometrico", "🌡️ Termico radiometrico", true]] },
+  rilievi: { numeri: [["ettari", "📏 Ettari", ""], ["consegna_giorni", "📅 Giorni consegna", "10"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["ortofoto", "🗺️ Ortofoto", true], ["modello3d", "🧊 Modello 3D"], ["rtk", "🎯 RTK / punti a terra"]] },
+  agricoltura: { numeri: [["ettari", "📏 Ettari", ""], ["consegna_giorni", "📅 Giorni consegna", "5"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["ortofoto", "🗺️ Mappa dei campi", true], ["report", "📄 Report e indici (NDVI)"]] },
+  trattamenti: { numeri: [["ettari", "📏 Ettari", ""]], spunte: [["permessi", "📝 Permessi e SCIA a carico mio", true], ["registro", "📋 Registro del trattamento", true], ["sopralluogo", "👀 Sopralluogo"]] },
 };
 
 function categoriaConsigliata(dati) {
@@ -11349,6 +11349,16 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
   const [archivio, setArchivio] = useState(undefined); // il file zone D-Flight del pilota (dal telefono o dall'account)
   useEffect(() => { leggiZoneSalvate().then(async (d) => setArchivio(d && Array.isArray(d.zone) ? d : (await riprendiCopiaZone()) || null)); }, []);
   const zoneValide = React.useMemo(() => (archivio ? archivio.zone.filter((z) => !zonaFinita(z)) : null), [archivio]);
+  const [leggoFile, setLeggoFile] = useState(false);
+  const [erroreFile, setErroreFile] = useState(null);
+  const caricaZone = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setLeggoFile(true); setErroreFile(null);
+    try { setArchivio(await caricaFileZone(file)); } catch (err) { setErroreFile(err.message); }
+    setLeggoFile(false);
+  };
   // per la categoria consigliata: i droni e gli attestati del pilota, e se il punto è in centro abitato
   const [mezzi, setMezzi] = useState({ droni: [], attestati: [] });
   const [abitati, setAbitati] = useState({}); // "lat,lon" → true | false | null (non so)
@@ -11391,7 +11401,10 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
     const d = l.mia?.dettagli || {};
     const voci = VOCI_OFFERTA[tipoServizio(l.servizio)];
     const b = { prezzo: l.mia ? String(l.mia.prezzo) : "", messaggio: l.mia?.messaggio || "" };
-    voci.numeri.forEach(([k, , tipico]) => { b[k] = d[k] != null ? String(d[k]).replace(".", ",") : l.mia ? "" : tipico; });
+    // ettari e kWp: se il cliente li ha scritti nella descrizione li metto già
+    const dalTesto = (re) => { const m = String(l.descrizione || "").match(re); return m ? m[1].replace(".", ",") : ""; };
+    const letti = { ettari: dalTesto(/(\d+(?:[.,]\d+)?)\s*(?:ettari|ettaro|ha)\b/i), kwp: dalTesto(/(\d+(?:[.,]\d+)?)\s*kwp\b/i) };
+    voci.numeri.forEach(([k, , tipico]) => { b[k] = d[k] != null ? String(d[k]).replace(".", ",") : l.mia ? "" : letti[k] || tipico; });
     voci.spunte.forEach(([k, , tipico]) => { b[k] = l.mia ? !!d[k] : !!tipico; });
     return b;
   })();
@@ -11464,7 +11477,7 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
     const mappa = <a href={`https://www.google.com/maps/search/?api=1&query=${punto.lat},${punto.lon}`} target="_blank" rel="noopener noreferrer" style={{ color: "#7fb0ff" }}>vedi sulla mappa ↗</a>;
     let riga;
     if (archivio === undefined) riga = <span style={{ color: "#8b95a3" }}>controllo le zone…</span>;
-    else if (!zoneValide) riga = <span style={{ color: "#c3cad4" }}>Carica il file zone D-Flight in «Permessi» per vedere qui se serve un permesso.</span>;
+    else if (!zoneValide) riga = <span style={{ color: "#ffd9a0" }}>🛡️ Carica il file zone di D-Flight (qui sopra): saprai subito se qui puoi volare e quali permessi ti servono.</span>;
     else {
       // guardo tutto il cerchio intorno al punto (100 m, dove si vola; 150 m se il punto è arrotondato)
       // e prendo il caso peggiore, così il limite vale in tutta l'area del volo
@@ -11515,6 +11528,22 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
     <div style={{ background: "#141c28", border: "1px solid #3d8bfd44", borderRadius: 12, padding: 14, marginTop: 6 }}>
       <div style={{ fontSize: 14.5, fontWeight: 700 }}>📍 Lavori nella tua zona · {PROVINCE_ITALIA[provincia] || provincia}</div>
       <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "4px 0 6px 0", lineHeight: 1.5 }}>Clienti che cercano un pilota in provincia di {PROVINCE_ITALIA[provincia] || provincia}. Manda la tua offerta: se il cliente ti sceglie, confermi e vedi i suoi contatti. I clienti ti trovano qui: <a href={`/trova-pilota/${provincia.toLowerCase()}`} target="_blank" rel="noopener noreferrer" style={{ color: "#7fb0ff" }}>{window.location.host}/trova-pilota/{provincia.toLowerCase()} ↗</a></p>
+      {archivio !== undefined && lavori.some((l) => l.lat != null) && (() => {
+        const giorni = archivio ? Math.floor((Date.now() - new Date(archivio.caricato).getTime()) / 86400000) : 0;
+        if (archivio && giorni <= 14) return null;
+        return (
+          <div style={{ ...st.scheda, background: "#3a2a12", borderColor: "#f5b94266", color: "#ffd9a0", fontSize: 13, lineHeight: 1.5 }}>
+            <strong>🛡️ {archivio ? "Aggiorna il file zone di D-Flight" : "Carica il file zone di D-Flight"}</strong>
+            <div style={{ marginTop: 4 }}>{archivio ? `L'hai caricato ${giorni} giorni fa: le zone cambiano, aggiornalo per controlli giusti.` : "Così per ogni lavoro sai subito se nel posto puoi volare, fino a che altezza e quali permessi ti servono, prima di fare l'offerta."}</div>
+            <div style={{ fontSize: 12, color: "#d9c39a", marginTop: 4 }}>Su <a href={LINK_DFLIGHT} target="_blank" rel="noreferrer" style={{ color: "#ffd9a0" }}>D-Flight ↗</a> scarica il file con «Download UAS Zone Geo», poi caricalo qui. Basta una volta: resta salvato.</div>
+            <label style={{ display: "inline-block", marginTop: 8, background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+              {leggoFile ? "Sto leggendo il file…" : archivio ? "📂 Aggiorna il file" : "📂 Carica il file zone"}
+              <input type="file" onChange={caricaZone} disabled={leggoFile} style={{ display: "none" }} />
+            </label>
+            {erroreFile && <div style={{ color: "#ff9c9c", marginTop: 6 }}>{erroreFile}</div>}
+          </div>
+        );
+      })()}
       {pagato && <div style={{ ...st.scheda, borderColor: "#2c5a3f", color: "#86efac", fontSize: 13 }}>✓ Pagamento ricevuto: sto confermando il lavoro, tra pochi secondi lo trovi tra le richieste qui sopra con i contatti del cliente.</div>}
 
       {scelti.map((l) => {
@@ -11569,9 +11598,9 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
             {modulo && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
                 <div style={{ fontSize: 12.5, color: "#c3cad4", fontWeight: 700 }}>Cosa comprende (è la prima cosa che vede il cliente)</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, alignItems: "end" }}>
                   {VOCI_OFFERTA[tipoServizio(l.servizio)].numeri.map(([k, t]) => (
-                    <label key={k} style={{ fontSize: 12, color: "#8b95a3" }}>{t}<input inputMode="decimal" value={b[k]} onChange={(e) => cambiaBozza(l, k, e.target.value)} placeholder="—" style={{ ...inputStyle, marginTop: 4 }} /></label>
+                    <label key={k} style={{ fontSize: 12, color: "#8b95a3", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>{t}<input inputMode="decimal" value={b[k]} onChange={(e) => cambiaBozza(l, k, e.target.value)} placeholder="scrivi…" style={{ ...inputStyle, marginTop: 4 }} /></label>
                   ))}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
