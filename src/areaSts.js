@@ -286,6 +286,9 @@ export async function leggiMissioneDji(file) {
   if (!area || area.length < 3 || misuraArea(area).m2 < 1) throw new Error("Nel file non ho trovato un'area o abbastanza punti della missione.");
   const conAltezza = parti.find((x) => x.altezza);
   const modo = (conAltezza && conAltezza.modoAltezza) || (parti.find((x) => x.modoAltezza) || {}).modoAltezza || "";
+  // il percorso del drone, in ordine: i punti della rotta (waylines.wpml) o della traccia/missione a punti
+  const iRotta = letti.findIndex((l, i) => l.n.includes("waylines") && parti[i].punti.length >= 2);
+  const rotta = iRotta >= 0 ? parti[iRotta].punti : (parti.find((x) => !x.area && x.punti.length >= 2) || {}).punti || null;
   return {
     punti: area.map(([a, b]) => [Math.round(a * 1e7) / 1e7, Math.round(b * 1e7) / 1e7]),
     daPunti: !conArea,
@@ -294,5 +297,6 @@ export async function leggiMissioneDji(file) {
     altezzaUsabile: !/egm96|wgs84/i.test(modo),
     modoAltezza: modo,
     tipo: (parti.find((x) => x.tipo) || {}).tipo || null,
+    percorso: rotta ? rotta.map(([a, b]) => [Math.round(a * 1e7) / 1e7, Math.round(b * 1e7) / 1e7]) : null,
   };
 }

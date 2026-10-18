@@ -42,6 +42,7 @@ const Collaboratori = pigro(() => import("./Collaboratori.jsx"));
 const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
 const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
 const AnalisiAI = pigro(() => import("./AnalisiAI.jsx"));
+const Anteprima3D = pigro(() => import("./Anteprima3D.jsx"));
 // analisi foto con l'AI: in prova solo su questi account (il server controlla di nuovo con AI_UTENTI)
 const AI_IN_PROVA = ["eyedrones@libero.it"];
 const PaginaPrivacy = pigro(() => import("./Legali.jsx"), "Privacy");
@@ -8227,6 +8228,7 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
   const [disegnando, setDisegnando] = useState(false);
   const [archivio, setArchivio] = useState(undefined); // file zone D-Flight salvato nel telefono
   const [missione, setMissione] = useState(null); // esito dell'ultimo file missione caricato
+  const [in3d, setIn3d] = useState(false); // anteprima 3D del volo aperta
   useEffect(() => { leggiZoneSalvate().then(async (d) => setArchivio(d && Array.isArray(d.zone) ? d : (await riprendiCopiaZone()) || null)); }, []);
   // cambia piano (aperto, nuovo o annullato): riparto dai valori salvati in quel piano
   useEffect(() => {
@@ -8283,6 +8285,8 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
   };
   const aggiorna = (k, v) => {
     const nuovi = { ...campi, [k]: v };
+    // area cambiata a mano: la rotta della missione non vale più, l'anteprima 3D rifà la griglia
+    if (k === "poligono" && missione?.percorso) setMissione({ ...missione, percorso: null });
     setCampi(nuovi);
     setImmagine(null);
     onCambia(pacchetto(nuovi));
@@ -8371,6 +8375,14 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
                 : `${campi.poligono.length} punti: ne servono almeno 3`}
             </span>
           </div>
+          {poligonoOk && (
+            <button type="button" onClick={() => setIn3d(true)} style={{ marginTop: 8, background: "#a78bfa22", border: "1px solid #a78bfa", color: "#c4b5fd", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>🧊 Guarda il volo in 3D</button>
+          )}
+          {in3d && poligonoOk && (
+            <Suspense fallback={null}>
+              <Anteprima3D poligono={campi.poligono} percorso={missione && !missione.errore ? missione.percorso : null} altezza={Number(campi.altezza) || 60} velocita={Number(campi.velocita) || 5} nome={nomeLuogo} onChiudi={() => setIn3d(false)} />
+            </Suspense>
+          )}
         </div>
       )}
       <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
