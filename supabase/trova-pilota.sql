@@ -58,6 +58,9 @@ create index if not exists richieste_zona_provincia_idx on public.richieste_zona
 -- il punto del lavoro, arrotondato a circa 100 m: il pilota vede dov'è e controlla le zone con il suo file D-Flight
 alter table public.richieste_zona add column if not exists lat numeric(8,3);
 alter table public.richieste_zona add column if not exists lon numeric(8,3);
+-- il punto esatto (circa 1 m): lo riceve solo il pilota che conferma il lavoro, per ricontrollare zone e limiti
+alter table public.richieste_zona add column if not exists lat_esatta numeric(9,5);
+alter table public.richieste_zona add column if not exists lon_esatta numeric(9,5);
 alter table public.richieste_zona enable row level security;
 revoke all on public.richieste_zona from anon, authenticated;
 
@@ -235,7 +238,7 @@ begin
   if (select count(*) from public.richieste_zona where created_at > now() - interval '1 day') >= 200
   then raise exception 'troppe richieste'; end if;
 
-  insert into public.richieste_zona (provincia, nome, email, telefono, servizio, luogo, data_desiderata, descrizione, lat, lon)
+  insert into public.richieste_zona (provincia, nome, email, telefono, servizio, luogo, data_desiderata, descrizione, lat, lon, lat_esatta, lon_esatta)
   values (
     v_prov, v_nome, v_email, v_tel,
     nullif(left(btrim(coalesce(p_servizio, '')), 80), ''),
@@ -244,7 +247,9 @@ begin
     nullif(left(btrim(coalesce(p_descrizione, '')), 2000), ''),
     -- solo punti in Italia (più o meno), arrotondati
     case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lat, 3) end,
-    case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lon, 3) end
+    case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lon, 3) end,
+    case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lat, 5) end,
+    case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lon, 5) end
   )
   returning * into v_z;
 
@@ -457,7 +462,11 @@ begin
   update public.richieste_zona set stato = 'confermata' where id = v_z.id;
   insert into public.richieste_preventivo (user_id, nome, email, telefono, servizio, luogo, data_desiderata, descrizione, da_zona)
   values (v_o.user_id, v_z.nome, v_z.email, v_z.telefono, v_z.servizio, v_z.luogo, v_z.data_desiderata,
-    concat_ws(E'\n\n', v_z.descrizione, '— Lavoro confermato da «Trova un pilota»: la tua offerta era di ' || to_char(v_o.prezzo, 'FM999G999D00') || ' €.'),
+    concat_ws(E'\n\n', v_z.descrizione,
+      case when v_z.lat_esatta is not null then '📍 Punto esatto indicato dal cliente: ' || v_z.lat_esatta || ', ' || v_z.lon_esatta
+        || ' — https://www.google.com/maps/search/?api=1&query=' || v_z.lat_esatta || ',' || v_z.lon_esatta
+        || E'\nRicontrolla zone e limiti su questo punto (Permessi → Assistente) e su D-Flight prima del volo.' end,
+      '— Lavoro confermato da «Trova un pilota»: la tua offerta era di ' || replace(to_char(v_o.prezzo, 'FM9999990.00'), '.', ',') || ' €.'),
     v_z.id)
   on conflict do nothing;
   v_p := privato.pilota_contatto(v_o.user_id);

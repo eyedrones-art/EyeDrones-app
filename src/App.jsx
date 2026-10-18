@@ -20,7 +20,7 @@ import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
-import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente } from "./zoneUAS";
+import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente, altezzaSenzaPermessi } from "./zoneUAS";
 
 // la mappa si carica solo quando la apri, così l'app resta leggera.
 // Subito dopo un aggiornamento i pezzi vecchi non ci sono più: main.jsx ricarica l'app e l'import
@@ -10732,7 +10732,7 @@ function TrovaPilota() {
                     <Suspense fallback={<div style={{ height: 240, borderRadius: 10, background: "#ece4da", marginTop: 8 }} />}>
                       <div style={{ marginTop: 8, borderRadius: 10, overflow: "hidden" }}><MappaPunto punto={punto} zone={null} onSposta={(lat, lon) => setPunto({ lat, lon })} /></div>
                     </Suspense>
-                    <p style={{ fontSize: 12.5, color: "#6b6258", margin: "6px 0 0 0" }}>Trascina il segnaposto sul posto esatto, o tocca la mappa. Il pilota vede solo la zona (circa 100 m), non l'indirizzo preciso.</p>
+                    <p style={{ fontSize: 12.5, color: "#6b6258", margin: "6px 0 0 0" }}>Trascina il segnaposto sul posto esatto, o tocca la mappa. Finché non scegli, i piloti vedono solo la zona (circa 100 m); il punto esatto lo riceve solo il pilota che scegli.</p>
                   </>
                 )}
               </div>
@@ -11400,15 +11400,23 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
     if (archivio === undefined) riga = <span style={{ color: "#8b95a3" }}>controllo le zone…</span>;
     else if (!zoneValide) riga = <span style={{ color: "#c3cad4" }}>Carica il file zone D-Flight in «Permessi» per vedere qui se serve un permesso.</span>;
     else {
+      // il punto del cliente è arrotondato (fino a ~70 m di errore): guardo tutto il cerchio di 150 m intorno
+      // e prendo il caso peggiore, così il limite vale ovunque sia il punto vero
       const { dentro, vicine } = controllaPunto(zoneValide, punto, { raggio: 150 });
       const zone = [...dentro, ...vicine].filter((z) => z.restrizione !== "NO_RESTRICTION" && !z.nonAttiva);
       const peggiore = zone.find((z) => z.restrizione === "PROHIBITED") || zone.find((z) => z.restrizione === "REQ_AUTHORISATION") || zone[0];
-      const h = altezzaLibera(dentro.filter((z) => !z.nonAttiva));
-      if (!peggiore) riga = <span style={{ color: "#4ade80" }}>🟢 Nessuna zona nel punto (±100 m): fino a {h} m senza permessi, con le regole della tua categoria.</span>;
+      const h = altezzaSenzaPermessi(zoneValide, punto, 150);
+      const bordo = zone.some((z) => z.distanza) || (dentro.length > 0 && vicine.some((z) => z.restrizione !== "NO_RESTRICTION"));
+      if (!peggiore) riga = <span style={{ color: "#4ade80" }}>🟢 Nessuna zona entro 150 m dal punto: fino a {h} m senza permessi, con le regole della tua categoria.</span>;
       else {
         const d = descriviRestrizione(peggiore.restrizione);
         const icona = peggiore.restrizione === "PROHIBITED" || peggiore.restrizione === "REQ_AUTHORISATION" ? "🔴" : "🟡";
-        riga = <span style={{ color: d.colore }}>{icona} {d.etichetta}: {peggiore.nome || "zona D-Flight"}{peggiore.distanza ? ` (a ${peggiore.distanza} m)` : ""}{h <= 0 ? " · permesso necessario già da terra" : h < 120 ? ` · senza permesso fino a ${h} m` : ""}</span>;
+        riga = (
+          <span style={{ color: d.colore }}>
+            {icona} {d.etichetta}: {peggiore.nome || "zona D-Flight"}{peggiore.distanza ? ` (a ${peggiore.distanza} m)` : ""}{h <= 0 ? " · permesso necessario già da terra" : h < 120 ? ` · senza permesso fino a ${h} m` : ""}
+            {bordo && <span style={{ display: "block", color: "#f5b942" }}>⚠️ Il confine di una zona passa vicino: il limite può cambiare di qualche metro. Ho preso il caso peggiore; dopo la conferma ricevi il punto esatto per ricontrollare.</span>}
+          </span>
+        );
       }
     }
     return (
@@ -11430,7 +11438,7 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
           );
         })()}
         {onPermessi && <button type="button" onClick={() => apriPermessi(l)} style={{ marginTop: 6, background: "#1d2633", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}>📝 Zone e permessi di questo posto</button>}
-        <div style={{ fontSize: 11, color: "#6b7480", marginTop: 4 }}>Punto indicativo (±100 m) dato dal cliente: quello esatto lo concordi dopo la conferma. Zone e categoria sono un aiuto: sul posto decidi tu.</div>
+        <div style={{ fontSize: 11, color: "#6b7480", marginTop: 4 }}>Punto indicativo (±100 m): il controllo guarda tutto il cerchio di 150 m e prende il caso peggiore. Il punto esatto lo ricevi quando confermi il lavoro. Prima del volo verifica sempre su D-Flight: zone e categoria sono un aiuto, sul posto decidi tu.</div>
       </div>
     );
   };
