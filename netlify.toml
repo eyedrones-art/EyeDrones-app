@@ -71,3 +71,14 @@
   from = "/trova-pilota/*"
   to = "/index.html"
   status = 200
+
+# il link privato del cliente alle offerte: app.eyedrones.it/offerte/<codice>
+[[redirects]]
+  from = "/offerte/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/offerte/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"

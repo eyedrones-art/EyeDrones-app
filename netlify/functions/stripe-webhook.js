@@ -1,4 +1,5 @@
-// Eyedrones — Stripe avvisa qui quando un pagamento è andato a buon fine: aggiungo i crediti dell'Esperto.
+// Eyedrones — Stripe avvisa qui quando un pagamento è andato a buon fine: aggiungo i crediti dell'Esperto
+// o confermo il lavoro di «Trova un pilota» (commissione pagata dal pilota scelto).
 // Su Stripe: Developers → Webhooks → Add endpoint → https://app.eyedrones.it/.netlify/functions/stripe-webhook
 //   evento: checkout.session.completed
 // Variabili su Netlify: STRIPE_WEBHOOK_SECRET (whsec_..., la dà Stripe creando il webhook), AVVISO_SEGRETO (c'è già)
@@ -31,6 +32,20 @@ exports.handler = async (event) => {
   const s = ev.data && ev.data.object;
   if (!s || s.payment_status !== "paid") return { statusCode: 200, body: "non ancora pagato" };
   const utente = s.client_reference_id || (s.metadata && s.metadata.user_id);
+
+  // «Trova un pilota»: il pilota scelto ha pagato la commissione → il lavoro è suo
+  if (s.metadata && s.metadata.tipo === "lavoro") {
+    if (!utente || !s.metadata.offerta) return { statusCode: 200, body: "lavoro senza offerta" };
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/conferma_lavoro_pagato`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_offerta: s.metadata.offerta, p_utente: utente, p_sessione: s.id, p_segreto: process.env.AVVISO_SEGRETO || "" }),
+    }).catch(() => null);
+    if (!r || !r.ok) return { statusCode: 500, body: "database non raggiungibile" };
+    const ok = await r.json().catch(() => false);
+    return ok === true ? { statusCode: 200, body: "ok" } : { statusCode: 500, body: "lavoro non confermato" };
+  }
+
   const crediti = Number(s.metadata && s.metadata.crediti);
   if (!utente || !crediti) return { statusCode: 200, body: "non è un pacchetto dell'Esperto" };
 
