@@ -149,8 +149,11 @@ function Titolo({ n, children }) {
 
 export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, riprendiZone, droni = [], azienda, emailUtente, onSalva, onChiudi }) {
   const [archivio, setArchivio] = useState(undefined);
-  const [testo, setTesto] = useState("");
-  const [punto, setPunto] = useState(null);
+  // aperto da «Lavori nella tua zona» (o da un'altra pagina) con il punto già scelto: lo uso una volta
+  // (vale per un minuto: la pagina può montare l'assistente più di una volta mentre carica)
+  const [puntoIniziale] = useState(() => { try { const v = JSON.parse(sessionStorage.getItem("eyedrones_permessi_punto") || "null"); return v && Number.isFinite(v.lat) && Number.isFinite(v.lon) && Date.now() - (v.quando || 0) < 60000 ? { lat: v.lat, lon: v.lon, etichetta: v.etichetta } : null; } catch { return null; } });
+  const [testo, setTesto] = useState(() => (puntoIniziale ? `${puntoIniziale.lat}, ${puntoIniziale.lon}` : ""));
+  const [punto, setPunto] = useState(puntoIniziale);
   const [cerco, setCerco] = useState(false);
   const [errore, setErrore] = useState(null);
   const [scelta, setScelta] = useState(null); // { zona, tipo: "aeroporto" | "ente" }

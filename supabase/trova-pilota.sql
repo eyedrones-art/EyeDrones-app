@@ -55,6 +55,9 @@ create table if not exists public.richieste_zona (
   created_at timestamptz not null default now()
 );
 create index if not exists richieste_zona_provincia_idx on public.richieste_zona (provincia, created_at desc);
+-- il punto del lavoro, arrotondato a circa 100 m: il pilota vede dov'è e controlla le zone con il suo file D-Flight
+alter table public.richieste_zona add column if not exists lat numeric(8,3);
+alter table public.richieste_zona add column if not exists lon numeric(8,3);
 alter table public.richieste_zona enable row level security;
 revoke all on public.richieste_zona from anon, authenticated;
 
@@ -202,9 +205,11 @@ grant execute on function public.piloti_in_zona(text) to anon, authenticated;
 
 -- 5) il cliente invia la richiesta → { codice, piloti }: il codice è il suo link privato alle offerte
 drop function if exists public.invia_richiesta_zona(text, text, text, text, text, text, date, text);
+drop function if exists public.invia_richiesta_zona(text, text, text, text, text, text, date, text, numeric, numeric);
 create or replace function public.invia_richiesta_zona(
   p_provincia text, p_nome text, p_email text, p_telefono text,
-  p_servizio text, p_luogo text, p_data date, p_descrizione text
+  p_servizio text, p_luogo text, p_data date, p_descrizione text,
+  p_lat numeric default null, p_lon numeric default null
 )
 returns json
 language plpgsql volatile security definer set search_path = public
@@ -228,13 +233,16 @@ begin
   if (select count(*) from public.richieste_zona where created_at > now() - interval '1 day') >= 200
   then raise exception 'troppe richieste'; end if;
 
-  insert into public.richieste_zona (provincia, nome, email, telefono, servizio, luogo, data_desiderata, descrizione)
+  insert into public.richieste_zona (provincia, nome, email, telefono, servizio, luogo, data_desiderata, descrizione, lat, lon)
   values (
     v_prov, v_nome, v_email, v_tel,
     nullif(left(btrim(coalesce(p_servizio, '')), 80), ''),
     nullif(left(btrim(coalesce(p_luogo, '')), 120), ''),
     case when p_data >= current_date and p_data < current_date + 730 then p_data end,
-    nullif(left(btrim(coalesce(p_descrizione, '')), 2000), '')
+    nullif(left(btrim(coalesce(p_descrizione, '')), 2000), ''),
+    -- solo punti in Italia (più o meno), arrotondati
+    case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lat, 3) end,
+    case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lon, 3) end
   )
   returning * into v_z;
 
@@ -253,8 +261,8 @@ begin
   return json_build_object('codice', v_z.codice, 'piloti', jsonb_array_length(v_piloti));
 end;
 $$;
-revoke all on function public.invia_richiesta_zona(text, text, text, text, text, text, date, text) from public;
-grant execute on function public.invia_richiesta_zona(text, text, text, text, text, text, date, text) to anon, authenticated;
+revoke all on function public.invia_richiesta_zona(text, text, text, text, text, text, date, text, numeric, numeric) from public;
+grant execute on function public.invia_richiesta_zona(text, text, text, text, text, text, date, text, numeric, numeric) to anon, authenticated;
 
 -- 6) il cliente apre il link: la sua richiesta e le offerte (i contatti del pilota solo a lavoro confermato)
 create or replace function public.offerte_cliente(p_codice text)
@@ -364,7 +372,7 @@ begin
   perform privato.scadi_scelte();
   return coalesce((
     select json_agg(json_build_object(
-      'id', z.id, 'servizio', z.servizio, 'luogo', z.luogo, 'data_desiderata', z.data_desiderata,
+      'id', z.id, 'servizio', z.servizio, 'luogo', z.luogo, 'data_desiderata', z.data_desiderata, 'lat', z.lat, 'lon', z.lon,
       'descrizione', privato.senza_contatti(z.descrizione), 'created_at', z.created_at, 'stato', z.stato,
       'offerte', (select count(*) from public.offerte_zona x where x.richiesta_id = z.id and x.stato <> 'decaduta'),
       'mia', (select json_build_object('id', o.id, 'prezzo', o.prezzo, 'messaggio', o.messaggio, 'stato', o.stato,

@@ -2378,7 +2378,7 @@ function AppShell({ session }) {
         {page === "clienti" && <Clienti clienti={clienti} preventivi={preventivi} onCambiati={caricaClienti} onApriPreventivi={() => setPage("preventivi")} />}
         <datalist id="rubrica-clienti">{clienti.map((c) => <option key={c.id} value={c.nome} />)}</datalist>
         {page === "preventivi" && <Preventivi preventivi={preventivi} clienti={clienti} onClientiCambiati={caricaClienti} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
-        {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} />}
+        {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} onPermessi={() => setPage("permessi")} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} droni={droni} emailUtente={session.user.email} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} obiettivoFormativo={obiettivoFormativo} onSalvaObiettivo={salvaObiettivoFormativo} />}
@@ -10575,6 +10575,8 @@ function TrovaPilota() {
   const [piloti, setPiloti] = useState(null); // null = da caricare | [] | [...]
   const [modulo, setModulo] = useState({ nome: "", email: "", telefono: "", servizio: "", luogo: "", data: "", descrizione: "", sito_web: "" });
   const [categoria, setCategoria] = useState(null);
+  const [punto, setPunto] = useState(null); // dove si vola: { lat, lon } (il pilota controlla lì le zone)
+  const [cercoPunto, setCercoPunto] = useState(null); // null | "cerco" | messaggio
   const [consenso, setConsenso] = useState(false);
   const [invio, setInvio] = useState(null); // null | "invio" | { codice, piloti } | messaggio d'errore
   const formRef = useRef(null);
@@ -10597,6 +10599,16 @@ function TrovaPilota() {
   const vaiAlModulo = () => formRef.current && formRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
   const scegliCategoria = (c) => { setCategoria(c.nome); setModulo((m) => ({ ...m, servizio: c.servizio })); setTimeout(vaiAlModulo, 50); };
 
+  // dal comune scritto al punto sulla mappa (poi il cliente lo sposta sul posto esatto)
+  const trovaPunto = async (silenzioso = false) => {
+    if (!modulo.luogo.trim()) { if (!silenzioso) setCercoPunto("Scrivi prima il comune o l'indirizzo."); return null; }
+    setCercoPunto("cerco");
+    const t = await cercaIndirizzoItalia(`${modulo.luogo}${nomeProvincia && !modulo.luogo.toLowerCase().includes(nomeProvincia.toLowerCase()) ? `, ${nomeProvincia}` : ""}`).catch(() => null);
+    if (!t) { setCercoPunto(silenzioso ? null : "Non trovo questo posto: prova con via e comune."); return null; }
+    const p = { lat: t.lat, lon: t.lon };
+    setPunto(p); setCercoPunto(null);
+    return p;
+  };
   const invia = async (e) => {
     e.preventDefault();
     if (modulo.sito_web) { setInvio({ codice: null, piloti: 1 }); return; } // campo nascosto compilato = robot
@@ -10606,10 +10618,12 @@ function TrovaPilota() {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(modulo.email.trim())) { setInvio("Scrivi la tua email: ti mandiamo lì il link per vedere le offerte."); return; }
     if (!consenso) { setInvio("Per inviare la richiesta serve il consenso qui sopra."); return; }
     setInvio("invio");
+    const dove = punto || (modulo.luogo.trim() ? await trovaPunto(true) : null);
     const descrizione = [categoria && categoria !== modulo.servizio ? categoria : null, modulo.descrizione].filter(Boolean).join(" — ");
     const { data, error } = await supabase.rpc("invia_richiesta_zona", {
       p_provincia: provincia, p_nome: modulo.nome, p_email: modulo.email, p_telefono: modulo.telefono,
       p_servizio: modulo.servizio, p_luogo: modulo.luogo, p_data: modulo.data || null, p_descrizione: descrizione,
+      p_lat: dove ? dove.lat : null, p_lon: dove ? dove.lon : null,
     });
     if (error) {
       const m = error.message || "";
@@ -10704,8 +10718,23 @@ function TrovaPilota() {
                     <option value="Altro">Altro</option>
                   </select>
                 </label>
-                <label><span style={CLIENTE.etichetta}>Dove (comune)</span><input maxLength={120} value={modulo.luogo} onChange={cambia("luogo")} placeholder="es. Cassino" style={CLIENTE.input} /></label>
+                <label><span style={CLIENTE.etichetta}>Dove (comune o indirizzo)</span><input maxLength={120} value={modulo.luogo} onChange={(e) => { cambia("luogo")(e); setPunto(null); }} placeholder="es. Cassino" style={CLIENTE.input} /></label>
                 <label><span style={CLIENTE.etichetta}>Quando (se hai una data)</span><input type="date" min={dataLocale()} value={modulo.data} onChange={cambia("data")} style={CLIENTE.input} /></label>
+              </div>
+              <div style={{ background: "#fbf7f2", border: "1px solid #ece4da", borderRadius: 12, padding: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 13.5, color: "#4a433c", flex: 1, minWidth: 200 }}>📍 <strong>Segna il posto sulla mappa</strong>: il pilota controlla subito se lì si può volare e se servono permessi.</span>
+                  {!punto && <button type="button" onClick={() => trovaPunto(false)} disabled={cercoPunto === "cerco"} style={{ background: "#fff", border: "1px solid #e2d8cc", borderRadius: 10, padding: "9px 12px", fontSize: 14, fontWeight: 700, color: "#3a332c" }}>{cercoPunto === "cerco" ? "Cerco…" : "Mostra sulla mappa"}</button>}
+                </div>
+                {cercoPunto && cercoPunto !== "cerco" && <p style={{ fontSize: 13, color: "#c0392b", margin: "6px 0 0 0" }}>{cercoPunto}</p>}
+                {punto && (
+                  <>
+                    <Suspense fallback={<div style={{ height: 240, borderRadius: 10, background: "#ece4da", marginTop: 8 }} />}>
+                      <div style={{ marginTop: 8, borderRadius: 10, overflow: "hidden" }}><MappaPunto punto={punto} zone={null} onSposta={(lat, lon) => setPunto({ lat, lon })} /></div>
+                    </Suspense>
+                    <p style={{ fontSize: 12.5, color: "#6b6258", margin: "6px 0 0 0" }}>Trascina il segnaposto sul posto esatto, o tocca la mappa. Il pilota vede solo la zona (circa 100 m), non l'indirizzo preciso.</p>
+                  </>
+                )}
               </div>
               <label><span style={CLIENTE.etichetta}>Raccontaci il lavoro</span><textarea rows={4} maxLength={2000} value={modulo.descrizione} onChange={cambia("descrizione")} placeholder="es. video del matrimonio in chiesa e al ristorante, foto aeree del casale in vendita, controllo del tetto dopo la grandinata…" style={{ ...CLIENTE.input, resize: "vertical" }} /></label>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
@@ -11192,13 +11221,16 @@ const LAVORO_APPENA_PAGATO = typeof window !== "undefined" && new URLSearchParam
 // «Lavori nella tua zona»: le richieste di «Trova un pilota» della provincia del pilota, senza i contatti del cliente.
 // Il pilota manda un'offerta; se il cliente lo sceglie, conferma (e paga la commissione, se c'è) e il lavoro arriva
 // tra le sue richieste con i contatti
-function LavoriInZona({ provincia, onPreso }) {
+function LavoriInZona({ provincia, onPreso, onPermessi }) {
   const [lavori, setLavori] = useState(null); // null = caricamento o script non eseguito
   const [bozze, setBozze] = useState({}); // id → { prezzo, messaggio }
   const [aperto, setAperto] = useState(null); // richiesta con il modulo dell'offerta aperto
   const [lavoro, setLavoro] = useState(null); // id in corso
   const [errore, setErrore] = useState(null);
   const [pagato, setPagato] = useState(LAVORO_APPENA_PAGATO);
+  const [archivio, setArchivio] = useState(undefined); // il file zone D-Flight del pilota (dal telefono o dall'account)
+  useEffect(() => { leggiZoneSalvate().then(async (d) => setArchivio(d && Array.isArray(d.zone) ? d : (await riprendiCopiaZone()) || null)); }, []);
+  const zoneValide = React.useMemo(() => (archivio ? archivio.zone.filter((z) => !zonaFinita(z)) : null), [archivio]);
   const carica = async () => {
     const { data, error } = await supabase.rpc("lavori_in_zona");
     setLavori(error ? null : Array.isArray(data) ? data : []);
@@ -11256,6 +11288,40 @@ function LavoriInZona({ provincia, onPreso }) {
   const dataBreve = (d) => new Date(d + (String(d).length === 10 ? "T12:00:00" : "")).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
   const riga = (l) => [l.servizio || "Richiesta", l.luogo, l.data_desiderata ? `per il ${dataBreve(l.data_desiderata)}` : null].filter(Boolean).join(" · ");
   const st = { scheda: { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 12, marginTop: 8 } };
+  // dov'è il lavoro e cosa dice il file zone D-Flight del pilota (il controllo si fa sul telefono, con i suoi dati)
+  const apriPermessi = (l) => {
+    try { sessionStorage.setItem("eyedrones_permessi_punto", JSON.stringify({ lat: Number(l.lat), lon: Number(l.lon), etichetta: l.luogo || "Luogo del lavoro", quando: Date.now() })); sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ }
+    onPermessi && onPermessi();
+    window.scrollTo(0, 0);
+  };
+  const zonaLavoro = (l) => {
+    if (l.lat == null || l.lon == null) return l.luogo ? <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 6 }}>📍 Il cliente ha scritto solo il comune: per le zone chiedigli il punto esatto dopo la conferma.</div> : null;
+    const punto = { lat: Number(l.lat), lon: Number(l.lon) };
+    const mappa = <a href={`https://www.google.com/maps/search/?api=1&query=${punto.lat},${punto.lon}`} target="_blank" rel="noopener noreferrer" style={{ color: "#7fb0ff" }}>vedi sulla mappa ↗</a>;
+    let riga;
+    if (archivio === undefined) riga = <span style={{ color: "#8b95a3" }}>controllo le zone…</span>;
+    else if (!zoneValide) riga = <span style={{ color: "#c3cad4" }}>Carica il file zone D-Flight in «Permessi» per vedere qui se serve un permesso.</span>;
+    else {
+      const { dentro, vicine } = controllaPunto(zoneValide, punto, { raggio: 150 });
+      const zone = [...dentro, ...vicine].filter((z) => z.restrizione !== "NO_RESTRICTION" && !z.nonAttiva);
+      const peggiore = zone.find((z) => z.restrizione === "PROHIBITED") || zone.find((z) => z.restrizione === "REQ_AUTHORISATION") || zone[0];
+      const h = altezzaLibera(dentro.filter((z) => !z.nonAttiva));
+      if (!peggiore) riga = <span style={{ color: "#4ade80" }}>🟢 Nessuna zona nel punto (±100 m): fino a {h} m senza permessi, con le regole della tua categoria.</span>;
+      else {
+        const d = descriviRestrizione(peggiore.restrizione);
+        const icona = peggiore.restrizione === "PROHIBITED" || peggiore.restrizione === "REQ_AUTHORISATION" ? "🔴" : "🟡";
+        riga = <span style={{ color: d.colore }}>{icona} {d.etichetta}: {peggiore.nome || "zona D-Flight"}{peggiore.distanza ? ` (a ${peggiore.distanza} m)` : ""}{h <= 0 ? " · permesso necessario già da terra" : h < 120 ? ` · senza permesso fino a ${h} m` : ""}</span>;
+      }
+    }
+    return (
+      <div style={{ fontSize: 12.5, marginTop: 8, background: "#141820", borderRadius: 8, padding: "8px 10px", lineHeight: 1.5 }}>
+        <div>📍 {l.luogo || "Luogo del lavoro"} · {mappa}</div>
+        <div style={{ marginTop: 2 }}>{riga}</div>
+        {onPermessi && <button type="button" onClick={() => apriPermessi(l)} style={{ marginTop: 6, background: "#1d2633", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}>📝 Zone e permessi di questo posto</button>}
+        <div style={{ fontSize: 11, color: "#6b7480", marginTop: 4 }}>Punto indicativo (±100 m) dato dal cliente: quello esatto lo concordi dopo la conferma.</div>
+      </div>
+    );
+  };
 
   return (
     <div style={{ background: "#141c28", border: "1px solid #3d8bfd44", borderRadius: 12, padding: 14, marginTop: 6 }}>
@@ -11270,6 +11336,7 @@ function LavoriInZona({ provincia, onPreso }) {
           <div key={l.id} style={{ ...st.scheda, borderColor: "#ff8c42", background: "#241a12" }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: "#ffb877" }}>🎉 Il cliente ha scelto la tua offerta!</div>
             <div style={{ fontSize: 13.5, marginTop: 4 }}>{riga(l)} · la tua offerta: <strong>{euroIt(l.mia.prezzo)}</strong></div>
+            {zonaLavoro(l)}
             <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4 }}>Conferma{scade ? ` entro ${scade.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })} alle ${scade.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : " entro 48 ore"}: subito dopo vedi nome, telefono ed email del cliente.</div>
             <button type="button" disabled={lavoro === l.id} onClick={() => conferma(l)} style={{ marginTop: 10, background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 800 }}>
               {lavoro === l.id ? "Un attimo…" : comm > 0 ? `Conferma e paga ${euroIt(comm)}` : "Conferma il lavoro"}
@@ -11291,6 +11358,7 @@ function LavoriInZona({ provincia, onPreso }) {
               <span style={{ fontSize: 11, color: "#8b95a3", whiteSpace: "nowrap" }}>{l.offerte} {l.offerte === 1 ? "offerta" : "offerte"}</span>
             </div>
             {l.descrizione && <div style={{ fontSize: 13, color: "#c3cad4", marginTop: 6, whiteSpace: "pre-wrap" }}>{l.descrizione}</div>}
+            {zonaLavoro(l)}
             {l.mia && !modulo && <div style={{ fontSize: 12.5, color: "#86efac", marginTop: 8 }}>✓ Hai offerto {euroIt(l.mia.prezzo)}: il cliente sta guardando le offerte. <button type="button" onClick={() => setAperto(l.id)} style={{ background: "none", border: "none", color: "#7fb0ff", padding: 0, fontSize: 12.5, textDecoration: "underline" }}>Cambia</button></div>}
             {!l.mia && !modulo && <button type="button" onClick={() => setAperto(l.id)} style={{ marginTop: 8, background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 6, padding: "8px 12px", fontSize: 13, fontWeight: 700 }}>Manda la tua offerta</button>}
             {modulo && (
@@ -11328,7 +11396,7 @@ function LavoriInZona({ provincia, onPreso }) {
 }
 
 // «La mia pagina»: il pilota compone la sua pagina pubblica e legge le richieste arrivate
-function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onRichiesteCambiate, onCreaPreventivo }) {
+function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onRichiesteCambiate, onCreaPreventivo, onPermessi }) {
   const [scheda, setScheda] = useState(schedaIniziale); // "pagina" | "richieste"
   const [stato, setStato] = useState("carico"); // carico | pronto | manca-script
   const [salvata, setSalvata] = useState(null); // la riga com'è sul database (null = mai salvata)
@@ -11588,7 +11656,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
             </div>
           )}
           {richiesteAperte.map(schedaRichiesta)}
-          {salvata?.attiva && salvata.provincia && <LavoriInZona provincia={salvata.provincia} onPreso={caricaRichieste} />}
+          {salvata?.attiva && salvata.provincia && <LavoriInZona provincia={salvata.provincia} onPreso={caricaRichieste} onPermessi={onPermessi} />}
           {richiesteArchiviate.length > 0 && (
             <details style={{ marginTop: 6 }}>
               <summary style={{ fontSize: 13, color: "#8b95a3", cursor: "pointer" }}>Archiviate ({richiesteArchiviate.length})</summary>
