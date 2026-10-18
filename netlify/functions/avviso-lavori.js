@@ -5,6 +5,7 @@
 //   scelto             al pilota: il cliente ha scelto la sua offerta, conferma entro 48 ore
 //   confermato         al cliente: il pilota ha confermato, ecco i suoi contatti
 //   decaduta           al cliente: il pilota non ha confermato, può sceglierne un altro
+//   rinuncia           al cliente: il pilota scelto non può fare il lavoro (con il motivo), può sceglierne un altro
 // Variabili su Netlify: RESEND_API_KEY, AVVISO_SEGRETO, AVVISO_MITTENTE (facoltativa), come per avviso-richiesta.js
 const crypto = require("crypto");
 
@@ -139,6 +140,16 @@ function componiEmail(d) {
       nota: "Grazie per aver usato EyeDrones. Buone riprese!",
     });
     return { a: [d.a], oggetto: `${pilota} ha confermato il tuo lavoro`, ...m, replyTo: emailValida(d.pilota_email) ? d.pilota_email : null };
+  }
+  if (d.tipo === "rinuncia") {
+    const m = impagina({
+      etichetta: "Scegli un'altra offerta",
+      titolo: `${pilota} non può fare il lavoro`,
+      sottotitolo: "Ha controllato il posto e ci ha avvisato subito, così non perdi tempo. Le altre offerte sono ancora lì.",
+      riquadro: pulisci(d.motivo, 300) ? `Il motivo: ${pulisci(d.motivo, 300)}` : "",
+      bottone: { href: linkOfferte, testo: "Vedi le altre offerte" },
+    });
+    return { a: [d.a], oggetto: "Scegli un'altra offerta per il tuo lavoro", ...m };
   }
   if (d.tipo === "decaduta") {
     const m = impagina({

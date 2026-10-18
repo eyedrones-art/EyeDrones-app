@@ -58,7 +58,7 @@ create index if not exists richieste_zona_provincia_idx on public.richieste_zona
 -- il punto del lavoro, arrotondato a circa 100 m: il pilota vede dov'è e controlla le zone con il suo file D-Flight
 alter table public.richieste_zona add column if not exists lat numeric(8,3);
 alter table public.richieste_zona add column if not exists lon numeric(8,3);
--- il punto esatto (circa 1 m): lo riceve solo il pilota che conferma il lavoro, per ricontrollare zone e limiti
+-- il punto esatto (circa 1 m): i piloti della provincia lo vedono (non è un contatto) per controllare zone e categoria
 alter table public.richieste_zona add column if not exists lat_esatta numeric(9,5);
 alter table public.richieste_zona add column if not exists lon_esatta numeric(9,5);
 alter table public.richieste_zona enable row level security;
@@ -70,7 +70,7 @@ create table if not exists public.offerte_zona (
   user_id uuid not null references auth.users(id) on delete cascade,
   prezzo numeric(10,2) not null,
   messaggio text,
-  stato text not null default 'inviata',     -- inviata | scelta | confermata | decaduta | non_scelta
+  stato text not null default 'inviata',     -- inviata | scelta | confermata | decaduta | rinunciata | non_scelta
   commissione numeric(10,2),                 -- calcolata quando il cliente sceglie
   pagata_sessione text unique,               -- sessione Stripe (niente conferme doppie)
   confermata_il timestamptz,
@@ -80,7 +80,9 @@ create table if not exists public.offerte_zona (
 alter table public.offerte_zona add column if not exists da_rimborsare boolean not null default false; -- pagata ma non più possibile
 alter table public.offerte_zona add column if not exists contatto_fuori boolean;
 -- cosa comprende l'offerta, per il cliente: { video_min, foto, reel, consegna_giorni, permessi, sopralluogo }
-alter table public.offerte_zona add column if not exists dettagli jsonb not null default '{}';                         -- scelta decaduta: il pilota ha contattato il cliente lo stesso?
+alter table public.offerte_zona add column if not exists dettagli jsonb not null default '{}';
+-- il pilota scelto dice «non posso farlo» (zona, categoria, persone…): nessuna penalità, il cliente sceglie un altro
+alter table public.offerte_zona add column if not exists motivo_rinuncia text;                         -- scelta decaduta: il pilota ha contattato il cliente lo stesso?
 create index if not exists offerte_zona_user_idx on public.offerte_zona (user_id, created_at desc);
 alter table public.offerte_zona enable row level security;
 revoke all on public.offerte_zona from anon, authenticated;
@@ -303,7 +305,15 @@ begin
       from public.offerte_zona o
       left join public.pagine_pilota g on g.user_id = o.user_id
       left join public.profili p on p.user_id = o.user_id
-      where o.richiesta_id = v_z.id and o.stato <> 'decaduta'
+      where o.richiesta_id = v_z.id and o.stato not in ('decaduta', 'rinunciata')
+    ), '[]'::json),
+    -- piloti scelti che hanno detto «non posso farlo», con il motivo
+    'rinunce', coalesce((
+      select json_agg(json_build_object('nome', privato.nome_breve(coalesce(nullif(g.nome, ''), p.azienda_nome)), 'motivo', o.motivo_rinuncia))
+      from public.offerte_zona o
+      left join public.pagine_pilota g on g.user_id = o.user_id
+      left join public.profili p on p.user_id = o.user_id
+      where o.richiesta_id = v_z.id and o.stato = 'rinunciata'
     ), '[]'::json),
     -- scelte decadute: chiedo al cliente se il pilota l'ha contattato lo stesso
     'decadute', coalesce((
@@ -379,7 +389,8 @@ begin
   perform privato.scadi_scelte();
   return coalesce((
     select json_agg(json_build_object(
-      'id', z.id, 'servizio', z.servizio, 'luogo', z.luogo, 'data_desiderata', z.data_desiderata, 'lat', z.lat, 'lon', z.lon,
+      'id', z.id, 'servizio', z.servizio, 'luogo', z.luogo, 'data_desiderata', z.data_desiderata,
+      'lat', coalesce(z.lat_esatta, z.lat), 'lon', coalesce(z.lon_esatta, z.lon), 'esatto', z.lat_esatta is not null,
       'descrizione', privato.senza_contatti(z.descrizione), 'created_at', z.created_at, 'stato', z.stato,
       'offerte', (select count(*) from public.offerte_zona x where x.richiesta_id = z.id and x.stato <> 'decaduta'),
       'mia', (select json_build_object('id', o.id, 'prezzo', o.prezzo, 'messaggio', o.messaggio, 'dettagli', o.dettagli, 'stato', o.stato,
@@ -412,7 +423,15 @@ returns jsonb language sql immutable as $$
     'video_min', case when (d->>'video_min') ~ '^\d{1,3}$' and (d->>'video_min')::int between 1 and 180 then (d->>'video_min')::int end,
     'foto', case when (d->>'foto') ~ '^\d{1,4}$' and (d->>'foto')::int between 1 and 2000 then (d->>'foto')::int end,
     'consegna_giorni', case when (d->>'consegna_giorni') ~ '^\d{1,3}$' and (d->>'consegna_giorni')::int between 1 and 365 then (d->>'consegna_giorni')::int end,
+    'ettari', case when (d->>'ettari') ~ '^\d{1,5}([.,]\d{1,2})?$' and replace(d->>'ettari', ',', '.')::numeric between 0.01 and 50000 then replace(d->>'ettari', ',', '.')::numeric end,
+    'kwp', case when (d->>'kwp') ~ '^\d{1,6}$' and (d->>'kwp')::int between 1 and 500000 then (d->>'kwp')::int end,
     'reel', case when (d->>'reel') = 'true' then true end,
+    'ortofoto', case when (d->>'ortofoto') = 'true' then true end,
+    'modello3d', case when (d->>'modello3d') = 'true' then true end,
+    'rtk', case when (d->>'rtk') = 'true' then true end,
+    'report', case when (d->>'report') = 'true' then true end,
+    'radiometrico', case when (d->>'radiometrico') = 'true' then true end,
+    'registro', case when (d->>'registro') = 'true' then true end,
     'permessi', case when (d->>'permessi') = 'true' then true end,
     'sopralluogo', case when (d->>'sopralluogo') = 'true' then true end));
 $$;
@@ -495,6 +514,27 @@ end;
 $$;
 revoke all on function public.conferma_lavoro_zona(uuid) from public;
 grant execute on function public.conferma_lavoro_zona(uuid) to authenticated;
+
+-- il pilota scelto non può fare il lavoro (zona, categoria, persone…): lo dice e il cliente torna a scegliere, senza penalità
+create or replace function public.rinuncia_lavoro_zona(p_offerta uuid, p_motivo text)
+returns boolean
+language plpgsql volatile security definer set search_path = public
+as $$
+declare v_o public.offerte_zona; v_z public.richieste_zona; v_motivo text := nullif(left(btrim(coalesce(p_motivo, '')), 300), '');
+begin
+  select * into v_o from public.offerte_zona where id = p_offerta and user_id = auth.uid() and stato = 'scelta' for update;
+  if not found then raise exception 'offerta non disponibile'; end if;
+  if v_motivo is null then raise exception 'motivo mancante'; end if;
+  select * into v_z from public.richieste_zona where id = v_o.richiesta_id for update;
+  update public.offerte_zona set stato = 'rinunciata', motivo_rinuncia = privato.senza_contatti(v_motivo) where id = v_o.id;
+  update public.richieste_zona set stato = 'aperta', offerta_scelta = null, scelta_il = null where id = v_z.id;
+  perform privato.avvisa_lavori(jsonb_build_object('tipo', 'rinuncia', 'a', v_z.email, 'nome', v_z.nome, 'codice', v_z.codice,
+    'pilota', privato.nome_breve(privato.pilota_contatto(v_o.user_id)->>'nome'), 'motivo', privato.senza_contatti(v_motivo)));
+  return true;
+end;
+$$;
+revoke all on function public.rinuncia_lavoro_zona(uuid, text) from public;
+grant execute on function public.rinuncia_lavoro_zona(uuid, text) to authenticated;
 
 -- quanto deve pagare il pilota per un'offerta scelta (lo chiede la funzione Netlify lavoro-pagamento, come il pilota)
 create or replace function public.commissione_lavoro(p_offerta uuid)

@@ -10484,7 +10484,7 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
 const SERVIZI_PILOTA = [
   "Riprese aeree foto e video", "Matrimoni ed eventi", "Immobiliare e turismo", "Video per aziende", "Riprese FPV",
   "Ispezioni termografiche fotovoltaico", "Ispezioni tetti e facciate", "Rilievi e fotogrammetria", "Monitoraggio cantieri",
-  "Agricoltura di precisione", "Pulizia pannelli e facciate",
+  "Agricoltura di precisione", "Trattamenti agricoli con drone (Agras)", "Pulizia pannelli e facciate",
 ];
 const LIMITE_PORTFOLIO = { free: 6, pilota: 24, pro: 24 };
 const SLUG_RISERVATI = ["admin", "app", "api", "eyedrones", "partner", "pilota", "piloti", "assistenza", "info", "login", "accedi", "registrati", "nuovo", "test"];
@@ -10548,14 +10548,29 @@ function provinciaDaIndirizzo() {
 // le categorie che il cliente tocca per dire cosa gli serve (servizio = uno di SERVIZI_PILOTA)
 const CATEGORIE_CLIENTE = [
   { emoji: "💍", nome: "Matrimoni", servizio: "Matrimoni ed eventi" },
-  { emoji: "🏡", nome: "Case e terreni", servizio: "Immobiliare e turismo" },
   { emoji: "🎉", nome: "Eventi e feste", servizio: "Matrimoni ed eventi" },
+  { emoji: "🏡", nome: "Case e terreni", servizio: "Immobiliare e turismo" },
   { emoji: "🏢", nome: "Video aziendali", servizio: "Video per aziende" },
-  { emoji: "🔍", nome: "Ispezioni", servizio: "Ispezioni tetti e facciate" },
-  { emoji: "☀️", nome: "Fotovoltaico", servizio: "Ispezioni termografiche fotovoltaico" },
+  { emoji: "🔍", nome: "Tetti e facciate", servizio: "Ispezioni tetti e facciate" },
+  { emoji: "🌡️", nome: "Termografia fotovoltaico", servizio: "Ispezioni termografiche fotovoltaico" },
+  { emoji: "📐", nome: "Rilievi e mappe 3D", servizio: "Rilievi e fotogrammetria" },
   { emoji: "🏗️", nome: "Cantieri", servizio: "Monitoraggio cantieri" },
+  { emoji: "🌱", nome: "Agricoltura", servizio: "Agricoltura di precisione" },
+  { emoji: "💧", nome: "Trattamenti con drone", servizio: "Trattamenti agricoli con drone (Agras)" },
   { emoji: "🎢", nome: "Riprese FPV", servizio: "Riprese FPV" },
+  { emoji: "✨", nome: "Altro", servizio: "Altro" },
 ];
+
+// che tipo di lavoro è: decide le voci dell'offerta e i consigli sulla categoria
+function tipoServizio(servizio) {
+  const t = String(servizio || "").toLowerCase();
+  if (/trattament|agras|irror/.test(t)) return "trattamenti";
+  if (/agricoltura|multispettr/.test(t)) return "agricoltura";
+  if (/termograf|fotovoltaic/.test(t)) return "termografia";
+  if (/rilievi|fotogrammetr|cantier/.test(t)) return "rilievi";
+  if (/ispezion|tetti|facciat|pulizia/.test(t)) return "ispezioni";
+  return "riprese";
+}
 const euroIt = (n) => `${(Number(n) || 0).toLocaleString("it-IT", { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 })} €`;
 
 // stile comune delle pagine pubbliche per i clienti (chiare, calde, con la foto)
@@ -10658,7 +10673,7 @@ function TrovaPilota() {
           <h1 style={{ fontSize: "clamp(28px, 6vw, 44px)", lineHeight: 1.08, margin: "0 0 10px 0", fontWeight: 800, letterSpacing: "-0.02em", textShadow: "0 2px 18px rgba(0,0,0,.35)" }}>
             {nomeProvincia ? <>Il tuo pilota di droni<br />in provincia di {nomeProvincia}</> : <>Il tuo momento,<br />visto dall'alto.</>}
           </h1>
-          <p style={{ fontSize: 16.5, lineHeight: 1.5, margin: "0 0 18px 0", maxWidth: 560, color: "#fbeee2" }}>Matrimoni, case, eventi e ispezioni. Racconta cosa ti serve: i piloti della tua zona ti mandano un'offerta e <strong>scegli tu</strong>. Gratis e senza impegno.</p>
+          <p style={{ fontSize: 16.5, lineHeight: 1.5, margin: "0 0 18px 0", maxWidth: 560, color: "#fbeee2" }}>Matrimoni, case, eventi, ispezioni, rilievi e agricoltura. Racconta cosa ti serve: i piloti della tua zona ti mandano un'offerta e <strong>scegli tu</strong>. Gratis e senza impegno.</p>
           <button type="button" onClick={vaiAlModulo} style={CLIENTE.bottone}>Ricevi le offerte →</button>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 16, fontSize: 13, color: "#fbeee2" }}>
             <span>✓ Confronti le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Nessun costo per te</span>
@@ -10732,7 +10747,7 @@ function TrovaPilota() {
                     <Suspense fallback={<div style={{ height: 240, borderRadius: 10, background: "#ece4da", marginTop: 8 }} />}>
                       <div style={{ marginTop: 8, borderRadius: 10, overflow: "hidden" }}><MappaPunto punto={punto} zone={null} onSposta={(lat, lon) => setPunto({ lat, lon })} /></div>
                     </Suspense>
-                    <p style={{ fontSize: 12.5, color: "#6b6258", margin: "6px 0 0 0" }}>Trascina il segnaposto sul posto esatto, o tocca la mappa. Finché non scegli, i piloti vedono solo la zona (circa 100 m); il punto esatto lo riceve solo il pilota che scegli.</p>
+                    <p style={{ fontSize: 12.5, color: "#6b6258", margin: "6px 0 0 0" }}>Trascina il segnaposto sul posto esatto, o tocca la mappa. I piloti della zona vedono il posto per controllare se lì si può volare, ma non i tuoi contatti.</p>
                   </>
                 )}
               </div>
@@ -10798,11 +10813,20 @@ const mediaSicuroUrl = (u) => /^https:\/\//i.test(String(u || ""));
 // cosa comprende un'offerta, detto al cliente (dettagli scelti dal pilota quando manda l'offerta)
 function vociServizio(d, pilota) {
   const x = d || {};
+  const n = (v) => String(v).replace(".", ",");
   return [
     x.video_min && ["🎬", `Video montato di ${x.video_min} ${x.video_min === 1 ? "minuto" : "minuti"}`],
     x.foto && ["📸", `${x.foto} foto aeree`],
     x.reel && ["📱", "Reel pronto per i social"],
-    x.sopralluogo && ["👀", "Sopralluogo prima delle riprese"],
+    x.ettari && ["📏", `Area di ${n(x.ettari)} ettari`],
+    x.kwp && ["☀️", `Impianto da ${x.kwp} kWp`],
+    x.ortofoto && ["🗺️", "Ortofoto (mappa dall'alto, in scala)"],
+    x.modello3d && ["🧊", "Modello 3D e misure"],
+    x.rtk && ["🎯", "Precisione centimetrica (RTK o punti a terra)"],
+    x.radiometrico && ["🌡️", "Immagini termiche radiometriche (temperature leggibili)"],
+    x.report && ["📄", "Report in PDF con i problemi trovati"],
+    x.registro && ["📋", "Registro del trattamento e relazione"],
+    x.sopralluogo && ["👀", "Sopralluogo prima del lavoro"],
     x.consegna_giorni && ["📅", `Consegna in ${x.consegna_giorni} ${x.consegna_giorni === 1 ? "giorno" : "giorni"}`],
     x.permessi && ["📝", "Permessi e regole di volo: ci pensa il pilota"],
     pilota && pilota.assicurato && ["🛡️", "Assicurazione per i danni a terzi"],
@@ -10810,8 +10834,13 @@ function vociServizio(d, pilota) {
 }
 function titoloServizio(d, servizio) {
   const x = d || {};
-  const parti = [x.video_min && `Video ${x.video_min} min`, x.foto && `${x.foto} foto`, x.reel && "reel"].filter(Boolean);
-  return parti.length ? parti.join(" + ") : servizio || "Riprese con il drone";
+  const n = (v) => String(v).replace(".", ",");
+  const tipo = tipoServizio(servizio);
+  if (tipo === "trattamenti" && x.ettari) return `Trattamento di ${n(x.ettari)} ha`;
+  if (tipo === "termografia" && x.kwp) return `Termografia impianto ${x.kwp} kWp${x.report ? " + report" : ""}`;
+  if ((tipo === "rilievi" || tipo === "agricoltura") && (x.ettari || x.ortofoto || x.modello3d)) return [x.ettari ? `Rilievo di ${n(x.ettari)} ha` : "Rilievo", x.ortofoto && "ortofoto", x.modello3d && "3D"].filter(Boolean).join(" + ");
+  const parti = [x.video_min && `Video ${x.video_min} min`, x.foto && `${x.foto} foto`, x.reel && "reel", x.report && "report"].filter(Boolean);
+  return parti.length ? parti.join(" + ") : servizio || "Lavoro con il drone";
 }
 
 // app.eyedrones.it/offerte/<codice>: il link privato che il cliente riceve per email
@@ -10951,6 +10980,12 @@ function OfferteCliente({ codice }) {
           <p style={{ fontSize: 14.5, color: "#6b6258", margin: 0 }}>{[r.servizio, r.luogo, quando].filter(Boolean).join(" · ")}</p>
         </header>
 
+        {r.stato === "aperta" && (dati.rinunce || []).map((x, i) => (
+          <div key={"r" + i} style={{ ...CLIENTE.scheda, background: "#fffaf0", borderColor: "#f3dfb0" }}>
+            <strong style={{ fontSize: 15.5 }}>{x.nome} non può fare il lavoro</strong>
+            <p style={{ fontSize: 14, color: "#5b534b", margin: "6px 0 0 0", lineHeight: 1.5 }}>Ha controllato il posto e ti ha avvisato subito{x.motivo ? `: «${x.motivo}»` : ""}. Puoi scegliere un'altra delle offerte qui sotto.</p>
+          </div>
+        ))}
         {(dati.decadute || []).filter((d) => d.risposta == null).map((d) => (
           <div key={d.id} style={{ ...CLIENTE.scheda, background: "#fffaf0", borderColor: "#f3dfb0" }}>
             <strong style={{ fontSize: 15.5 }}>{d.nome} non ha confermato in tempo</strong>
@@ -11259,7 +11294,11 @@ async function puntoAbitato(lat, lon) {
 
 // la categoria che serve per un lavoro, in base al posto (centro abitato o no), alle persone (eventi) e ai droni e
 // attestati del pilota. È un consiglio (Reg. UE 2019/947): sul posto decide il pilota
-function categoriaPerLavoro({ abitato, persone, droni = [], attestati = [] }) {
+function categoriaPerLavoro({ abitato, persone, tipo = "riprese", droni = [], attestati = [] }) {
+  const agras = droni.filter((d) => /agras|\bt\s?(10|16|20|25|30|40|50|60|70|100)p?\b|xag|mg-1/i.test(`${d.nome || ""} ${d.modello || ""}`));
+  // trattamenti: droni oltre 25 kg, sempre categoria Specific; per i fitosanitari anche la SCIA (Legge 182/2025)
+  if (tipo === "trattamenti") return { livello: "sts", titolo: "Specific con autorizzazione ENAC", testo: `${agras.length ? `Con ${agras[0].nome || agras[0].modello} ` : "I droni da irrorazione "}${agras.length ? "serve" : "pesano oltre 25 kg: serve"} la categoria Specific (autorizzazione ENAC). Per i prodotti fitosanitari anche la SCIA al servizio fitosanitario regionale e il patentino: guarda il fascicolo SCIA in Agricoltura.` };
+
   const conClasse = (c) => droni.filter((d) => String(d.marcatura_classe || "").toUpperCase().replace(/\s/g, "") === c);
   const nome = (d) => d.nome || d.modello || "il tuo drone";
   const haA2 = attestati.some((a) => /\bA2\b/i.test(a.tipo || ""));
@@ -11277,6 +11316,22 @@ function categoriaPerLavoro({ abitato, persone, droni = [], attestati = [] }) {
   return { livello: "sts", titolo: abitato ? "Con i tuoi droni serve lo STS-01" : "Probabilmente serve lo STS-01", testo: `${abitato ? "In centro abitato" : "Vicino alle persone"}, con un drone senza classe C0, C1 o C2 in Open non si può: serve lo STS-01 (drone C5 e dichiarazione) o un'autorizzazione ENAC.${assembramento}` };
 }
 
+// le voci dell'offerta, diverse per tipo di lavoro: campi con numero e voci da spuntare (con i valori tipici di partenza)
+const VOCI_OFFERTA = {
+  riprese: { numeri: [["video_min", "🎬 Video (minuti)", "3"], ["foto", "📸 Foto", "20"], ["consegna_giorni", "📅 Consegna (giorni)", "10"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["reel", "📱 Reel per i social"], ["sopralluogo", "👀 Sopralluogo"]] },
+  ispezioni: { numeri: [["foto", "📸 Foto", "40"], ["video_min", "🎬 Video (minuti)", ""], ["consegna_giorni", "📅 Consegna (giorni)", "5"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["report", "📄 Report PDF", true], ["sopralluogo", "👀 Sopralluogo"]] },
+  termografia: { numeri: [["kwp", "☀️ Impianto (kWp)", ""], ["consegna_giorni", "📅 Consegna (giorni)", "7"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["report", "📄 Report anomalie PDF", true], ["radiometrico", "🌡️ Termico radiometrico", true]] },
+  rilievi: { numeri: [["ettari", "📏 Area (ettari)", ""], ["consegna_giorni", "📅 Consegna (giorni)", "10"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["ortofoto", "🗺️ Ortofoto", true], ["modello3d", "🧊 Modello 3D"], ["rtk", "🎯 RTK / punti a terra"]] },
+  agricoltura: { numeri: [["ettari", "📏 Area (ettari)", ""], ["consegna_giorni", "📅 Consegna (giorni)", "5"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["ortofoto", "🗺️ Mappa dei campi", true], ["report", "📄 Report e indici (NDVI)"]] },
+  trattamenti: { numeri: [["ettari", "📏 Area (ettari)", ""]], spunte: [["permessi", "📝 Permessi e SCIA a carico mio", true], ["registro", "📋 Registro del trattamento", true], ["sopralluogo", "👀 Sopralluogo"]] },
+};
+
+function categoriaConsigliata(dati) {
+  const c = categoriaPerLavoro(dati);
+  const nota = dati.tipo === "rilievi" || dati.tipo === "agricoltura" ? " La missione automatica resta sempre in vista (VLOS): per aree grandi fuori vista serve lo STS-02 o un'autorizzazione." : dati.tipo === "termografia" ? " Gli impianti in zona industriale o sui tetti in città contano come area abitata." : "";
+  return dati.tipo === "trattamenti" ? c : { ...c, testo: c.testo + nota };
+}
+
 // tornato da Stripe dopo aver pagato la commissione di un lavoro (letto subito, prima che l'app pulisca l'indirizzo)
 const LAVORO_APPENA_PAGATO = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("lavoro") === "confermato";
 
@@ -11290,6 +11345,7 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
   const [lavoro, setLavoro] = useState(null); // id in corso
   const [errore, setErrore] = useState(null);
   const [pagato, setPagato] = useState(LAVORO_APPENA_PAGATO);
+  const [rinuncia, setRinuncia] = useState(null); // { id, motivo, altro } mentre il pilota dice «non posso farlo»
   const [archivio, setArchivio] = useState(undefined); // il file zone D-Flight del pilota (dal telefono o dall'account)
   useEffect(() => { leggiZoneSalvate().then(async (d) => setArchivio(d && Array.isArray(d.zone) ? d : (await riprendiCopiaZone()) || null)); }, []);
   const zoneValide = React.useMemo(() => (archivio ? archivio.zone.filter((z) => !zonaFinita(z)) : null), [archivio]);
@@ -11333,14 +11389,11 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
   // la bozza dell'offerta: prezzo, cosa comprende e messaggio (per un servizio di foto o video propongo già le voci tipiche)
   const bozza = (l) => bozze[l.id] || (() => {
     const d = l.mia?.dettagli || {};
-    const video = /matrimon|evento|aziend|fpv|turismo|immobil/i.test(l.servizio || "");
-    return {
-      prezzo: l.mia ? String(l.mia.prezzo) : "", messaggio: l.mia?.messaggio || "",
-      video_min: d.video_min != null ? String(d.video_min) : l.mia ? "" : video ? "3" : "",
-      foto: d.foto != null ? String(d.foto) : l.mia ? "" : "20",
-      consegna_giorni: d.consegna_giorni != null ? String(d.consegna_giorni) : l.mia ? "" : "10",
-      reel: !!d.reel, sopralluogo: !!d.sopralluogo, permessi: l.mia ? !!d.permessi : true,
-    };
+    const voci = VOCI_OFFERTA[tipoServizio(l.servizio)];
+    const b = { prezzo: l.mia ? String(l.mia.prezzo) : "", messaggio: l.mia?.messaggio || "" };
+    voci.numeri.forEach(([k, , tipico]) => { b[k] = d[k] != null ? String(d[k]).replace(".", ",") : l.mia ? "" : tipico; });
+    voci.spunte.forEach(([k, , tipico]) => { b[k] = l.mia ? !!d[k] : !!tipico; });
+    return b;
   })();
   const cambiaBozza = (l, k, v) => setBozze({ ...bozze, [l.id]: { ...bozza(l), [k]: v } });
 
@@ -11349,8 +11402,11 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
     const prezzo = Number(String(b.prezzo).replace(",", "."));
     if (!(prezzo >= 10)) { setErrore({ id: l.id, testo: "Scrivi il prezzo (almeno 10 €)." }); return; }
     setLavoro(l.id); setErrore(null);
-    const numero = (v) => { const n = parseInt(String(v || "").replace(/\D/g, ""), 10); return n > 0 ? n : null; };
-    const dettagli = { video_min: numero(b.video_min), foto: numero(b.foto), consegna_giorni: numero(b.consegna_giorni), reel: !!b.reel, sopralluogo: !!b.sopralluogo, permessi: !!b.permessi };
+    const numero = (v, decimali) => { const n = decimali ? Number(String(v || "").replace(",", ".").replace(/[^\d.]/g, "")) : parseInt(String(v || "").replace(/\D/g, ""), 10); return n > 0 ? n : null; };
+    const voci = VOCI_OFFERTA[tipoServizio(l.servizio)];
+    const dettagli = {};
+    voci.numeri.forEach(([k]) => { dettagli[k] = numero(b[k], k === "ettari"); });
+    voci.spunte.forEach(([k]) => { dettagli[k] = !!b[k]; });
     const { error } = await supabase.rpc("invia_offerta_zona", { p_richiesta: l.id, p_prezzo: prezzo, p_messaggio: b.messaggio, p_dettagli: dettagli });
     setLavoro(null);
     if (error) { setErrore({ id: l.id, testo: /completo/i.test(error.message || "") ? "Per questa richiesta sono già arrivate abbastanza offerte." : /non disponibile/i.test(error.message || "") ? "Questa richiesta non è più aperta." : "Invio non riuscito: riprova." }); carica(); return; }
@@ -11379,9 +11435,19 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
     }
   };
 
+  const rinuncia_ = async (l) => {
+    const motivo = [rinuncia.motivo, rinuncia.altro.trim()].filter(Boolean).join(": ");
+    if (!motivo) { setErrore({ id: l.id, testo: "Scegli o scrivi il motivo: lo leggerà il cliente." }); return; }
+    setLavoro(l.id); setErrore(null);
+    const { error } = await supabase.rpc("rinuncia_lavoro_zona", { p_offerta: l.mia.id, p_motivo: motivo });
+    setLavoro(null);
+    if (error) { setErrore({ id: l.id, testo: "Non è più possibile: ricarica la pagina." }); carica(); return; }
+    setRinuncia(null);
+    carica();
+  };
   const scelti = lavori.filter((l) => l.mia?.stato === "scelta");
   const aperti = lavori.filter((l) => l.stato === "aperta" && (!l.mia || l.mia.stato === "inviata"));
-  const finiti = lavori.filter((l) => l.mia && ["confermata", "non_scelta", "decaduta"].includes(l.mia.stato) || (l.mia?.stato === "inviata" && l.stato !== "aperta"));
+  const finiti = lavori.filter((l) => l.mia && ["confermata", "non_scelta", "decaduta", "rinunciata"].includes(l.mia.stato) || (l.mia?.stato === "inviata" && l.stato !== "aperta"));
   const dataBreve = (d) => new Date(d + (String(d).length === 10 ? "T12:00:00" : "")).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
   const riga = (l) => [l.servizio || "Richiesta", l.luogo, l.data_desiderata ? `per il ${dataBreve(l.data_desiderata)}` : null].filter(Boolean).join(" · ");
   const st = { scheda: { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 12, marginTop: 8 } };
@@ -11400,21 +11466,22 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
     if (archivio === undefined) riga = <span style={{ color: "#8b95a3" }}>controllo le zone…</span>;
     else if (!zoneValide) riga = <span style={{ color: "#c3cad4" }}>Carica il file zone D-Flight in «Permessi» per vedere qui se serve un permesso.</span>;
     else {
-      // il punto del cliente è arrotondato (fino a ~70 m di errore): guardo tutto il cerchio di 150 m intorno
-      // e prendo il caso peggiore, così il limite vale ovunque sia il punto vero
-      const { dentro, vicine } = controllaPunto(zoneValide, punto, { raggio: 150 });
+      // guardo tutto il cerchio intorno al punto (100 m, dove si vola; 150 m se il punto è arrotondato)
+      // e prendo il caso peggiore, così il limite vale in tutta l'area del volo
+      const raggio = l.esatto ? 100 : 150;
+      const { dentro, vicine } = controllaPunto(zoneValide, punto, { raggio });
       const zone = [...dentro, ...vicine].filter((z) => z.restrizione !== "NO_RESTRICTION" && !z.nonAttiva);
       const peggiore = zone.find((z) => z.restrizione === "PROHIBITED") || zone.find((z) => z.restrizione === "REQ_AUTHORISATION") || zone[0];
-      const h = altezzaSenzaPermessi(zoneValide, punto, 150);
+      const h = altezzaSenzaPermessi(zoneValide, punto, raggio);
       const bordo = zone.some((z) => z.distanza) || (dentro.length > 0 && vicine.some((z) => z.restrizione !== "NO_RESTRICTION"));
-      if (!peggiore) riga = <span style={{ color: "#4ade80" }}>🟢 Nessuna zona entro 150 m dal punto: fino a {h} m senza permessi, con le regole della tua categoria.</span>;
+      if (!peggiore) riga = <span style={{ color: "#4ade80" }}>🟢 Nessuna zona entro {raggio} m dal punto: fino a {h} m senza permessi, con le regole della tua categoria.</span>;
       else {
         const d = descriviRestrizione(peggiore.restrizione);
         const icona = peggiore.restrizione === "PROHIBITED" || peggiore.restrizione === "REQ_AUTHORISATION" ? "🔴" : "🟡";
         riga = (
           <span style={{ color: d.colore }}>
-            {icona} {d.etichetta}: {peggiore.nome || "zona D-Flight"}{peggiore.distanza ? ` (a ${peggiore.distanza} m)` : ""}{h <= 0 ? " · permesso necessario già da terra" : h < 120 ? ` · senza permesso fino a ${h} m` : ""}
-            {bordo && <span style={{ display: "block", color: "#f5b942" }}>⚠️ Il confine di una zona passa vicino: il limite può cambiare di qualche metro. Ho preso il caso peggiore; dopo la conferma ricevi il punto esatto per ricontrollare.</span>}
+            {icona} {d.etichetta}: {peggiore.nome || "zona D-Flight"}{peggiore.distanza ? ` (a ${peggiore.distanza} m)` : ""}{peggiore.restrizione === "CONDITIONAL" ? " · si vola rispettando le condizioni della zona (leggile nell'Assistente)" : h <= 0 ? " · permesso necessario già da terra" : h < 120 ? ` · senza permesso fino a ${h} m` : ""}
+            {bordo && <span style={{ display: "block", color: "#f5b942" }}>⚠️ Il confine di una zona passa vicino: ho preso il limite più basso dell'area. Se voli dalla parte libera puoi salire di più: controlla nell'Assistente.</span>}
           </span>
         );
       }
@@ -11426,8 +11493,9 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
         {(() => {
           const ab = abitati[`${l.lat},${l.lon}`];
           if (ab === undefined) return <div style={{ marginTop: 4, color: "#8b95a3" }}>🎯 Guardo che categoria serve…</div>;
-          const persone = /matrimon|evento|fpv/i.test(l.servizio || "") || /matrimon|festa|evento|concerto|gara|pubblico|invitat/i.test(l.descrizione || "");
-          const c = categoriaPerLavoro({ abitato: ab, persone, droni: mezzi.droni, attestati: mezzi.attestati });
+          const tipo = tipoServizio(l.servizio);
+          const persone = tipo === "riprese" && (/matrimon|evento|fpv/i.test(l.servizio || "") || /matrimon|festa|evento|concerto|gara|pubblico|invitat/i.test(l.descrizione || ""));
+          const c = categoriaConsigliata({ abitato: ab, persone, tipo, droni: mezzi.droni, attestati: mezzi.attestati });
           const colore = c.livello === "open" ? "#4ade80" : c.livello === "attenzione" ? "#f5b942" : "#ff8c42";
           return (
             <div style={{ marginTop: 6 }}>
@@ -11438,7 +11506,7 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
           );
         })()}
         {onPermessi && <button type="button" onClick={() => apriPermessi(l)} style={{ marginTop: 6, background: "#1d2633", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}>📝 Zone e permessi di questo posto</button>}
-        <div style={{ fontSize: 11, color: "#6b7480", marginTop: 4 }}>Punto indicativo (±100 m): il controllo guarda tutto il cerchio di 150 m e prende il caso peggiore. Il punto esatto lo ricevi quando confermi il lavoro. Prima del volo verifica sempre su D-Flight: zone e categoria sono un aiuto, sul posto decidi tu.</div>
+        <div style={{ fontSize: 11, color: "#6b7480", marginTop: 4 }}>{l.esatto ? "Punto segnato dal cliente sulla mappa" : "Punto indicativo (±100 m)"}: il controllo guarda tutto il cerchio intorno e prende il caso peggiore.{["rilievi", "agricoltura", "trattamenti"].includes(tipoServizio(l.servizio)) ? " Per un'area grande controlla tutti i campi in Pianifica." : ""} Prima del volo verifica sempre su D-Flight: zone e categoria sono un aiuto, sul posto decidi tu.</div>
       </div>
     );
   };
@@ -11462,6 +11530,23 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
               {lavoro === l.id ? "Un attimo…" : comm > 0 ? `Conferma e paga ${euroIt(comm)}` : "Conferma il lavoro"}
             </button>
             {comm > 0 && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 6 }}>Commissione di EyeDrones: la paghi solo per i lavori che ottieni.</div>}
+            {rinuncia?.id !== l.id
+              ? <button type="button" onClick={() => setRinuncia({ id: l.id, motivo: "", altro: "" })} style={{ marginTop: 8, background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>Non posso farlo</button>
+              : (
+                <div style={{ marginTop: 10, background: "#1b2028", border: "1px solid #333a45", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontSize: 12.5, color: "#c3cad4", marginBottom: 6 }}>Perché? Lo leggerà il cliente. Nessuna penalità: è giusto dirlo subito.</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {["Zona vietata o permesso non ottenibile in tempo", "Serve una categoria o un attestato che non ho", "Non sono più libero quel giorno"].map((m) => (
+                      <button key={m} type="button" onClick={() => setRinuncia({ ...rinuncia, motivo: rinuncia.motivo === m ? "" : m })} style={{ ...chip(rinuncia.motivo === m), borderRadius: 16, padding: "6px 10px", fontSize: 12 }}>{m}</button>
+                    ))}
+                  </div>
+                  <input value={rinuncia.altro} onChange={(e) => setRinuncia({ ...rinuncia, altro: e.target.value })} maxLength={200} placeholder="Altro o dettagli (facoltativo)" style={{ ...inputStyle, marginTop: 8 }} />
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <button type="button" disabled={lavoro === l.id} onClick={() => rinuncia_(l)} style={{ background: "#262b33", border: "1px solid #ff9c9c66", color: "#ffb4b4", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>{lavoro === l.id ? "Un attimo…" : "Avvisa il cliente"}</button>
+                    <button type="button" onClick={() => setRinuncia(null)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5 }}>Annulla</button>
+                  </div>
+                </div>
+              )}
             {errore?.id === l.id && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore.testo}</p>}
           </div>
         );
@@ -11485,12 +11570,12 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
                 <div style={{ fontSize: 12.5, color: "#c3cad4", fontWeight: 700 }}>Cosa comprende (è la prima cosa che vede il cliente)</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                  <label style={{ fontSize: 12, color: "#8b95a3" }}>🎬 Video (minuti)<input inputMode="numeric" value={b.video_min} onChange={(e) => cambiaBozza(l, "video_min", e.target.value)} placeholder="—" style={{ ...inputStyle, marginTop: 4 }} /></label>
-                  <label style={{ fontSize: 12, color: "#8b95a3" }}>📸 Foto<input inputMode="numeric" value={b.foto} onChange={(e) => cambiaBozza(l, "foto", e.target.value)} placeholder="—" style={{ ...inputStyle, marginTop: 4 }} /></label>
-                  <label style={{ fontSize: 12, color: "#8b95a3" }}>📅 Consegna (giorni)<input inputMode="numeric" value={b.consegna_giorni} onChange={(e) => cambiaBozza(l, "consegna_giorni", e.target.value)} placeholder="—" style={{ ...inputStyle, marginTop: 4 }} /></label>
+                  {VOCI_OFFERTA[tipoServizio(l.servizio)].numeri.map(([k, t]) => (
+                    <label key={k} style={{ fontSize: 12, color: "#8b95a3" }}>{t}<input inputMode="decimal" value={b[k]} onChange={(e) => cambiaBozza(l, k, e.target.value)} placeholder="—" style={{ ...inputStyle, marginTop: 4 }} /></label>
+                  ))}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {[["permessi", "📝 Permessi a carico mio"], ["reel", "📱 Reel per i social"], ["sopralluogo", "👀 Sopralluogo"]].map(([k, t]) => (
+                  {VOCI_OFFERTA[tipoServizio(l.servizio)].spunte.map(([k, t]) => (
                     <button key={k} type="button" onClick={() => cambiaBozza(l, k, !b[k])} style={{ ...chip(!!b[k]), borderRadius: 16, padding: "6px 12px", fontSize: 12.5 }}>{b[k] ? "✓ " : ""}{t}</button>
                   ))}
                 </div>
@@ -11498,7 +11583,7 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
                   <input inputMode="decimal" value={b.prezzo} onChange={(e) => cambiaBozza(l, "prezzo", e.target.value)} placeholder="es. 450" style={{ ...inputStyle, marginTop: 4, maxWidth: 160 }} />
                 </label>
                 <label style={{ fontSize: 12, color: "#8b95a3" }}>Messaggio al cliente (facoltativo): altro che comprende, come lavori
-                  <textarea rows={3} maxLength={1500} value={b.messaggio} onChange={(e) => cambiaBozza(l, "messaggio", e.target.value)} placeholder="es. Riprese di chiesa, uscita degli sposi e location, montaggio con musica." style={{ ...inputStyle, marginTop: 4, resize: "vertical", fontFamily: "inherit" }} />
+                  <textarea rows={3} maxLength={1500} value={b.messaggio} onChange={(e) => cambiaBozza(l, "messaggio", e.target.value)} placeholder={{ riprese: "es. Riprese di chiesa, uscita degli sposi e location, montaggio con musica.", ispezioni: "es. Foto ravvicinate di tetto e grondaie, segnalo i punti da sistemare.", termografia: "es. Volo con sole pieno, report con stringhe e moduli caldi, file per l'installatore.", rilievi: "es. Ortofoto a 2 cm/pixel, nuvola di punti e misure dei volumi, file DWG.", agricoltura: "es. Volo multispettrale, mappa NDVI e zone da concimare.", trattamenti: "es. Trattamento con prodotto fornito da voi, registro e meteo del giorno." }[tipoServizio(l.servizio)]} style={{ ...inputStyle, marginTop: 4, resize: "vertical", fontFamily: "inherit" }} />
                 </label>
                 <div style={{ fontSize: 11.5, color: "#6b7480" }}>Il cliente vede il tuo nome, i lavori e gli attestati della tua pagina. Numeri ed email nel messaggio vengono nascosti finché non ti sceglie.</div>
                 <div style={{ display: "flex", gap: 8 }}>
@@ -11517,7 +11602,7 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
           <summary style={{ fontSize: 12.5, color: "#8b95a3", cursor: "pointer" }}>Le tue offerte passate ({finiti.length})</summary>
           {finiti.map((l) => (
             <div key={l.id} style={{ ...st.scheda, fontSize: 12.5, color: "#c3cad4" }}>
-              {riga(l)} · {euroIt(l.mia.prezzo)} · <strong style={{ color: l.mia.stato === "confermata" ? "#4ade80" : "#8b95a3" }}>{l.mia.stato === "confermata" ? "lavoro tuo ✓" : l.mia.stato === "decaduta" ? "non confermato in tempo" : "il cliente ha scelto un altro pilota"}</strong>
+              {riga(l)} · {euroIt(l.mia.prezzo)} · <strong style={{ color: l.mia.stato === "confermata" ? "#4ade80" : "#8b95a3" }}>{l.mia.stato === "confermata" ? "lavoro tuo ✓" : l.mia.stato === "decaduta" ? "non confermato in tempo" : l.mia.stato === "rinunciata" ? "hai detto che non potevi" : "il cliente ha scelto un altro pilota"}</strong>
             </div>
           ))}
         </details>
