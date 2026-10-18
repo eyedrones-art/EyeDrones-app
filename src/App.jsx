@@ -10791,6 +10791,10 @@ function OfferteCliente({ codice }) {
     return () => clearInterval(t);
   }, [codice]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const rispondi = async (offerta, si) => {
+    await supabase.rpc("segnala_contatto_fuori", { p_codice: codice, p_offerta: offerta, p_si: si });
+    carica();
+  };
   const scegli = async (offerta) => {
     setLavoro("invio");
     const { error } = await supabase.rpc("scegli_offerta", { p_codice: codice, p_offerta: offerta });
@@ -10895,6 +10899,19 @@ function OfferteCliente({ codice }) {
           <p style={{ fontSize: 14.5, color: "#6b6258", margin: 0 }}>{[r.servizio, r.luogo, quando].filter(Boolean).join(" · ")}</p>
         </header>
 
+        {(dati.decadute || []).filter((d) => d.risposta == null).map((d) => (
+          <div key={d.id} style={{ ...CLIENTE.scheda, background: "#fffaf0", borderColor: "#f3dfb0" }}>
+            <strong style={{ fontSize: 15.5 }}>{d.nome} non ha confermato in tempo</strong>
+            <p style={{ fontSize: 14, color: "#5b534b", margin: "6px 0 10px 0", lineHeight: 1.5 }}>Ti ha contattato lo stesso, fuori da EyeDrones? La tua risposta resta tra noi e ci aiuta a tenere solo piloti seri.</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={() => rispondi(d.id, true)} style={{ flex: 1, background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "11px 12px", fontSize: 14.5, fontWeight: 700, color: "#3a332c" }}>Sì, mi ha contattato</button>
+              <button type="button" onClick={() => rispondi(d.id, false)} style={{ flex: 1, background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "11px 12px", fontSize: 14.5, fontWeight: 700, color: "#3a332c" }}>No</button>
+            </div>
+          </div>
+        ))}
+        {(dati.decadute || []).some((d) => d.risposta != null) && !(dati.decadute || []).some((d) => d.risposta == null) && r.stato === "aperta" && (
+          <p style={{ fontSize: 13, color: "#6b6258", margin: 0 }}>Grazie per la risposta! Puoi scegliere un'altra delle offerte qui sotto.</p>
+        )}
         {scelta && !confermata && (
           <div style={{ ...CLIENTE.scheda, background: "#fff3eb", borderColor: "#ffcfae" }}>
             <strong style={{ fontSize: 15.5 }}>Hai scelto {scelta.pilota?.nome}</strong>

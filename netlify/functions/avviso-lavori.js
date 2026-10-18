@@ -146,6 +146,7 @@ function componiEmail(d) {
       titolo: `${pilota} non ha confermato`,
       sottotitolo: "Succede: forse non è più libero. Le altre offerte sono ancora lì, puoi sceglierne un'altra.",
       bottone: { href: linkOfferte, testo: "Vedi le offerte" },
+      nota: `Una domanda veloce: ${pilota} ti ha contattato lo stesso, fuori da EyeDrones? Rispondi con un tocco nella pagina delle offerte: ci aiuti a tenere solo piloti seri.`,
     });
     return { a: [d.a], oggetto: "Scegli un altro pilota per il tuo lavoro", ...m };
   }

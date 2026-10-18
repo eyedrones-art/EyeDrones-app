@@ -123,8 +123,8 @@ export function Termini() {
         <H2>6. Cose visibili ad altri</H2>
         <Lista voci={[
           "Le gallerie e i link che condividi sono visibili a chi riceve il link (con PIN, se lo imposti).",
-          "La tua pagina pilota, se la attivi, è pubblica. In «Trova un pilota» i clienti della tua provincia vedono nome, città, servizi e foto della pagina, e con le tue offerte anche presentazione e attestati; i tuoi contatti solo dopo che confermi un lavoro (puoi toglierti da «La mia pagina»).",
-          "In «Trova un pilota», quando un cliente sceglie la tua offerta, confermi entro 48 ore; se la commissione è attiva la paghi con la conferma, e solo per i lavori che ottieni. Se lasci scadere 2 scelte non ricevi più richieste in zona.",
+          "La tua pagina pilota, se la attivi, è pubblica. In «Trova un pilota» i clienti della tua provincia vedono il tuo nome abbreviato (es. «Luca R.»), città, servizi e foto della pagina, e con le tue offerte anche presentazione e attestati, senza numeri, email e siti; nome completo, logo e contatti solo dopo che confermi un lavoro (puoi toglierti da «La mia pagina»).",
+          "In «Trova un pilota», quando un cliente sceglie la tua offerta, confermi entro 48 ore; se la commissione è attiva la paghi con la conferma, e solo per i lavori che ottieni. Se lasci scadere 2 scelte, o se il cliente ci dice che l'hai contattato fuori da EyeDrones dopo non aver confermato, non ricevi più richieste in zona.",
           "I posti che consigli sono visibili agli altri utenti registrati, senza il tuo nome.",
         ]} />
 

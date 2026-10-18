@@ -33,6 +33,7 @@ on conflict (chiave) do nothing;
 -- 1) colonne nuove sulle tabelle della pagina pilota
 alter table public.pagine_pilota add column if not exists in_elenco boolean not null default true;   -- compare in «Trova un pilota»
 alter table public.pagine_pilota add column if not exists scelte_decadute int not null default 0;     -- scelto ma non ha confermato
+alter table public.pagine_pilota add column if not exists escluso_trova boolean not null default false; -- ha preso il lavoro fuori da EyeDrones
 alter table public.richieste_preventivo add column if not exists da_zona uuid;                        -- arrivata da «Trova un pilota»
 create unique index if not exists richieste_preventivo_zona_idx on public.richieste_preventivo (user_id, da_zona) where da_zona is not null;
 
@@ -71,18 +72,44 @@ create table if not exists public.offerte_zona (
   unique (richiesta_id, user_id)
 );
 alter table public.offerte_zona add column if not exists da_rimborsare boolean not null default false; -- pagata ma non più possibile
+alter table public.offerte_zona add column if not exists contatto_fuori boolean;                         -- scelta decaduta: il pilota ha contattato il cliente lo stesso?
 create index if not exists offerte_zona_user_idx on public.offerte_zona (user_id, created_at desc);
 alter table public.offerte_zona enable row level security;
 revoke all on public.offerte_zona from anon, authenticated;
 
 -- 3) aiuti interni
--- numeri di telefono ed email scritti nei testi liberi: li nascondo finché il lavoro non è confermato
+-- numeri di telefono, email, siti e profili scritti nei testi liberi: li nascondo finché il lavoro non è confermato
 create or replace function privato.senza_contatti(t text)
 returns text language sql immutable as $$
-  select regexp_replace(regexp_replace(coalesce(t, ''),
+  select regexp_replace(regexp_replace(regexp_replace(regexp_replace(coalesce(t, ''),
     '[^\s@]+@[^\s@]+\.[a-z]{2,}', '[email nascosta]', 'gi'),
-    '\+?\d[\d\s./-]{6,}\d', '[numero nascosto]', 'g');
+    '(https?://)?(www\.)?[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)*\.(it|com|net|org|eu|info|biz|me|studio|photo|video|online|site|store)\M(/\S*)?', '[sito nascosto]', 'gi'),
+    '(^|\s)@[a-z0-9_.]{3,}', '\1[profilo nascosto]', 'gi'),
+    '\+?\d([\s.-]?\d){8,}', '[numero nascosto]', 'g');
 $$;
+
+-- il nome del pilota prima della conferma: «Luca R.» invece di «Luca Rossi Riprese Aeree», così non si cerca su Google
+create or replace function privato.nome_breve(p_nome text)
+returns text language plpgsql immutable as $$
+declare v text[] := regexp_split_to_array(btrim(coalesce(p_nome, '')), '\s+');
+begin
+  if coalesce(array_length(v, 1), 0) = 0 or v[1] = '' then return 'Pilota'; end if;
+  if array_length(v, 1) = 1 then return case when length(v[1]) > 10 then upper(left(v[1], 1)) || '.' else v[1] end; end if;
+  return v[1] || ' ' || upper(left(v[array_length(v, 1)], 1)) || '.';
+end; $$;
+
+-- toglie dai testi liberi le parole del nome del pilota (tranne la prima, che resta nel nome breve)
+create or replace function privato.senza_nome(t text, p_nome text)
+returns text language plpgsql immutable as $$
+declare w text; r text := coalesce(t, ''); v text[] := regexp_split_to_array(btrim(coalesce(p_nome, '')), '\s+');
+begin
+  for i in 2 .. coalesce(array_length(v, 1), 0) loop
+    w := regexp_replace(v[i], '[^[:alnum:]]', '', 'g');
+    if length(w) >= 3 then r := regexp_replace(r, '\m' || w || '\M', '…', 'gi'); end if;
+  end loop;
+  if coalesce(array_length(v, 1), 0) = 1 and length(v[1]) > 10 then r := regexp_replace(r, '\m' || regexp_replace(v[1], '[^[:alnum:]]', '', 'g') || '\M', '…', 'gi'); end if;
+  return r;
+end; $$;
 
 create or replace function privato.commissione_per(p_prezzo numeric)
 returns numeric language plpgsql stable as $$
@@ -140,7 +167,7 @@ begin
     update public.richieste_zona set stato = 'aperta', offerta_scelta = null, scelta_il = null where id = r.id;
     update public.pagine_pilota set scelte_decadute = scelte_decadute + 1 where user_id = r.user_id;
     perform privato.avvisa_lavori(jsonb_build_object('tipo', 'decaduta', 'a', r.email, 'nome', r.nome, 'codice', r.codice,
-      'pilota', privato.pilota_contatto(r.user_id)->>'nome'));
+      'pilota', privato.nome_breve(privato.pilota_contatto(r.user_id)->>'nome')));
   end loop;
   -- pulizia: dopo 90 giorni le richieste non confermate si cancellano
   delete from public.richieste_zona where created_at < now() - interval '90 days' and stato <> 'confermata';
@@ -156,8 +183,7 @@ as $$
   from (
     select g.aggiornata_il as ordine,
       json_build_object(
-        'nome', coalesce(nullif(g.nome, ''), p.azienda_nome),
-        'logo', p.azienda_logo,
+        'nome', privato.nome_breve(coalesce(nullif(g.nome, ''), p.azienda_nome)),
         'citta', g.citta,
         'servizi', g.servizi,
         'assicurato', g.assicurato,
@@ -166,7 +192,7 @@ as $$
       ) as x
     from public.pagine_pilota g
     left join public.profili p on p.user_id = g.user_id
-    where g.attiva and g.in_elenco and g.scelte_decadute < 2 and g.provincia = upper(btrim(p_provincia))
+    where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and g.provincia = upper(btrim(p_provincia))
     order by g.aggiornata_il desc
     limit 30
   ) t;
@@ -216,7 +242,7 @@ begin
   select coalesce(jsonb_agg(privato.pilota_contatto(g.user_id)->>'email') filter (where privato.pilota_contatto(g.user_id)->>'email' is not null), '[]'::jsonb)
     into v_piloti
   from public.pagine_pilota g
-  where g.attiva and g.in_elenco and g.scelte_decadute < 2 and g.provincia = v_prov and coalesce(g.avviso_email, true);
+  where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and g.provincia = v_prov and coalesce(g.avviso_email, true);
 
   perform privato.avvisa_lavori(jsonb_build_object('tipo', 'nuovo_lavoro', 'piloti', v_piloti,
     'servizio', v_z.servizio, 'luogo', v_z.luogo, 'data_desiderata', v_z.data_desiderata,
@@ -246,12 +272,14 @@ begin
       'created_at', v_z.created_at),
     'offerte', coalesce((
       select json_agg(json_build_object(
-        'id', o.id, 'prezzo', o.prezzo, 'messaggio', case when o.stato = 'confermata' then o.messaggio else privato.senza_contatti(o.messaggio) end,
+        'id', o.id, 'prezzo', o.prezzo,
+        'messaggio', case when o.stato = 'confermata' then o.messaggio else privato.senza_nome(privato.senza_contatti(o.messaggio), coalesce(nullif(g.nome, ''), p.azienda_nome)) end,
         'stato', o.stato, 'created_at', o.created_at,
         'pilota', json_build_object(
-          'nome', coalesce(nullif(g.nome, ''), p.azienda_nome, 'Pilota'),
-          'logo', p.azienda_logo, 'citta', g.citta, 'raggio_km', g.raggio_km,
-          'presentazione', left(privato.senza_contatti(g.presentazione), 600),
+          -- nome completo, logo e pagina solo a lavoro confermato
+          'nome', case when o.stato = 'confermata' then coalesce(nullif(g.nome, ''), p.azienda_nome, 'Pilota') else privato.nome_breve(coalesce(nullif(g.nome, ''), p.azienda_nome)) end,
+          'logo', case when o.stato = 'confermata' then p.azienda_logo end, 'citta', g.citta, 'raggio_km', g.raggio_km,
+          'presentazione', left(case when o.stato = 'confermata' then g.presentazione else privato.senza_nome(privato.senza_contatti(g.presentazione), coalesce(nullif(g.nome, ''), p.azienda_nome)) end, 600),
           'servizi', g.servizi, 'abilitazioni', g.abilitazioni, 'assicurato', g.assicurato,
           'registrato', coalesce(g.codice_operatore, '') <> '',
           'portfolio', (select json_agg(f->>'url') from (select f from jsonb_array_elements(g.portfolio) f where f->>'tipo' is distinct from 'video' limit 6) q),
@@ -261,6 +289,14 @@ begin
       left join public.pagine_pilota g on g.user_id = o.user_id
       left join public.profili p on p.user_id = o.user_id
       where o.richiesta_id = v_z.id and o.stato <> 'decaduta'
+    ), '[]'::json),
+    -- scelte decadute: chiedo al cliente se il pilota l'ha contattato lo stesso
+    'decadute', coalesce((
+      select json_agg(json_build_object('id', o.id, 'nome', privato.nome_breve(coalesce(nullif(g.nome, ''), p.azienda_nome)), 'risposta', o.contatto_fuori))
+      from public.offerte_zona o
+      left join public.pagine_pilota g on g.user_id = o.user_id
+      left join public.profili p on p.user_id = o.user_id
+      where o.richiesta_id = v_z.id and o.stato = 'decaduta'
     ), '[]'::json)
   );
 end;
@@ -298,6 +334,25 @@ $$;
 revoke all on function public.scegli_offerta(text, uuid) from public;
 grant execute on function public.scegli_offerta(text, uuid) to anon, authenticated;
 
+-- il cliente risponde «il pilota mi ha contattato lo stesso?» dopo una scelta decaduta: se sì, il pilota è escluso
+create or replace function public.segnala_contatto_fuori(p_codice text, p_offerta uuid, p_si boolean)
+returns boolean
+language plpgsql volatile security definer set search_path = public
+as $$
+declare v_uid uuid;
+begin
+  update public.offerte_zona o set contatto_fuori = p_si
+    from public.richieste_zona z
+    where o.id = p_offerta and z.id = o.richiesta_id and z.codice = p_codice and o.stato = 'decaduta' and o.contatto_fuori is null
+    returning o.user_id into v_uid;
+  if v_uid is null then return false; end if;
+  if p_si then update public.pagine_pilota set escluso_trova = true where user_id = v_uid; end if;
+  return true;
+end;
+$$;
+revoke all on function public.segnala_contatto_fuori(text, uuid, boolean) from public;
+grant execute on function public.segnala_contatto_fuori(text, uuid, boolean) to anon, authenticated;
+
 -- 8) il pilota: le richieste della sua provincia (senza contatti) con la sua offerta, se l'ha fatta
 create or replace function public.lavori_in_zona()
 returns json
@@ -321,7 +376,7 @@ begin
     where z.created_at > now() - interval '60 days'
       and (
         -- aperte: se non è stato escluso, la data non è passata e c'è ancora posto (o ha già offerto)
-        (z.stato = 'aperta' and g.scelte_decadute < 2 and (z.data_desiderata is null or z.data_desiderata >= current_date)
+        (z.stato = 'aperta' and g.scelte_decadute < 2 and not g.escluso_trova and (z.data_desiderata is null or z.data_desiderata >= current_date)
           and ((select count(*) from public.offerte_zona x where x.richiesta_id = z.id and x.stato <> 'decaduta') < 8
                or exists (select 1 from public.offerte_zona x where x.richiesta_id = z.id and x.user_id = v_uid)))
         -- e tutte quelle dove ha fatto un'offerta, per sapere com'è andata
@@ -343,7 +398,7 @@ begin
   if v_uid is null then raise exception 'accesso richiesto'; end if;
   if p_prezzo is null or p_prezzo < 10 or p_prezzo > 100000 then raise exception 'prezzo non valido'; end if;
   select z.* into v_z from public.richieste_zona z
-    join public.pagine_pilota g on g.user_id = v_uid and g.attiva and g.provincia = z.provincia and g.scelte_decadute < 2
+    join public.pagine_pilota g on g.user_id = v_uid and g.attiva and g.provincia = z.provincia and g.scelte_decadute < 2 and not g.escluso_trova
     where z.id = p_richiesta and z.stato = 'aperta'
     for update of z;
   if not found then raise exception 'richiesta non disponibile'; end if;
@@ -357,7 +412,7 @@ begin
     where public.offerte_zona.stato = 'inviata';
   if v_nuova then
     perform privato.avvisa_lavori(jsonb_build_object('tipo', 'nuova_offerta', 'a', v_z.email, 'nome', v_z.nome, 'codice', v_z.codice,
-      'pilota', privato.pilota_contatto(v_uid)->>'nome', 'prezzo', round(p_prezzo, 2), 'servizio', v_z.servizio));
+      'pilota', privato.nome_breve(privato.pilota_contatto(v_uid)->>'nome'), 'prezzo', round(p_prezzo, 2), 'servizio', v_z.servizio));
   end if;
   return true;
 end;
@@ -474,3 +529,6 @@ order by 2 desc;
 
 -- pagamenti da rimborsare su Stripe (pagati quando il cliente aveva già scelto un altro pilota)
 select o.id, o.pagata_sessione, o.commissione from public.offerte_zona o where o.da_rimborsare;
+
+-- piloti esclusi perché hanno preso il lavoro fuori da EyeDrones (per riammetterli: update public.pagine_pilota set escluso_trova = false where slug = '...')
+select g.slug, g.nome, g.scelte_decadute from public.pagine_pilota g where g.escluso_trova;
