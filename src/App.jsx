@@ -10939,7 +10939,7 @@ function OfferteCliente({ codice }) {
               : <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 9, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, color: "#fff", flexShrink: 0 }}>{iniziali}</span>}
             <div style={{ fontSize: 12.5, color: "#6b6258", lineHeight: 1.4 }}>
               Lo fa <strong style={{ color: "#3a332c" }}>{p.nome}</strong>{p.citta ? ` · ${p.citta}` : ""}
-              <div>{[p.registrato && "✓ registrato", p.assicurato && "✓ assicurato", ...(p.abilitazioni || []).slice(0, 2)].filter(Boolean).join(" · ")}</div>
+              <div>{[p.registrato && "✓ operatore registrato", p.assicurato && "✓ assicurato"].filter(Boolean).join(" · ")}</div>
             </div>
           </div>
           {espansa && p.presentazione && <p style={{ fontSize: 13.5, lineHeight: 1.55, color: "#6b6258", margin: "10px 0 0 0", whiteSpace: "pre-wrap" }}>{p.presentazione}</p>}
@@ -11050,6 +11050,15 @@ function OfferteCliente({ codice }) {
   );
 }
 
+// «Certificato A2 n. A2-2024-00981» → «Certificato A2»: tolgo numeri e codici (ITA…, n. …) dai testi mostrati ad altri
+function senzaCodici(t) {
+  return String(t || "")
+    .replace(/\bITA[-\s]?(?=[-A-Za-z0-9]*\d)[A-Za-z0-9][-A-Za-z0-9]{5,}/g, "")
+    .replace(/\b(n\.|nr\.?|numero|codice|cod\.)\s*:?\s*\S+/gi, "")
+    .replace(/\b(?=[-/A-Za-z0-9]*\d)[A-Za-z0-9][-/A-Za-z0-9]{5,}\b/g, "")
+    .replace(/\s*[-–:,]\s*$/, "").replace(/\s{2,}/g, " ").trim();
+}
+
 function PaginaPilotaPubblica({ slug }) {
   const [dati, setDati] = useState(undefined); // undefined = caricamento, null = pagina non trovata
   const [lightbox, setLightbox] = useState(null);
@@ -11106,7 +11115,8 @@ function PaginaPilotaPubblica({ slug }) {
   }
 
   const servizi = dati.servizi || [];
-  const abilitazioni = dati.abilitazioni || [];
+  // gli attestati si mostrano solo come tipo («Certificato A2»), mai con numeri o codici
+  const abilitazioni = [...new Set((dati.abilitazioni || []).map(senzaCodici).filter(Boolean))];
   const portfolio = (Array.isArray(dati.portfolio) ? dati.portfolio : []).filter(mediaSicuro);
   const wa = numeroWhatsapp(dati.whatsapp);
   const sito = linkWeb(dati.sito);
@@ -11157,7 +11167,7 @@ function PaginaPilotaPubblica({ slug }) {
           </div>
           {(dati.codice_operatore || dati.assicurato || abilitazioni.length > 0) && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {dati.codice_operatore && <span style={{ fontSize: 12, background: "#16263d", border: "1px solid #24456e", color: "#9cc4ff", borderRadius: 20, padding: "3px 10px" }}>✓ Operatore registrato · {dati.codice_operatore}</span>}
+              {dati.codice_operatore && <span style={{ fontSize: 12, background: "#16263d", border: "1px solid #24456e", color: "#9cc4ff", borderRadius: 20, padding: "3px 10px" }}>✓ Operatore registrato</span>}
               {dati.assicurato && <span style={{ fontSize: 12, background: "#1d3a2a", border: "1px solid #2c5a3f", color: "#86efac", borderRadius: 20, padding: "3px 10px" }}>✓ Assicurazione RC</span>}
               {abilitazioni.slice(0, 3).map((a) => <span key={a} style={{ fontSize: 12, background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 20, padding: "3px 10px" }}>{a}</span>)}
             </div>
@@ -11614,7 +11624,7 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
                 <label style={{ fontSize: 12, color: "#8b95a3" }}>Messaggio al cliente (facoltativo): altro che comprende, come lavori
                   <textarea rows={3} maxLength={1500} value={b.messaggio} onChange={(e) => cambiaBozza(l, "messaggio", e.target.value)} placeholder={{ riprese: "es. Riprese di chiesa, uscita degli sposi e location, montaggio con musica.", ispezioni: "es. Foto ravvicinate di tetto e grondaie, segnalo i punti da sistemare.", termografia: "es. Volo con sole pieno, report con stringhe e moduli caldi, file per l'installatore.", rilievi: "es. Ortofoto a 2 cm/pixel, nuvola di punti e misure dei volumi, file DWG.", agricoltura: "es. Volo multispettrale, mappa NDVI e zone da concimare.", trattamenti: "es. Trattamento con prodotto fornito da voi, registro e meteo del giorno." }[tipoServizio(l.servizio)]} style={{ ...inputStyle, marginTop: 4, resize: "vertical", fontFamily: "inherit" }} />
                 </label>
-                <div style={{ fontSize: 11.5, color: "#6b7480" }}>Il cliente vede il tuo nome, i lavori e gli attestati della tua pagina. Numeri ed email nel messaggio vengono nascosti finché non ti sceglie.</div>
+                <div style={{ fontSize: 11.5, color: "#6b7480" }}>Il cliente vede il tuo nome abbreviato e i lavori della tua pagina, non i tuoi attestati né i loro codici. Numeri ed email nel messaggio vengono nascosti finché non ti sceglie.</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button type="button" disabled={lavoro === l.id} onClick={() => inviaOfferta(l)} style={{ background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>{lavoro === l.id ? "Invio…" : l.mia ? "Aggiorna l'offerta" : "Invia l'offerta"}</button>
                   <button type="button" onClick={() => setAperto(null)} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "8px 12px", fontSize: 13 }}>Annulla</button>

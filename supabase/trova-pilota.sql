@@ -88,13 +88,16 @@ alter table public.offerte_zona enable row level security;
 revoke all on public.offerte_zona from anon, authenticated;
 
 -- 3) aiuti interni
--- numeri di telefono, email, siti e profili scritti nei testi liberi: li nascondo finché il lavoro non è confermato
+-- numeri di telefono, email, siti, profili e codici di attestati scritti nei testi liberi: li nascondo finché il lavoro non è confermato
 create or replace function privato.senza_contatti(t text)
 returns text language sql immutable as $$
-  select regexp_replace(regexp_replace(regexp_replace(regexp_replace(coalesce(t, ''),
+  select regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(coalesce(t, ''),
     '[^\s@]+@[^\s@]+\.[a-z]{2,}', '[email nascosta]', 'gi'),
     '(https?://)?(www\.)?[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)*\.(it|com|net|org|eu|info|biz|me|studio|photo|video|online|site|store)\M(/\S*)?', '[sito nascosto]', 'gi'),
     '(^|\s)@[a-z0-9_.]{3,}', '\1[profilo nascosto]', 'gi'),
+    -- codici di operatore e attestati (ITA…, ITA-RP-…) e numeri di attestato
+    '\mITA[-\s]?(?=[-A-Za-z0-9]*[0-9])[A-Za-z0-9][-A-Za-z0-9]{5,}', '[codice nascosto]', 'g'),
+    '(attestato|certificato|n\.|numero|nr\.?)\s*:?\s*(?=[-/A-Z0-9]*[0-9])[A-Z0-9][-/A-Z0-9]{5,}', '\1 [codice nascosto]', 'gi'),
     '\+?\d([\s.-]?\d){8,}', '[numero nascosto]', 'g');
 $$;
 
@@ -297,7 +300,8 @@ begin
           'nome', case when o.stato = 'confermata' then coalesce(nullif(g.nome, ''), p.azienda_nome, 'Pilota') else privato.nome_breve(coalesce(nullif(g.nome, ''), p.azienda_nome)) end,
           'logo', case when o.stato = 'confermata' then p.azienda_logo end, 'citta', g.citta, 'raggio_km', g.raggio_km,
           'presentazione', left(case when o.stato = 'confermata' then g.presentazione else privato.senza_nome(privato.senza_contatti(g.presentazione), coalesce(nullif(g.nome, ''), p.azienda_nome)) end, 600),
-          'servizi', g.servizi, 'abilitazioni', g.abilitazioni, 'assicurato', g.assicurato,
+          -- gli attestati non si mostrano ai clienti: solo «registrato» e «assicurato»
+          'servizi', g.servizi, 'assicurato', g.assicurato,
           'registrato', coalesce(g.codice_operatore, '') <> '',
           'portfolio', (select json_agg(f->>'url') from (select f from jsonb_array_elements(g.portfolio) f where f->>'tipo' is distinct from 'video' limit 6) q),
           'contatti', case when o.stato = 'confermata' then privato.pilota_contatto(o.user_id) - 'email' end
