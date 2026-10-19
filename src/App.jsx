@@ -11602,7 +11602,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
       <div style={{ fontSize: 13, color: "#c3cad4", marginTop: 4, lineHeight: 1.5 }}>Clienti che cercano un pilota in provincia di <strong>{PROVINCE_ITALIA[provincia] || provincia}</strong>. Mandi l'offerta; se ti scelgono confermi e ricevi i contatti.</div>
       {regole && (
         <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 6, lineHeight: 1.5 }}>
-          💶 Commissione EyeDrones: <strong style={{ color: "#c3cad4" }}>{String(regole.percento).replace(".", ",")}% del prezzo</strong>, minimo {euroIt(regole.minimo)}, massimo {euroIt(regole.massimo)}, solo sui lavori che ottieni.{!regole.attiva && <strong style={{ color: "#4ade80" }}> Per ora è gratis.</strong>}
+          💶 Commissione EyeDrones: <strong style={{ color: "#c3cad4" }}>{String(regole.percento).replace(".", ",")}% del prezzo</strong>, minimo {euroIt(regole.minimo)}, massimo {euroIt(regole.massimo)}, solo sui lavori che ottieni.
         </div>
       )}
 
@@ -11692,7 +11692,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                   <span style={{ fontSize: 12, color: "#8b95a3", flex: "1 1 180px" }}>
                     {fascia && <>Di solito: <strong style={{ color: "#c3cad4" }}>{euroIt(fascia.min)}–{euroIt(fascia.max)}</strong> (tipico {euroIt(fascia.tipico)}). </>}
                     {l.budget && BUDGET_CLIENTE[l.budget] && <>Il cliente pensa a <strong style={{ color: "#c4b5fd" }}>{BUDGET_CLIENTE[l.budget]}</strong>. </>}
-                    {regole && (regole.attiva ? (stimata ? `Commissione se ti scelgono: ${euroIt(stimata)}.` : "") : "Nessuna commissione per ora.")}
+                    {stimata ? `Commissione se ti scelgono: ${euroIt(stimata)}.` : ""}
                   </span>
                 </div>
                 <div style={{ fontSize: 11.5, color: "#6b7480" }}>Non abbassare troppo il prezzo: il cliente confronta prima cosa comprende ogni offerta, e gli altri piloti non vedono il tuo prezzo.</div>
