@@ -2378,7 +2378,7 @@ function AppShell({ session }) {
         {page === "clienti" && <Clienti clienti={clienti} preventivi={preventivi} onCambiati={caricaClienti} onApriPreventivi={() => setPage("preventivi")} />}
         <datalist id="rubrica-clienti">{clienti.map((c) => <option key={c.id} value={c.nome} />)}</datalist>
         {page === "preventivi" && <Preventivi preventivi={preventivi} clienti={clienti} onClientiCambiati={caricaClienti} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
-        {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} onPermessi={() => setPage("permessi")} />}
+        {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} onPermessi={() => setPage("permessi")} onVai={(x) => { setPage(x); window.scrollTo(0, 0); }} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} droni={droni} emailUtente={session.user.email} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} obiettivoFormativo={obiettivoFormativo} onSalvaObiettivo={salvaObiettivoFormativo} />}
@@ -10588,7 +10588,7 @@ const CLIENTE = {
 function TrovaPilota() {
   const [provincia, setProvincia] = useState(provinciaDaIndirizzo);
   const [piloti, setPiloti] = useState(null); // null = da caricare | [] | [...]
-  const [modulo, setModulo] = useState({ nome: "", email: "", telefono: "", servizio: "", luogo: "", data: "", descrizione: "", sito_web: "" });
+  const [modulo, setModulo] = useState({ nome: "", email: "", telefono: "", servizio: "", luogo: "", data: "", descrizione: "", budget: "", sito_web: "" });
   const [categoria, setCategoria] = useState(null);
   const [punto, setPunto] = useState(null); // dove si vola: { lat, lon } (il pilota controlla lì le zone)
   const [cercoPunto, setCercoPunto] = useState(null); // null | "cerco" | messaggio
@@ -10638,7 +10638,7 @@ function TrovaPilota() {
     const { data, error } = await supabase.rpc("invia_richiesta_zona", {
       p_provincia: provincia, p_nome: modulo.nome, p_email: modulo.email, p_telefono: modulo.telefono,
       p_servizio: modulo.servizio, p_luogo: modulo.luogo, p_data: modulo.data || null, p_descrizione: descrizione,
-      p_lat: dove ? dove.lat : null, p_lon: dove ? dove.lon : null,
+      p_lat: dove ? dove.lat : null, p_lon: dove ? dove.lon : null, p_budget: modulo.budget || null,
     });
     if (error) {
       const m = error.message || "";
@@ -10735,6 +10735,13 @@ function TrovaPilota() {
                 </label>
                 <label><span style={CLIENTE.etichetta}>Dove (comune o indirizzo)</span><input maxLength={120} value={modulo.luogo} onChange={(e) => { cambia("luogo")(e); setPunto(null); }} placeholder="es. Cassino" style={CLIENTE.input} /></label>
                 <label><span style={CLIENTE.etichetta}>Quando (se hai una data)</span><input type="date" min={dataLocale()} value={modulo.data} onChange={cambia("data")} style={CLIENTE.input} /></label>
+                <label><span style={CLIENTE.etichetta}>Quanto pensi di spendere? (facoltativo)</span>
+                  <select value={modulo.budget} onChange={cambia("budget")} style={CLIENTE.input}>
+                    <option value="">Non lo so</option>
+                    {Object.entries(BUDGET_CLIENTE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                  {fasciaPerServizio(modulo.servizio) && <span style={{ display: "block", fontSize: 12.5, color: "#7a7068", marginTop: 4 }}>Di solito {fasciaPerServizio(modulo.servizio).min.toLocaleString("it-IT")}–{fasciaPerServizio(modulo.servizio).max.toLocaleString("it-IT")} €</span>}
+                </label>
               </div>
               <div style={{ background: "#fbf7f2", border: "1px solid #ece4da", borderRadius: 12, padding: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -10899,8 +10906,14 @@ function OfferteCliente({ codice }) {
   const offerte = dati.offerte || [];
   const confermata = offerte.find((o) => o.stato === "confermata");
   const scelta = offerte.find((o) => o.stato === "scelta");
-  const inGara = offerte.filter((o) => o.stato === "inviata");
+  // prima le offerte più complete (non le più economiche), a parità il prezzo più basso
+  const inGara = offerte.filter((o) => o.stato === "inviata")
+    .sort((a, b) => vociServizio(b.dettagli, b.pilota).length - vociServizio(a.dettagli, a.pilota).length || Number(a.prezzo) - Number(b.prezzo));
   const piuBassa = inGara.length > 1 ? Math.min(...inGara.map((o) => Number(o.prezzo))) : null;
+  // la più completa: quella con più cose comprese (solo se è una sola)
+  const quanteVoci = (o) => vociServizio(o.dettagli, o.pilota).length;
+  const maxVoci = inGara.length > 1 ? Math.max(...inGara.map(quanteVoci)) : null;
+  const piuCompleta = maxVoci != null && inGara.filter((o) => quanteVoci(o) === maxVoci).length === 1 ? inGara.find((o) => quanteVoci(o) === maxVoci).id : null;
   const scadeAlle = r.scelta_il ? new Date(new Date(r.scelta_il).getTime() + 48 * 3600 * 1000) : null;
   const quando = r.data_desiderata ? new Date(r.data_desiderata + "T12:00:00").toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }) : null;
 
@@ -10925,7 +10938,8 @@ function OfferteCliente({ codice }) {
             <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.25 }}>{titoloServizio(o.dettagli, r.servizio)}</div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: "#e0552f", whiteSpace: "nowrap" }}>{euroIt(o.prezzo)}</div>
-              {piuBassa != null && Number(o.prezzo) === piuBassa && o.stato === "inviata" && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1f8a4c" }}>la più conveniente</div>}
+              {piuCompleta === o.id && o.stato === "inviata" && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#7e3af2" }}>la più completa</div>}
+              {piuBassa != null && Number(o.prezzo) === piuBassa && o.stato === "inviata" && piuCompleta !== o.id && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1f8a4c" }}>la più economica</div>}
             </div>
           </div>
           <ul style={{ listStyle: "none", padding: 0, margin: "10px 0 0 0", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -11018,6 +11032,7 @@ function OfferteCliente({ codice }) {
         {!confermata && inGara.length > 0 && (
           <>
             {scelta && <h2 style={{ fontSize: 16, margin: "6px 0 0 0", color: "#6b6258" }}>Le altre offerte</h2>}
+            {inGara.length > 1 && !scelta && <p style={{ fontSize: 13.5, color: "#5b534b", margin: 0, lineHeight: 1.5 }}>💡 Il prezzo più basso non è sempre il migliore: guarda <strong>cosa comprende</strong> ogni offerta e i <strong>lavori fatti</strong> dal pilota.</p>}
             {inGara.map(schedaOfferta)}
           </>
         )}
@@ -11326,6 +11341,15 @@ function categoriaPerLavoro({ abitato, persone, tipo = "riprese", droni = [], at
   return { livello: "sts", titolo: abitato ? "Con i tuoi droni serve lo STS-01" : "Probabilmente serve lo STS-01", testo: `${abitato ? "In centro abitato" : "Vicino alle persone"}, con un drone senza classe C0, C1 o C2 in Open non si può: serve lo STS-01 (drone C5 e dichiarazione) o un'autorizzazione ENAC.${assembramento}` };
 }
 
+// quanto pensa di spendere il cliente (facoltativo): lo vedono i piloti
+const BUDGET_CLIENTE = { fino_300: "fino a 300 €", "300_700": "300–700 €", "700_1500": "700–1.500 €", oltre_1500: "oltre 1.500 €" };
+// la fascia di prezzo del mercato per un servizio (la stessa dei consigli sul prezzo nei preventivi)
+function fasciaPerServizio(servizio) {
+  const t = String(servizio || "").toLowerCase();
+  const k = /matrimon/.test(t) ? "matrimonio" : /immobil|turismo/.test(t) ? "immobiliare" : /aziend/.test(t) ? "aziendale" : /fpv/.test(t) ? "fpv" : /termograf/.test(t) ? "termografia" : /ispezion|tetti|facciat/.test(t) ? "ispezione" : /evento/.test(t) ? "evento" : null;
+  return k ? FASCE_PREZZO.find((x) => x.key === k) || null : null;
+}
+
 // le voci dell'offerta, diverse per tipo di lavoro: campi con numero e voci da spuntare (con i valori tipici di partenza)
 const VOCI_OFFERTA = {
   riprese: { numeri: [["video_min", "🎬 Minuti video", "3"], ["foto", "📸 Foto", "20"], ["consegna_giorni", "📅 Giorni consegna", "10"]], spunte: [["permessi", "📝 Permessi a carico mio", true], ["reel", "📱 Reel per i social"], ["sopralluogo", "👀 Sopralluogo"]] },
@@ -11348,7 +11372,7 @@ const LAVORO_APPENA_PAGATO = typeof window !== "undefined" && new URLSearchParam
 // «Lavori nella tua zona»: le richieste di «Trova un pilota» della provincia del pilota, senza i contatti del cliente.
 // Il pilota manda un'offerta; se il cliente lo sceglie, conferma (e paga la commissione, se c'è) e il lavoro arriva
 // tra le sue richieste con i contatti
-function LavoriInZona({ provincia, onPreso, onPermessi }) {
+function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, onVai }) {
   const [lavori, setLavori] = useState(null); // null = caricamento o script non eseguito
   const [bozze, setBozze] = useState({}); // id → { prezzo, messaggio }
   const [aperto, setAperto] = useState(null); // richiesta con il modulo dell'offerta aperto
@@ -11371,6 +11395,8 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
   };
   // per la categoria consigliata: i droni e gli attestati del pilota, e se il punto è in centro abitato
   const [mezzi, setMezzi] = useState({ droni: [], attestati: [] });
+  const [regole, setRegole] = useState(null); // commissione: { percento, minimo, massimo, attiva }
+  useEffect(() => { supabase.rpc("regole_commissione").then(({ data }) => data && setRegole(data), () => {}); }, []);
   const [abitati, setAbitati] = useState({}); // "lat,lon" → true | false | null (non so)
   useEffect(() => {
     Promise.all([supabase.from("droni").select("id, nome, modello, marcatura_classe"), supabase.from("attestati").select("tipo")])
@@ -11481,133 +11507,175 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
     onPermessi && onPermessi();
     window.scrollTo(0, 0);
   };
-  const zonaLavoro = (l) => {
-    if (l.lat == null || l.lon == null) return l.luogo ? <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 6 }}>📍 Il cliente ha scritto solo il comune: per le zone chiedigli il punto esatto dopo la conferma.</div> : null;
+  // dov'è il lavoro e cosa dicono il file zone D-Flight del pilota (controllato sul telefono, con i suoi dati) e la categoria
+  const analisi = (l) => {
+    if (l.lat == null || l.lon == null) return null;
     const punto = { lat: Number(l.lat), lon: Number(l.lon) };
-    const mappa = <a href={`https://www.google.com/maps/search/?api=1&query=${punto.lat},${punto.lon}`} target="_blank" rel="noopener noreferrer" style={{ color: "#7fb0ff" }}>vedi sulla mappa ↗</a>;
-    let riga;
-    if (archivio === undefined) riga = <span style={{ color: "#8b95a3" }}>controllo le zone…</span>;
-    else if (!zoneValide) riga = <span style={{ color: "#ffd9a0" }}>🛡️ Carica il file zone di D-Flight (qui sopra): saprai subito se qui puoi volare e quali permessi ti servono.</span>;
+    let zona;
+    if (archivio === undefined) zona = { icona: "⏳", breve: "Controllo le zone…", colore: "#8b95a3" };
+    else if (!zoneValide) zona = { icona: "🛡️", breve: "Carica il file D-Flight", colore: "#ffd9a0", lungo: "Carica il file zone di D-Flight (qui sopra): saprai subito se qui puoi volare e quali permessi ti servono." };
     else {
-      // guardo tutto il cerchio intorno al punto (100 m, dove si vola; 150 m se il punto è arrotondato)
-      // e prendo il caso peggiore, così il limite vale in tutta l'area del volo
+      // tutto il cerchio intorno al punto (100 m, dove si vola; 150 m se il punto è arrotondato): vale il caso peggiore
       const raggio = l.esatto ? 100 : 150;
       const { dentro, vicine } = controllaPunto(zoneValide, punto, { raggio });
       const zone = [...dentro, ...vicine].filter((z) => z.restrizione !== "NO_RESTRICTION" && !z.nonAttiva);
       const peggiore = zone.find((z) => z.restrizione === "PROHIBITED") || zone.find((z) => z.restrizione === "REQ_AUTHORISATION") || zone[0];
       const h = altezzaSenzaPermessi(zoneValide, punto, raggio);
       const bordo = zone.some((z) => z.distanza) || (dentro.length > 0 && vicine.some((z) => z.restrizione !== "NO_RESTRICTION"));
-      if (!peggiore) riga = <span style={{ color: "#4ade80" }}>🟢 Nessuna zona entro {raggio} m dal punto: fino a {h} m senza permessi, con le regole della tua categoria.</span>;
+      if (!peggiore) zona = { icona: "🟢", breve: `Zona libera fino a ${h} m`, colore: "#4ade80", lungo: `Nessuna zona entro ${raggio} m dal punto: fino a ${h} m senza permessi, con le regole della tua categoria.` };
       else {
         const d = descriviRestrizione(peggiore.restrizione);
-        const icona = peggiore.restrizione === "PROHIBITED" || peggiore.restrizione === "REQ_AUTHORISATION" ? "🔴" : "🟡";
-        riga = (
-          <span style={{ color: d.colore }}>
-            {icona} {d.etichetta}: {peggiore.nome || "zona D-Flight"}{peggiore.distanza ? ` (a ${peggiore.distanza} m)` : ""}{peggiore.restrizione === "CONDITIONAL" ? " · si vola rispettando le condizioni della zona (leggile nell'Assistente)" : h <= 0 ? " · permesso necessario già da terra" : h < 120 ? ` · senza permesso fino a ${h} m` : ""}
-            {bordo && <span style={{ display: "block", color: "#f5b942" }}>⚠️ Il confine di una zona passa vicino: ho preso il limite più basso dell'area. Se voli dalla parte libera puoi salire di più: controlla nell'Assistente.</span>}
-          </span>
-        );
+        const rossa = peggiore.restrizione === "PROHIBITED" || peggiore.restrizione === "REQ_AUTHORISATION";
+        zona = {
+          icona: rossa ? "🔴" : "🟡",
+          breve: peggiore.restrizione === "PROHIBITED" ? "Volo vietato" : peggiore.restrizione === "REQ_AUTHORISATION" ? (h > 0 ? `Permesso sopra ${h} m` : "Serve un permesso") : "Zona con condizioni",
+          colore: d.colore,
+          lungo: `${d.etichetta}: ${peggiore.nome || "zona D-Flight"}${peggiore.distanza ? ` (a ${peggiore.distanza} m)` : ""}. ${peggiore.restrizione === "CONDITIONAL" ? "Si vola rispettando le condizioni della zona: leggile nell'Assistente." : h <= 0 ? "Serve il permesso già da terra." : h < 120 ? `Senza permesso fino a ${h} m.` : ""}${bordo ? " Il confine di una zona passa vicino: ho preso il limite più basso dell'area." : ""}`,
+        };
       }
     }
+    const ab = abitati[`${l.lat},${l.lon}`];
+    let cat = null;
+    if (ab === undefined) cat = { titolo: "Guardo la categoria…", colore: "#8b95a3" };
+    else {
+      const tipo = tipoServizio(l.servizio);
+      const persone = tipo === "riprese" && (/matrimon|evento|fpv/i.test(l.servizio || "") || /matrimon|festa|evento|concerto|gara|pubblico|invitat/i.test(l.descrizione || ""));
+      const c = categoriaConsigliata({ abitato: ab, persone, tipo, droni: mezzi.droni, attestati: mezzi.attestati });
+      cat = { titolo: c.titolo, colore: c.livello === "open" ? "#4ade80" : c.livello === "attenzione" ? "#f5b942" : "#ff8c42", testo: `${ab == null ? "Non sono riuscito a vedere se è in centro abitato. " : ab ? "Centro abitato. " : "Fuori dal centro abitato. "}${persone ? "Lavoro con persone vicine. " : ""}${c.testo}` };
+    }
+    return { punto, zona, cat };
+  };
+  const EMOJI_TIPO = { riprese: "🎬", ispezioni: "🔍", termografia: "🌡️", rilievi: "📐", agricoltura: "🌱", trattamenti: "💧" };
+  const pillola = (colore, testo) => <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, color: colore, background: `${colore}1f`, border: `1px solid ${colore}55`, borderRadius: 14, padding: "3px 9px" }}>{testo}</span>;
+  // la scheda di un lavoro: in alto l'essenziale, i dettagli su zone e categoria si aprono a richiesta
+  const testaLavoro = (l) => {
+    const a = analisi(l);
+    const tipo = tipoServizio(l.servizio);
     return (
-      <div style={{ fontSize: 12.5, marginTop: 8, background: "#141820", borderRadius: 8, padding: "8px 10px", lineHeight: 1.5 }}>
-        <div>📍 {l.luogo || "Luogo del lavoro"} · {mappa}</div>
-        <div style={{ marginTop: 2 }}>{riga}</div>
-        {(() => {
-          const ab = abitati[`${l.lat},${l.lon}`];
-          if (ab === undefined) return <div style={{ marginTop: 4, color: "#8b95a3" }}>🎯 Guardo che categoria serve…</div>;
-          const tipo = tipoServizio(l.servizio);
-          const persone = tipo === "riprese" && (/matrimon|evento|fpv/i.test(l.servizio || "") || /matrimon|festa|evento|concerto|gara|pubblico|invitat/i.test(l.descrizione || ""));
-          const c = categoriaConsigliata({ abitato: ab, persone, tipo, droni: mezzi.droni, attestati: mezzi.attestati });
-          const colore = c.livello === "open" ? "#4ade80" : c.livello === "attenzione" ? "#f5b942" : "#ff8c42";
-          return (
-            <div style={{ marginTop: 6 }}>
-              <div style={{ color: colore, fontWeight: 700 }}>🎯 {c.titolo}</div>
-              <div style={{ color: "#c3cad4" }}>{ab == null ? "Non sono riuscito a vedere se è in centro abitato. " : ab ? "Centro abitato. " : "Fuori dal centro abitato. "}{persone ? "Lavoro con persone vicine. " : ""}{c.testo}</div>
-              {!mezzi.droni.length && <div style={{ color: "#8b95a3" }}>Inserisci i tuoi droni (con la classe C0–C6) per un consiglio più preciso.</div>}
+      <>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+          <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.3 }}>{/matrimon/i.test(l.servizio || "") ? "💍" : EMOJI_TIPO[tipo]} {l.servizio || "Richiesta"}</div>
+          {l.budget && BUDGET_CLIENTE[l.budget] && pillola("#c4b5fd", `💶 ${BUDGET_CLIENTE[l.budget]}`)}
+        </div>
+        <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 3 }}>
+          📍 {l.luogo || "Luogo"}{l.data_desiderata ? ` · ${dataBreve(l.data_desiderata)}` : ""} · {l.offerte} {l.offerte === 1 ? "offerta" : "offerte"}
+          {a && <> · <a href={`https://www.google.com/maps/search/?api=1&query=${a.punto.lat},${a.punto.lon}`} target="_blank" rel="noopener noreferrer" style={{ color: "#7fb0ff" }}>mappa ↗</a></>}
+        </div>
+        {l.descrizione && <div style={{ fontSize: 13.5, color: "#d5dae1", marginTop: 8, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{l.descrizione}</div>}
+        {a && (
+          <>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+              {pillola(a.zona.colore, `${a.zona.icona} ${a.zona.breve}`)}
+              {a.cat && pillola(a.cat.colore, `🎯 ${a.cat.titolo}`)}
             </div>
-          );
-        })()}
-        {onPermessi && <button type="button" onClick={() => apriPermessi(l)} style={{ marginTop: 6, background: "#1d2633", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}>📝 Zone e permessi di questo posto</button>}
-        <div style={{ fontSize: 11, color: "#6b7480", marginTop: 4 }}>{l.esatto ? "Punto segnato dal cliente sulla mappa" : "Punto indicativo (±100 m)"}: il controllo guarda tutto il cerchio intorno e prende il caso peggiore.{["rilievi", "agricoltura", "trattamenti"].includes(tipoServizio(l.servizio)) ? " Per un'area grande controlla tutti i campi in Pianifica." : ""} Prima del volo verifica sempre su D-Flight: zone e categoria sono un aiuto, sul posto decidi tu.</div>
-      </div>
+            <details style={{ marginTop: 8 }}>
+              <summary style={{ fontSize: 12.5, color: "#7fb0ff", cursor: "pointer" }}>Perché? Zone e categoria nel dettaglio</summary>
+              <div style={{ fontSize: 12.5, color: "#c3cad4", lineHeight: 1.55, marginTop: 6, background: "#141820", borderRadius: 8, padding: "8px 10px" }}>
+                {a.zona.lungo && <div><strong style={{ color: a.zona.colore }}>Zona.</strong> {a.zona.lungo}</div>}
+                {a.cat?.testo && <div style={{ marginTop: 6 }}><strong style={{ color: a.cat.colore }}>Categoria.</strong> {a.cat.testo}</div>}
+                {!mezzi.droni.length && <div style={{ marginTop: 6, color: "#8b95a3" }}>Inserisci i tuoi droni con la classe (C0–C6) per un consiglio più preciso.</div>}
+                {onPermessi && <button type="button" onClick={() => apriPermessi(l)} style={{ marginTop: 8, background: "#1d2633", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}>📝 Zone e permessi di questo posto</button>}
+                <div style={{ fontSize: 11, color: "#6b7480", marginTop: 6 }}>{l.esatto ? "Punto segnato dal cliente" : "Punto indicativo (±100 m)"}: guardo tutto il cerchio intorno e prendo il caso peggiore.{["rilievi", "agricoltura", "trattamenti"].includes(tipo) ? " Per un'area grande controlla tutti i campi in Pianifica." : ""} Prima del volo verifica sempre su D-Flight: sul posto decidi tu.</div>
+              </div>
+            </details>
+          </>
+        )}
+        {!a && l.luogo && <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 8 }}>📍 Il cliente ha scritto solo il comune: chiedigli il punto esatto dopo la conferma.</div>}
+      </>
     );
   };
 
+  // cosa manca al pilota per ricevere più lavori (e dove si aggiunge)
+  const portfolio = (pagina?.portfolio || []).length, servizi = (pagina?.servizi || []).length;
+  const fileVecchio = archivio && Math.floor((Date.now() - new Date(archivio.caricato).getTime()) / 86400000) > 14;
+  const daFare = [
+    portfolio < 3 && { k: "foto", testo: "Aggiungi le foto dei tuoi lavori", perche: "Sono la prima cosa che guarda il cliente.", bottone: "Apri «La pagina»", azione: onApriPagina },
+    !servizi && { k: "servizi", testo: "Scegli i servizi che offri", perche: "Così il cliente capisce cosa fai.", bottone: "Apri «La pagina»", azione: onApriPagina },
+    !mezzi.droni.some((d) => d.marcatura_classe) && { k: "droni", testo: "Inserisci i droni con la classe (C0–C6)", perche: "Per sapere subito che categoria serve.", bottone: "Vai a Droni", azione: onVai && (() => onVai("droni")) },
+    archivio !== undefined && (!archivio || fileVecchio) && { k: "dflight", testo: archivio ? "Aggiorna il file zone di D-Flight" : "Carica il file zone di D-Flight", perche: archivio ? "Le zone cambiano: l'hai caricato più di 2 settimane fa." : "Per sapere dove puoi volare. Su D-Flight: «Download UAS Zone Geo».", file: true },
+  ].filter(Boolean);
+  const sezione = (titolo) => <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#8b95a3", margin: "16px 0 4px 0" }}>{titolo}</div>;
+
   return (
     <div style={{ background: "#141c28", border: "1px solid #3d8bfd44", borderRadius: 12, padding: 14, marginTop: 6 }}>
-      <div style={{ fontSize: 14.5, fontWeight: 700 }}>📍 Lavori nella tua zona · {PROVINCE_ITALIA[provincia] || provincia}</div>
-      <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "4px 0 6px 0", lineHeight: 1.5 }}>Clienti che cercano un pilota in provincia di {PROVINCE_ITALIA[provincia] || provincia}. Manda la tua offerta: se il cliente ti sceglie, confermi e vedi i suoi contatti. I clienti ti trovano qui: <a href={`/trova-pilota/${provincia.toLowerCase()}`} target="_blank" rel="noopener noreferrer" style={{ color: "#7fb0ff" }}>{window.location.host}/trova-pilota/{provincia.toLowerCase()} ↗</a></p>
-      {archivio !== undefined && lavori.some((l) => l.lat != null) && (() => {
-        const giorni = archivio ? Math.floor((Date.now() - new Date(archivio.caricato).getTime()) / 86400000) : 0;
-        if (archivio && giorni <= 14) return null;
-        return (
-          <div style={{ ...st.scheda, background: "#3a2a12", borderColor: "#f5b94266", color: "#ffd9a0", fontSize: 13, lineHeight: 1.5 }}>
-            <strong>🛡️ {archivio ? "Aggiorna il file zone di D-Flight" : "Carica il file zone di D-Flight"}</strong>
-            <div style={{ marginTop: 4 }}>{archivio ? `L'hai caricato ${giorni} giorni fa: le zone cambiano, aggiornalo per controlli giusti.` : "Così per ogni lavoro sai subito se nel posto puoi volare, fino a che altezza e quali permessi ti servono, prima di fare l'offerta."}</div>
-            <div style={{ fontSize: 12, color: "#d9c39a", marginTop: 4 }}>Su <a href={LINK_DFLIGHT} target="_blank" rel="noreferrer" style={{ color: "#ffd9a0" }}>D-Flight ↗</a> scarica il file con «Download UAS Zone Geo», poi caricalo qui. Basta una volta: resta salvato.</div>
-            <label style={{ display: "inline-block", marginTop: 8, background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
-              {leggoFile ? "Sto leggendo il file…" : archivio ? "📂 Aggiorna il file" : "📂 Carica il file zone"}
-              <input type="file" onChange={caricaZone} disabled={leggoFile} style={{ display: "none" }} />
-            </label>
-            {erroreFile && <div style={{ color: "#ff9c9c", marginTop: 6 }}>{erroreFile}</div>}
-          </div>
-        );
-      })()}
+      <div style={{ fontSize: 16, fontWeight: 800 }}>📍 Lavori nella tua zona</div>
+      <div style={{ fontSize: 13, color: "#c3cad4", marginTop: 4, lineHeight: 1.5 }}>Clienti che cercano un pilota in provincia di <strong>{PROVINCE_ITALIA[provincia] || provincia}</strong>. Mandi l'offerta; se ti scelgono confermi e ricevi i contatti.</div>
+      {regole && (
+        <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 6, lineHeight: 1.5 }}>
+          💶 Commissione EyeDrones: <strong style={{ color: "#c3cad4" }}>{String(regole.percento).replace(".", ",")}% del prezzo</strong>, minimo {euroIt(regole.minimo)}, massimo {euroIt(regole.massimo)}, solo sui lavori che ottieni.{!regole.attiva && <strong style={{ color: "#4ade80" }}> Per ora è gratis.</strong>}
+        </div>
+      )}
+
+      {daFare.length > 0 && (
+        <div style={{ ...st.scheda, background: "#1a2230", borderColor: "#3d8bfd55", marginTop: 12 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 800 }}>✨ Per ricevere più lavori</div>
+          {daFare.map((x) => (
+            <div key={x.k} style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", marginTop: 10 }}>
+              <div style={{ flex: "1 1 200px", fontSize: 13 }}><span style={{ color: "#e7eaee", fontWeight: 600 }}>{x.testo}</span><div style={{ fontSize: 12, color: "#8b95a3" }}>{x.perche}</div></div>
+              {x.file
+                ? <label style={{ background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "6px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>{leggoFile ? "Leggo il file…" : "📂 Carica il file"}<input type="file" onChange={caricaZone} disabled={leggoFile} style={{ display: "none" }} /></label>
+                : x.azione && <button type="button" onClick={x.azione} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>{x.bottone}</button>}
+            </div>
+          ))}
+          {erroreFile && <div style={{ color: "#ff9c9c", fontSize: 12.5, marginTop: 6 }}>{erroreFile}</div>}
+          <div style={{ fontSize: 11.5, color: "#6b7480", marginTop: 8 }}>I clienti ti trovano qui: <a href={`/trova-pilota/${provincia.toLowerCase()}`} target="_blank" rel="noopener noreferrer" style={{ color: "#7fb0ff" }}>{window.location.host}/trova-pilota/{provincia.toLowerCase()} ↗</a></div>
+        </div>
+      )}
       {pagato && <div style={{ ...st.scheda, borderColor: "#2c5a3f", color: "#86efac", fontSize: 13 }}>✓ Pagamento ricevuto: sto confermando il lavoro, tra pochi secondi lo trovi tra le richieste qui sopra con i contatti del cliente.</div>}
 
+      {scelti.length > 0 && sezione("Ti hanno scelto")}
       {scelti.map((l) => {
         const scade = l.mia.scade ? new Date(l.mia.scade) : null;
         const comm = Number(l.mia.commissione) || 0;
         return (
           <div key={l.id} style={{ ...st.scheda, borderColor: "#ff8c42", background: "#241a12" }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "#ffb877" }}>🎉 Il cliente ha scelto la tua offerta!</div>
-            <div style={{ fontSize: 13.5, marginTop: 4 }}>{riga(l)} · la tua offerta: <strong>{euroIt(l.mia.prezzo)}</strong></div>
-            {zonaLavoro(l)}
-            <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4 }}>Conferma{scade ? ` entro ${scade.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })} alle ${scade.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : " entro 48 ore"}: subito dopo vedi nome, telefono ed email del cliente.</div>
-            <button type="button" disabled={lavoro === l.id} onClick={() => conferma(l)} style={{ marginTop: 10, background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 800 }}>
-              {lavoro === l.id ? "Un attimo…" : comm > 0 ? `Conferma e paga ${euroIt(comm)}` : "Conferma il lavoro"}
-            </button>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#ffb877", marginBottom: 8 }}>🎉 Il cliente ha scelto la tua offerta da {euroIt(l.mia.prezzo)}</div>
+            {testaLavoro(l)}
+            <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 10 }}>Conferma{scade ? ` entro ${scade.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })} alle ${scade.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : " entro 48 ore"}: subito dopo vedi nome, telefono ed email del cliente.</div>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>
+              <button type="button" disabled={lavoro === l.id} onClick={() => conferma(l)} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 800 }}>
+                {lavoro === l.id ? "Un attimo…" : comm > 0 ? `Conferma e paga ${euroIt(comm)}` : "Conferma il lavoro"}
+              </button>
+              {rinuncia?.id !== l.id && <button type="button" onClick={() => setRinuncia({ id: l.id, motivo: "", altro: "" })} style={{ background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>Non posso farlo</button>}
+            </div>
             {comm > 0 && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 6 }}>Commissione di EyeDrones: la paghi solo per i lavori che ottieni.</div>}
-            {rinuncia?.id !== l.id
-              ? <button type="button" onClick={() => setRinuncia({ id: l.id, motivo: "", altro: "" })} style={{ marginTop: 8, background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>Non posso farlo</button>
-              : (
-                <div style={{ marginTop: 10, background: "#1b2028", border: "1px solid #333a45", borderRadius: 8, padding: 10 }}>
-                  <div style={{ fontSize: 12.5, color: "#c3cad4", marginBottom: 6 }}>Perché? Lo leggerà il cliente. Nessuna penalità: è giusto dirlo subito.</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {["Zona vietata o permesso non ottenibile in tempo", "Serve una categoria o un attestato che non ho", "Non sono più libero quel giorno"].map((m) => (
-                      <button key={m} type="button" onClick={() => setRinuncia({ ...rinuncia, motivo: rinuncia.motivo === m ? "" : m })} style={{ ...chip(rinuncia.motivo === m), borderRadius: 16, padding: "6px 10px", fontSize: 12 }}>{m}</button>
-                    ))}
-                  </div>
-                  <input value={rinuncia.altro} onChange={(e) => setRinuncia({ ...rinuncia, altro: e.target.value })} maxLength={200} placeholder="Altro o dettagli (facoltativo)" style={{ ...inputStyle, marginTop: 8 }} />
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button type="button" disabled={lavoro === l.id} onClick={() => rinuncia_(l)} style={{ background: "#262b33", border: "1px solid #ff9c9c66", color: "#ffb4b4", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>{lavoro === l.id ? "Un attimo…" : "Avvisa il cliente"}</button>
-                    <button type="button" onClick={() => setRinuncia(null)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5 }}>Annulla</button>
-                  </div>
+            {rinuncia?.id === l.id && (
+              <div style={{ marginTop: 10, background: "#1b2028", border: "1px solid #333a45", borderRadius: 8, padding: 10 }}>
+                <div style={{ fontSize: 12.5, color: "#c3cad4", marginBottom: 6 }}>Perché? Lo leggerà il cliente. Nessuna penalità: è giusto dirlo subito.</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {["Zona vietata o permesso non ottenibile in tempo", "Serve una categoria o un attestato che non ho", "Non sono più libero quel giorno"].map((m) => (
+                    <button key={m} type="button" onClick={() => setRinuncia({ ...rinuncia, motivo: rinuncia.motivo === m ? "" : m })} style={{ ...chip(rinuncia.motivo === m), borderRadius: 16, padding: "6px 10px", fontSize: 12 }}>{m}</button>
+                  ))}
                 </div>
-              )}
+                <input value={rinuncia.altro} onChange={(e) => setRinuncia({ ...rinuncia, altro: e.target.value })} maxLength={200} placeholder="Altro o dettagli (facoltativo)" style={{ ...inputStyle, marginTop: 8 }} />
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button type="button" disabled={lavoro === l.id} onClick={() => rinuncia_(l)} style={{ background: "#262b33", border: "1px solid #ff9c9c66", color: "#ffb4b4", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>{lavoro === l.id ? "Un attimo…" : "Avvisa il cliente"}</button>
+                  <button type="button" onClick={() => setRinuncia(null)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5 }}>Annulla</button>
+                </div>
+              </div>
+            )}
             {errore?.id === l.id && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore.testo}</p>}
           </div>
         );
       })}
 
-      {aperti.length === 0 && scelti.length === 0 && <div style={{ fontSize: 12.5, color: "#6b7480", marginTop: 6 }}>Per ora nessuna richiesta aperta. Quando un cliente della tua provincia scrive, ti arriva un'email.</div>}
+      {sezione(`Richieste aperte${aperti.length ? ` (${aperti.length})` : ""}`)}
+      {aperti.length === 0 && <div style={{ fontSize: 12.5, color: "#6b7480" }}>Per ora nessuna richiesta aperta. Quando un cliente della tua provincia scrive, ti arriva un'email.</div>}
       {aperti.map((l) => {
         const b = bozza(l);
         const modulo = aperto === l.id;
+        const fascia = fasciaPerServizio(l.servizio);
+        const prezzo = Number(String(b.prezzo || "").replace(",", "."));
+        const stimata = regole && regole.attiva && prezzo > 0 ? Math.round(Math.max(regole.minimo, Math.min(regole.massimo, prezzo * regole.percento / 100)) * 100) / 100 : 0;
         return (
           <div key={l.id} style={st.scheda}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700 }}>{riga(l)}</div>
-              <span style={{ fontSize: 11, color: "#8b95a3", whiteSpace: "nowrap" }}>{l.offerte} {l.offerte === 1 ? "offerta" : "offerte"}</span>
-            </div>
-            {l.descrizione && <div style={{ fontSize: 13, color: "#c3cad4", marginTop: 6, whiteSpace: "pre-wrap" }}>{l.descrizione}</div>}
-            {zonaLavoro(l)}
-            {l.mia && !modulo && <div style={{ fontSize: 12.5, color: "#86efac", marginTop: 8 }}>✓ Hai offerto {euroIt(l.mia.prezzo)}: il cliente sta guardando le offerte. <button type="button" onClick={() => setAperto(l.id)} style={{ background: "none", border: "none", color: "#7fb0ff", padding: 0, fontSize: 12.5, textDecoration: "underline" }}>Cambia</button></div>}
-            {!l.mia && !modulo && <button type="button" onClick={() => setAperto(l.id)} style={{ marginTop: 8, background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 6, padding: "8px 12px", fontSize: 13, fontWeight: 700 }}>Manda la tua offerta</button>}
+            {testaLavoro(l)}
+            {l.mia && !modulo && <div style={{ fontSize: 12.5, color: "#86efac", marginTop: 10 }}>✓ Hai offerto {euroIt(l.mia.prezzo)}: il cliente sta guardando le offerte. <button type="button" onClick={() => setAperto(l.id)} style={{ background: "none", border: "none", color: "#7fb0ff", padding: 0, fontSize: 12.5, textDecoration: "underline" }}>Cambia</button></div>}
+            {!l.mia && !modulo && <button type="button" onClick={() => setAperto(l.id)} style={{ marginTop: 12, background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13.5, fontWeight: 700 }}>Manda la tua offerta</button>}
             {modulo && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                <div style={{ fontSize: 12.5, color: "#c3cad4", fontWeight: 700 }}>Cosa comprende (è la prima cosa che vede il cliente)</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12, paddingTop: 12, borderTop: "1px solid #2b313d" }}>
+                <div style={{ fontSize: 13, color: "#e7eaee", fontWeight: 700 }}>La tua offerta</div>
+                <div style={{ fontSize: 12, color: "#8b95a3", marginTop: -6 }}>1 · Cosa comprende (il cliente lo vede per primo)</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, alignItems: "end" }}>
                   {VOCI_OFFERTA[tipoServizio(l.servizio)].numeri.map(([k, t]) => (
                     <label key={k} style={{ fontSize: 12, color: "#8b95a3", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>{t}<input inputMode="decimal" value={b[k]} onChange={(e) => cambiaBozza(l, k, e.target.value)} placeholder="scrivi…" style={{ ...inputStyle, marginTop: 4 }} /></label>
@@ -11618,16 +11686,22 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
                     <button key={k} type="button" onClick={() => cambiaBozza(l, k, !b[k])} style={{ ...chip(!!b[k]), borderRadius: 16, padding: "6px 12px", fontSize: 12.5 }}>{b[k] ? "✓ " : ""}{t}</button>
                   ))}
                 </div>
-                <label style={{ fontSize: 12, color: "#8b95a3" }}>Prezzo totale (€)
-                  <input inputMode="decimal" value={b.prezzo} onChange={(e) => cambiaBozza(l, "prezzo", e.target.value)} placeholder="es. 450" style={{ ...inputStyle, marginTop: 4, maxWidth: 160 }} />
-                </label>
-                <label style={{ fontSize: 12, color: "#8b95a3" }}>Messaggio al cliente (facoltativo): altro che comprende, come lavori
-                  <textarea rows={3} maxLength={1500} value={b.messaggio} onChange={(e) => cambiaBozza(l, "messaggio", e.target.value)} placeholder={{ riprese: "es. Riprese di chiesa, uscita degli sposi e location, montaggio con musica.", ispezioni: "es. Foto ravvicinate di tetto e grondaie, segnalo i punti da sistemare.", termografia: "es. Volo con sole pieno, report con stringhe e moduli caldi, file per l'installatore.", rilievi: "es. Ortofoto a 2 cm/pixel, nuvola di punti e misure dei volumi, file DWG.", agricoltura: "es. Volo multispettrale, mappa NDVI e zone da concimare.", trattamenti: "es. Trattamento con prodotto fornito da voi, registro e meteo del giorno." }[tipoServizio(l.servizio)]} style={{ ...inputStyle, marginTop: 4, resize: "vertical", fontFamily: "inherit" }} />
-                </label>
-                <div style={{ fontSize: 11.5, color: "#6b7480" }}>Il cliente vede il tuo nome abbreviato e i lavori della tua pagina, non i tuoi attestati né i loro codici. Numeri ed email nel messaggio vengono nascosti finché non ti sceglie.</div>
+                <div style={{ fontSize: 12, color: "#8b95a3" }}>2 · Il prezzo</div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <input inputMode="decimal" value={b.prezzo} onChange={(e) => cambiaBozza(l, "prezzo", e.target.value)} placeholder="es. 450" aria-label="Prezzo totale in euro" style={{ ...inputStyle, maxWidth: 140 }} />
+                  <span style={{ fontSize: 12, color: "#8b95a3", flex: "1 1 180px" }}>
+                    {fascia && <>Di solito: <strong style={{ color: "#c3cad4" }}>{euroIt(fascia.min)}–{euroIt(fascia.max)}</strong> (tipico {euroIt(fascia.tipico)}). </>}
+                    {l.budget && BUDGET_CLIENTE[l.budget] && <>Il cliente pensa a <strong style={{ color: "#c4b5fd" }}>{BUDGET_CLIENTE[l.budget]}</strong>. </>}
+                    {regole && (regole.attiva ? (stimata ? `Commissione se ti scelgono: ${euroIt(stimata)}.` : "") : "Nessuna commissione per ora.")}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11.5, color: "#6b7480" }}>Non abbassare troppo il prezzo: il cliente confronta prima cosa comprende ogni offerta, e gli altri piloti non vedono il tuo prezzo.</div>
+                <div style={{ fontSize: 12, color: "#8b95a3" }}>3 · Un messaggio (facoltativo)</div>
+                <textarea rows={3} maxLength={1500} value={b.messaggio} onChange={(e) => cambiaBozza(l, "messaggio", e.target.value)} placeholder={{ riprese: "es. Riprese di chiesa, uscita degli sposi e location, montaggio con musica.", ispezioni: "es. Foto ravvicinate di tetto e grondaie, segnalo i punti da sistemare.", termografia: "es. Volo con sole pieno, report con stringhe e moduli caldi, file per l'installatore.", rilievi: "es. Ortofoto a 2 cm/pixel, nuvola di punti e misure dei volumi, file DWG.", agricoltura: "es. Volo multispettrale, mappa NDVI e zone da concimare.", trattamenti: "es. Trattamento con prodotto fornito da voi, registro e meteo del giorno." }[tipoServizio(l.servizio)]} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+                <div style={{ fontSize: 11.5, color: "#6b7480" }}>Il cliente vede il tuo nome abbreviato e le foto della tua pagina, non attestati né contatti: numeri ed email nel messaggio vengono nascosti finché non ti sceglie.</div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button type="button" disabled={lavoro === l.id} onClick={() => inviaOfferta(l)} style={{ background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>{lavoro === l.id ? "Invio…" : l.mia ? "Aggiorna l'offerta" : "Invia l'offerta"}</button>
-                  <button type="button" onClick={() => setAperto(null)} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "8px 12px", fontSize: 13 }}>Annulla</button>
+                  <button type="button" disabled={lavoro === l.id} onClick={() => inviaOfferta(l)} style={{ background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13.5, fontWeight: 700 }}>{lavoro === l.id ? "Invio…" : l.mia ? "Aggiorna l'offerta" : "Invia l'offerta"}</button>
+                  <button type="button" onClick={() => setAperto(null)} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "9px 12px", fontSize: 13 }}>Annulla</button>
                 </div>
               </div>
             )}
@@ -11637,7 +11711,7 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
       })}
 
       {finiti.length > 0 && (
-        <details style={{ marginTop: 10 }}>
+        <details style={{ marginTop: 14 }}>
           <summary style={{ fontSize: 12.5, color: "#8b95a3", cursor: "pointer" }}>Le tue offerte passate ({finiti.length})</summary>
           {finiti.map((l) => (
             <div key={l.id} style={{ ...st.scheda, fontSize: 12.5, color: "#c3cad4" }}>
@@ -11651,7 +11725,7 @@ function LavoriInZona({ provincia, onPreso, onPermessi }) {
 }
 
 // «La mia pagina»: il pilota compone la sua pagina pubblica e legge le richieste arrivate
-function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onRichiesteCambiate, onCreaPreventivo, onPermessi }) {
+function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onRichiesteCambiate, onCreaPreventivo, onPermessi, onVai }) {
   const [scheda, setScheda] = useState(schedaIniziale); // "pagina" | "richieste"
   const [stato, setStato] = useState("carico"); // carico | pronto | manca-script
   const [salvata, setSalvata] = useState(null); // la riga com'è sul database (null = mai salvata)
@@ -11911,7 +11985,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
             </div>
           )}
           {richiesteAperte.map(schedaRichiesta)}
-          {salvata?.attiva && salvata.provincia && <LavoriInZona provincia={salvata.provincia} onPreso={caricaRichieste} onPermessi={onPermessi} />}
+          {salvata?.attiva && salvata.provincia && <LavoriInZona provincia={salvata.provincia} pagina={salvata} onPreso={caricaRichieste} onPermessi={onPermessi} onApriPagina={() => { setScheda("pagina"); window.scrollTo(0, 0); }} onVai={onVai} />}
           {richiesteArchiviate.length > 0 && (
             <details style={{ marginTop: 6 }}>
               <summary style={{ fontSize: 13, color: "#8b95a3", cursor: "pointer" }}>Archiviate ({richiesteArchiviate.length})</summary>

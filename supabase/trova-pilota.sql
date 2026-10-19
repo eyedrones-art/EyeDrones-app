@@ -15,7 +15,9 @@
 --    i contatti del pilota. Se il pilota non conferma in 48 ore la scelta decade e il cliente può sceglierne un altro;
 --    chi lascia decadere 2 scelte non riceve più richieste in zona
 --
--- La commissione si cambia qui sotto, in privato.impostazioni (lavori_commissione_*). All'inizio è 0: non paga nessuno.
+-- La commissione si cambia qui sotto, in privato.impostazioni (lavori_commissione_*): 5% del prezzo, minimo 5 €,
+-- massimo 30 €. All'inizio è SPENTA (lavori_commissione_attiva = 'no'): non paga nessuno. Per accenderla:
+--   update privato.impostazioni set valore = 'si' where chiave = 'lavori_commissione_attiva';
 
 create extension if not exists pg_net;
 create schema if not exists privato;
@@ -25,7 +27,8 @@ revoke all on privato.impostazioni from public, anon, authenticated;
 
 insert into privato.impostazioni (chiave, valore) values
   ('lavori_url', 'https://app.eyedrones.it/.netlify/functions/avviso-lavori'),
-  ('lavori_commissione_percento', '0'),   -- es. 5 = 5% dell'offerta
+  ('lavori_commissione_attiva', 'no'),    -- 'si' = i piloti pagano la commissione sui lavori ottenuti
+  ('lavori_commissione_percento', '5'),   -- 5 = 5% dell'offerta
   ('lavori_commissione_minimo', '5'),     -- euro
   ('lavori_commissione_massimo', '30')    -- euro
 on conflict (chiave) do nothing;
@@ -61,6 +64,8 @@ alter table public.richieste_zona add column if not exists lon numeric(8,3);
 -- il punto esatto (circa 1 m): i piloti della provincia lo vedono (non è un contatto) per controllare zone e categoria
 alter table public.richieste_zona add column if not exists lat_esatta numeric(9,5);
 alter table public.richieste_zona add column if not exists lon_esatta numeric(9,5);
+-- quanto pensa di spendere il cliente (facoltativo): fino_300 | 300_700 | 700_1500 | oltre_1500
+alter table public.richieste_zona add column if not exists budget text;
 alter table public.richieste_zona enable row level security;
 revoke all on public.richieste_zona from anon, authenticated;
 
@@ -131,9 +136,22 @@ declare
   v_min numeric := coalesce((select valore::numeric from privato.impostazioni where chiave = 'lavori_commissione_minimo'), 0);
   v_max numeric := coalesce((select valore::numeric from privato.impostazioni where chiave = 'lavori_commissione_massimo'), 0);
 begin
+  if coalesce((select valore from privato.impostazioni where chiave = 'lavori_commissione_attiva'), 'no') <> 'si' then return 0; end if;
   if v_pct <= 0 then return 0; end if;
   return round(greatest(v_min, least(v_max, p_prezzo * v_pct / 100)), 2);
 end; $$;
+
+-- le regole della commissione, da mostrare ai piloti: { percento, minimo, massimo, attiva }
+create or replace function public.regole_commissione()
+returns json language sql stable security definer set search_path = public as $$
+  select json_build_object(
+    'percento', coalesce((select valore::numeric from privato.impostazioni where chiave = 'lavori_commissione_percento'), 0),
+    'minimo', coalesce((select valore::numeric from privato.impostazioni where chiave = 'lavori_commissione_minimo'), 0),
+    'massimo', coalesce((select valore::numeric from privato.impostazioni where chiave = 'lavori_commissione_massimo'), 0),
+    'attiva', coalesce((select valore from privato.impostazioni where chiave = 'lavori_commissione_attiva'), 'no') = 'si');
+$$;
+revoke all on function public.regole_commissione() from public;
+grant execute on function public.regole_commissione() to anon, authenticated;
 
 -- manda un'email tramite la funzione Netlify avviso-lavori (se qualcosa non va, il resto continua lo stesso)
 create or replace function privato.avvisa_lavori(p_dati jsonb)
@@ -216,10 +234,11 @@ grant execute on function public.piloti_in_zona(text) to anon, authenticated;
 -- 5) il cliente invia la richiesta → { codice, piloti }: il codice è il suo link privato alle offerte
 drop function if exists public.invia_richiesta_zona(text, text, text, text, text, text, date, text);
 drop function if exists public.invia_richiesta_zona(text, text, text, text, text, text, date, text, numeric, numeric);
+drop function if exists public.invia_richiesta_zona(text, text, text, text, text, text, date, text, numeric, numeric, text);
 create or replace function public.invia_richiesta_zona(
   p_provincia text, p_nome text, p_email text, p_telefono text,
   p_servizio text, p_luogo text, p_data date, p_descrizione text,
-  p_lat numeric default null, p_lon numeric default null
+  p_lat numeric default null, p_lon numeric default null, p_budget text default null
 )
 returns json
 language plpgsql volatile security definer set search_path = public
@@ -243,7 +262,7 @@ begin
   if (select count(*) from public.richieste_zona where created_at > now() - interval '1 day') >= 200
   then raise exception 'troppe richieste'; end if;
 
-  insert into public.richieste_zona (provincia, nome, email, telefono, servizio, luogo, data_desiderata, descrizione, lat, lon, lat_esatta, lon_esatta)
+  insert into public.richieste_zona (provincia, nome, email, telefono, servizio, luogo, data_desiderata, descrizione, lat, lon, lat_esatta, lon_esatta, budget)
   values (
     v_prov, v_nome, v_email, v_tel,
     nullif(left(btrim(coalesce(p_servizio, '')), 80), ''),
@@ -254,7 +273,8 @@ begin
     case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lat, 3) end,
     case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lon, 3) end,
     case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lat, 5) end,
-    case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lon, 5) end
+    case when p_lat between 35 and 48 and p_lon between 6 and 19 then round(p_lon, 5) end,
+    case when p_budget in ('fino_300', '300_700', '700_1500', 'oltre_1500') then p_budget end
   )
   returning * into v_z;
 
@@ -273,8 +293,8 @@ begin
   return json_build_object('codice', v_z.codice, 'piloti', jsonb_array_length(v_piloti));
 end;
 $$;
-revoke all on function public.invia_richiesta_zona(text, text, text, text, text, text, date, text, numeric, numeric) from public;
-grant execute on function public.invia_richiesta_zona(text, text, text, text, text, text, date, text, numeric, numeric) to anon, authenticated;
+revoke all on function public.invia_richiesta_zona(text, text, text, text, text, text, date, text, numeric, numeric, text) from public;
+grant execute on function public.invia_richiesta_zona(text, text, text, text, text, text, date, text, numeric, numeric, text) to anon, authenticated;
 
 -- 6) il cliente apre il link: la sua richiesta e le offerte (i contatti del pilota solo a lavoro confermato)
 create or replace function public.offerte_cliente(p_codice text)
@@ -289,7 +309,7 @@ begin
   return json_build_object(
     'richiesta', json_build_object('nome', v_z.nome, 'provincia', v_z.provincia, 'servizio', v_z.servizio, 'luogo', v_z.luogo,
       'data_desiderata', v_z.data_desiderata, 'descrizione', v_z.descrizione, 'stato', v_z.stato, 'scelta_il', v_z.scelta_il,
-      'created_at', v_z.created_at),
+      'created_at', v_z.created_at, 'budget', v_z.budget),
     'offerte', coalesce((
       select json_agg(json_build_object(
         'id', o.id, 'prezzo', o.prezzo, 'dettagli', o.dettagli,
@@ -394,7 +414,7 @@ begin
   return coalesce((
     select json_agg(json_build_object(
       'id', z.id, 'servizio', z.servizio, 'luogo', z.luogo, 'data_desiderata', z.data_desiderata,
-      'lat', coalesce(z.lat_esatta, z.lat), 'lon', coalesce(z.lon_esatta, z.lon), 'esatto', z.lat_esatta is not null,
+      'lat', coalesce(z.lat_esatta, z.lat), 'lon', coalesce(z.lon_esatta, z.lon), 'esatto', z.lat_esatta is not null, 'budget', z.budget,
       'descrizione', privato.senza_contatti(z.descrizione), 'created_at', z.created_at, 'stato', z.stato,
       'offerte', (select count(*) from public.offerte_zona x where x.richiesta_id = z.id and x.stato <> 'decaduta'),
       'mia', (select json_build_object('id', o.id, 'prezzo', o.prezzo, 'messaggio', o.messaggio, 'dettagli', o.dettagli, 'stato', o.stato,
