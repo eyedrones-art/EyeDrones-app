@@ -11155,6 +11155,28 @@ function RecensioneCliente({ codice, nomePilota, stelleIniziali, testoIniziale, 
   );
 }
 
+// «Aggiungi alla schermata Home» per il cliente: l'app dei clienti (si apre su «I miei lavori»)
+function InstallaCliente() {
+  const [evento, setEvento] = useState(() => window.__eventoInstallazione || null);
+  const [fatto, setFatto] = useState(false);
+  useEffect(() => {
+    const su = () => setEvento(window.__eventoInstallazione || null);
+    window.addEventListener("eyedrones-installabile", su);
+    return () => window.removeEventListener("eyedrones-installabile", su);
+  }, []);
+  const installata = window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone;
+  const iphone = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (installata || fatto || (!evento && !iphone)) return null;
+  const installa = async () => { evento.prompt(); const r = await evento.userChoice.catch(() => null); if (r?.outcome === "accepted") setFatto(true); window.__eventoInstallazione = null; setEvento(null); };
+  return (
+    <div style={{ ...CLIENTE.scheda, padding: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <span style={{ fontSize: 28 }}>📲</span>
+      <span style={{ flex: "1 1 200px", fontSize: 14, color: "#4a433c", lineHeight: 1.45 }}><strong>Tienila sul telefono.</strong> {evento ? "Aggiungi «I miei lavori» alla schermata Home: la apri con un tocco, come un'app." : "Su iPhone: tocca Condividi (il quadrato con la freccia ⬆️) e poi «Aggiungi alla schermata Home»."}</span>
+      {evento && <button type="button" onClick={installa} style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14 }}>Aggiungi</button>}
+    </div>
+  );
+}
+
 // «I miei lavori»: il cliente ritrova tutte le sue richieste. Entra con il link personale che riceve per email
 // (/miei-lavori/<codice>): il codice resta su questo telefono, così la volta dopo basta aprire /miei-lavori
 const CHIAVE_CLIENTE = "eyedrones_cliente";
@@ -11231,6 +11253,7 @@ function MieiLavori() {
         </div>
         <a href="/trova-pilota" style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14 }}>+ Nuova richiesta</a>
       </header>
+      <InstallaCliente />
       {inviata && inviata !== "invio" && <div role="status" style={{ ...CLIENTE.scheda, background: "#eaf6ef", borderColor: "#bfe3cd", fontSize: 14.5 }}>✓ Richiesta mandata a <strong>{inviata}</strong>. Ti scriviamo appena manda l'offerta.</div>}
       {lavori.length === 0 && <div style={{ ...CLIENTE.scheda, fontSize: 14.5, color: "#5b534b" }}>Per ora non ci sono richieste. <a href="/trova-pilota" style={{ color: "#e0552f", fontWeight: 700 }}>Fai la prima</a>.</div>}
       {lavori.map((l) => {

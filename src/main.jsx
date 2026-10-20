@@ -47,6 +47,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   </React.StrictMode>
 );
 
+// nelle pagine per i clienti l'app da installare è quella dei clienti («I miei lavori»), non quella dei piloti
+if (/^\/(trova-pilota|offerte|miei-lavori)(\/|$)/i.test(window.location.pathname)) {
+  document.querySelector('link[rel="manifest"]')?.setAttribute("href", "/manifest-clienti.webmanifest");
+  document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", "I miei lavori");
+  document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.setAttribute("content", "default");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#fbf7f2");
+}
+
 // il telefono propone "Installa l'app" con questo evento: lo conservo per il pulsante dentro l'app
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
