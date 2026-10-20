@@ -21,7 +21,7 @@
 --    le stelle; le stelle si vedono nelle offerte, nell'elenco dei piloti e nella pagina del pilota
 --
 -- La commissione si cambia qui sotto, in privato.impostazioni (lavori_commissione_*): 5% del prezzo, minimo 5 €,
--- massimo 30 €. All'inizio è SPENTA (lavori_commissione_attiva = 'no'): non paga nessuno. Per accenderla:
+-- massimo 50 €. All'inizio è SPENTA (lavori_commissione_attiva = 'no'): non paga nessuno. Per accenderla:
 --   update privato.impostazioni set valore = 'si' where chiave = 'lavori_commissione_attiva';
 
 create extension if not exists pg_net;
@@ -35,7 +35,7 @@ insert into privato.impostazioni (chiave, valore) values
   ('lavori_commissione_attiva', 'no'),    -- 'si' = i piloti pagano la commissione sui lavori ottenuti
   ('lavori_commissione_percento', '5'),   -- 5 = 5% dell'offerta
   ('lavori_commissione_minimo', '5'),     -- euro
-  ('lavori_commissione_massimo', '30')    -- euro
+  ('lavori_commissione_massimo', '50')    -- euro
 on conflict (chiave) do nothing;
 
 -- 1) colonne nuove sulle tabelle della pagina pilota

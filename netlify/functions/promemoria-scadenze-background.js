@@ -136,7 +136,7 @@ function emailLavori(u) {
     "• vedi subito il posto esatto, le zone e la categoria che serve (con il tuo file D-Flight);",
     "• mandi la tua offerta: cosa comprende e il tuo prezzo. Gli altri piloti non vedono il tuo prezzo;",
     "• se il cliente ti sceglie, confermi entro 48 ore e ricevi i suoi contatti.", "",
-    "Commissione EyeDrones: 5% del prezzo, minimo 5 €, massimo 30 €, solo sui lavori che ottieni.", "",
+    "Commissione EyeDrones: 5% del prezzo, minimo 5 €, massimo 50 €, solo sui lavori che ottieni.", "",
     `Attiva la tua pagina da qui: ${link}`, "",
     `Conosci qualcuno che cerca un pilota? Mandagli questo link: ${APP_URL}/trova-pilota`, "",
     "Buoni voli!", "Ivan · EyeDrones", "",
@@ -155,7 +155,7 @@ function emailLavori(u) {
       ${punto("mandi la tua offerta: cosa comprende e <b>il tuo prezzo</b>. Gli altri piloti non vedono il tuo prezzo;")}
       ${punto("se il cliente ti sceglie, confermi entro 48 ore e ricevi i suoi contatti.")}
     </ul>
-    <p style="font-size:14px;color:#444">Commissione EyeDrones: 5% del prezzo, minimo 5 €, massimo 30 €, solo sui lavori che ottieni.</p>
+    <p style="font-size:14px;color:#444">Commissione EyeDrones: 5% del prezzo, minimo 5 €, massimo 50 €, solo sui lavori che ottieni.</p>
     <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Attiva la tua pagina ›</a></p>
     <p style="font-size:14px;color:#444">Conosci qualcuno che cerca un pilota? Mandagli questo link: <a href="${APP_URL}/trova-pilota">app.eyedrones.it/trova-pilota</a></p>
     <p style="font-size:15px">Buoni voli!<br>Ivan · EyeDrones</p>
