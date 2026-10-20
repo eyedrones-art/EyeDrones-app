@@ -1,6 +1,6 @@
 // EyeDrones — promemoria via email delle scadenze (attestati, assicurazione, manutenzioni, abbonamento D-Flight)
 // e riepilogo giornaliero per l'amministratore (errori dell'app, spazio usato).
-// In più, una volta sola, l'email «primi passi» a chi si è iscritto da almeno 2 giorni e non ha ancora messo il drone
+// In più, una volta sola, l'email «Trova un pilota» a chi lavora con il drone (supabase/email-lavori.sql) e l'email «primi passi» a chi si è iscritto da almeno 2 giorni e non ha ancora messo il drone
 // (script supabase/benvenuto-primi-passi.sql).
 // La chiama ogni mattina il database (script supabase/errori-spazio-promemoria.sql) con l'elenco già pronto.
 // È una funzione «background»: Netlify risponde subito e lei ha fino a 15 minuti per mandare le email.
@@ -121,6 +121,49 @@ function emailCommunity(u) {
   return { oggetto, testo, corpo };
 }
 
+// «Trova un pilota»: una sola volta a chi lavora con il drone (script supabase/email-lavori.sql)
+function emailLavori(u) {
+  const link = `${APP_URL}/?vai=pagina-pilota`;
+  const ciao = `Ciao${u.nome ? ` ${u.nome}` : ""}!`;
+  const oggetto = "I clienti della tua zona ora ti scrivono su EyeDrones 🚁";
+  const testo = [
+    ciao, "",
+    "in EyeDrones c'è una novità per chi lavora con il drone: «Trova un pilota».",
+    "I clienti della tua provincia scrivono cosa gli serve (matrimoni, case, ispezioni, rilievi, termografia, agricoltura) e la richiesta arriva ai piloti della zona.", "",
+    "Come funziona per te:",
+    "• attivi «La mia pagina» e spunti «Mostrami in Trova un pilota»;",
+    "• per ogni richiesta nella tua provincia ti arriva un'email;",
+    "• vedi subito il posto esatto, le zone e la categoria che serve (con il tuo file D-Flight);",
+    "• mandi la tua offerta: cosa comprende e il tuo prezzo. Gli altri piloti non vedono il tuo prezzo;",
+    "• se il cliente ti sceglie, confermi entro 48 ore e ricevi i suoi contatti.", "",
+    "Commissione EyeDrones: 5% del prezzo, minimo 5 €, massimo 30 €, solo sui lavori che ottieni.", "",
+    `Attiva la tua pagina da qui: ${link}`, "",
+    `Conosci qualcuno che cerca un pilota? Mandagli questo link: ${APP_URL}/trova-pilota`, "",
+    "Buoni voli!", "Ivan · EyeDrones", "",
+    "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
+  ].join("\n");
+  const punto = (t) => `<li style="margin:0 0 6px 0">${t}</li>`;
+  const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
+    <h2 style="color:#e0552f;margin:0 0 12px">🚁 I clienti della tua zona ti scrivono</h2>
+    <p style="font-size:15px">${html(ciao)} In EyeDrones c'è una novità per chi lavora con il drone: <b>«Trova un pilota»</b>.</p>
+    <p style="font-size:15px">I clienti della tua provincia scrivono cosa gli serve (matrimoni, case, ispezioni, rilievi, termografia, agricoltura) e la richiesta arriva <b>ai piloti della zona</b>.</p>
+    <p style="font-size:15px;margin-bottom:6px"><b>Come funziona per te</b></p>
+    <ul style="font-size:15px;padding-left:20px;margin-top:0">
+      ${punto("attivi <b>«La mia pagina»</b> e spunti <b>«Mostrami in Trova un pilota»</b>;")}
+      ${punto("per ogni richiesta nella tua provincia ti arriva un'email;")}
+      ${punto("vedi subito il <b>posto esatto</b>, le zone e la categoria che serve (con il tuo file D-Flight);")}
+      ${punto("mandi la tua offerta: cosa comprende e <b>il tuo prezzo</b>. Gli altri piloti non vedono il tuo prezzo;")}
+      ${punto("se il cliente ti sceglie, confermi entro 48 ore e ricevi i suoi contatti.")}
+    </ul>
+    <p style="font-size:14px;color:#444">Commissione EyeDrones: 5% del prezzo, minimo 5 €, massimo 30 €, solo sui lavori che ottieni.</p>
+    <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Attiva la tua pagina ›</a></p>
+    <p style="font-size:14px;color:#444">Conosci qualcuno che cerca un pilota? Mandagli questo link: <a href="${APP_URL}/trova-pilota">app.eyedrones.it/trova-pilota</a></p>
+    <p style="font-size:15px">Buoni voli!<br>Ivan · EyeDrones</p>
+    <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
+  </div>`;
+  return { oggetto, testo, corpo };
+}
+
 function emailAmministratore(a) {
   const e = a.errori || { quanti: 0, esempi: [] };
   const mb = a.spazio_byte != null ? Math.round(a.spazio_byte / 1048576) : null;
@@ -174,6 +217,12 @@ exports.handler = async (event) => {
     restano -= 1;
     await pausa(600);
   }
+  for (const u of (dati.lavori || []).slice(0, Math.max(0, restano))) {
+    if (!emailValida(u.email)) continue;
+    await invia(chiave, mittente, u.email, emailLavori(u));
+    restano -= 1;
+    await pausa(600);
+  }
   const amm = dati.amministratore;
   if (amm && emailValida(amm.email)) {
     const spazioAlto = amm.spazio_byte != null && amm.spazio_byte / LIMITE_STORAGE_BYTE >= 0.7;
@@ -182,4 +231,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailCommunity };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailCommunity, emailLavori };
