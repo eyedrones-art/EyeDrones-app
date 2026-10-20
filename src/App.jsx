@@ -2762,10 +2762,12 @@ function SceltaIniziale({ onPilota, onAccedi }) {
 }
 
 // chi arriva per i piloti salta la scelta: link per piloti (?ref=…, /piloti, #accedi), l'articolo di DronEzine,
-// o chi ha già scelto «Sono un pilota» su questo telefono
+// l'app installata sul telefono, o chi ha già scelto «Sono un pilota» su questo telefono
 function arrivaPerPiloti() {
   try {
     if (/^\/piloti\/?$/i.test(window.location.pathname) || window.location.hash) return true;
+    // l'app installata sul telefono (dalla schermata Home) la usano i piloti
+    if (window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone) return true;
     const q = new URLSearchParams(window.location.search);
     if (q.get("ref") || q.get("vai")) return true;
     if (/dronezine/i.test(document.referrer || "")) return true;
