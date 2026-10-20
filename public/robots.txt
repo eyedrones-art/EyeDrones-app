@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /offerte/
+Disallow: /partner-
+Allow: /
+
+Sitemap: https://app.eyedrones.it/sitemap.xml
