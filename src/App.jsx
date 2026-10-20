@@ -1653,7 +1653,7 @@ export default function App() {
   const slugPilota = slugPilotaDaIndirizzo();
   if (slugPilota) return <PaginaPilotaPubblica slug={slugPilota} />;
   // «Trova un pilota»: i clienti cercano un pilota nella loro provincia, senza login
-  if (/^\/trova-pilota(\/[a-z]{2})?$/i.test(percorso)) return <TrovaPilota />;
+  if (/^\/trova-pilota(\/[a-z]{2}|\/[a-z]{4,}(\/[a-z]{2})?)?\/?$/i.test(percorso)) return <TrovaPilota />;
   // il link privato del cliente alle offerte dei piloti
   const codiceOfferte = codiceOfferteDaIndirizzo();
   if (codiceOfferte) return <OfferteCliente codice={codiceOfferte} />;
@@ -10543,10 +10543,39 @@ const PROVINCE_IN_ORDINE = Object.entries(PROVINCE_ITALIA).sort((a, b) => a[1].l
 
 // app.eyedrones.it/trova-pilota (o /trova-pilota/fr): la provincia scritta nell'indirizzo, se c'è
 function provinciaDaIndirizzo() {
-  const m = window.location.pathname.match(/^\/trova-pilota\/([a-z]{2})\/?$/i);
+  const m = window.location.pathname.match(/^\/trova-pilota(?:\/[a-z]{4,})?\/([a-z]{2})\/?$/i);
   const q = new URLSearchParams(window.location.search).get("provincia");
   const sigla = String((m && m[1]) || q || "").toUpperCase();
   return PROVINCE_ITALIA[sigla] ? sigla : "";
+}
+
+// pagine dedicate a un tipo di cliente (app.eyedrones.it/trova-pilota/matrimoni, anche /matrimoni/rm): chi arriva da una
+// pubblicità o da Google trova solo la sua cosa, con il servizio già scelto
+const SEZIONI_CLIENTE = {
+  matrimoni: {
+    nome: "Matrimonio", emoji: "💍", servizio: "Matrimoni ed eventi", fascia: "matrimonio",
+    titolo: <>Il vostro matrimonio,<br />visto dall'alto.</>,
+    titoloProvincia: (p) => <>Riprese con il drone<br />per il matrimonio a {p}</>,
+    sottotitolo: "La chiesa, l'uscita degli sposi, la location e tutti gli invitati in una foto sola. Raccontateci il vostro giorno: i piloti della zona vi mandano un'offerta e scegliete voi.",
+    titoloPagina: (p) => (p ? `Drone per il matrimonio a ${p}: riprese aeree — EyeDrones` : "Drone per il matrimonio: riprese e foto aeree — EyeDrones"),
+    descrizionePagina: (p) => `Riprese e foto aeree con il drone per il vostro matrimonio${p ? ` in provincia di ${p}` : ""}: chiesa, uscita degli sposi, location e foto di gruppo dall'alto. Ricevete le offerte dei piloti della zona e scegliete voi. Gratis e senza impegno.`,
+    sfondo: "linear-gradient(160deg, #3a2418 0%, #7a3b22 45%, #e0552f 100%)",
+    esempi: [["⛪", "L'arrivo in chiesa", "La chiesa e gli invitati che aspettano, dall'alto."], ["🎉", "L'uscita degli sposi", "Il lancio del riso ripreso dall'alto."], ["🏰", "La location", "La villa o il ristorante, con il paesaggio intorno."], ["👨‍👩‍👧‍👦", "La foto di gruppo", "Tutti gli invitati in una foto sola."], ["🌅", "Gli sposi al tramonto", "Le immagini più belle, con la luce giusta."], ["🎬", "Il video del giorno", "Montato con la musica, e un reel per i social."]],
+    domande: [
+      ["Si può volare al matrimonio?", "Quasi sempre sì. Il pilota controlla le zone di volo del posto (per esempio vicino agli aeroporti o in alcuni centri storici), chiede i permessi se servono e sceglie da dove riprendere in sicurezza. Voi non dovete fare niente."],
+      ["Quanto costa?", "Dipende da cosa volete: di solito tra 300 e 1.500 €. Nell'offerta trovate scritto cosa comprende: minuti di video, foto, reel, consegna."],
+      ["Quando conviene prenotare?", "Meglio qualche mese prima, soprattutto da maggio a settembre, quando i piloti hanno più matrimoni."],
+      ["Abbiamo già il fotografo: va bene lo stesso?", "Sì. Il pilota si mette d'accordo con il fotografo e il videomaker, così ognuno fa la sua parte."],
+      ["Ci sono costi per noi?", "No. Mandare la richiesta e ricevere le offerte è gratis e senza impegno: se nessuna offerta vi convince, non scegliete nessuno."],
+    ],
+    luogo: "Dove (chiesa o location)", luogoEsempio: "es. Villa dei Pini, Frascati", data: "Data del matrimonio",
+    descrizione: "es. cerimonia in chiesa alle 11, poi pranzo in villa. Ci piacerebbe un video di 3–4 minuti e qualche foto di gruppo dall'alto.",
+  },
+};
+function sezioneDaIndirizzo() {
+  const m = window.location.pathname.match(/^\/trova-pilota\/([a-z]{4,})(?:\/[a-z]{2})?\/?$/i);
+  const k = m ? m[1].toLowerCase() : "";
+  return SEZIONI_CLIENTE[k] ? { chiave: k, ...SEZIONI_CLIENTE[k] } : null;
 }
 
 // le categorie che il cliente tocca per dire cosa gli serve (servizio = uno di SERVIZI_PILOTA)
@@ -10590,10 +10619,11 @@ const CLIENTE = {
 // della zona che mandano un'offerta; il cliente riceve per email il link alle offerte (/offerte/<codice>) e sceglie.
 // Funzioni Supabase in supabase/trova-pilota.sql
 function TrovaPilota() {
+  const [sezione] = useState(sezioneDaIndirizzo); // pagina dedicata (es. matrimoni) o null
   const [provincia, setProvincia] = useState(provinciaDaIndirizzo);
   const [piloti, setPiloti] = useState(null); // null = da caricare | [] | [...]
-  const [modulo, setModulo] = useState({ nome: "", email: "", telefono: "", servizio: "", luogo: "", data: "", descrizione: "", budget: "", sito_web: "" });
-  const [categoria, setCategoria] = useState(null);
+  const [modulo, setModulo] = useState({ nome: "", email: "", telefono: "", servizio: sezione ? sezione.servizio : "", luogo: "", data: "", descrizione: "", budget: "", sito_web: "" });
+  const [categoria, setCategoria] = useState(sezione ? sezione.nome : null);
   const [punto, setPunto] = useState(null); // dove si vola: { lat, lon } (il pilota controlla lì le zone)
   const [cercoPunto, setCercoPunto] = useState(null); // null | "cerco" | messaggio
   const [consenso, setConsenso] = useState(false);
@@ -10602,19 +10632,19 @@ function TrovaPilota() {
   const nomeProvincia = PROVINCE_ITALIA[provincia] || "";
 
   useEffect(() => {
-    document.title = nomeProvincia ? `Pilota di droni in provincia di ${nomeProvincia} — EyeDrones` : "Trova un pilota di droni — EyeDrones";
+    document.title = sezione ? sezione.titoloPagina(nomeProvincia) : nomeProvincia ? `Pilota di droni in provincia di ${nomeProvincia} — EyeDrones` : "Trova un pilota di droni — EyeDrones";
     const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", `Cerchi un pilota di droni${nomeProvincia ? ` in provincia di ${nomeProvincia}` : ""}? Matrimoni, eventi, case, ispezioni e riprese aeree: descrivi cosa ti serve, ricevi le offerte dei piloti della zona e scegli tu. Gratis e senza impegno.`);
+    if (meta) meta.setAttribute("content", sezione ? sezione.descrizionePagina(nomeProvincia) : `Cerchi un pilota di droni${nomeProvincia ? ` in provincia di ${nomeProvincia}` : ""}? Matrimoni, eventi, case, ispezioni e riprese aeree: descrivi cosa ti serve, ricevi le offerte dei piloti della zona e scegli tu. Gratis e senza impegno.`);
+    const base = sezione ? `/trova-pilota/${sezione.chiave}` : "/trova-pilota";
     if (!provincia) { setPiloti(null); return; }
     let annullato = false;
     setPiloti(null);
     supabase.rpc("piloti_in_zona", { p_provincia: provincia }).then(({ data, error }) => { if (!annullato) setPiloti(error ? [] : Array.isArray(data) ? data : []); });
-    try { window.history.replaceState(null, "", `/trova-pilota/${provincia.toLowerCase()}`); } catch { /* niente */ }
+    try { window.history.replaceState(null, "", `${base}/${provincia.toLowerCase()}`); } catch { /* niente */ }
     return () => { annullato = true; };
   }, [provincia]);
 
   const cambia = (k) => (e) => { setModulo({ ...modulo, [k]: e.target.value }); if (invio && invio !== "invio") setInvio(null); };
-  const quanti = Array.isArray(piloti) ? piloti.length : 0;
   const vaiAlModulo = () => formRef.current && formRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
   const scegliCategoria = (c) => { setCategoria(c.nome); setModulo((m) => ({ ...m, servizio: c.servizio })); setTimeout(vaiAlModulo, 50); };
 
@@ -10653,7 +10683,11 @@ function TrovaPilota() {
     setTimeout(vaiAlModulo, 50);
   };
 
-  const fotoPiloti = (piloti || []).flatMap((x) => (x.foto || []).filter(mediaSicuroUrl)).slice(0, 6);
+  // nella pagina dedicata, solo i piloti che fanno quel servizio
+  const pilotiMostrati = sezione ? (piloti || []).filter((x) => !(x.servizi || []).length || (x.servizi || []).includes(sezione.servizio)) : piloti || [];
+  const fotoPiloti = pilotiMostrati.flatMap((x) => (x.foto || []).filter(mediaSicuroUrl)).slice(0, 6);
+  const fasciaSezione = sezione ? FASCE_PREZZO.find((x) => x.key === sezione.fascia) : null;
+  const quanti = pilotiMostrati.length;
 
   return (
     <div style={CLIENTE.pagina}>
@@ -10667,25 +10701,47 @@ function TrovaPilota() {
         .tp-cat button:hover { transform: translateY(-2px); border-color: #ff8c42; }
         .tp-cat button.on { border-color: #e0552f; background: #fff3eb; }
         .tp-passi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-        @media (max-width: 640px) { .tp-cat { grid-template-columns: repeat(2, 1fr); } .tp-passi { grid-template-columns: 1fr; } .tp-hero { min-height: 700px; } }
+        .tp-esempi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .tp-domande details { background: #fff; border: 1px solid #ece4da; border-radius: 14px; padding: 14px 16px; }
+        .tp-domande summary { font-weight: 700; font-size: 15px; cursor: pointer; }
+        @media (max-width: 640px) { .tp-cat { grid-template-columns: repeat(2, 1fr); } .tp-esempi { grid-template-columns: repeat(2, 1fr); } .tp-passi { grid-template-columns: 1fr; } .tp-hero { min-height: 700px; } }
       `}</style>
 
-      <header className="tp-hero">
-        <img src="/trova-pilota/pilota-cliente.webp" alt="Una pilota mostra a una cliente le riprese aeree della sua casa" />
+      <header className="tp-hero" style={sezione && !sezione.immagine ? { background: sezione.sfondo, minHeight: 520 } : undefined}>
+        {sezione ? (sezione.immagine && <img src={sezione.immagine} alt={sezione.immagineAlt || ""} />) : <img src="/trova-pilota/pilota-cliente.webp" alt="Una pilota mostra a una cliente le riprese aeree della sua casa" />}
+        {sezione && !sezione.immagine && <span aria-hidden="true" style={{ position: "absolute", right: "6%", top: 40, fontSize: "clamp(90px, 22vw, 170px)", opacity: 0.22, lineHeight: 1 }}>{sezione.emoji}</span>}
         <div className="tp-hero-testo">
           <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#fff", fontSize: 13.5, fontWeight: 700, textDecoration: "none", background: "rgba(0,0,0,.35)", padding: "6px 10px", borderRadius: 20, marginBottom: 14 }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20, position: "static" }} /> EyeDrones</a>
           <h1 style={{ fontSize: "clamp(28px, 6vw, 44px)", lineHeight: 1.08, margin: "0 0 10px 0", fontWeight: 800, letterSpacing: "-0.02em", textShadow: "0 2px 18px rgba(0,0,0,.35)" }}>
-            {nomeProvincia ? <>Il tuo pilota di droni<br />in provincia di {nomeProvincia}</> : <>Il tuo momento,<br />visto dall'alto.</>}
+            {sezione ? (nomeProvincia ? sezione.titoloProvincia(nomeProvincia) : sezione.titolo) : nomeProvincia ? <>Il tuo pilota di droni<br />in provincia di {nomeProvincia}</> : <>Il tuo momento,<br />visto dall'alto.</>}
           </h1>
-          <p style={{ fontSize: 16.5, lineHeight: 1.5, margin: "0 0 18px 0", maxWidth: 560, color: "#fbeee2" }}>Matrimoni, case, eventi, ispezioni, rilievi e agricoltura. Racconta cosa ti serve: i piloti della tua zona ti mandano un'offerta e <strong>scegli tu</strong>. Gratis e senza impegno.</p>
+          {sezione
+            ? <p style={{ fontSize: 16.5, lineHeight: 1.5, margin: "0 0 18px 0", maxWidth: 560, color: "#fbeee2" }}>{sezione.sottotitolo} <strong>Gratis e senza impegno.</strong></p>
+            : <p style={{ fontSize: 16.5, lineHeight: 1.5, margin: "0 0 18px 0", maxWidth: 560, color: "#fbeee2" }}>Matrimoni, case, eventi, ispezioni, rilievi e agricoltura. Racconta cosa ti serve: i piloti della tua zona ti mandano un'offerta e <strong>scegli tu</strong>. Gratis e senza impegno.</p>}
           <button type="button" onClick={vaiAlModulo} style={CLIENTE.bottone}>Ricevi le offerte →</button>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 16, fontSize: 13, color: "#fbeee2" }}>
-            <span>✓ Confronti le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Nessun costo per te</span>
+            {sezione
+              ? <><span>✓ Confrontate le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Nessun costo per voi</span></>
+              : <><span>✓ Confronti le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Nessun costo per te</span></>}
           </div>
         </div>
       </header>
 
       <main style={{ maxWidth: 860, margin: "0 auto", padding: "26px 16px 40px", display: "flex", flexDirection: "column", gap: 22 }}>
+        {sezione ? (
+          <section>
+            <h2 style={{ fontSize: 20, margin: "0 0 12px 0" }}>Cosa si può riprendere</h2>
+            <div className="tp-esempi">
+              {sezione.esempi.map(([e, t, d]) => (
+                <div key={t} style={{ ...CLIENTE.scheda, padding: 14 }}>
+                  <div style={{ fontSize: 26 }}>{e}</div>
+                  <strong style={{ display: "block", fontSize: 15, margin: "4px 0 2px 0" }}>{t}</strong>
+                  <span style={{ fontSize: 13, color: "#6b6258", lineHeight: 1.45 }}>{d}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : (
         <section>
           <h2 style={{ fontSize: 20, margin: "0 0 12px 0" }}>Cosa vuoi riprendere?</h2>
           <div className="tp-cat">
@@ -10696,9 +10752,12 @@ function TrovaPilota() {
             ))}
           </div>
         </section>
+        )}
 
         <section className="tp-passi">
-          {[["1", "Racconta", "Cosa ti serve, dove e quando. Bastano due minuti."], ["2", "Confronta", "I piloti della zona ti mandano un'offerta, con prezzo e lavori fatti."], ["3", "Scegli", "Scegli l'offerta che ti piace. Permessi e regole di volo li gestisce il pilota."]].map(([n, t, d]) => (
+          {(sezione
+            ? [["1", "Raccontate", "Dove, quando e cosa vi piacerebbe. Bastano due minuti."], ["2", "Confrontate", "I piloti della zona vi mandano un'offerta, con prezzo e lavori fatti."], ["3", "Scegliete", "Scegliete l'offerta che vi piace. Permessi e regole di volo li gestisce il pilota."]]
+            : [["1", "Racconta", "Cosa ti serve, dove e quando. Bastano due minuti."], ["2", "Confronta", "I piloti della zona ti mandano un'offerta, con prezzo e lavori fatti."], ["3", "Scegli", "Scegli l'offerta che ti piace. Permessi e regole di volo li gestisce il pilota."]]).map(([n, t, d]) => (
             <div key={n} style={{ ...CLIENTE.scheda, padding: 16, display: "flex", gap: 12, alignItems: "flex-start" }}>
               <span style={{ flex: "none", width: 34, height: 34, borderRadius: 17, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", color: "#fff", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span>
               <span><strong style={{ display: "block", fontSize: 15.5 }}>{t}</strong><span style={{ fontSize: 13.5, color: "#6b6258", lineHeight: 1.45 }}>{d}</span></span>
@@ -10721,8 +10780,8 @@ function TrovaPilota() {
             </div>
           ) : (
             <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <h2 style={{ fontSize: 21, margin: 0 }}>Racconta cosa ti serve</h2>
-              <p style={{ fontSize: 14, color: "#6b6258", margin: "-4px 0 4px 0" }}>{quanti > 0 ? `In provincia di ${nomeProvincia} ci sono ${quanti === 1 ? "1 pilota pronto" : `${quanti} piloti pronti`} a mandarti un'offerta.` : "Ricevi le offerte dei piloti della tua zona, gratis."}</p>
+              <h2 style={{ fontSize: 21, margin: 0 }}>{sezione ? `${sezione.emoji} Raccontateci il vostro ${sezione.nome.toLowerCase()}` : "Racconta cosa ti serve"}</h2>
+              <p style={{ fontSize: 14, color: "#6b6258", margin: "-4px 0 4px 0" }}>{quanti > 0 ? `In provincia di ${nomeProvincia} ci sono ${quanti === 1 ? "1 pilota pronto" : `${quanti} piloti pronti`} a ${sezione ? "mandarvi" : "mandarti"} un'offerta.` : sezione ? "Ricevete le offerte dei piloti della vostra zona, gratis." : "Ricevi le offerte dei piloti della tua zona, gratis."}</p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                 <label><span style={CLIENTE.etichetta}>La tua provincia *</span>
                   <select value={provincia} onChange={(e) => { setProvincia(e.target.value); setInvio(null); }} style={CLIENTE.input}>
@@ -10730,15 +10789,15 @@ function TrovaPilota() {
                     {PROVINCE_IN_ORDINE.map(([sigla, nome]) => <option key={sigla} value={sigla}>{nome} ({sigla})</option>)}
                   </select>
                 </label>
-                <label><span style={CLIENTE.etichetta}>Cosa ti serve</span>
+                {!sezione && <label><span style={CLIENTE.etichetta}>Cosa ti serve</span>
                   <select value={modulo.servizio} onChange={(e) => { setCategoria(null); cambia("servizio")(e); }} style={CLIENTE.input}>
                     <option value="">Scegli…</option>
                     {SERVIZI_PILOTA.map((x) => <option key={x} value={x}>{x}</option>)}
                     <option value="Altro">Altro</option>
                   </select>
-                </label>
-                <label><span style={CLIENTE.etichetta}>Dove (comune o indirizzo)</span><input maxLength={120} value={modulo.luogo} onChange={(e) => { cambia("luogo")(e); setPunto(null); }} placeholder="es. Cassino" style={CLIENTE.input} /></label>
-                <label><span style={CLIENTE.etichetta}>Quando (se hai una data)</span><input type="date" min={dataLocale()} value={modulo.data} onChange={cambia("data")} style={CLIENTE.input} /></label>
+                </label>}
+                <label><span style={CLIENTE.etichetta}>{sezione ? sezione.luogo : "Dove (comune o indirizzo)"}</span><input maxLength={120} value={modulo.luogo} onChange={(e) => { cambia("luogo")(e); setPunto(null); }} placeholder={sezione ? sezione.luogoEsempio : "es. Cassino"} style={CLIENTE.input} /></label>
+                <label><span style={CLIENTE.etichetta}>{sezione ? sezione.data : "Quando (se hai una data)"}</span><input type="date" min={dataLocale()} value={modulo.data} onChange={cambia("data")} style={CLIENTE.input} /></label>
                 <label><span style={CLIENTE.etichetta}>Quanto pensi di spendere? (facoltativo)</span>
                   <select value={modulo.budget} onChange={cambia("budget")} style={CLIENTE.input}>
                     <option value="">Non lo so</option>
@@ -10762,7 +10821,7 @@ function TrovaPilota() {
                   </>
                 )}
               </div>
-              <label><span style={CLIENTE.etichetta}>Raccontaci il lavoro</span><textarea rows={4} maxLength={2000} value={modulo.descrizione} onChange={cambia("descrizione")} placeholder="es. video del matrimonio in chiesa e al ristorante, foto aeree del casale in vendita, controllo del tetto dopo la grandinata…" style={{ ...CLIENTE.input, resize: "vertical" }} /></label>
+              <label><span style={CLIENTE.etichetta}>{sezione ? "Raccontateci il vostro giorno" : "Raccontaci il lavoro"}</span><textarea rows={4} maxLength={2000} value={modulo.descrizione} onChange={cambia("descrizione")} placeholder={sezione ? sezione.descrizione : "es. video del matrimonio in chiesa e al ristorante, foto aeree del casale in vendita, controllo del tetto dopo la grandinata…"} style={{ ...CLIENTE.input, resize: "vertical" }} /></label>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                 <label><span style={CLIENTE.etichetta}>Nome *</span><input required autoComplete="name" maxLength={80} value={modulo.nome} onChange={cambia("nome")} style={CLIENTE.input} /></label>
                 <label><span style={CLIENTE.etichetta}>Email * (ti mandiamo qui le offerte)</span><input required type="email" autoComplete="email" maxLength={120} value={modulo.email} onChange={cambia("email")} style={CLIENTE.input} /></label>
@@ -10780,7 +10839,7 @@ function TrovaPilota() {
           )}
         </section>
 
-        {provincia && quanti > 0 && (
+        {provincia && pilotiMostrati.length > 0 && (
           <section>
             <h2 style={{ fontSize: 18, margin: "0 0 10px 0" }}>Alcuni piloti della provincia di {nomeProvincia}</h2>
             {fotoPiloti.length > 0 && (
@@ -10789,7 +10848,7 @@ function TrovaPilota() {
               </div>
             )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 10 }}>
-              {piloti.slice(0, 9).map((x, i) => {
+              {pilotiMostrati.slice(0, 9).map((x, i) => {
                 const logo = x.logo && !String(x.logo).startsWith(LOGO_PRECEDENTE_PREFISSO) ? x.logo : null;
                 const iniziali = String(x.nome || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
                 return (
@@ -10809,6 +10868,21 @@ function TrovaPilota() {
             <p style={{ fontSize: 12.5, color: "#8a8076", margin: "8px 0 0 0" }}>Manda la richiesta: chi è libero ti risponde con un'offerta.</p>
           </section>
         )}
+
+        {sezione && (
+          <section className="tp-domande" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <h2 style={{ fontSize: 20, margin: "0 0 4px 0" }}>Le domande di tutti</h2>
+            {sezione.domande.map(([d, r]) => (
+              <details key={d}>
+                <summary>{d}</summary>
+                <p style={{ fontSize: 14.5, color: "#4a433c", lineHeight: 1.55, margin: "8px 0 0 0" }}>{d === "Quanto costa?" && fasciaSezione ? `Dipende da cosa volete: di solito tra ${fasciaSezione.min.toLocaleString("it-IT")} e ${fasciaSezione.max.toLocaleString("it-IT")} €. Nell'offerta trovate scritto cosa comprende: minuti di video, foto, reel, consegna.` : r}</p>
+              </details>
+            ))}
+            <button type="button" onClick={vaiAlModulo} style={{ ...CLIENTE.bottone, alignSelf: "flex-start", marginTop: 6 }}>Ricevi le offerte →</button>
+          </section>
+        )}
+
+        {sezione && <p style={{ textAlign: "center", fontSize: 13.5, color: "#6b6258", margin: 0 }}>Ti serve un pilota per altro? <a href={provincia ? `/trova-pilota/${provincia.toLowerCase()}` : "/trova-pilota"} style={{ color: "#e0552f", fontWeight: 700 }}>Vedi tutti i servizi</a></p>}
 
         <footer style={{ textAlign: "center", fontSize: 13, color: "#8a8076", padding: "10px 0" }}>
           <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ color: "#6b6258", textDecoration: "none" }}>Sei un pilota di droni? <span style={{ color: "#e0552f", fontWeight: 700 }}>Iscriviti a EyeDrones e ricevi le richieste della tua zona</span></a>
