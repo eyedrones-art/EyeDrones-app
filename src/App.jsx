@@ -2620,6 +2620,10 @@ function Presentazione({ onAccedi, onRegistrati }) {
           </div>
         </div>
       </header>
+      {/* chi cerca un pilota (non è un pilota) va subito alla sua parte */}
+      <a href="/trova-pilota" style={{ display: "block", background: "#fbf7f2", color: "#3a332c", textDecoration: "none", textAlign: "center", fontSize: 14, padding: "10px 16px", borderBottom: "1px solid #ece4da" }}>
+        Cerchi un pilota di droni per un lavoro? <strong style={{ color: "#e0552f" }}>Trova un pilota nella tua zona ›</strong>
+      </a>
 
       <main>
         <section className="lp-wrap lp-hero">
