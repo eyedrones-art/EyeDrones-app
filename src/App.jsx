@@ -2722,6 +2722,57 @@ function Presentazione({ onAccedi, onRegistrati }) {
   );
 }
 
+// la prima schermata per chi arriva senza un link preciso: sei un pilota o cerchi un pilota?
+function SceltaIniziale({ onPilota, onAccedi }) {
+  useEffect(() => { document.title = "EyeDrones — per piloti di droni e per chi cerca un pilota"; }, []);
+  const meta = (foto, posizione) => ({ position: "relative", flex: 1, minHeight: 300, display: "flex", alignItems: "flex-end", overflow: "hidden", textDecoration: "none", color: "#fff", cursor: "pointer", border: "none", padding: 0, textAlign: "left", font: "inherit", background: `#1c140e url(${foto}) center / cover no-repeat`, backgroundPosition: posizione });
+  const velo = { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(10,8,6,.05) 25%, rgba(10,8,6,.85) 100%)" };
+  const testo = { position: "relative", padding: "22px 20px 24px", maxWidth: 460 };
+  const bottone = (sfondo, colore) => ({ display: "inline-block", marginTop: 14, background: sfondo, color: colore, borderRadius: 12, padding: "12px 18px", fontWeight: 800, fontSize: 15.5 });
+  return (
+    <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", background: "#10121a", fontFamily: "'IBM Plex Sans', sans-serif" }}>
+      <style>{`.scelta-due { flex: 1; display: flex; flex-direction: column; } @media (min-width: 820px) { .scelta-due { flex-direction: row; } }`}</style>
+      <header style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", color: "#e7eaee" }}>
+        <img src={LOGO_EYEDRONES} alt="" style={{ width: 30, height: 30 }} />
+        <span style={{ fontWeight: 700, fontSize: 17 }}>EyeDrones</span>
+        <button type="button" onClick={onAccedi} style={{ marginLeft: "auto", background: "none", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "7px 12px", fontSize: 13.5, fontWeight: 600 }}>Accedi</button>
+      </header>
+      <div className="scelta-due">
+        <button type="button" onClick={onPilota} style={meta("/benvenuto/pilota.webp", "50% 30%")}>
+          <span style={velo} />
+          <span style={testo}>
+            <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#ffb877", marginBottom: 6 }}>🚁 Per chi vola</span>
+            <span style={{ display: "block", fontSize: "clamp(26px, 6vw, 38px)", fontWeight: 800, lineHeight: 1.1 }}>Sono un pilota di droni</span>
+            <span style={{ display: "block", fontSize: 15, lineHeight: 1.5, color: "#e6e0d8", marginTop: 8 }}>Registro voli, zone e permessi, preventivi e clienti: tutto il tuo lavoro in un'app.</span>
+            <span style={bottone("linear-gradient(90deg, #e0552f, #ff8c42)", "#fff")}>Entra ›</span>
+          </span>
+        </button>
+        <a href="/trova-pilota" style={meta("/trova-pilota/matrimoni.webp", "50% 35%")}>
+          <span style={velo} />
+          <span style={testo}>
+            <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#ffd9a8", marginBottom: 6 }}>📍 Per chi ha bisogno di un pilota</span>
+            <span style={{ display: "block", fontSize: "clamp(26px, 6vw, 38px)", fontWeight: 800, lineHeight: 1.1 }}>Cerco un pilota di droni</span>
+            <span style={{ display: "block", fontSize: 15, lineHeight: 1.5, color: "#e6e0d8", marginTop: 8 }}>Matrimoni, case, aziende, ispezioni e agricoltura: ricevi le offerte dei piloti della tua zona.</span>
+            <span style={bottone("#fff", "#1f2328")}>Trova un pilota ›</span>
+          </span>
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// chi arriva per i piloti salta la scelta: link per piloti (?ref=…, /piloti, #accedi), l'articolo di DronEzine,
+// o chi ha già scelto «Sono un pilota» su questo telefono
+function arrivaPerPiloti() {
+  try {
+    if (/^\/piloti\/?$/i.test(window.location.pathname) || window.location.hash) return true;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("ref") || q.get("vai")) return true;
+    if (/dronezine/i.test(document.referrer || "")) return true;
+    return localStorage.getItem("eyedrones_chi") === "pilota";
+  } catch { return false; }
+}
+
 // schermata di chi non ha fatto l'accesso: presentazione, poi login o registrazione
 function Accesso() {
   const iniziale = () => {
@@ -2729,6 +2780,7 @@ function Accesso() {
     return h === "#accedi" ? "login" : h === "#registrati" ? "registrati" : null;
   };
   const [modo, setModo] = useState(iniziale);
+  const [pilota, setPilota] = useState(arrivaPerPiloti);
 
   useEffect(() => {
     const suCambio = () => setModo(iniziale());
@@ -2740,6 +2792,7 @@ function Accesso() {
   const apri = (m) => { window.location.hash = m === "login" ? "accedi" : "registrati"; window.scrollTo(0, 0); };
   const torna = () => { if (window.location.hash) window.history.back(); else setModo(null); };
 
+  if (!modo && !pilota) return <SceltaIniziale onPilota={() => { try { localStorage.setItem("eyedrones_chi", "pilota"); } catch { /* niente */ } setPilota(true); window.scrollTo(0, 0); }} onAccedi={() => apri("login")} />;
   if (!modo) return <Presentazione onAccedi={() => apri("login")} onRegistrati={() => apri("registrati")} />;
   return <Login key={modo} modoIniziale={modo} onTorna={torna} />;
 }

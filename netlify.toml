@@ -26,6 +26,12 @@
 
 # pagina pubblica del pilota: app.eyedrones.it/p/<nome> apre l'app, che mostra la pagina senza login
 # link diretti agli spazi: app.eyedrones.it/agri, /ispezioni, /video, /rilievi aprono l'app in quello spazio
+# la pagina iniziale per i piloti, senza la scelta «pilota o cliente» (per le pubblicità ai piloti)
+[[redirects]]
+  from = "/piloti"
+  to = "/index.html"
+  status = 200
+
 [[redirects]]
   from = "/agri"
   to = "/index.html"
