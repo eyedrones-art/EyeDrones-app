@@ -2620,10 +2620,21 @@ function Presentazione({ onAccedi, onRegistrati }) {
           </div>
         </div>
       </header>
-      {/* chi cerca un pilota (non è un pilota) va subito alla sua parte */}
-      <a href="/trova-pilota" style={{ display: "block", background: "#fbf7f2", color: "#3a332c", textDecoration: "none", textAlign: "center", fontSize: 14, padding: "10px 16px", borderBottom: "1px solid #ece4da" }}>
-        Cerchi un pilota di droni per un lavoro? <strong style={{ color: "#e0552f" }}>Trova un pilota nella tua zona ›</strong>
-      </a>
+      {/* chi cerca un pilota (non è un pilota) sceglie subito cosa gli serve e va alla sua pagina */}
+      <section style={{ background: "#fbf7f2", color: "#3a332c", borderBottom: "1px solid #ece4da", padding: "12px 0 14px" }}>
+        <div className="lp-wrap">
+          <div style={{ fontSize: 14, marginBottom: 10 }}>Cerchi un pilota di droni per un lavoro? <strong>Scegli cosa ti serve:</strong></div>
+          <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none" }}>
+            {SCELTE_CLIENTE.map(([k, nome]) => (
+              <a key={k} href={`/trova-pilota/${k}`} style={{ flex: "0 0 auto", width: 128, textDecoration: "none", color: "#3a332c", background: "#fff", border: "1px solid #ece4da", borderRadius: 12, overflow: "hidden" }}>
+                <img src={`/trova-pilota/${k}.webp`} alt="" loading="lazy" style={{ width: "100%", height: 74, objectFit: "cover", display: "block" }} />
+                <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, padding: "6px 8px" }}>{nome}</span>
+              </a>
+            ))}
+            <a href="/trova-pilota" style={{ flex: "0 0 auto", width: 128, textDecoration: "none", color: "#e0552f", background: "#fff", border: "1px solid #ece4da", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontSize: 13, fontWeight: 800, padding: 8 }}>Tutti i servizi ›</a>
+          </div>
+        </div>
+      </section>
 
       <main>
         <section className="lp-wrap lp-hero">
@@ -10661,6 +10672,11 @@ const SEZIONI_CLIENTE = {
     descrizione: "es. vigneto di 4 ettari in collina, trattamento a maggio. Il prodotto lo compro io.",
   },
 };
+// le 5 pagine per i clienti, con la foto piccola: in «Trova un pilota» e nella pagina iniziale dell'app
+const SCELTE_CLIENTE = [
+  ["matrimoni", "Matrimoni", "💍"], ["case", "Case e terreni", "🏡"], ["aziende", "Aziende ed eventi", "🏢"],
+  ["ispezioni", "Tetti e fotovoltaico", "🔍"], ["agricoltura", "Agricoltura", "🌱"],
+];
 function sezioneDaIndirizzo() {
   const m = window.location.pathname.match(/^\/trova-pilota\/([a-z]{4,})(?:\/[a-z]{2})?\/?$/i);
   const k = m ? m[1].toLowerCase() : "";
@@ -10682,6 +10698,9 @@ const CATEGORIE_CLIENTE = [
   { emoji: "🎢", nome: "Riprese FPV", servizio: "Riprese FPV" },
   { emoji: "✨", nome: "Altro", servizio: "Altro" },
 ];
+
+// le categorie che hanno già la loro pagina (si scelgono dalle foto, non dai riquadri)
+const CATEGORIE_CON_PAGINA = ["Matrimoni", "Case e terreni", "Video aziendali", "Tetti e facciate", "Termografia fotovoltaico", "Agricoltura", "Trattamenti con drone"];
 
 // che tipo di lavoro è: decide le voci dell'offerta e i consigli sulla categoria
 function tipoServizio(servizio) {
@@ -10797,10 +10816,15 @@ function TrovaPilota() {
         .tp-hero.larga img { position: relative; display: block; height: 460px; }
         .tp-hero.larga::after { display: none; }
         .tp-hero.larga .tp-hero-testo { padding-top: 22px; }
+        .tp-scelte { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+        .tp-scelte a { position: relative; display: block; border-radius: 16px; overflow: hidden; height: 150px; text-decoration: none; box-shadow: 0 10px 30px rgba(80,50,20,.08); }
+        .tp-scelte a img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s; }
+        .tp-scelte a:hover img { transform: scale(1.04); }
+        .tp-scelte a span { position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 10px 10px; background: linear-gradient(180deg, rgba(20,12,6,0), rgba(20,12,6,.85)); color: #fff; font-weight: 800; font-size: 15px; }
         .tp-esempi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         .tp-domande details { background: #fff; border: 1px solid #ece4da; border-radius: 14px; padding: 14px 16px; }
         .tp-domande summary { font-weight: 700; font-size: 15px; cursor: pointer; }
-        @media (max-width: 640px) { .tp-hero img.sez { object-position: var(--pos); } .tp-hero.larga { min-height: 0; } .tp-hero.larga img { height: 300px; } .tp-cat { grid-template-columns: repeat(2, 1fr); } .tp-esempi { grid-template-columns: repeat(2, 1fr); } .tp-passi { grid-template-columns: 1fr; } .tp-hero { min-height: 700px; } }
+        @media (max-width: 640px) { .tp-scelte { grid-template-columns: repeat(2, 1fr); } .tp-scelte a { height: 130px; } .tp-scelte a:first-child { grid-column: span 2; height: 160px; } .tp-hero img.sez { object-position: var(--pos); } .tp-hero.larga { min-height: 0; } .tp-hero.larga img { height: 300px; } .tp-cat { grid-template-columns: repeat(2, 1fr); } .tp-esempi { grid-template-columns: repeat(2, 1fr); } .tp-passi { grid-template-columns: 1fr; } .tp-hero { min-height: 700px; } }
       `}</style>
 
       <header className={`tp-hero${sezione?.immagineLarga ? " larga" : ""}`} style={sezione && !sezione.immagine ? { background: sezione.sfondo, minHeight: 520 } : undefined}>
@@ -10839,9 +10863,18 @@ function TrovaPilota() {
           </section>
         ) : (
         <section>
-          <h2 style={{ fontSize: 20, margin: "0 0 12px 0" }}>Cosa vuoi riprendere?</h2>
+          <h2 style={{ fontSize: 20, margin: "0 0 12px 0" }}>Cosa ti serve?</h2>
+          <div className="tp-scelte">
+            {SCELTE_CLIENTE.map(([k, nome, emoji]) => (
+              <a key={k} href={`/trova-pilota/${k}${provincia ? `/${provincia.toLowerCase()}` : ""}`}>
+                <img src={`/trova-pilota/${k}.webp`} alt="" loading="lazy" />
+                <span>{emoji} {nome} ›</span>
+              </a>
+            ))}
+          </div>
+          <h2 style={{ fontSize: 16, margin: "18px 0 10px 0", color: "#6b6258" }}>Altri lavori</h2>
           <div className="tp-cat">
-            {CATEGORIE_CLIENTE.map((c) => (
+            {CATEGORIE_CLIENTE.filter((c) => !CATEGORIE_CON_PAGINA.includes(c.nome)).map((c) => (
               <button key={c.nome} type="button" className={categoria === c.nome ? "on" : ""} onClick={() => scegliCategoria(c)}>
                 <span style={{ fontSize: 28 }}>{c.emoji}</span>{c.nome}
               </button>
