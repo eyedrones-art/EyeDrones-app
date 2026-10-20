@@ -10582,6 +10582,7 @@ const SEZIONI_CLIENTE = {
     titoloPagina: (p) => (p ? `Foto aeree con il drone per case e terreni a ${p} — EyeDrones` : "Foto aeree con il drone per case, terreni e B&B — EyeDrones"),
     descrizionePagina: (p) => `Foto e video con il drone per vendere o affittare casa${p ? ` in provincia di ${p}` : ""}: casa, giardino, confini del terreno e dintorni dall'alto, anche per B&B e agriturismi. Ricevi le offerte dei piloti della zona e scegli tu. Gratis e senza impegno.`,
     sfondo: "linear-gradient(160deg, #1e2a20 0%, #3d5a3a 45%, #c98a3a 100%)",
+    immagine: "/trova-pilota/case.webp", immagineAlt: "Una casa in pietra con piscina e giardino tra gli ulivi, ripresa dall'alto con il drone al tramonto", immaginePosizione: "68% 40%", immaginePosizionePc: "50% 38%",
     esempi: [["🏡", "La casa e il giardino", "Tutta la proprietà in una foto, con la luce giusta."], ["🌳", "I confini del terreno", "Si capisce subito quanto è grande e dov'è."], ["🗺️", "Cosa c'è intorno", "Il paese, il mare, le strade: a che distanza sono."], ["🏨", "B&B e agriturismi", "Foto che fanno la differenza su Booking e Airbnb."], ["🎬", "Il video per l'annuncio", "Un minuto che fa venire voglia di visitarla."], ["🌅", "Al tramonto", "Le foto più belle, per la copertina dell'annuncio."]],
     domande: [
       ["Si può volare sopra casa?", "Quasi sempre sì. Il pilota controlla le zone di volo del posto e, se la casa è in centro abitato o vicino a un aeroporto, chiede i permessi che servono. Tu non devi fare niente."],
@@ -10603,6 +10604,7 @@ const SEZIONI_CLIENTE = {
     titoloPagina: (p) => (p ? `Video aziendali con il drone a ${p} — EyeDrones` : "Video aziendali, eventi e cantieri con il drone — EyeDrones"),
     descrizionePagina: (p) => `Video e foto con il drone per aziende${p ? ` in provincia di ${p}` : ""}: stabilimento, eventi, contenuti per i social, avanzamento dei cantieri e voli FPV. Ricevete le offerte dei piloti della zona e scegliete voi. Gratis e senza impegno.`,
     sfondo: "linear-gradient(160deg, #141b2b 0%, #2b3f66 45%, #e0552f 100%)",
+    immagine: "/trova-pilota/aziende.webp", immagineAlt: "Uno stabilimento con i pannelli solari sul tetto e i camion nel piazzale, ripreso dall'alto con il drone", immaginePosizione: "55% 30%", immaginePosizionePc: "50% 40%",
     esempi: [["🏭", "Lo stabilimento", "La sede e i capannoni dall'alto, con il territorio intorno."], ["🎬", "Il video per il sito", "Chi siete e cosa fate, in due minuti."], ["📱", "I contenuti per i social", "Reel verticali pronti da pubblicare."], ["🎪", "Eventi e inaugurazioni", "Il pubblico, il palco, la festa dall'alto."], ["🏗️", "Il cantiere, mese per mese", "Le stesse riprese ogni volta, per vedere come avanza."], ["🥽", "Volo FPV dentro i capannoni", "Un volo unico tra le linee di produzione."]],
     domande: [
       ["Si può volare sopra la nostra sede?", "Quasi sempre sì. Il pilota controlla le zone di volo: vicino agli aeroporti o in alcune zone servono permessi, e li chiede lui. Voi non dovete fare niente."],
@@ -10624,6 +10626,7 @@ const SEZIONI_CLIENTE = {
     titoloPagina: (p) => (p ? `Ispezione tetti e fotovoltaico con il drone a ${p} — EyeDrones` : "Ispezione di tetti, facciate e fotovoltaico con il drone — EyeDrones"),
     descrizionePagina: (p) => `Ispezioni con il drone${p ? ` in provincia di ${p}` : ""}: tetti dopo la grandinata, facciate, grondaie, termografia dei pannelli fotovoltaici e rilievi 3D, senza ponteggi. Ricevi le offerte dei piloti della zona e scegli tu. Gratis e senza impegno.`,
     sfondo: "linear-gradient(160deg, #1b1f26 0%, #3a4452 45%, #d9822b 100%)",
+    immagine: "/trova-pilota/ispezioni.webp", immagineAlt: "Un drone controlla da vicino il tetto in coppi e i pannelli fotovoltaici di una casa", immaginePosizione: "66% 50%", immaginePosizionePc: "50% 70%", immagineLarga: true,
     esempi: [["🏠", "Il tetto dopo la grandinata", "Tegole rotte o spostate, viste da vicino."], ["🧱", "Facciate e cornicioni", "Crepe e distacchi, senza ponteggi."], ["💧", "Grondaie e infiltrazioni", "Dove entra l'acqua, prima che faccia danni."], ["☀️", "Impianto fotovoltaico", "Con la termocamera si vedono i pannelli che non rendono."], ["📐", "Misure e modello 3D", "Superfici, volumi e misure precise dall'alto."], ["📄", "Il report", "Foto e problemi trovati, da dare all'impresa o all'assicurazione."]],
     domande: [
       ["Serve salire sul tetto?", "No. Il drone vola vicino al tetto o alla facciata e fa foto e video da vicino: nessuno deve salire e non servono ponteggi."],
@@ -10645,6 +10648,7 @@ const SEZIONI_CLIENTE = {
     titoloPagina: (p) => (p ? `Trattamenti e mappe dei campi con il drone a ${p} — EyeDrones` : "Trattamenti agricoli e mappe dei campi con il drone — EyeDrones"),
     descrizionePagina: (p) => `Trattamenti con drone, mappe NDVI e rilievi dei campi${p ? ` in provincia di ${p}` : ""}: vigneti in collina, oliveti, frutteti e campi difficili da raggiungere. Ricevi le offerte dei piloti della zona e scegli tu. Gratis e senza impegno.`,
     sfondo: "linear-gradient(160deg, #18240f 0%, #3f5c1f 45%, #c9a23a 100%)",
+    immagine: "/trova-pilota/agricoltura.webp", immagineAlt: "Un drone per i trattamenti agricoli irrora i filari di un vigneto in collina", immaginePosizione: "36% 50%", immaginePosizionePc: "50% 55%", immagineLarga: true,
     esempi: [["🍇", "Vigneti in collina", "Dove il trattore fa fatica o non arriva."], ["🫒", "Oliveti e frutteti", "Trattamenti mirati, pianta per pianta."], ["🌾", "Campi bagnati", "Si interviene anche quando con i mezzi non si entra."], ["🗺️", "Mappe NDVI", "Si vede dove le piante soffrono, prima che si noti a occhio."], ["📏", "Misura dei campi", "Ettari e confini precisi, con l'ortofoto."], ["📋", "Il registro del trattamento", "Data, prodotto, dosi e meteo, scritti per bene."]],
     domande: [
       ["Si può trattare con il drone?", "Sì, rispettando le regole: il pilota deve avere le autorizzazioni per i trattamenti con drone e usare prodotti adatti. Nell'offerta trovi cosa è a suo carico."],
@@ -10788,13 +10792,18 @@ function TrovaPilota() {
         .tp-cat button.on { border-color: #e0552f; background: #fff3eb; }
         .tp-passi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
         .tp-hero img.sez { object-position: var(--pos-pc); }
+        /* foto orizzontali: la foto sopra e il testo sotto, così il soggetto (il drone) non finisce sotto le scritte */
+        .tp-hero.larga { display: block; min-height: 0; background: #1c140e; }
+        .tp-hero.larga img { position: relative; display: block; height: 460px; }
+        .tp-hero.larga::after { display: none; }
+        .tp-hero.larga .tp-hero-testo { padding-top: 22px; }
         .tp-esempi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         .tp-domande details { background: #fff; border: 1px solid #ece4da; border-radius: 14px; padding: 14px 16px; }
         .tp-domande summary { font-weight: 700; font-size: 15px; cursor: pointer; }
-        @media (max-width: 640px) { .tp-hero img.sez { object-position: var(--pos); } .tp-cat { grid-template-columns: repeat(2, 1fr); } .tp-esempi { grid-template-columns: repeat(2, 1fr); } .tp-passi { grid-template-columns: 1fr; } .tp-hero { min-height: 700px; } }
+        @media (max-width: 640px) { .tp-hero img.sez { object-position: var(--pos); } .tp-hero.larga { min-height: 0; } .tp-hero.larga img { height: 300px; } .tp-cat { grid-template-columns: repeat(2, 1fr); } .tp-esempi { grid-template-columns: repeat(2, 1fr); } .tp-passi { grid-template-columns: 1fr; } .tp-hero { min-height: 700px; } }
       `}</style>
 
-      <header className="tp-hero" style={sezione && !sezione.immagine ? { background: sezione.sfondo, minHeight: 520 } : undefined}>
+      <header className={`tp-hero${sezione?.immagineLarga ? " larga" : ""}`} style={sezione && !sezione.immagine ? { background: sezione.sfondo, minHeight: 520 } : undefined}>
         {sezione ? (sezione.immagine && <img src={sezione.immagine} alt={sezione.immagineAlt || ""} className="sez" style={{ "--pos": sezione.immaginePosizione || "50% 12%", "--pos-pc": sezione.immaginePosizionePc || sezione.immaginePosizione || "50% 12%" }} />) : <img src="/trova-pilota/pilota-cliente.webp" alt="Una pilota mostra a una cliente le riprese aeree della sua casa" />}
         {sezione && !sezione.immagine && <span aria-hidden="true" style={{ position: "absolute", right: "6%", top: 40, fontSize: "clamp(90px, 22vw, 170px)", opacity: 0.22, lineHeight: 1 }}>{sezione.emoji}</span>}
         <div className="tp-hero-testo">
