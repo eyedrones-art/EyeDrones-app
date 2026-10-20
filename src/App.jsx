@@ -10553,7 +10553,8 @@ function provinciaDaIndirizzo() {
 // pubblicità o da Google trova solo la sua cosa, con il servizio già scelto
 const SEZIONI_CLIENTE = {
   matrimoni: {
-    nome: "Matrimonio", emoji: "💍", servizio: "Matrimoni ed eventi", fascia: "matrimonio",
+    nome: "Matrimonio", emoji: "💍", servizio: "Matrimoni ed eventi", voi: true,
+    titoloModulo: "💍 Raccontateci il vostro matrimonio", etichettaDescrizione: "Raccontateci il vostro giorno",
     titolo: <>Il vostro matrimonio,<br />visto dall'alto.</>,
     titoloProvincia: (p) => <>Riprese con il drone<br />per il matrimonio a {p}</>,
     sottotitolo: "La chiesa, l'uscita degli sposi, la location e tutti gli invitati in una foto sola. Raccontateci il vostro giorno: i piloti della zona vi mandano un'offerta e scegliete voi.",
@@ -10571,6 +10572,89 @@ const SEZIONI_CLIENTE = {
     ],
     luogo: "Dove (chiesa o location)", luogoEsempio: "es. Villa dei Pini, Frascati", data: "Data del matrimonio",
     descrizione: "es. cerimonia in chiesa alle 11, poi pranzo in villa. Ci piacerebbe un video di 3–4 minuti e qualche foto di gruppo dall'alto.",
+  },
+  case: {
+    nome: "Casa", emoji: "🏡", servizio: "Immobiliare e turismo",
+    titoloModulo: "🏡 Racconta cosa ti serve", etichettaDescrizione: "Raccontaci la casa o il terreno",
+    titolo: <>La tua casa,<br />vista dall'alto.</>,
+    titoloProvincia: (p) => <>Foto e video con il drone<br />per case e terreni a {p}</>,
+    sottotitolo: "Per vendere o affittare prima: la casa, il giardino, il terreno e quello che c'è intorno, in foto e video dall'alto. Racconta cosa ti serve: i piloti della zona ti mandano un'offerta e scegli tu.",
+    titoloPagina: (p) => (p ? `Foto aeree con il drone per case e terreni a ${p} — EyeDrones` : "Foto aeree con il drone per case, terreni e B&B — EyeDrones"),
+    descrizionePagina: (p) => `Foto e video con il drone per vendere o affittare casa${p ? ` in provincia di ${p}` : ""}: casa, giardino, confini del terreno e dintorni dall'alto, anche per B&B e agriturismi. Ricevi le offerte dei piloti della zona e scegli tu. Gratis e senza impegno.`,
+    sfondo: "linear-gradient(160deg, #1e2a20 0%, #3d5a3a 45%, #c98a3a 100%)",
+    esempi: [["🏡", "La casa e il giardino", "Tutta la proprietà in una foto, con la luce giusta."], ["🌳", "I confini del terreno", "Si capisce subito quanto è grande e dov'è."], ["🗺️", "Cosa c'è intorno", "Il paese, il mare, le strade: a che distanza sono."], ["🏨", "B&B e agriturismi", "Foto che fanno la differenza su Booking e Airbnb."], ["🎬", "Il video per l'annuncio", "Un minuto che fa venire voglia di visitarla."], ["🌅", "Al tramonto", "Le foto più belle, per la copertina dell'annuncio."]],
+    domande: [
+      ["Si può volare sopra casa?", "Quasi sempre sì. Il pilota controlla le zone di volo del posto e, se la casa è in centro abitato o vicino a un aeroporto, chiede i permessi che servono. Tu non devi fare niente."],
+      ["Quanto costa?", "Dipende da quante foto e video vuoi: nell'offerta trovi scritto cosa comprende e il prezzo."],
+      ["Quanto tempo ci vuole?", "Di solito il volo dura meno di un'ora. Foto e video sono pronti in pochi giorni: il pilota ti scrive nell'offerta quando li consegna."],
+      ["Posso usare le foto negli annunci?", "Sì. Scrivilo nella richiesta, così il pilota lo mette nell'offerta."],
+      ["Ci sono costi per me?", "No. Mandare la richiesta e ricevere le offerte è gratis e senza impegno: se nessuna offerta ti convince, non scegli nessuno."],
+    ],
+    luogo: "Dove (comune o indirizzo)", luogoEsempio: "es. Via Roma 10, Sora", data: "Quando (se hai una data)",
+    descrizione: "es. villa con giardino e un terreno di 2 ettari da vendere: una ventina di foto e un video di un minuto per l'annuncio.",
+  },
+  aziende: {
+    nome: "Video aziendale", emoji: "🏢", servizio: "Video per aziende", voi: true,
+    servizi: [["Video per aziende", "Video o foto dell'azienda"], ["Monitoraggio cantieri", "Avanzamento di un cantiere"], ["Riprese FPV", "Volo FPV dentro l'azienda"]],
+    titoloModulo: "🏢 Raccontateci cosa vi serve", etichettaDescrizione: "Raccontateci il lavoro",
+    titolo: <>La vostra azienda,<br />vista dall'alto.</>,
+    titoloProvincia: (p) => <>Video con il drone<br />per aziende a {p}</>,
+    sottotitolo: "Lo stabilimento, i prodotti, gli eventi e i cantieri, in video e foto dall'alto per il sito, i social e le fiere. Raccontateci cosa vi serve: i piloti della zona vi mandano un'offerta e scegliete voi.",
+    titoloPagina: (p) => (p ? `Video aziendali con il drone a ${p} — EyeDrones` : "Video aziendali, eventi e cantieri con il drone — EyeDrones"),
+    descrizionePagina: (p) => `Video e foto con il drone per aziende${p ? ` in provincia di ${p}` : ""}: stabilimento, eventi, contenuti per i social, avanzamento dei cantieri e voli FPV. Ricevete le offerte dei piloti della zona e scegliete voi. Gratis e senza impegno.`,
+    sfondo: "linear-gradient(160deg, #141b2b 0%, #2b3f66 45%, #e0552f 100%)",
+    esempi: [["🏭", "Lo stabilimento", "La sede e i capannoni dall'alto, con il territorio intorno."], ["🎬", "Il video per il sito", "Chi siete e cosa fate, in due minuti."], ["📱", "I contenuti per i social", "Reel verticali pronti da pubblicare."], ["🎪", "Eventi e inaugurazioni", "Il pubblico, il palco, la festa dall'alto."], ["🏗️", "Il cantiere, mese per mese", "Le stesse riprese ogni volta, per vedere come avanza."], ["🥽", "Volo FPV dentro i capannoni", "Un volo unico tra le linee di produzione."]],
+    domande: [
+      ["Si può volare sopra la nostra sede?", "Quasi sempre sì. Il pilota controlla le zone di volo: vicino agli aeroporti o in alcune zone servono permessi, e li chiede lui. Voi non dovete fare niente."],
+      ["Quanto costa?", "Dipende da cosa vi serve: nell'offerta trovate scritto cosa comprende e il prezzo."],
+      ["Possiamo usare il video per la pubblicità?", "Sì. Scrivetelo nella richiesta, così il pilota lo mette nell'offerta."],
+      ["Fate anche riprese regolari di un cantiere?", "Sì: scegliete «Avanzamento di un cantiere». Il pilota vi propone voli ogni settimana o ogni mese, sempre dagli stessi punti."],
+      ["Ci sono costi per noi?", "No. Mandare la richiesta e ricevere le offerte è gratis e senza impegno: se nessuna offerta vi convince, non scegliete nessuno."],
+    ],
+    luogo: "Dove (sede o indirizzo)", luogoEsempio: "es. Zona industriale, Frosinone", data: "Quando (se avete una data)",
+    descrizione: "es. video di 2 minuti dello stabilimento per il sito, con qualche ripresa dentro il capannone.",
+  },
+  ispezioni: {
+    nome: "Ispezione", emoji: "🔍", servizio: "Ispezioni tetti e facciate", titoloEsempi: "Cosa si può controllare",
+    servizi: [["Ispezioni tetti e facciate", "Tetto, facciata o grondaie"], ["Ispezioni termografiche fotovoltaico", "Impianto fotovoltaico (termografia)"], ["Rilievi e fotogrammetria", "Misure, rilievo o modello 3D"]],
+    titoloModulo: "🔍 Racconta cosa ti serve", etichettaDescrizione: "Raccontaci cosa controllare",
+    titolo: <>Il tetto controllato,<br />senza salire.</>,
+    titoloProvincia: (p) => <>Ispezioni con il drone<br />a {p}</>,
+    sottotitolo: "Tetti, facciate, grondaie e impianti fotovoltaici controllati dall'alto, con foto da vicino e un report. Senza ponteggi e senza salire sul tetto. Racconta cosa ti serve: i piloti della zona ti mandano un'offerta e scegli tu.",
+    titoloPagina: (p) => (p ? `Ispezione tetti e fotovoltaico con il drone a ${p} — EyeDrones` : "Ispezione di tetti, facciate e fotovoltaico con il drone — EyeDrones"),
+    descrizionePagina: (p) => `Ispezioni con il drone${p ? ` in provincia di ${p}` : ""}: tetti dopo la grandinata, facciate, grondaie, termografia dei pannelli fotovoltaici e rilievi 3D, senza ponteggi. Ricevi le offerte dei piloti della zona e scegli tu. Gratis e senza impegno.`,
+    sfondo: "linear-gradient(160deg, #1b1f26 0%, #3a4452 45%, #d9822b 100%)",
+    esempi: [["🏠", "Il tetto dopo la grandinata", "Tegole rotte o spostate, viste da vicino."], ["🧱", "Facciate e cornicioni", "Crepe e distacchi, senza ponteggi."], ["💧", "Grondaie e infiltrazioni", "Dove entra l'acqua, prima che faccia danni."], ["☀️", "Impianto fotovoltaico", "Con la termocamera si vedono i pannelli che non rendono."], ["📐", "Misure e modello 3D", "Superfici, volumi e misure precise dall'alto."], ["📄", "Il report", "Foto e problemi trovati, da dare all'impresa o all'assicurazione."]],
+    domande: [
+      ["Serve salire sul tetto?", "No. Il drone vola vicino al tetto o alla facciata e fa foto e video da vicino: nessuno deve salire e non servono ponteggi."],
+      ["Quanto costa?", "Dipende da quanto è grande e da cosa ti serve: nell'offerta trovi scritto cosa comprende e il prezzo."],
+      ["Mi date un report?", "Nell'offerta trovi se comprende il report in PDF con le foto e i problemi trovati. Se ti serve, scrivilo nella richiesta."],
+      ["Si può fare in un condominio o in centro?", "Sì. Il pilota controlla le zone di volo, chiede i permessi se servono e organizza il volo in sicurezza per chi passa sotto."],
+      ["Ci sono costi per me?", "No. Mandare la richiesta e ricevere le offerte è gratis e senza impegno: se nessuna offerta ti convince, non scegli nessuno."],
+    ],
+    luogo: "Dove (indirizzo)", luogoEsempio: "es. Via Garibaldi 5, Latina", data: "Quando (se hai una data)",
+    descrizione: "es. tetto di una villetta: dopo la grandinata vorrei sapere se ci sono tegole rotte. Mi serve un report per l'assicurazione.",
+  },
+  agricoltura: {
+    nome: "Lavoro agricolo", emoji: "🌱", servizio: "Trattamenti agricoli con drone (Agras)", titoloEsempi: "Cosa si può fare",
+    servizi: [["Trattamenti agricoli con drone (Agras)", "Trattamento con drone"], ["Agricoltura di precisione", "Mappe dei campi (NDVI)"], ["Rilievi e fotogrammetria", "Rilievo o ortofoto"]],
+    titoloModulo: "🌱 Racconta cosa ti serve", etichettaDescrizione: "Raccontaci i campi e il lavoro",
+    titolo: <>I tuoi campi,<br />visti dall'alto.</>,
+    titoloProvincia: (p) => <>Trattamenti e mappe con il drone<br />a {p}</>,
+    sottotitolo: "Trattamenti con drone su vigneti, oliveti e campi difficili da raggiungere, e mappe per vedere dove le piante soffrono. Racconta cosa ti serve: i piloti della zona ti mandano un'offerta e scegli tu.",
+    titoloPagina: (p) => (p ? `Trattamenti e mappe dei campi con il drone a ${p} — EyeDrones` : "Trattamenti agricoli e mappe dei campi con il drone — EyeDrones"),
+    descrizionePagina: (p) => `Trattamenti con drone, mappe NDVI e rilievi dei campi${p ? ` in provincia di ${p}` : ""}: vigneti in collina, oliveti, frutteti e campi difficili da raggiungere. Ricevi le offerte dei piloti della zona e scegli tu. Gratis e senza impegno.`,
+    sfondo: "linear-gradient(160deg, #18240f 0%, #3f5c1f 45%, #c9a23a 100%)",
+    esempi: [["🍇", "Vigneti in collina", "Dove il trattore fa fatica o non arriva."], ["🫒", "Oliveti e frutteti", "Trattamenti mirati, pianta per pianta."], ["🌾", "Campi bagnati", "Si interviene anche quando con i mezzi non si entra."], ["🗺️", "Mappe NDVI", "Si vede dove le piante soffrono, prima che si noti a occhio."], ["📏", "Misura dei campi", "Ettari e confini precisi, con l'ortofoto."], ["📋", "Il registro del trattamento", "Data, prodotto, dosi e meteo, scritti per bene."]],
+    domande: [
+      ["Si può trattare con il drone?", "Sì, rispettando le regole: il pilota deve avere le autorizzazioni per i trattamenti con drone e usare prodotti adatti. Nell'offerta trovi cosa è a suo carico."],
+      ["Quanto costa?", "Dipende dagli ettari, dalla coltura e dal lavoro: il pilota te lo scrive nell'offerta, di solito a ettaro."],
+      ["Il prodotto lo devo comprare io?", "Di solito sì. Scrivilo nella richiesta: il pilota ti dice cosa serve e quanto."],
+      ["Mi danno il registro del trattamento?", "Nell'offerta trovi se comprende il registro del trattamento. Se ti serve, scrivilo nella richiesta."],
+      ["Ci sono costi per me?", "No. Mandare la richiesta e ricevere le offerte è gratis e senza impegno: se nessuna offerta ti convince, non scegli nessuno."],
+    ],
+    luogo: "Dove (comune o località)", luogoEsempio: "es. Località Colle, Velletri", data: "Quando (se hai una data)",
+    descrizione: "es. vigneto di 4 ettari in collina, trattamento a maggio. Il prodotto lo compro io.",
   },
 };
 function sezioneDaIndirizzo() {
@@ -10685,9 +10769,10 @@ function TrovaPilota() {
   };
 
   // nella pagina dedicata, solo i piloti che fanno quel servizio
-  const pilotiMostrati = sezione ? (piloti || []).filter((x) => !(x.servizi || []).length || (x.servizi || []).includes(sezione.servizio)) : piloti || [];
+  const serviziSezione = sezione ? (sezione.servizi || [[sezione.servizio]]).map((x) => x[0]) : [];
+  const pilotiMostrati = sezione ? (piloti || []).filter((x) => !(x.servizi || []).length || (x.servizi || []).some((v) => serviziSezione.includes(v))) : piloti || [];
   const fotoPiloti = pilotiMostrati.flatMap((x) => (x.foto || []).filter(mediaSicuroUrl)).slice(0, 6);
-  const fasciaSezione = sezione ? FASCE_PREZZO.find((x) => x.key === sezione.fascia) : null;
+  const fasciaSezione = sezione ? fasciaPerServizio(modulo.servizio) : null;
   const quanti = pilotiMostrati.length;
 
   return (
@@ -10722,7 +10807,7 @@ function TrovaPilota() {
             : <p style={{ fontSize: 16.5, lineHeight: 1.5, margin: "0 0 18px 0", maxWidth: 560, color: "#fbeee2" }}>Matrimoni, case, eventi, ispezioni, rilievi e agricoltura. Racconta cosa ti serve: i piloti della tua zona ti mandano un'offerta e <strong>scegli tu</strong>. Gratis e senza impegno.</p>}
           <button type="button" onClick={vaiAlModulo} style={CLIENTE.bottone}>Ricevi le offerte →</button>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 16, fontSize: 13, color: "#fbeee2" }}>
-            {sezione
+            {sezione?.voi
               ? <><span>✓ Confrontate le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Nessun costo per voi</span></>
               : <><span>✓ Confronti le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Nessun costo per te</span></>}
           </div>
@@ -10732,7 +10817,7 @@ function TrovaPilota() {
       <main style={{ maxWidth: 860, margin: "0 auto", padding: "26px 16px 40px", display: "flex", flexDirection: "column", gap: 22 }}>
         {sezione ? (
           <section>
-            <h2 style={{ fontSize: 20, margin: "0 0 12px 0" }}>Cosa si può riprendere</h2>
+            <h2 style={{ fontSize: 20, margin: "0 0 12px 0" }}>{sezione.titoloEsempi || "Cosa si può riprendere"}</h2>
             <div className="tp-esempi">
               {sezione.esempi.map(([e, t, d]) => (
                 <div key={t} style={{ ...CLIENTE.scheda, padding: 14 }}>
@@ -10757,7 +10842,7 @@ function TrovaPilota() {
         )}
 
         <section className="tp-passi">
-          {(sezione
+          {(sezione?.voi
             ? [["1", "Raccontate", "Dove, quando e cosa vi piacerebbe. Bastano due minuti."], ["2", "Confrontate", "I piloti della zona vi mandano un'offerta, con prezzo e lavori fatti."], ["3", "Scegliete", "Scegliete l'offerta che vi piace. Permessi e regole di volo li gestisce il pilota."]]
             : [["1", "Racconta", "Cosa ti serve, dove e quando. Bastano due minuti."], ["2", "Confronta", "I piloti della zona ti mandano un'offerta, con prezzo e lavori fatti."], ["3", "Scegli", "Scegli l'offerta che ti piace. Permessi e regole di volo li gestisce il pilota."]]).map(([n, t, d]) => (
             <div key={n} style={{ ...CLIENTE.scheda, padding: 16, display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -10782,8 +10867,8 @@ function TrovaPilota() {
             </div>
           ) : (
             <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <h2 style={{ fontSize: 21, margin: 0 }}>{sezione ? `${sezione.emoji} Raccontateci il vostro ${sezione.nome.toLowerCase()}` : "Racconta cosa ti serve"}</h2>
-              <p style={{ fontSize: 14, color: "#6b6258", margin: "-4px 0 4px 0" }}>{quanti > 0 ? `In provincia di ${nomeProvincia} ci sono ${quanti === 1 ? "1 pilota pronto" : `${quanti} piloti pronti`} a ${sezione ? "mandarvi" : "mandarti"} un'offerta.` : sezione ? "Ricevete le offerte dei piloti della vostra zona, gratis." : "Ricevi le offerte dei piloti della tua zona, gratis."}</p>
+              <h2 style={{ fontSize: 21, margin: 0 }}>{sezione ? sezione.titoloModulo : "Racconta cosa ti serve"}</h2>
+              <p style={{ fontSize: 14, color: "#6b6258", margin: "-4px 0 4px 0" }}>{quanti > 0 ? `In provincia di ${nomeProvincia} ci sono ${quanti === 1 ? "1 pilota pronto" : `${quanti} piloti pronti`} a ${sezione?.voi ? "mandarvi" : "mandarti"} un'offerta.` : sezione?.voi ? "Ricevete le offerte dei piloti della vostra zona, gratis." : "Ricevi le offerte dei piloti della tua zona, gratis."}</p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                 <label><span style={CLIENTE.etichetta}>La tua provincia *</span>
                   <select value={provincia} onChange={(e) => { setProvincia(e.target.value); setInvio(null); }} style={CLIENTE.input}>
@@ -10791,6 +10876,11 @@ function TrovaPilota() {
                     {PROVINCE_IN_ORDINE.map(([sigla, nome]) => <option key={sigla} value={sigla}>{nome} ({sigla})</option>)}
                   </select>
                 </label>
+                {sezione?.servizi && <label><span style={CLIENTE.etichetta}>{sezione.voi ? "Cosa vi serve" : "Cosa ti serve"}</span>
+                  <select value={modulo.servizio} onChange={cambia("servizio")} style={CLIENTE.input}>
+                    {sezione.servizi.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                  </select>
+                </label>}
                 {!sezione && <label><span style={CLIENTE.etichetta}>Cosa ti serve</span>
                   <select value={modulo.servizio} onChange={(e) => { setCategoria(null); cambia("servizio")(e); }} style={CLIENTE.input}>
                     <option value="">Scegli…</option>
@@ -10823,7 +10913,7 @@ function TrovaPilota() {
                   </>
                 )}
               </div>
-              <label><span style={CLIENTE.etichetta}>{sezione ? "Raccontateci il vostro giorno" : "Raccontaci il lavoro"}</span><textarea rows={4} maxLength={2000} value={modulo.descrizione} onChange={cambia("descrizione")} placeholder={sezione ? sezione.descrizione : "es. video del matrimonio in chiesa e al ristorante, foto aeree del casale in vendita, controllo del tetto dopo la grandinata…"} style={{ ...CLIENTE.input, resize: "vertical" }} /></label>
+              <label><span style={CLIENTE.etichetta}>{sezione ? sezione.etichettaDescrizione : "Raccontaci il lavoro"}</span><textarea rows={4} maxLength={2000} value={modulo.descrizione} onChange={cambia("descrizione")} placeholder={sezione ? sezione.descrizione : "es. video del matrimonio in chiesa e al ristorante, foto aeree del casale in vendita, controllo del tetto dopo la grandinata…"} style={{ ...CLIENTE.input, resize: "vertical" }} /></label>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                 <label><span style={CLIENTE.etichetta}>Nome *</span><input required autoComplete="name" maxLength={80} value={modulo.nome} onChange={cambia("nome")} style={CLIENTE.input} /></label>
                 <label><span style={CLIENTE.etichetta}>Email * (ti mandiamo qui le offerte)</span><input required type="email" autoComplete="email" maxLength={120} value={modulo.email} onChange={cambia("email")} style={CLIENTE.input} /></label>
@@ -10877,7 +10967,7 @@ function TrovaPilota() {
             {sezione.domande.map(([d, r]) => (
               <details key={d}>
                 <summary>{d}</summary>
-                <p style={{ fontSize: 14.5, color: "#4a433c", lineHeight: 1.55, margin: "8px 0 0 0" }}>{d === "Quanto costa?" && fasciaSezione ? `Dipende da cosa volete: di solito tra ${fasciaSezione.min.toLocaleString("it-IT")} e ${fasciaSezione.max.toLocaleString("it-IT")} €. Nell'offerta trovate scritto cosa comprende: minuti di video, foto, reel, consegna.` : r}</p>
+                <p style={{ fontSize: 14.5, color: "#4a433c", lineHeight: 1.55, margin: "8px 0 0 0" }}>{d === "Quanto costa?" && fasciaSezione ? `${r.split(":")[0]}: di solito tra ${fasciaSezione.min.toLocaleString("it-IT")} e ${fasciaSezione.max.toLocaleString("it-IT")} €. ${sezione.voi ? "Nell'offerta trovate scritto cosa comprende." : "Nell'offerta trovi scritto cosa comprende."}` : r}</p>
               </details>
             ))}
             <button type="button" onClick={vaiAlModulo} style={{ ...CLIENTE.bottone, alignSelf: "flex-start", marginTop: 6 }}>Ricevi le offerte →</button>
