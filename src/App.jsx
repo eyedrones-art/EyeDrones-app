@@ -10560,6 +10560,7 @@ const SEZIONI_CLIENTE = {
     titoloPagina: (p) => (p ? `Drone per il matrimonio a ${p}: riprese aeree — EyeDrones` : "Drone per il matrimonio: riprese e foto aeree — EyeDrones"),
     descrizionePagina: (p) => `Riprese e foto aeree con il drone per il vostro matrimonio${p ? ` in provincia di ${p}` : ""}: chiesa, uscita degli sposi, location e foto di gruppo dall'alto. Ricevete le offerte dei piloti della zona e scegliete voi. Gratis e senza impegno.`,
     sfondo: "linear-gradient(160deg, #3a2418 0%, #7a3b22 45%, #e0552f 100%)",
+    immagine: "/trova-pilota/matrimoni.webp", immagineAlt: "Gli sposi escono dalla chiesa tra gli invitati, ripresi dall'alto con il drone al tramonto", immaginePosizione: "50% 28%", immaginePosizionePc: "50% 44%",
     esempi: [["⛪", "L'arrivo in chiesa", "La chiesa e gli invitati che aspettano, dall'alto."], ["🎉", "L'uscita degli sposi", "Il lancio del riso ripreso dall'alto."], ["🏰", "La location", "La villa o il ristorante, con il paesaggio intorno."], ["👨‍👩‍👧‍👦", "La foto di gruppo", "Tutti gli invitati in una foto sola."], ["🌅", "Gli sposi al tramonto", "Le immagini più belle, con la luce giusta."], ["🎬", "Il video del giorno", "Montato con la musica, e un reel per i social."]],
     domande: [
       ["Si può volare al matrimonio?", "Quasi sempre sì. Il pilota controlla le zone di volo del posto (per esempio vicino agli aeroporti o in alcuni centri storici), chiede i permessi se servono e sceglie da dove riprendere in sicurezza. Voi non dovete fare niente."],
@@ -10701,14 +10702,15 @@ function TrovaPilota() {
         .tp-cat button:hover { transform: translateY(-2px); border-color: #ff8c42; }
         .tp-cat button.on { border-color: #e0552f; background: #fff3eb; }
         .tp-passi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .tp-hero img.sez { object-position: var(--pos-pc); }
         .tp-esempi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         .tp-domande details { background: #fff; border: 1px solid #ece4da; border-radius: 14px; padding: 14px 16px; }
         .tp-domande summary { font-weight: 700; font-size: 15px; cursor: pointer; }
-        @media (max-width: 640px) { .tp-cat { grid-template-columns: repeat(2, 1fr); } .tp-esempi { grid-template-columns: repeat(2, 1fr); } .tp-passi { grid-template-columns: 1fr; } .tp-hero { min-height: 700px; } }
+        @media (max-width: 640px) { .tp-hero img.sez { object-position: var(--pos); } .tp-cat { grid-template-columns: repeat(2, 1fr); } .tp-esempi { grid-template-columns: repeat(2, 1fr); } .tp-passi { grid-template-columns: 1fr; } .tp-hero { min-height: 700px; } }
       `}</style>
 
       <header className="tp-hero" style={sezione && !sezione.immagine ? { background: sezione.sfondo, minHeight: 520 } : undefined}>
-        {sezione ? (sezione.immagine && <img src={sezione.immagine} alt={sezione.immagineAlt || ""} />) : <img src="/trova-pilota/pilota-cliente.webp" alt="Una pilota mostra a una cliente le riprese aeree della sua casa" />}
+        {sezione ? (sezione.immagine && <img src={sezione.immagine} alt={sezione.immagineAlt || ""} className="sez" style={{ "--pos": sezione.immaginePosizione || "50% 12%", "--pos-pc": sezione.immaginePosizionePc || sezione.immaginePosizione || "50% 12%" }} />) : <img src="/trova-pilota/pilota-cliente.webp" alt="Una pilota mostra a una cliente le riprese aeree della sua casa" />}
         {sezione && !sezione.immagine && <span aria-hidden="true" style={{ position: "absolute", right: "6%", top: 40, fontSize: "clamp(90px, 22vw, 170px)", opacity: 0.22, lineHeight: 1 }}>{sezione.emoji}</span>}
         <div className="tp-hero-testo">
           <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#fff", fontSize: 13.5, fontWeight: 700, textDecoration: "none", background: "rgba(0,0,0,.35)", padding: "6px 10px", borderRadius: 20, marginBottom: 14 }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20, position: "static" }} /> EyeDrones</a>
