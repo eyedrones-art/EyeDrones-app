@@ -51,6 +51,8 @@ declare
 begin
   -- solo dal 2 novembre (quando «Trova un pilota» è online) e solo nei giorni feriali
   if v_oggi < date '2026-11-02' or extract(isodow from v_oggi) > 5 then return; end if;
+  -- e solo se «Trova un pilota» è già attivo (trova-pilota.sql eseguito)
+  if to_regprocedure('public.lavori_in_zona()') is null then return; end if;
   select valore into v_url from privato.impostazioni where chiave = 'promemoria_url';
   select valore into v_segreto from privato.impostazioni where chiave = 'avviso_segreto';
   if v_url is null or v_segreto is null then return; end if;
