@@ -1,5 +1,6 @@
 User-agent: *
 Disallow: /offerte/
+Disallow: /miei-lavori
 Disallow: /partner-
 Allow: /
 

@@ -1657,6 +1657,8 @@ export default function App() {
   // il link privato del cliente alle offerte dei piloti
   const codiceOfferte = codiceOfferteDaIndirizzo();
   if (codiceOfferte) return <OfferteCliente codice={codiceOfferte} />;
+  // «I miei lavori» del cliente: tutte le sue richieste (link personale mandato per email)
+  if (/^\/miei-lavori(\/[a-f0-9]{32,64})?\/?$/i.test(percorso)) return <MieiLavori />;
   return <AppAutenticata />;
 }
 
@@ -10886,7 +10888,10 @@ function TrovaPilota() {
         {sezione ? (sezione.immagine && <img src={sezione.immagine} alt={sezione.immagineAlt || ""} className="sez" style={{ "--pos": sezione.immaginePosizione || "50% 12%", "--pos-pc": sezione.immaginePosizionePc || sezione.immaginePosizione || "50% 12%" }} />) : <img src="/trova-pilota/pilota-cliente.webp" alt="Una pilota mostra a una cliente le riprese aeree della sua casa" />}
         {sezione && !sezione.immagine && <span aria-hidden="true" style={{ position: "absolute", right: "6%", top: 40, fontSize: "clamp(90px, 22vw, 170px)", opacity: 0.22, lineHeight: 1 }}>{sezione.emoji}</span>}
         <div className="tp-hero-testo">
-          <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#fff", fontSize: 13.5, fontWeight: 700, textDecoration: "none", background: "rgba(0,0,0,.35)", padding: "6px 10px", borderRadius: 20, marginBottom: 14 }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20, position: "static" }} /> EyeDrones</a>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#fff", fontSize: 13.5, fontWeight: 700, textDecoration: "none", background: "rgba(0,0,0,.35)", padding: "6px 10px", borderRadius: 20 }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20, position: "static" }} /> EyeDrones</a>
+            <a href="/miei-lavori" style={{ color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none", background: "rgba(0,0,0,.35)", padding: "6px 10px", borderRadius: 20 }}>📨 I miei lavori</a>
+          </div>
           <h1 style={{ fontSize: "clamp(28px, 6vw, 44px)", lineHeight: 1.08, margin: "0 0 10px 0", fontWeight: 800, letterSpacing: "-0.02em", textShadow: "0 2px 18px rgba(0,0,0,.35)" }}>
             {sezione ? (nomeProvincia ? sezione.titoloProvincia(nomeProvincia) : sezione.titolo) : nomeProvincia ? <>Il tuo pilota di droni<br />in provincia di {nomeProvincia}</> : <>Il tuo momento,<br />visto dall'alto.</>}
           </h1>
@@ -11049,6 +11054,7 @@ function TrovaPilota() {
                       <span style={{ display: "block", fontSize: 14.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.nome || "Pilota di droni"}</span>
                       <span style={{ display: "block", fontSize: 12.5, color: "#6b6258", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[x.citta, (x.servizi || []).slice(0, 2).join(", ")].filter(Boolean).join(" · ")}</span>
                       <span style={{ display: "block", fontSize: 12, color: "#1f8a4c", marginTop: 2, fontWeight: 600 }}>{[x.registrato && "✓ Registrato", x.assicurato && "✓ Assicurato"].filter(Boolean).join(" · ")}</span>
+                      {testoStelle(x.stelle) && <span style={{ display: "block", fontSize: 12, color: "#c27c0e", fontWeight: 700 }}>{testoStelle(x.stelle)}</span>}
                     </span>
                   </div>
                 );
@@ -11117,6 +11123,184 @@ function titoloServizio(d, servizio) {
   return parti.length ? parti.join(" + ") : servizio || "Lavoro con il drone";
 }
 
+// le stelle di un pilota, scritte: «★ 4,8 · 12 lavori» (niente se non ne ha ancora)
+const testoStelle = (st) => (st && Number(st.numero) > 0 ? `★ ${String(st.media).replace(".", ",")} · ${st.numero} ${Number(st.numero) === 1 ? "lavoro" : "lavori"}` : null);
+const fileStelle = (n) => "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n);
+
+// le stelle che il cliente dà al pilota dopo il lavoro (da 1 a 5, con due righe facoltative)
+function RecensioneCliente({ codice, nomePilota, stelleIniziali, testoIniziale, gia }) {
+  const [stelle, setStelle] = useState(stelleIniziali || 0);
+  const [testo, setTesto] = useState(testoIniziale || "");
+  const [stato, setStato] = useState(null); // null | "invio" | "ok" | messaggio
+  const invia = async () => {
+    if (!stelle) { setStato("Tocca una stella."); return; }
+    setStato("invio");
+    const { error } = await supabase.rpc("lascia_recensione", { p_codice: codice, p_stelle: stelle, p_testo: testo });
+    setStato(error ? (/presto/i.test(error.message || "") ? "Potrai lasciare le stelle dopo il lavoro." : "Non è stato possibile: riprova.") : "ok");
+  };
+  if (stato === "ok") return <div style={{ ...CLIENTE.scheda, background: "#eaf6ef", borderColor: "#bfe3cd", textAlign: "center" }}><div style={{ fontSize: 28, color: "#f5a623" }}>{fileStelle(stelle)}</div><strong style={{ display: "block", marginTop: 4 }}>Grazie!</strong><span style={{ fontSize: 13.5, color: "#4a433c" }}>Le tue stelle aiutano gli altri clienti a scegliere.</span></div>;
+  return (
+    <div id="stelle" style={{ ...CLIENTE.scheda, scrollMarginTop: 16 }}>
+      <strong style={{ fontSize: 16 }}>{gia ? "La tua recensione" : `Com'è andata con ${nomePilota}?`}</strong>
+      <div style={{ display: "flex", gap: 4, margin: "8px 0" }}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button key={n} type="button" aria-label={`${n} ${n === 1 ? "stella" : "stelle"}`} onClick={() => setStelle(n)} style={{ background: "none", border: "none", padding: 0, fontSize: 36, lineHeight: 1, cursor: "pointer", color: n <= stelle ? "#f5a623" : "#ddd3c6" }}>★</button>
+        ))}
+      </div>
+      <textarea rows={3} maxLength={600} value={testo} onChange={(e) => setTesto(e.target.value)} placeholder="Due righe per gli altri clienti (facoltativo): com'è stato, cosa ti è piaciuto…" style={{ ...CLIENTE.input, resize: "vertical" }} />
+      <p style={{ fontSize: 12, color: "#8a8076", margin: "6px 0 10px 0" }}>Il tuo nome compare abbreviato (per esempio «Laura B.»). Puoi cambiarla per 30 giorni.</p>
+      {stato && stato !== "invio" && <p style={{ fontSize: 13.5, color: "#c0392b", margin: "0 0 8px 0" }}>{stato}</p>}
+      <button type="button" disabled={stato === "invio"} onClick={invia} style={{ ...CLIENTE.bottone, padding: "11px 18px", fontSize: 15 }}>{stato === "invio" ? "Invio…" : gia ? "Aggiorna" : "Invia le stelle"}</button>
+    </div>
+  );
+}
+
+// «I miei lavori»: il cliente ritrova tutte le sue richieste. Entra con il link personale che riceve per email
+// (/miei-lavori/<codice>): il codice resta su questo telefono, così la volta dopo basta aprire /miei-lavori
+const CHIAVE_CLIENTE = "eyedrones_cliente";
+function MieiLavori() {
+  const [codice, setCodice] = useState(() => {
+    const m = window.location.pathname.match(/^\/miei-lavori\/([a-f0-9]{32,64})\/?$/i);
+    if (m) { try { localStorage.setItem(CHIAVE_CLIENTE, m[1].toLowerCase()); window.history.replaceState(null, "", "/miei-lavori"); } catch { /* niente */ } return m[1].toLowerCase(); }
+    try { return localStorage.getItem(CHIAVE_CLIENTE) || null; } catch { return null; }
+  });
+  const [dati, setDati] = useState(undefined); // undefined = carico | null = link non valido
+  const [email, setEmail] = useState("");
+  const [mandato, setMandato] = useState(null); // null | "invio" | "ok"
+  const [nuova, setNuova] = useState(null); // { codice, nome, servizio, luogo, data, descrizione } per «richiedi di nuovo»
+  const [inviata, setInviata] = useState(null);
+  const [errore, setErrore] = useState(null);
+
+  const carica = async (c = codice) => {
+    if (!c) { setDati(null); return; }
+    const { data, error } = await supabase.rpc("miei_lavori", { p_cliente: c });
+    if (!error && !data) { try { localStorage.removeItem(CHIAVE_CLIENTE); } catch { /* niente */ } setCodice(null); }
+    setDati(error ? null : data || null);
+  };
+  useEffect(() => { document.title = "I miei lavori — EyeDrones"; carica(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const chiediLink = async (e) => {
+    e.preventDefault();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return;
+    setMandato("invio");
+    await supabase.rpc("link_miei_lavori", { p_email: email.trim() });
+    setMandato("ok");
+  };
+  const esci = () => { try { localStorage.removeItem(CHIAVE_CLIENTE); } catch { /* niente */ } setCodice(null); setDati(null); };
+  const richiedi = async () => {
+    if (nuova.descrizione.trim().length < 10) { setErrore("Scrivi in due parole cosa ti serve."); return; }
+    setErrore(null); setInviata("invio");
+    const { error } = await supabase.rpc("richiedi_di_nuovo", { p_cliente: codice, p_lavoro: nuova.codice, p_servizio: nuova.servizio, p_luogo: nuova.luogo, p_data: nuova.data || null, p_descrizione: nuova.descrizione });
+    if (error) { setInviata(null); setErrore(/troppe/i.test(error.message || "") ? "Hai già mandato diverse richieste: riprova tra un'ora." : /non disponibile/i.test(error.message || "") ? "Questo pilota non riceve più richieste: fai una nuova richiesta a tutti i piloti della zona." : "Invio non riuscito: riprova."); return; }
+    setInviata(nuova.nome); setNuova(null); carica();
+  };
+
+  const testa = (
+    <a href="/trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#6b6258", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20 }} /> EyeDrones · Trova un pilota</a>
+  );
+  const contenitore = (figli) => <div style={CLIENTE.pagina}><main style={{ maxWidth: 680, margin: "0 auto", padding: "22px 16px 40px", display: "flex", flexDirection: "column", gap: 14 }}>{testa}{figli}</main></div>;
+
+  if (dati === undefined) return <div style={{ ...CLIENTE.pagina, display: "flex", alignItems: "center", justifyContent: "center", color: "#8a8076" }}>Carico i tuoi lavori…</div>;
+  if (!dati) {
+    return contenitore(
+      <div style={CLIENTE.scheda}>
+        <h1 style={{ fontSize: 24, margin: "0 0 6px 0" }}>📨 I miei lavori</h1>
+        <p style={{ fontSize: 14.5, color: "#5b534b", lineHeight: 1.55, margin: "0 0 14px 0" }}>Qui trovi tutte le tue richieste, le offerte, i piloti scelti e i lavori consegnati. Scrivi l'email che hai usato per la richiesta: ti mandiamo il link per entrare.</p>
+        {mandato === "ok" ? (
+          <p role="status" style={{ fontSize: 15, color: "#1f6b40", background: "#eaf6ef", borderRadius: 12, padding: 14, margin: 0, lineHeight: 1.5 }}>Fatto! Se hai fatto richieste con <strong>{email.trim()}</strong>, ti abbiamo appena scritto: apri l'email e tocca «Apri I miei lavori».</p>
+        ) : (
+          <form onSubmit={chiediLink} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input required type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="la tua email" style={{ ...CLIENTE.input, flex: "1 1 220px" }} />
+            <button type="submit" disabled={mandato === "invio"} style={{ ...CLIENTE.bottone, padding: "12px 18px", fontSize: 15 }}>{mandato === "invio" ? "Invio…" : "Mandami il link"}</button>
+          </form>
+        )}
+        <p style={{ fontSize: 13, color: "#8a8076", margin: "14px 0 0 0" }}>Non hai ancora fatto richieste? <a href="/trova-pilota" style={{ color: "#e0552f", fontWeight: 700 }}>Trova un pilota</a></p>
+      </div>
+    );
+  }
+
+  const lavori = dati.lavori || [];
+  const quando = (d) => (d ? new Date(d + "T12:00:00").toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }) : null);
+  const emoji = (sv) => (/matrimon/i.test(sv || "") ? "💍" : /immobil|casa|case/i.test(sv || "") ? "🏡" : { riprese: "🎬", ispezioni: "🔍", termografia: "🌡️", rilievi: "📐", agricoltura: "🌱", trattamenti: "💧" }[tipoServizio(sv)] || "🚁");
+  return contenitore(
+    <>
+      <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ fontSize: 26, margin: "0 0 4px 0" }}>I miei lavori</h1>
+          <p style={{ fontSize: 14, color: "#6b6258", margin: 0 }}>{dati.nome ? `Ciao ${dati.nome}! ` : ""}Qui trovi tutte le tue richieste.</p>
+        </div>
+        <a href="/trova-pilota" style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14 }}>+ Nuova richiesta</a>
+      </header>
+      {inviata && inviata !== "invio" && <div role="status" style={{ ...CLIENTE.scheda, background: "#eaf6ef", borderColor: "#bfe3cd", fontSize: 14.5 }}>✓ Richiesta mandata a <strong>{inviata}</strong>. Ti scriviamo appena manda l'offerta.</div>}
+      {lavori.length === 0 && <div style={{ ...CLIENTE.scheda, fontSize: 14.5, color: "#5b534b" }}>Per ora non ci sono richieste. <a href="/trova-pilota" style={{ color: "#e0552f", fontWeight: 700 }}>Fai la prima</a>.</div>}
+      {lavori.map((l) => {
+        const p = l.pilota;
+        const c = (p && p.contatti) || {};
+        const iniziali = String(p?.nome || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join("");
+        const logo = p?.logo && !String(p.logo).startsWith(LOGO_PRECEDENTE_PREFISSO) ? p.logo : null;
+        const link = l.consegna && /^https:\/\//i.test(l.consegna.link || "") ? l.consegna.link : null;
+        return (
+          <article key={l.codice} style={{ ...CLIENTE.scheda, borderColor: l.stato === "confermata" ? "#bfe3cd" : "#ece4da" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 800 }}>{emoji(l.servizio)} {l.servizio || "Richiesta"}</div>
+                <div style={{ fontSize: 13.5, color: "#6b6258", marginTop: 2 }}>{[l.luogo, quando(l.data_desiderata), l.diretta && "solo al tuo pilota"].filter(Boolean).join(" · ")}</div>
+              </div>
+              <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 800, borderRadius: 20, padding: "4px 10px", background: l.stato === "confermata" ? "#eaf6ef" : l.stato === "aperta" ? "#fff3eb" : "#f2ede6", color: l.stato === "confermata" ? "#1f6b40" : l.stato === "aperta" ? "#c2410c" : "#6b6258" }}>
+                {l.stato === "confermata" ? (link ? "Consegnato" : "Confermato") : l.stato === "scelta" ? "In attesa di conferma" : l.stato === "aperta" ? (l.offerte > 0 ? `${l.offerte} ${l.offerte === 1 ? "offerta" : "offerte"}` : "In attesa") : "Chiusa"}
+              </span>
+            </div>
+
+            {l.stato === "aperta" && <a href={`/offerte/${l.codice}`} style={{ ...CLIENTE.bottone, marginTop: 12, padding: "10px 16px", fontSize: 14.5 }}>{l.offerte > 0 ? "Vedi le offerte e scegli" : "Vedi la richiesta"}</a>}
+            {l.stato === "scelta" && <p style={{ fontSize: 14, color: "#5b534b", margin: "10px 0 0 0" }}>Hai scelto <strong>{l.scelto || "un pilota"}</strong>: entro 48 ore conferma e ti mandiamo i suoi contatti. <a href={`/offerte/${l.codice}`} style={{ color: "#e0552f" }}>Dettagli</a></p>}
+
+            {l.stato === "confermata" && p && (
+              <>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, paddingTop: 12, borderTop: "1px solid #f0e9e0" }}>
+                  {logo ? <img src={logo} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "contain", background: "#f6f1ea" }} /> : <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#fff" }}>{iniziali}</span>}
+                  <div style={{ fontSize: 14 }}><strong>{p.nome}</strong>{l.prezzo ? <span style={{ color: "#6b6258" }}> · {euroIt(l.prezzo)}</span> : null}{l.stelle ? <div style={{ color: "#f5a623", fontSize: 15 }}>{fileStelle(l.stelle)}</div> : null}</div>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                  {link && <a href={link} target="_blank" rel="noopener noreferrer" style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14 }}>📦 Guarda il lavoro</a>}
+                  {c.telefono && <a href={`tel:${String(c.telefono).replace(/[^\d+]/g, "")}`} style={{ background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "10px 14px", fontSize: 14, fontWeight: 700, color: "#3a332c", textDecoration: "none" }}>📞 Chiama</a>}
+                  {c.email_pubblica && <a href={`mailto:${c.email_pubblica}`} style={{ background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "10px 14px", fontSize: 14, fontWeight: 700, color: "#3a332c", textDecoration: "none" }}>✉️ Scrivi</a>}
+                  {!l.stelle && <a href={`/offerte/${l.codice}#stelle`} style={{ background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "10px 14px", fontSize: 14, fontWeight: 700, color: "#3a332c", textDecoration: "none" }}>⭐ Lascia le stelle</a>}
+                </div>
+                {l.consegna?.nota && <p style={{ fontSize: 13.5, color: "#4a433c", background: "#fbf7f2", borderRadius: 10, padding: "8px 10px", margin: "10px 0 0 0" }}>«{l.consegna.nota}»</p>}
+                {p.disponibile && nuova?.codice !== l.codice && (
+                  <button type="button" onClick={() => { setInviata(null); setErrore(null); setNuova({ codice: l.codice, nome: p.nome, servizio: l.servizio || "", luogo: "", data: "", descrizione: "" }); }} style={{ marginTop: 12, width: "100%", background: "#fff3eb", border: "1px solid #ffcfae", borderRadius: 12, padding: "12px 14px", fontSize: 15, fontWeight: 800, color: "#c2410c", cursor: "pointer" }}>🔁 Richiedi di nuovo a {p.nome}</button>
+                )}
+                {nuova?.codice === l.codice && (
+                  <div style={{ marginTop: 12, background: "#fbf7f2", border: "1px solid #ece4da", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <strong style={{ fontSize: 15 }}>🔁 Nuova richiesta a {p.nome}</strong>
+                    <span style={{ fontSize: 13, color: "#6b6258", marginTop: -6 }}>Arriva solo a lui. Se non risponde, potrai mandarla anche agli altri piloti della zona.</span>
+                    <label><span style={CLIENTE.etichetta}>Cosa ti serve</span>
+                      <select value={nuova.servizio} onChange={(e) => setNuova({ ...nuova, servizio: e.target.value })} style={CLIENTE.input}>
+                        {[...new Set([nuova.servizio, ...SERVIZI_PILOTA].filter(Boolean))].map((x) => <option key={x} value={x}>{x}</option>)}
+                      </select>
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+                      <label><span style={CLIENTE.etichetta}>Dove</span><input maxLength={120} value={nuova.luogo} onChange={(e) => setNuova({ ...nuova, luogo: e.target.value })} placeholder="comune o indirizzo" style={CLIENTE.input} /></label>
+                      <label><span style={CLIENTE.etichetta}>Quando (se hai una data)</span><input type="date" min={dataLocale()} value={nuova.data} onChange={(e) => setNuova({ ...nuova, data: e.target.value })} style={CLIENTE.input} /></label>
+                    </div>
+                    <label><span style={CLIENTE.etichetta}>Cosa ti serve, in due parole</span><textarea rows={3} maxLength={2000} value={nuova.descrizione} onChange={(e) => setNuova({ ...nuova, descrizione: e.target.value })} placeholder="es. come l'altra volta, ma con un video più lungo" style={{ ...CLIENTE.input, resize: "vertical" }} /></label>
+                    {errore && <p role="alert" style={{ fontSize: 13.5, color: "#c0392b", margin: 0 }}>{errore}</p>}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button type="button" disabled={inviata === "invio"} onClick={richiedi} style={{ ...CLIENTE.bottone, padding: "11px 16px", fontSize: 15 }}>{inviata === "invio" ? "Invio…" : `Manda a ${p.nome}`}</button>
+                      <button type="button" onClick={() => setNuova(null)} style={{ background: "none", border: "none", color: "#8a8076", fontSize: 14 }}>Annulla</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </article>
+        );
+      })}
+      <p style={{ textAlign: "center", fontSize: 12.5, color: "#8a8076", margin: "6px 0 0 0" }}>Non è il tuo telefono? <button type="button" onClick={esci} style={{ background: "none", border: "none", color: "#8a8076", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>Esci da «I miei lavori»</button></p>
+    </>
+  );
+}
+
 // app.eyedrones.it/offerte/<codice>: il link privato che il cliente riceve per email
 function codiceOfferteDaIndirizzo() {
   const m = window.location.pathname.match(/^\/offerte\/([a-f0-9]{32,64})\/?$/i);
@@ -11130,6 +11314,18 @@ function OfferteCliente({ codice }) {
   const [scelgo, setScelgo] = useState(null); // offerta che sta per scegliere (chiede conferma)
   const [lavoro, setLavoro] = useState(null); // null | "invio" | messaggio
   const [foto, setFoto] = useState(null);
+  // dall'email «com'è andata?»: /offerte/<codice>?stelle=5 (le stelle si mandano solo toccando «Invia»)
+  const [stelleEmail] = useState(() => { const n = Number(new URLSearchParams(window.location.search).get("stelle")); return n >= 1 && n <= 5 ? n : 0; });
+  useEffect(() => {
+    if (!dati || !(stelleEmail || window.location.hash === "#stelle")) return;
+    setTimeout(() => document.getElementById("stelle")?.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+  }, [dati]); // eslint-disable-line react-hooks/exhaustive-deps
+  const apriATutti = async () => {
+    setLavoro("invio");
+    await supabase.rpc("apri_a_tutti", { p_codice: codice });
+    setLavoro(null);
+    carica();
+  };
 
   const carica = async () => {
     const { data, error } = await supabase.rpc("offerte_cliente", { p_codice: codice });
@@ -11221,12 +11417,20 @@ function OfferteCliente({ codice }) {
             <div style={{ fontSize: 12.5, color: "#6b6258", lineHeight: 1.4 }}>
               Lo fa <strong style={{ color: "#3a332c" }}>{p.nome}</strong>{p.citta ? ` · ${p.citta}` : ""}
               <div>{[p.registrato && "✓ operatore registrato", p.assicurato && "✓ assicurato"].filter(Boolean).join(" · ")}</div>
+              {testoStelle(p.stelle) && <div style={{ color: "#c27c0e", fontWeight: 700 }}>{testoStelle(p.stelle)}</div>}
             </div>
           </div>
           {espansa && p.presentazione && <p style={{ fontSize: 13.5, lineHeight: 1.55, color: "#6b6258", margin: "10px 0 0 0", whiteSpace: "pre-wrap" }}>{p.presentazione}</p>}
           {espansa && lavori.length > 3 && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, marginTop: 10 }}>
               {lavori.slice(3).map((u) => <img key={u} src={u} alt="" onClick={() => setFoto(u)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 8, cursor: "zoom-in" }} />)}
+            </div>
+          )}
+          {o.stato === "confermata" && o.consegna && /^https:\/\//i.test(o.consegna.link || "") && (
+            <div style={{ marginTop: 14, background: "#fff3eb", borderRadius: 12, padding: 14 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#c2410c", marginBottom: 6 }}>📦 Il tuo lavoro è pronto</div>
+              {o.consegna.nota && <p style={{ fontSize: 14, color: "#4a433c", margin: "0 0 10px 0" }}>«{o.consegna.nota}»</p>}
+              <a href={o.consegna.link} target="_blank" rel="noopener noreferrer" style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14 }}>Guarda il lavoro</a>
             </div>
           )}
           {o.stato === "confermata" && p.contatti && (
@@ -11253,7 +11457,10 @@ function OfferteCliente({ codice }) {
   return (
     <div style={CLIENTE.pagina}>
       <main style={{ maxWidth: 720, margin: "0 auto", padding: "22px 16px 40px", display: "flex", flexDirection: "column", gap: 16 }}>
-        <a href="/trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#6b6258", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20 }} /> EyeDrones · Trova un pilota</a>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <a href="/trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#6b6258", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20 }} /> EyeDrones · Trova un pilota</a>
+          <a href="/miei-lavori" style={{ color: "#e0552f", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}>📨 I miei lavori</a>
+        </div>
         <header>
           <h1 style={{ fontSize: 26, margin: "0 0 6px 0", lineHeight: 1.15 }}>
             {confermata ? "Hai il tuo pilota! 🎉" : scelta ? "Hai scelto, ci siamo quasi" : offerte.length ? `Ciao ${r.nome}, hai ${offerte.length === 1 ? "1 offerta" : `${offerte.length} offerte`}` : `Ciao ${r.nome}, stiamo cercando`}
@@ -11290,11 +11497,13 @@ function OfferteCliente({ codice }) {
         {offerte.length === 0 && (
           <div style={{ ...CLIENTE.scheda, textAlign: "center" }}>
             <div style={{ fontSize: 40 }}>📨</div>
-            <p style={{ fontSize: 15, color: "#4a433c", lineHeight: 1.55, margin: "8px 0 0 0" }}>La tua richiesta è arrivata ai piloti della provincia. Quando arriva un'offerta ti scriviamo per email: non serve tenere aperta questa pagina.</p>
+            <p style={{ fontSize: 15, color: "#4a433c", lineHeight: 1.55, margin: "8px 0 0 0" }}>{r.diretta ? "La tua richiesta è arrivata solo al pilota con cui hai già lavorato." : "La tua richiesta è arrivata ai piloti della provincia."} Quando arriva un'offerta ti scriviamo per email: non serve tenere aperta questa pagina.</p>
+            {r.diretta && r.stato === "aperta" && <button type="button" disabled={lavoro === "invio"} onClick={apriATutti} style={{ marginTop: 12, background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "11px 14px", fontSize: 14.5, fontWeight: 700, color: "#3a332c" }}>{lavoro === "invio" ? "Un attimo…" : "Non risponde? Mandala anche agli altri piloti della zona"}</button>}
           </div>
         )}
 
         {confermata && schedaOfferta(confermata)}
+        {confermata && confermata.si_recensisce && <RecensioneCliente codice={codice} nomePilota={confermata.pilota?.nome || "il pilota"} stelleIniziali={stelleEmail || confermata.mie_stelle} testoIniziale={confermata.mia_recensione} gia={!!confermata.mie_stelle} />}
         {!confermata && scelta && schedaOfferta(scelta)}
         {!confermata && inGara.length > 0 && (
           <>
@@ -11348,6 +11557,8 @@ function PaginaPilotaPubblica({ slug }) {
   const [consenso, setConsenso] = useState(false);
   const [invio, setInvio] = useState(null); // null | "invio" | "ok" | messaggio d'errore
   const formRef = useRef(null);
+  const [recensioni, setRecensioni] = useState(null); // le stelle dei clienti di «Trova un pilota»
+  useEffect(() => { supabase.rpc("recensioni_pilota", { p_slug: slug }).then(({ data }) => setRecensioni(data || null), () => {}); }, [slug]);
 
   useEffect(() => {
     let annullato = false;
@@ -11502,6 +11713,22 @@ function PaginaPilotaPubblica({ slug }) {
           </section>
         )}
 
+        {recensioni && Number(recensioni.numero) > 0 && (
+          <section style={scheda}>
+            <h2 style={titoletto}>Cosa dicono i clienti</h2>
+            <div style={{ fontSize: 15, marginBottom: 10 }}><span style={{ color: "#f5a623", fontSize: 18 }}>{fileStelle(Math.round(Number(recensioni.media)))}</span> <strong>{String(recensioni.media).replace(".", ",")}</strong> <span style={{ color: "#8b95a3" }}>· {recensioni.numero} {Number(recensioni.numero) === 1 ? "lavoro" : "lavori"} con EyeDrones</span></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(recensioni.ultime || []).filter((x) => x.testo).slice(0, 5).map((x, i) => (
+                <div key={i} style={{ background: "#141820", borderRadius: 8, padding: "10px 12px" }}>
+                  <div style={{ fontSize: 13, color: "#f5a623" }}>{fileStelle(x.stelle)} <span style={{ color: "#8b95a3" }}>· {x.nome}{x.servizio ? ` · ${x.servizio}` : ""}</span></div>
+                  <div style={{ fontSize: 14, color: "#d5dae1", marginTop: 4, lineHeight: 1.5 }}>«{x.testo}»</div>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: 11.5, color: "#6b7480", margin: "10px 0 0 0" }}>Solo clienti che hanno davvero lavorato con questo pilota tramite EyeDrones.</p>
+          </section>
+        )}
+
         <section ref={formRef} style={{ ...scheda, scrollMarginTop: 16 }}>
           <h2 style={{ fontSize: 18, margin: "0 0 4px 0" }}>Richiedi un preventivo</h2>
           <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 14px 0" }}>Descrivi cosa ti serve: {dati.nome || "il pilota"} ti risponde direttamente. La richiesta è gratuita e senza impegno.</p>
@@ -11647,6 +11874,8 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   const [errore, setErrore] = useState(null);
   const [pagato, setPagato] = useState(LAVORO_APPENA_PAGATO);
   const [rinuncia, setRinuncia] = useState(null); // { id, motivo, altro } mentre il pilota dice «non posso farlo»
+  const [consegna, setConsegna] = useState(null); // { id, link, nota } mentre il pilota consegna il lavoro
+  const [gallerie, setGallerie] = useState(null); // le sue gallerie per il cliente, da scegliere con un tocco
   const [archivio, setArchivio] = useState(undefined); // il file zone D-Flight del pilota (dal telefono o dall'account)
   useEffect(() => { leggiZoneSalvate().then(async (d) => setArchivio(d && Array.isArray(d.zone) ? d : (await riprendiCopiaZone()) || null)); }, []);
   const zoneValide = React.useMemo(() => (archivio ? archivio.zone.filter((z) => !zonaFinita(z)) : null), [archivio]);
@@ -11762,8 +11991,24 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     carica();
   };
   const scelti = lavori.filter((l) => l.mia?.stato === "scelta");
+  const confermati = lavori.filter((l) => l.mia?.stato === "confermata");
+  const apriConsegna = (l) => {
+    setErrore(null);
+    setConsegna({ id: l.id, link: l.mia.consegna?.link || "", nota: l.mia.consegna?.nota || "" });
+    if (gallerie === null) supabase.from("condivisioni").select("id, token, titolo, created_at").eq("attiva", true).order("created_at", { ascending: false }).limit(8).then(({ data }) => setGallerie(data || []), () => setGallerie([]));
+  };
+  const consegna_ = async (l) => {
+    const link = consegna.link.trim();
+    if (!/^https:\/\/\S{4,}$/i.test(link)) { setErrore({ id: l.id, testo: "Incolla un link che inizia con https:// (galleria EyeDrones, Google Drive, WeTransfer o il report)." }); return; }
+    setLavoro(l.id); setErrore(null);
+    const { error } = await supabase.rpc("consegna_lavoro_zona", { p_offerta: l.mia.id, p_link: link, p_nota: consegna.nota });
+    setLavoro(null);
+    if (error) { setErrore({ id: l.id, testo: "Consegna non riuscita: riprova." }); return; }
+    setConsegna(null);
+    carica();
+  };
   const aperti = lavori.filter((l) => l.stato === "aperta" && (!l.mia || l.mia.stato === "inviata"));
-  const finiti = lavori.filter((l) => l.mia && ["confermata", "non_scelta", "decaduta", "rinunciata"].includes(l.mia.stato) || (l.mia?.stato === "inviata" && l.stato !== "aperta"));
+  const finiti = lavori.filter((l) => l.mia && ["non_scelta", "decaduta", "rinunciata"].includes(l.mia.stato) || (l.mia?.stato === "inviata" && l.stato !== "aperta"));
   const dataBreve = (d) => new Date(d + (String(d).length === 10 ? "T12:00:00" : "")).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
   const riga = (l) => [l.servizio || "Richiesta", l.luogo, l.data_desiderata ? `per il ${dataBreve(l.data_desiderata)}` : null].filter(Boolean).join(" · ");
   const st = { scheda: { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 12, marginTop: 8 } };
@@ -11820,6 +12065,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     const tipo = tipoServizio(l.servizio);
     return (
       <>
+        {l.diretto && <div style={{ display: "inline-block", fontSize: 12, fontWeight: 800, color: "#86efac", background: "#163322", border: "1px solid #2c5a3f", borderRadius: 20, padding: "3px 10px", marginBottom: 8 }}>🔁 {l.cliente || "Un tuo cliente"} ti richiede di nuovo: è arrivata solo a te</div>}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
           <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.3 }}>{/matrimon/i.test(l.servizio || "") ? "💍" : EMOJI_TIPO[tipo]} {l.servizio || "Richiesta"}</div>
           {l.budget && BUDGET_CLIENTE[l.budget] && pillola("#c4b5fd", `💶 ${BUDGET_CLIENTE[l.budget]}`)}
@@ -11925,6 +12171,45 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
           </div>
         );
       })}
+
+      {confermati.length > 0 && sezione("Lavori confermati")}
+      {confermati.map((l) => (
+        <div key={l.id} style={{ ...st.scheda, borderColor: l.mia.consegna ? "#2c5a3f" : "#3d8bfd66" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+            <div style={{ fontSize: 14, fontWeight: 800 }}>{riga(l)} · {euroIt(l.mia.prezzo)}</div>
+            <span style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 800, borderRadius: 20, padding: "3px 9px", background: l.mia.consegna ? "#163322" : "#16263d", color: l.mia.consegna ? "#86efac" : "#9cc4ff" }}>{l.mia.consegna ? "Consegnato ✓" : "Da consegnare"}</span>
+          </div>
+          {l.mia.stelle && (
+            <div style={{ marginTop: 8, fontSize: 13, color: "#c3cad4" }}>
+              <span style={{ color: "#f5a623", fontSize: 15 }}>{fileStelle(l.mia.stelle)}</span> il cliente ti ha dato {l.mia.stelle} {l.mia.stelle === 1 ? "stella" : "stelle"}{l.mia.recensione ? <>: «{l.mia.recensione}»</> : "."}
+            </div>
+          )}
+          {!l.mia.consegna && consegna?.id !== l.id && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 6 }}>Quando hai finito, consegna qui foto, video o report: il cliente riceve un'email e li ritrova sempre in «I miei lavori». Poi gli chiediamo le stelle.</div>}
+          {consegna?.id !== l.id && (
+            <button type="button" onClick={() => apriConsegna(l)} style={{ marginTop: 10, background: l.mia.consegna ? "#262b33" : "linear-gradient(90deg, #e0552f, #ff8c42)", color: l.mia.consegna ? "#e7eaee" : "#161a1f", border: l.mia.consegna ? "1px solid #333a45" : "none", borderRadius: 8, padding: "9px 14px", fontSize: 13.5, fontWeight: 800 }}>{l.mia.consegna ? "Cambia il link" : "📦 Consegna il lavoro"}</button>
+          )}
+          {consegna?.id === l.id && (
+            <div style={{ marginTop: 10, background: "#141820", border: "1px solid #333a45", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+              {gallerie && gallerie.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 6 }}>Le tue gallerie per il cliente: tocca quella giusta</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {gallerie.map((g) => { const u = linkCondivisione(g.token); return <button key={g.id} type="button" onClick={() => setConsegna({ ...consegna, link: u })} style={{ ...chip(consegna.link === u), borderRadius: 16, padding: "6px 10px", fontSize: 12 }}>📷 {g.titolo || "Galleria"}</button>; })}
+                  </div>
+                </div>
+              )}
+              {gallerie && gallerie.length === 0 && <div style={{ fontSize: 12, color: "#8b95a3" }}>Per una galleria con foto e video: apri il volo nel Registro e tocca «Condividi con il cliente». Oppure incolla un link di Google Drive o WeTransfer.</div>}
+              <input value={consegna.link} onChange={(e) => setConsegna({ ...consegna, link: e.target.value })} placeholder="https://… (galleria, Google Drive, WeTransfer o report)" inputMode="url" style={inputStyle} />
+              <textarea rows={2} maxLength={500} value={consegna.nota} onChange={(e) => setConsegna({ ...consegna, nota: e.target.value })} placeholder="Due righe per il cliente (facoltativo): es. «Ecco il video e le foto, grazie!»" style={{ ...inputStyle, resize: "vertical" }} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" disabled={lavoro === l.id} onClick={() => consegna_(l)} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 800 }}>{lavoro === l.id ? "Un attimo…" : l.mia.consegna ? "Salva" : "Consegna al cliente"}</button>
+                <button type="button" onClick={() => setConsegna(null)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5 }}>Annulla</button>
+              </div>
+            </div>
+          )}
+          {errore?.id === l.id && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore.testo}</p>}
+        </div>
+      ))}
 
       {sezione(`Richieste aperte${aperti.length ? ` (${aperti.length})` : ""}`)}
       {aperti.length === 0 && <div style={{ fontSize: 12.5, color: "#6b7480" }}>Per ora nessuna richiesta aperta. Quando un cliente della tua provincia scrive, ti arriva un'email.</div>}

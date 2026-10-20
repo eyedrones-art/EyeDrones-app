@@ -88,3 +88,20 @@
   for = "/offerte/*"
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
+
+# «I miei lavori» del cliente (link personale mandato per email)
+[[redirects]]
+  from = "/miei-lavori"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/miei-lavori/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/miei-lavori*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    Referrer-Policy = "no-referrer"

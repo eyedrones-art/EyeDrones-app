@@ -6,6 +6,10 @@
 //   confermato         al cliente: il pilota ha confermato, ecco i suoi contatti
 //   decaduta           al cliente: il pilota non ha confermato, può sceglierne un altro
 //   rinuncia           al cliente: il pilota scelto non può fare il lavoro (con il motivo), può sceglierne un altro
+//   consegnato         al cliente: il pilota ha consegnato il lavoro (link alla galleria, a Drive o al report)
+//   recensione         al cliente: «com'è andata?», con le stelle da toccare
+//   miei_lavori        al cliente: il link a «I miei lavori» (tutte le sue richieste)
+// Alle email per i clienti il database aggiunge «cliente»: il codice del loro link «I miei lavori».
 // Variabili su Netlify: RESEND_API_KEY, AVVISO_SEGRETO, AVVISO_MITTENTE (facoltativa), come per avviso-richiesta.js
 const crypto = require("crypto");
 
@@ -33,7 +37,7 @@ function dataItaliana(iso) {
 }
 
 // lo stesso aspetto per tutte le email
-function impagina({ etichetta, titolo, sottotitolo, righe = [], riquadro, bottone, nota, piede }) {
+function impagina({ etichetta, titolo, sottotitolo, righe = [], riquadro, bottone, stelle, secondo, nota, piede }) {
   const corpo = `<!doctype html>
 <html lang="it"><body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1d232b;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 12px;"><tr><td align="center">
@@ -49,6 +53,8 @@ ${righe.length || riquadro ? `<tr><td style="padding:12px 24px 4px 24px;">
   ${riquadro ? `<div style="margin:12px 0 0 0;padding:12px 14px;background:#f6f7f9;border-radius:8px;font-size:14px;line-height:1.55;white-space:pre-wrap;">${html(riquadro)}</div>` : ""}
 </td></tr>` : ""}
 ${bottone ? `<tr><td style="padding:16px 24px 8px 24px;"><a href="${html(bottone.href)}" style="display:inline-block;padding:12px 20px;border-radius:8px;font-weight:700;font-size:15px;text-decoration:none;background:#ff8c42;color:#161a1f;">${html(bottone.testo)}</a></td></tr>` : ""}
+${stelle ? `<tr><td style="padding:14px 24px 6px 24px;">${[1, 2, 3, 4, 5].map((n) => `<a href="${html(`${stelle}?stelle=${n}`)}" title="${n} ${n === 1 ? "stella" : "stelle"}" style="display:inline-block;font-size:34px;line-height:1;text-decoration:none;color:#f5a623;padding:0 4px 0 0;">★</a>`).join("")}<div style="font-size:12.5px;color:#8b95a3;margin-top:6px;">Tocca una stella: da 1 (male) a 5 (benissimo)</div></td></tr>` : ""}
+${secondo ? `<tr><td style="padding:6px 24px 0 24px;font-size:13.5px;"><a href="${html(secondo.href)}" style="color:#e0552f;font-weight:700;text-decoration:none;">${html(secondo.testo)} ›</a></td></tr>` : ""}
 ${nota ? `<tr><td style="padding:4px 24px 22px 24px;font-size:12.5px;color:#8b95a3;line-height:1.5;">${html(nota)}</td></tr>` : `<tr><td style="height:14px;"></td></tr>`}
 </table>
 <p style="font-size:11.5px;color:#9aa4b2;margin:14px 0 0 0;">${html(piede || "EyeDrones · Trova un pilota · app.eyedrones.it")}</p>
@@ -59,6 +65,8 @@ ${nota ? `<tr><td style="padding:4px 24px 22px 24px;font-size:12.5px;color:#8b95
     ...righe.map(([k, v]) => `${k}: ${v}`),
     ...(riquadro ? ["", riquadro] : []),
     ...(bottone ? ["", `${bottone.testo}: ${bottone.href}`] : []),
+    ...(stelle ? ["", ...[5, 4, 3, 2, 1].map((n) => `${"★".repeat(n)} ${stelle}?stelle=${n}`)] : []),
+    ...(secondo ? ["", `${secondo.testo}: ${secondo.href}`] : []),
     ...(nota ? ["", nota] : []),
   ].filter((x) => x !== undefined && x !== null).join("\n");
   return { html: corpo, testo };
@@ -74,7 +82,25 @@ function componiEmail(d) {
   const linkOfferte = codiceValido(d.codice) ? `${APP_URL}/offerte/${d.codice}` : APP_URL;
   const linkPilota = `${APP_URL}/?vai=richieste`;
   const lavoro = [servizio && ["Servizio", servizio], luogo && ["Dove", luogo], quando && ["Quando", quando]].filter(Boolean);
+  // «I miei lavori»: il link personale del cliente, in tutte le sue email
+  const linkMiei = codiceValido(d.cliente) ? `${APP_URL}/miei-lavori/${d.cliente}` : null;
+  const miei = linkMiei ? { href: linkMiei, testo: "Tutte le tue richieste: I miei lavori" } : null;
+  const httpsValido = (u) => /^https:\/\/[^\s<>"]{4,}$/.test(String(u || ""));
 
+  if (d.tipo === "nuovo_lavoro" && d.diretto) {
+    const a = (Array.isArray(d.piloti) ? d.piloti : []).filter(emailValida).slice(0, 1);
+    const cliente = pulisci(d.cliente_nome, 80) || "Un tuo cliente";
+    const m = impagina({
+      etichetta: "Un cliente ti richiede",
+      titolo: `${cliente} vuole lavorare di nuovo con te`,
+      sottotitolo: "Ha già lavorato con te tramite EyeDrones e ha mandato la richiesta solo a te. Manda la tua offerta.",
+      righe: lavoro,
+      riquadro: String(d.descrizione || "").trim().slice(0, 400),
+      bottone: { href: linkPilota, testo: "Manda la tua offerta" },
+      nota: "Se non rispondi, il cliente può mandare la richiesta anche agli altri piloti della zona.",
+    });
+    return { a, oggetto: `${cliente} ti richiede: ${servizio || "nuovo lavoro"}`, ...m };
+  }
   if (d.tipo === "nuovo_lavoro") {
     const a = (Array.isArray(d.piloti) ? d.piloti : []).filter(emailValida).slice(0, 30);
     const m = impagina({
@@ -94,10 +120,13 @@ function componiEmail(d) {
     const m = impagina({
       etichetta: "Richiesta inviata",
       titolo: `Ciao ${nome || ""}, ci siamo!`,
-      sottotitolo: n > 0
-        ? `La tua richiesta è arrivata a ${n === 1 ? "1 pilota" : `${n} piloti`} della tua provincia. Ti scriviamo appena arriva un'offerta.`
-        : "Nella tua provincia i piloti stanno arrivando ora: ti scriviamo appena arriva la prima offerta.",
+      sottotitolo: d.diretto_pilota
+        ? `La tua richiesta è arrivata a ${pulisci(d.diretto_pilota, 80)}. Ti scriviamo appena manda l'offerta.`
+        : n > 0
+          ? `La tua richiesta è arrivata a ${n === 1 ? "1 pilota" : `${n} piloti`} della tua provincia. Ti scriviamo appena arriva un'offerta.`
+          : "Nella tua provincia i piloti stanno arrivando ora: ti scriviamo appena arriva la prima offerta.",
       bottone: { href: linkOfferte, testo: "Vedi le offerte" },
+      secondo: miei,
       nota: "Conserva questa email: il link è solo tuo. Confronti le offerte, scegli il pilota che preferisci e solo allora vi scambiate i contatti. È gratis e senza impegno.",
     });
     return { a: [d.a], oggetto: "La tua richiesta è arrivata ai piloti della zona", ...m };
@@ -108,6 +137,7 @@ function componiEmail(d) {
       titolo: `${pilota}: ${euro(d.prezzo)}`,
       sottotitolo: `Hai una nuova offerta${servizio ? ` per «${servizio}»` : ""}. Guarda i suoi lavori e confrontala con le altre.`,
       bottone: { href: linkOfferte, testo: "Vedi le offerte" },
+      secondo: miei,
       nota: "Non devi rispondere subito: puoi aspettare altre offerte e scegliere quando vuoi.",
     });
     return { a: [d.a], oggetto: `Nuova offerta da ${pilota}: ${euro(d.prezzo)}`, ...m };
@@ -137,7 +167,8 @@ function componiEmail(d) {
       sottotitolo: "Ti contatterà a breve per mettervi d'accordo. Ecco anche i suoi contatti:",
       righe,
       bottone: d.pilota_slug ? { href: `${APP_URL}/p/${encodeURIComponent(d.pilota_slug)}`, testo: `La pagina di ${pilota}` } : { href: linkOfferte, testo: "Vedi i dettagli" },
-      nota: "Grazie per aver usato EyeDrones. Buone riprese!",
+      secondo: miei,
+      nota: "Quando il pilota ti consegna il lavoro, lo ritrovi in «I miei lavori». La prossima volta puoi richiederlo di nuovo con un tocco.",
     });
     return { a: [d.a], oggetto: `${pilota} ha confermato il tuo lavoro`, ...m, replyTo: emailValida(d.pilota_email) ? d.pilota_email : null };
   }
@@ -148,6 +179,7 @@ function componiEmail(d) {
       sottotitolo: "Ha controllato il posto e ci ha avvisato subito, così non perdi tempo. Le altre offerte sono ancora lì.",
       riquadro: pulisci(d.motivo, 300) ? `Il motivo: ${pulisci(d.motivo, 300)}` : "",
       bottone: { href: linkOfferte, testo: "Vedi le altre offerte" },
+      secondo: miei,
     });
     return { a: [d.a], oggetto: "Scegli un'altra offerta per il tuo lavoro", ...m };
   }
@@ -157,9 +189,44 @@ function componiEmail(d) {
       titolo: `${pilota} non ha confermato`,
       sottotitolo: "Succede: forse non è più libero. Le altre offerte sono ancora lì, puoi sceglierne un'altra.",
       bottone: { href: linkOfferte, testo: "Vedi le offerte" },
+      secondo: miei,
       nota: `Una domanda veloce: ${pilota} ti ha contattato lo stesso, fuori da EyeDrones? Rispondi con un tocco nella pagina delle offerte: ci aiuti a tenere solo piloti seri.`,
     });
     return { a: [d.a], oggetto: "Scegli un altro pilota per il tuo lavoro", ...m };
+  }
+  if (d.tipo === "consegnato") {
+    const m = impagina({
+      etichetta: "Il tuo lavoro è pronto",
+      titolo: `${pilota} ti ha consegnato il lavoro`,
+      sottotitolo: `${servizio ? `«${servizio}»: ` : ""}foto, video o report sono pronti da guardare e scaricare.`,
+      riquadro: pulisci(d.nota, 500) ? `${pilota}: ${pulisci(d.nota, 500)}` : "",
+      bottone: httpsValido(d.link) ? { href: d.link, testo: "Guarda il lavoro" } : (linkMiei ? { href: linkMiei, testo: "Guarda il lavoro" } : null),
+      secondo: miei,
+      nota: "Lo ritrovi sempre in «I miei lavori», anche tra qualche mese.",
+    });
+    return { a: [d.a], oggetto: `${pilota} ti ha consegnato il lavoro`, ...m };
+  }
+  if (d.tipo === "recensione") {
+    const m = impagina({
+      etichetta: "Com'è andata?",
+      titolo: `Com'è andata con ${pilota}?`,
+      sottotitolo: "Bastano 5 secondi: le tue stelle aiutano gli altri clienti a scegliere e premiano i piloti che lavorano bene.",
+      stelle: linkOfferte,
+      secondo: miei,
+      nota: "Se vuoi, dopo puoi scrivere anche due righe. Il tuo nome compare abbreviato (per esempio «Laura B.»).",
+    });
+    return { a: [d.a], oggetto: `Com'è andata con ${pilota}? ⭐`, ...m };
+  }
+  if (d.tipo === "miei_lavori") {
+    if (!linkMiei) return null;
+    const m = impagina({
+      etichetta: "I miei lavori",
+      titolo: `Ciao ${nome || ""}, ecco le tue richieste`,
+      sottotitolo: "Con questo link trovi tutte le tue richieste, le offerte, i piloti scelti e i lavori consegnati.",
+      bottone: { href: linkMiei, testo: "Apri «I miei lavori»" },
+      nota: "Il link è solo tuo: non inoltrarlo. Se non hai chiesto tu questa email, puoi ignorarla.",
+    });
+    return { a: [d.a], oggetto: "Le tue richieste su EyeDrones", ...m };
   }
   return null;
 }

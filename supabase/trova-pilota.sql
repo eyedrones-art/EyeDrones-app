@@ -15,6 +15,11 @@
 --    i contatti del pilota. Se il pilota non conferma in 48 ore la scelta decade e il cliente può sceglierne un altro;
 --    chi lascia decadere 2 scelte non riceve più richieste in zona
 --
+-- 6) «I miei lavori» (/miei-lavori): il cliente ritrova tutte le sue richieste con il link personale che riceve solo per
+--    email; dai lavori confermati può «richiedere di nuovo» lo stesso pilota (la richiesta va solo a lui)
+-- 7) il pilota consegna il lavoro (galleria, link o report): il cliente riceve un'email e dopo 2 giorni gli chiediamo
+--    le stelle; le stelle si vedono nelle offerte, nell'elenco dei piloti e nella pagina del pilota
+--
 -- La commissione si cambia qui sotto, in privato.impostazioni (lavori_commissione_*): 5% del prezzo, minimo 5 €,
 -- massimo 30 €. All'inizio è SPENTA (lavori_commissione_attiva = 'no'): non paga nessuno. Per accenderla:
 --   update privato.impostazioni set valore = 'si' where chiave = 'lavori_commissione_attiva';
@@ -66,6 +71,9 @@ alter table public.richieste_zona add column if not exists lat_esatta numeric(9,
 alter table public.richieste_zona add column if not exists lon_esatta numeric(9,5);
 -- quanto pensa di spendere il cliente (facoltativo): fino_300 | 300_700 | 700_1500 | oltre_1500
 alter table public.richieste_zona add column if not exists budget text;
+-- «Richiedi di nuovo»: la richiesta va solo al pilota con cui il cliente ha già lavorato
+alter table public.richieste_zona add column if not exists pilota_diretto uuid references auth.users(id) on delete set null;
+create index if not exists richieste_zona_email_idx on public.richieste_zona (email, created_at desc);
 alter table public.richieste_zona enable row level security;
 revoke all on public.richieste_zona from anon, authenticated;
 
@@ -89,8 +97,25 @@ alter table public.offerte_zona add column if not exists dettagli jsonb not null
 -- il pilota scelto dice «non posso farlo» (zona, categoria, persone…): nessuna penalità, il cliente sceglie un altro
 alter table public.offerte_zona add column if not exists motivo_rinuncia text;                         -- scelta decaduta: il pilota ha contattato il cliente lo stesso?
 create index if not exists offerte_zona_user_idx on public.offerte_zona (user_id, created_at desc);
+-- la consegna del lavoro (link alla galleria, a Drive/WeTransfer o al report) e le stelle del cliente
+alter table public.offerte_zona add column if not exists consegna jsonb;                 -- { link, nota }
+alter table public.offerte_zona add column if not exists consegnata_il timestamptz;
+alter table public.offerte_zona add column if not exists stelle smallint check (stelle between 1 and 5);
+alter table public.offerte_zona add column if not exists recensione text;
+alter table public.offerte_zona add column if not exists recensione_il timestamptz;
+alter table public.offerte_zona add column if not exists recensione_chiesta timestamptz; -- email «com'è andata?» mandata
 alter table public.offerte_zona enable row level security;
 revoke all on public.offerte_zona from anon, authenticated;
+
+-- «I miei lavori»: un link personale per ogni email di cliente; arriva solo per email, mai sullo schermo
+create table if not exists public.clienti_zona (
+  email text primary key,
+  codice text not null unique default (replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '')),
+  link_inviato timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table public.clienti_zona enable row level security;
+revoke all on public.clienti_zona from anon, authenticated;
 
 -- 3) aiuti interni
 -- numeri di telefono, email, siti, profili e codici di attestati scritti nei testi liberi: li nascondo finché il lavoro non è confermato
@@ -153,15 +178,31 @@ $$;
 revoke all on function public.regole_commissione() from public;
 grant execute on function public.regole_commissione() to anon, authenticated;
 
+-- il link personale del cliente («I miei lavori»): lo crea la prima volta
+create or replace function privato.codice_cliente(p_email text)
+returns text language plpgsql security definer set search_path = public as $$
+declare v_email text := lower(btrim(coalesce(p_email, ''))); v text;
+begin
+  if v_email = '' then return null; end if;
+  insert into public.clienti_zona (email) values (v_email) on conflict (email) do nothing;
+  select codice into v from public.clienti_zona where email = v_email;
+  return v;
+end; $$;
+revoke all on function privato.codice_cliente(text) from public, anon, authenticated;
+
 -- manda un'email tramite la funzione Netlify avviso-lavori (se qualcosa non va, il resto continua lo stesso)
+-- alle email per i clienti aggiungo il loro link «I miei lavori»
 create or replace function privato.avvisa_lavori(p_dati jsonb)
 returns void language plpgsql security definer set search_path = public as $$
-declare v_url text; v_segreto text;
+declare v_url text; v_segreto text; v_dati jsonb := p_dati;
 begin
   select valore into v_url from privato.impostazioni where chiave = 'lavori_url';
   select valore into v_segreto from privato.impostazioni where chiave = 'avviso_segreto';
   if v_url is null or v_segreto is null then return; end if;
-  perform net.http_post(url := v_url, body := p_dati,
+  if p_dati->>'tipo' in ('richiesta_inviata', 'nuova_offerta', 'confermato', 'rinuncia', 'decaduta', 'consegnato', 'recensione', 'miei_lavori') and p_dati ? 'a' then
+    v_dati := v_dati || jsonb_build_object('cliente', privato.codice_cliente(p_dati->>'a'));
+  end if;
+  perform net.http_post(url := v_url, body := v_dati,
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-eyedrones-segreto', v_segreto),
     timeout_milliseconds := 8000);
 exception when others then
@@ -183,6 +224,14 @@ returns jsonb language sql stable security definer set search_path = public as $
   where u.id = p_uid;
 $$;
 
+-- le stelle di un pilota: { media, numero } (solo dai clienti che hanno lavorato con lui)
+create or replace function privato.stelle_pilota(p_uid uuid)
+returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object('media', round(avg(stelle)::numeric, 1), 'numero', count(*))
+  from public.offerte_zona where user_id = p_uid and stelle is not null;
+$$;
+revoke all on function privato.stelle_pilota(uuid) from public, anon, authenticated;
+
 -- scelte non confermate da più di 48 ore: decadono, il cliente può sceglierne un'altra (e riceve un'email)
 create or replace function privato.scadi_scelte()
 returns void language plpgsql security definer set search_path = public as $$
@@ -200,6 +249,24 @@ begin
     perform privato.avvisa_lavori(jsonb_build_object('tipo', 'decaduta', 'a', r.email, 'nome', r.nome, 'codice', r.codice,
       'pilota', privato.nome_breve(privato.pilota_contatto(r.user_id)->>'nome')));
   end loop;
+  -- «com'è andata?»: 2 giorni dopo la consegna (senza consegna: 3 giorni dopo la data, o 3 settimane dopo la conferma),
+  -- solo di giorno
+  if extract(hour from now() at time zone 'Europe/Rome') between 9 and 20 then
+    for r in
+      select o.id, z.email, z.nome, z.codice, z.servizio, o.user_id
+      from public.offerte_zona o join public.richieste_zona z on z.id = o.richiesta_id
+      where o.stato = 'confermata' and o.stelle is null and o.recensione_chiesta is null
+        and o.confermata_il > now() - interval '120 days'
+        and ((o.consegnata_il is not null and o.consegnata_il < now() - interval '2 days')
+          or (o.consegnata_il is null and o.confermata_il < now() - interval '1 day'
+              and coalesce(z.data_desiderata + 3, (o.confermata_il + interval '21 days')::date) <= current_date))
+      for update of o skip locked
+    loop
+      update public.offerte_zona set recensione_chiesta = now() where id = r.id;
+      perform privato.avvisa_lavori(jsonb_build_object('tipo', 'recensione', 'a', r.email, 'nome', r.nome, 'codice', r.codice,
+        'pilota', privato.pilota_contatto(r.user_id)->>'nome', 'servizio', r.servizio));
+    end loop;
+  end if;
   -- pulizia: dopo 90 giorni le richieste non confermate si cancellano
   delete from public.richieste_zona where created_at < now() - interval '90 days' and stato <> 'confermata';
 end; $$;
@@ -219,6 +286,7 @@ as $$
         'servizi', g.servizi,
         'assicurato', g.assicurato,
         'registrato', coalesce(g.codice_operatore, '') <> '',
+        'stelle', privato.stelle_pilota(g.user_id),
         'foto', (select json_agg(f->>'url') from (select f from jsonb_array_elements(g.portfolio) f where f->>'tipo' is distinct from 'video' limit 3) q)
       ) as x
     from public.pagine_pilota g
@@ -309,12 +377,17 @@ begin
   return json_build_object(
     'richiesta', json_build_object('nome', v_z.nome, 'provincia', v_z.provincia, 'servizio', v_z.servizio, 'luogo', v_z.luogo,
       'data_desiderata', v_z.data_desiderata, 'descrizione', v_z.descrizione, 'stato', v_z.stato, 'scelta_il', v_z.scelta_il,
-      'created_at', v_z.created_at, 'budget', v_z.budget),
+      'created_at', v_z.created_at, 'budget', v_z.budget, 'diretta', v_z.pilota_diretto is not null),
     'offerte', coalesce((
       select json_agg(json_build_object(
         'id', o.id, 'prezzo', o.prezzo, 'dettagli', o.dettagli,
         'messaggio', case when o.stato = 'confermata' then o.messaggio else privato.senza_nome(privato.senza_contatti(o.messaggio), coalesce(nullif(g.nome, ''), p.azienda_nome)) end,
         'stato', o.stato, 'created_at', o.created_at,
+        -- a lavoro confermato: la consegna e le stelle date dal cliente
+        'consegna', case when o.stato = 'confermata' then o.consegna end, 'consegnata_il', case when o.stato = 'confermata' then o.consegnata_il end,
+        'mie_stelle', case when o.stato = 'confermata' then o.stelle end, 'mia_recensione', case when o.stato = 'confermata' then o.recensione end,
+        'si_recensisce', o.stato = 'confermata' and (o.consegnata_il is not null or v_z.data_desiderata <= current_date or o.confermata_il < now() - interval '7 days')
+          and (o.recensione_il is null or o.recensione_il > now() - interval '30 days'),
         'pilota', json_build_object(
           -- nome completo, logo e pagina solo a lavoro confermato
           'nome', case when o.stato = 'confermata' then coalesce(nullif(g.nome, ''), p.azienda_nome, 'Pilota') else privato.nome_breve(coalesce(nullif(g.nome, ''), p.azienda_nome)) end,
@@ -323,6 +396,7 @@ begin
           -- gli attestati non si mostrano ai clienti: solo «registrato» e «assicurato»
           'servizi', g.servizi, 'assicurato', g.assicurato,
           'registrato', coalesce(g.codice_operatore, '') <> '',
+          'stelle', privato.stelle_pilota(o.user_id),
           'portfolio', (select json_agg(f->>'url') from (select f from jsonb_array_elements(g.portfolio) f where f->>'tipo' is distinct from 'video' limit 6) q),
           'contatti', case when o.stato = 'confermata' then privato.pilota_contatto(o.user_id) - 'email' end
         )) order by (o.stato = 'confermata') desc, (o.stato = 'scelta') desc, o.prezzo)
@@ -416,14 +490,20 @@ begin
       'id', z.id, 'servizio', z.servizio, 'luogo', z.luogo, 'data_desiderata', z.data_desiderata,
       'lat', coalesce(z.lat_esatta, z.lat), 'lon', coalesce(z.lon_esatta, z.lon), 'esatto', z.lat_esatta is not null, 'budget', z.budget,
       'descrizione', privato.senza_contatti(z.descrizione), 'created_at', z.created_at, 'stato', z.stato,
+      -- «richiedi di nuovo»: un cliente che ha già lavorato con lui (il nome lo conosce già)
+      'diretto', z.pilota_diretto is not null, 'cliente', case when z.pilota_diretto is not null then z.nome end,
       'offerte', (select count(*) from public.offerte_zona x where x.richiesta_id = z.id and x.stato <> 'decaduta'),
       'mia', (select json_build_object('id', o.id, 'prezzo', o.prezzo, 'messaggio', o.messaggio, 'dettagli', o.dettagli, 'stato', o.stato,
-                'commissione', o.commissione, 'scade', z.scelta_il + interval '48 hours')
+                'commissione', o.commissione, 'scade', z.scelta_il + interval '48 hours',
+                'consegna', o.consegna, 'consegnata_il', o.consegnata_il, 'stelle', o.stelle, 'recensione', o.recensione)
               from public.offerte_zona o where o.richiesta_id = z.id and o.user_id = v_uid)
     ) order by z.created_at desc)
     from public.richieste_zona z
-    join public.pagine_pilota g on g.user_id = v_uid and g.attiva and g.provincia = z.provincia
-    where z.created_at > now() - interval '60 days'
+    join public.pagine_pilota g on g.user_id = v_uid and g.attiva
+    where ((z.pilota_diretto is null and g.provincia = z.provincia) or z.pilota_diretto = v_uid)
+      and (z.created_at > now() - interval '60 days'
+        -- i lavori confermati restano di più, per consegnarli
+        or exists (select 1 from public.offerte_zona x where x.richiesta_id = z.id and x.user_id = v_uid and x.stato = 'confermata' and x.confermata_il > now() - interval '120 days'))
       and (
         -- aperte: se non è stato escluso, la data non è passata e c'è ancora posto (o ha già offerto)
         (z.stato = 'aperta' and g.scelte_decadute < 2 and not g.escluso_trova and (z.data_desiderata is null or z.data_desiderata >= current_date)
@@ -468,8 +548,8 @@ begin
   if v_uid is null then raise exception 'accesso richiesto'; end if;
   if p_prezzo is null or p_prezzo < 10 or p_prezzo > 100000 then raise exception 'prezzo non valido'; end if;
   select z.* into v_z from public.richieste_zona z
-    join public.pagine_pilota g on g.user_id = v_uid and g.attiva and g.provincia = z.provincia and g.scelte_decadute < 2 and not g.escluso_trova
-    where z.id = p_richiesta and z.stato = 'aperta'
+    join public.pagine_pilota g on g.user_id = v_uid and g.attiva and g.scelte_decadute < 2 and not g.escluso_trova
+    where z.id = p_richiesta and z.stato = 'aperta' and ((z.pilota_diretto is null and g.provincia = z.provincia) or z.pilota_diretto = v_uid)
     for update of z;
   if not found then raise exception 'richiesta non disponibile'; end if;
   v_nuova := not exists (select 1 from public.offerte_zona where richiesta_id = v_z.id and user_id = v_uid);
@@ -601,6 +681,214 @@ grant execute on function public.conferma_lavoro_pagato(uuid, uuid, text, text) 
 
 -- le versioni di prova (prima di «scegli e poi paga») non servono più
 drop function if exists public.prendi_lavoro_in_zona(uuid);
+
+-- 12) «I miei lavori»: il cliente scrive la sua email e riceve il link personale (sullo schermo non compare niente)
+create or replace function public.link_miei_lavori(p_email text)
+returns boolean
+language plpgsql volatile security definer set search_path = public
+as $$
+declare v_email text := lower(btrim(coalesce(p_email, ''))); v_nome text; v_ultimo timestamptz;
+begin
+  if v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then return true; end if;
+  select nome into v_nome from public.richieste_zona where email = v_email order by created_at desc limit 1;
+  if not found then return true; end if;
+  perform privato.codice_cliente(v_email);
+  select link_inviato into v_ultimo from public.clienti_zona where email = v_email for update;
+  -- al massimo un'email ogni 10 minuti per persona, e 100 all'ora in tutto
+  if v_ultimo > now() - interval '10 minutes' then return true; end if;
+  if (select count(*) from public.clienti_zona where link_inviato > now() - interval '1 hour') >= 100 then return true; end if;
+  update public.clienti_zona set link_inviato = now() where email = v_email;
+  perform privato.avvisa_lavori(jsonb_build_object('tipo', 'miei_lavori', 'a', v_email, 'nome', v_nome));
+  return true;
+end;
+$$;
+revoke all on function public.link_miei_lavori(text) from public;
+grant execute on function public.link_miei_lavori(text) to anon, authenticated;
+
+-- tutte le richieste del cliente, con il pilota dei lavori confermati (contatti, consegna, stelle)
+create or replace function public.miei_lavori(p_cliente text)
+returns json
+language plpgsql volatile security definer set search_path = public
+as $$
+declare v_email text;
+begin
+  select email into v_email from public.clienti_zona where codice = p_cliente;
+  if not found then return null; end if;
+  perform privato.scadi_scelte();
+  return json_build_object(
+    'nome', (select nome from public.richieste_zona where email = v_email order by created_at desc limit 1),
+    'lavori', coalesce((
+      select json_agg(json_build_object(
+        'codice', z.codice, 'servizio', z.servizio, 'luogo', z.luogo, 'data_desiderata', z.data_desiderata,
+        'stato', z.stato, 'created_at', z.created_at, 'diretta', z.pilota_diretto is not null,
+        'offerte', (select count(*) from public.offerte_zona x where x.richiesta_id = z.id and x.stato not in ('decaduta', 'rinunciata')),
+        'scelto', (select privato.nome_breve(privato.pilota_contatto(x.user_id)->>'nome') from public.offerte_zona x where x.id = z.offerta_scelta and z.stato = 'scelta'),
+        'pilota', case when o.id is not null then json_build_object(
+          'nome', coalesce(nullif(g.nome, ''), p.azienda_nome, 'Pilota'), 'logo', p.azienda_logo,
+          'contatti', privato.pilota_contatto(o.user_id) - 'email',
+          'disponibile', coalesce(g.attiva, false) and not coalesce(g.escluso_trova, false)) end,
+        'prezzo', o.prezzo, 'consegna', o.consegna, 'consegnata_il', o.consegnata_il, 'stelle', o.stelle
+      ) order by z.created_at desc)
+      from public.richieste_zona z
+      left join public.offerte_zona o on o.richiesta_id = z.id and o.stato = 'confermata'
+      left join public.pagine_pilota g on g.user_id = o.user_id
+      left join public.profili p on p.user_id = o.user_id
+      where z.email = v_email
+    ), '[]'::json)
+  );
+end;
+$$;
+revoke all on function public.miei_lavori(text) from public;
+grant execute on function public.miei_lavori(text) to anon, authenticated;
+
+-- «Richiedi di nuovo»: da un lavoro confermato, una nuova richiesta che arriva solo a quel pilota
+create or replace function public.richiedi_di_nuovo(p_cliente text, p_lavoro text, p_servizio text, p_luogo text, p_data date, p_descrizione text, p_budget text default null)
+returns json
+language plpgsql volatile security definer set search_path = public
+as $$
+declare v_email text; v_z public.richieste_zona; v_o public.offerte_zona; v_n public.richieste_zona; v_p jsonb;
+begin
+  select email into v_email from public.clienti_zona where codice = p_cliente;
+  if not found then raise exception 'link non valido'; end if;
+  select * into v_z from public.richieste_zona where codice = p_lavoro and email = v_email and stato = 'confermata';
+  if not found then raise exception 'lavoro non trovato'; end if;
+  select * into v_o from public.offerte_zona where richiesta_id = v_z.id and stato = 'confermata';
+  if not exists (select 1 from public.pagine_pilota g where g.user_id = v_o.user_id and g.attiva and not g.escluso_trova) then
+    raise exception 'pilota non disponibile';
+  end if;
+  if length(btrim(coalesce(p_descrizione, ''))) < 10 and coalesce(btrim(p_servizio), '') = '' then raise exception 'descrizione mancante'; end if;
+  if (select count(*) from public.richieste_zona where created_at > now() - interval '1 hour' and email = v_email) >= 3
+  then raise exception 'troppe richieste'; end if;
+
+  insert into public.richieste_zona (provincia, nome, email, telefono, servizio, luogo, data_desiderata, descrizione, budget, pilota_diretto)
+  values (
+    v_z.provincia, v_z.nome, v_email, v_z.telefono,
+    coalesce(nullif(left(btrim(coalesce(p_servizio, '')), 80), ''), v_z.servizio),
+    nullif(left(btrim(coalesce(p_luogo, '')), 120), ''),
+    case when p_data >= current_date and p_data < current_date + 730 then p_data end,
+    nullif(left(btrim(coalesce(p_descrizione, '')), 2000), ''),
+    case when p_budget in ('fino_300', '300_700', '700_1500', 'oltre_1500') then p_budget end,
+    v_o.user_id
+  )
+  returning * into v_n;
+
+  v_p := privato.pilota_contatto(v_o.user_id);
+  perform privato.avvisa_lavori(jsonb_build_object('tipo', 'nuovo_lavoro', 'piloti', jsonb_build_array(v_p->>'email'), 'diretto', true,
+    'cliente_nome', v_n.nome, 'servizio', v_n.servizio, 'luogo', v_n.luogo, 'data_desiderata', v_n.data_desiderata,
+    'descrizione', left(privato.senza_contatti(v_n.descrizione), 400), 'provincia', v_n.provincia));
+  perform privato.avvisa_lavori(jsonb_build_object('tipo', 'richiesta_inviata', 'a', v_email, 'nome', v_n.nome,
+    'codice', v_n.codice, 'piloti', 1, 'diretto_pilota', v_p->>'nome', 'provincia', v_n.provincia));
+  return json_build_object('codice', v_n.codice);
+end;
+$$;
+revoke all on function public.richiedi_di_nuovo(text, text, text, text, date, text, text) from public;
+grant execute on function public.richiedi_di_nuovo(text, text, text, text, date, text, text) to anon, authenticated;
+
+-- il pilota richiesto non risponde? il cliente manda la richiesta anche agli altri piloti della provincia
+create or replace function public.apri_a_tutti(p_codice text)
+returns boolean
+language plpgsql volatile security definer set search_path = public
+as $$
+declare v_z public.richieste_zona; v_piloti jsonb;
+begin
+  update public.richieste_zona set pilota_diretto = null
+    where codice = p_codice and stato = 'aperta' and pilota_diretto is not null
+    returning * into v_z;
+  if v_z.id is null then return false; end if;
+  select coalesce(jsonb_agg(privato.pilota_contatto(g.user_id)->>'email') filter (where privato.pilota_contatto(g.user_id)->>'email' is not null), '[]'::jsonb)
+    into v_piloti
+  from public.pagine_pilota g
+  where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and g.provincia = v_z.provincia and coalesce(g.avviso_email, true)
+    and not exists (select 1 from public.offerte_zona o where o.richiesta_id = v_z.id and o.user_id = g.user_id);
+  perform privato.avvisa_lavori(jsonb_build_object('tipo', 'nuovo_lavoro', 'piloti', v_piloti,
+    'servizio', v_z.servizio, 'luogo', v_z.luogo, 'data_desiderata', v_z.data_desiderata,
+    'descrizione', left(privato.senza_contatti(v_z.descrizione), 400), 'provincia', v_z.provincia));
+  return true;
+end;
+$$;
+revoke all on function public.apri_a_tutti(text) from public;
+grant execute on function public.apri_a_tutti(text) to anon, authenticated;
+
+-- 13) il pilota consegna il lavoro: il link (galleria EyeDrones, Drive, WeTransfer, report) e una nota per il cliente
+create or replace function public.consegna_lavoro_zona(p_offerta uuid, p_link text, p_nota text)
+returns boolean
+language plpgsql volatile security definer set search_path = public
+as $$
+declare v_o public.offerte_zona; v_z public.richieste_zona; v_link text := btrim(coalesce(p_link, ''));
+begin
+  select * into v_o from public.offerte_zona where id = p_offerta and user_id = auth.uid() and stato = 'confermata' for update;
+  if not found then raise exception 'lavoro non trovato'; end if;
+  if v_link !~ '^https://[^\s<>"]{4,}$' or length(v_link) > 600 then raise exception 'link non valido'; end if;
+  select * into v_z from public.richieste_zona where id = v_o.richiesta_id;
+  update public.offerte_zona
+    set consegna = jsonb_build_object('link', v_link, 'nota', nullif(left(btrim(coalesce(p_nota, '')), 500), '')),
+        consegnata_il = coalesce(consegnata_il, now())
+    where id = v_o.id;
+  -- l'email al cliente solo la prima volta (dopo, se il pilota cambia il link, il cliente lo trova aggiornato)
+  if v_o.consegnata_il is null then
+    perform privato.avvisa_lavori(jsonb_build_object('tipo', 'consegnato', 'a', v_z.email, 'nome', v_z.nome, 'codice', v_z.codice,
+      'pilota', privato.pilota_contatto(v_o.user_id)->>'nome', 'servizio', v_z.servizio, 'link', v_link,
+      'nota', nullif(left(btrim(coalesce(p_nota, '')), 500), '')));
+  end if;
+  return true;
+end;
+$$;
+revoke all on function public.consegna_lavoro_zona(uuid, text, text) from public;
+grant execute on function public.consegna_lavoro_zona(uuid, text, text) to authenticated;
+
+-- 14) le stelle del cliente (da 1 a 5, con due righe facoltative): solo per un lavoro confermato, modificabili per 30 giorni
+create or replace function public.lascia_recensione(p_codice text, p_stelle int, p_testo text)
+returns boolean
+language plpgsql volatile security definer set search_path = public
+as $$
+declare v_o public.offerte_zona; v_z public.richieste_zona;
+begin
+  if p_stelle is null or p_stelle < 1 or p_stelle > 5 then raise exception 'stelle non valide'; end if;
+  select * into v_z from public.richieste_zona where codice = p_codice;
+  if not found then raise exception 'richiesta non trovata'; end if;
+  select * into v_o from public.offerte_zona where richiesta_id = v_z.id and stato = 'confermata' for update;
+  if not found then raise exception 'lavoro non confermato'; end if;
+  if not (v_o.consegnata_il is not null or v_z.data_desiderata <= current_date or v_o.confermata_il < now() - interval '7 days') then
+    raise exception 'troppo presto';
+  end if;
+  if v_o.recensione_il is not null and v_o.recensione_il < now() - interval '30 days' then raise exception 'non più modificabile'; end if;
+  -- niente stelle a sé stessi (richiesta fatta con l'email del pilota)
+  if lower(v_z.email) in (select lower(coalesce(x, '')) from unnest(array[privato.pilota_contatto(v_o.user_id)->>'email', privato.pilota_contatto(v_o.user_id)->>'email_pubblica']) x) then
+    raise exception 'non valida';
+  end if;
+  update public.offerte_zona
+    set stelle = p_stelle, recensione = nullif(left(privato.senza_contatti(btrim(coalesce(p_testo, ''))), 600), ''),
+        recensione_il = coalesce(recensione_il, now())
+    where id = v_o.id;
+  return true;
+end;
+$$;
+revoke all on function public.lascia_recensione(text, int, text) from public;
+grant execute on function public.lascia_recensione(text, int, text) to anon, authenticated;
+
+-- le recensioni nella pagina pubblica del pilota: media, numero e le ultime con il testo (nome del cliente abbreviato)
+create or replace function public.recensioni_pilota(p_slug text)
+returns json
+language sql stable security definer set search_path = public
+as $$
+  select json_build_object(
+    'media', (privato.stelle_pilota(g.user_id)->>'media')::numeric,
+    'numero', (privato.stelle_pilota(g.user_id)->>'numero')::int,
+    'ultime', coalesce((
+      select json_agg(json_build_object('stelle', t.stelle, 'testo', t.recensione, 'nome', t.nome, 'servizio', t.servizio, 'quando', t.recensione_il) order by t.recensione_il desc)
+      from (
+        select o.stelle, o.recensione, privato.nome_breve(z.nome) as nome, z.servizio, o.recensione_il
+        from public.offerte_zona o join public.richieste_zona z on z.id = o.richiesta_id
+        where o.user_id = g.user_id and o.stelle is not null
+        order by (o.recensione is not null) desc, o.recensione_il desc
+        limit 10
+      ) t
+    ), '[]'::json))
+  from public.pagine_pilota g
+  where g.slug = lower(btrim(p_slug)) and g.attiva;
+$$;
+revoke all on function public.recensioni_pilota(text) from public;
+grant execute on function public.recensioni_pilota(text) to anon, authenticated;
 
 -- 11) ogni ora: le scelte non confermate in 48 ore decadono (se pg_cron c'è; altrimenti succede quando si apre la pagina)
 do $$
