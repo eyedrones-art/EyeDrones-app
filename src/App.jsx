@@ -2792,7 +2792,7 @@ function SceltaIniziale({ onPilota, onAccedi }) {
           <span style={velo} />
           <span style={testo}>
             <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#ffb877", marginBottom: 6 }}>🚁 Per chi vola</span>
-            <span style={{ display: "block", fontSize: "clamp(26px, 6vw, 38px)", fontWeight: 800, lineHeight: 1.1 }}>Sono un pilota di droni</span>
+            <span style={{ display: "block", fontFamily: "'Archivo', sans-serif", fontStretch: "118%", fontSize: "clamp(28px, 6.4vw, 40px)", fontWeight: 900, lineHeight: 1.05 }}>Sono un pilota di droni</span>
             <span style={{ display: "block", fontSize: 15, lineHeight: 1.5, color: "#e6e0d8", marginTop: 8 }}>Registro voli, zone e permessi, preventivi e clienti: tutto il tuo lavoro in un'app.</span>
             <span style={bottone("linear-gradient(90deg, #e0552f, #ff8c42)", "#fff")}>Entra ›</span>
           </span>
@@ -2801,7 +2801,7 @@ function SceltaIniziale({ onPilota, onAccedi }) {
           <span style={velo} />
           <span style={testo}>
             <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#ffd9a8", marginBottom: 6 }}>📍 Per chi ha bisogno di un pilota</span>
-            <span style={{ display: "block", fontSize: "clamp(26px, 6vw, 38px)", fontWeight: 800, lineHeight: 1.1 }}>Cerco un pilota di droni</span>
+            <span style={{ display: "block", fontFamily: "'Archivo', sans-serif", fontStretch: "118%", fontSize: "clamp(28px, 6.4vw, 40px)", fontWeight: 900, lineHeight: 1.05 }}>Cerco un pilota di droni</span>
             <span style={{ display: "block", fontSize: 15, lineHeight: 1.5, color: "#e6e0d8", marginTop: 8 }}>Matrimoni, case, aziende, ispezioni e agricoltura: ricevi le offerte dei piloti della tua zona.</span>
             <span style={bottone("#fff", "#1f2328")}>Trova un pilota ›</span>
           </span>
@@ -3090,7 +3090,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
       <div className="sidebar-brand" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px 18px 8px", marginBottom: 4, borderBottom: "1px solid #232b3f", position: "relative" }}>
         <img src={LOGO_EYEDRONES} alt="EyeDrones" style={{ width: 36, height: 36, objectFit: "contain", flexShrink: 0 }} />
         <span className="sidebar-brand-label" style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>EyeDrones</span>
-        <div style={{ position: "absolute", bottom: -1, left: 0, width: 46, height: 2, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
+        <div style={{ position: "absolute", bottom: -1, left: 0, width: 46, height: 2, background: "#ff8c42" }} />
       </div>
       {(spazio || cartelle) && (
         <div className="sidebar-label" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 4px 4px 4px" }}>
@@ -10889,7 +10889,8 @@ function TrovaPilota() {
             <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#fff", fontSize: 13.5, fontWeight: 700, textDecoration: "none", background: "rgba(0,0,0,.35)", padding: "6px 10px", borderRadius: 20 }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20, position: "static" }} /> EyeDrones</a>
             <a href="/miei-lavori" style={{ color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none", background: "rgba(0,0,0,.35)", padding: "6px 10px", borderRadius: 20 }}>📨 I miei lavori</a>
           </div>
-          <h1 style={{ fontSize: "clamp(28px, 6vw, 44px)", lineHeight: 1.08, margin: "0 0 10px 0", fontWeight: 800, letterSpacing: "-0.02em", textShadow: "0 2px 18px rgba(0,0,0,.35)" }}>
+          <div className="mono" style={{ fontSize: 12, letterSpacing: ".16em", color: "#ffd7bf", marginBottom: 8, textShadow: "0 1px 8px rgba(0,0,0,.6)" }}>EYEDRONES · TROVA UN PILOTA</div>
+          <h1 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "118%", fontSize: "clamp(30px, 6.4vw, 48px)", lineHeight: 1.04, margin: "0 0 12px 0", fontWeight: 900, letterSpacing: 0, textShadow: "0 2px 18px rgba(0,0,0,.35)" }}>
             {sezione ? (nomeProvincia ? sezione.titoloProvincia(nomeProvincia) : sezione.titolo) : nomeProvincia ? <>Il tuo pilota di droni<br />in provincia di {nomeProvincia}</> : <>Il tuo momento,<br />visto dall'alto.</>}
           </h1>
           {sezione
@@ -10907,7 +10908,7 @@ function TrovaPilota() {
       <main style={{ maxWidth: 860, margin: "0 auto", padding: "26px 16px 40px", display: "flex", flexDirection: "column", gap: 22 }}>
         {sezione ? (
           <section>
-            <h2 style={{ fontSize: 20, margin: "0 0 12px 0" }}>{sezione.titoloEsempi || "Cosa si può riprendere"}</h2>
+            <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 20, margin: "0 0 12px 0" }}>{sezione.titoloEsempi || "Cosa si può riprendere"}</h2>
             <div className="tp-esempi">
               {sezione.esempi.map(([e, t, d]) => (
                 <div key={t} style={{ ...CLIENTE.scheda, padding: 14 }}>
@@ -10920,7 +10921,7 @@ function TrovaPilota() {
           </section>
         ) : (
         <section>
-          <h2 style={{ fontSize: 20, margin: "0 0 12px 0" }}>Cosa ti serve?</h2>
+          <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 20, margin: "0 0 12px 0" }}>Cosa ti serve?</h2>
           <div className="tp-scelte">
             {SCELTE_CLIENTE.map(([k, nome, emoji]) => (
               <a key={k} href={`/trova-pilota/${k}${provincia ? `/${provincia.toLowerCase()}` : ""}`}>
@@ -10929,7 +10930,7 @@ function TrovaPilota() {
               </a>
             ))}
           </div>
-          <h2 style={{ fontSize: 16, margin: "18px 0 10px 0", color: "#6b6258" }}>Altri lavori</h2>
+          <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 16, margin: "18px 0 10px 0", color: "#6b6258" }}>Altri lavori</h2>
           <div className="tp-cat">
             {CATEGORIE_CLIENTE.filter((c) => !CATEGORIE_CON_PAGINA.includes(c.nome)).map((c) => (
               <button key={c.nome} type="button" className={categoria === c.nome ? "on" : ""} onClick={() => scegliCategoria(c)}>
@@ -10945,7 +10946,7 @@ function TrovaPilota() {
             ? [["1", "Raccontate", "Dove, quando e cosa vi piacerebbe. Bastano due minuti."], ["2", "Confrontate", "I piloti della zona vi mandano un'offerta, con prezzo e lavori fatti."], ["3", "Scegliete", "Scegliete l'offerta che vi piace. Permessi e regole di volo li gestisce il pilota."]]
             : [["1", "Racconta", "Cosa ti serve, dove e quando. Bastano due minuti."], ["2", "Confronta", "I piloti della zona ti mandano un'offerta, con prezzo e lavori fatti."], ["3", "Scegli", "Scegli l'offerta che ti piace. Permessi e regole di volo li gestisce il pilota."]]).map(([n, t, d]) => (
             <div key={n} style={{ ...CLIENTE.scheda, padding: 16, display: "flex", gap: 12, alignItems: "flex-start" }}>
-              <span style={{ flex: "none", width: 34, height: 34, borderRadius: 17, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", color: "#fff", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span>
+              <span style={{ flex: "none", width: 34, height: 34, borderRadius: 17, background: "linear-gradient(135deg, #e0552f, #ff8c42)", color: "#fff", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span>
               <span><strong style={{ display: "block", fontSize: 15.5 }}>{t}</strong><span style={{ fontSize: 13.5, color: "#6b6258", lineHeight: 1.45 }}>{d}</span></span>
             </div>
           ))}
@@ -10955,7 +10956,7 @@ function TrovaPilota() {
           {invio && typeof invio === "object" ? (
             <div role="status" style={{ textAlign: "center", padding: "10px 4px" }}>
               <div style={{ fontSize: 46 }}>🎉</div>
-              <h2 style={{ fontSize: 22, margin: "6px 0 8px 0" }}>Richiesta inviata!</h2>
+              <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 22, margin: "6px 0 8px 0" }}>Richiesta inviata!</h2>
               <p style={{ fontSize: 15, color: "#4a433c", lineHeight: 1.55, margin: "0 0 16px 0" }}>
                 {invio.piloti > 0
                   ? <>È arrivata a <strong>{invio.piloti === 1 ? "1 pilota" : `${invio.piloti} piloti`}</strong> della provincia di {nomeProvincia}. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
@@ -10966,7 +10967,7 @@ function TrovaPilota() {
             </div>
           ) : (
             <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <h2 style={{ fontSize: 21, margin: 0 }}>{sezione ? sezione.titoloModulo : "Racconta cosa ti serve"}</h2>
+              <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 21, margin: 0 }}>{sezione ? sezione.titoloModulo : "Racconta cosa ti serve"}</h2>
               <p style={{ fontSize: 14, color: "#6b6258", margin: "-4px 0 4px 0" }}>{quanti > 0 ? `In provincia di ${nomeProvincia} ci sono ${quanti === 1 ? "1 pilota pronto" : `${quanti} piloti pronti`} a ${sezione?.voi ? "mandarvi" : "mandarti"} un'offerta.` : sezione?.voi ? "Ricevete le offerte dei piloti della vostra zona, gratis." : "Ricevi le offerte dei piloti della tua zona, gratis."}</p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                 <label><span style={CLIENTE.etichetta}>La tua provincia *</span>
@@ -11032,7 +11033,7 @@ function TrovaPilota() {
 
         {provincia && pilotiMostrati.length > 0 && (
           <section>
-            <h2 style={{ fontSize: 18, margin: "0 0 10px 0" }}>Alcuni piloti della provincia di {nomeProvincia}</h2>
+            <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 18, margin: "0 0 10px 0" }}>Alcuni piloti della provincia di {nomeProvincia}</h2>
             {fotoPiloti.length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 10 }}>
                 {fotoPiloti.map((u, i) => <img key={u + i} src={u} alt="" loading="lazy" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 10, display: "block" }} />)}
@@ -11046,7 +11047,7 @@ function TrovaPilota() {
                   <div key={i} style={{ ...CLIENTE.scheda, padding: 12, display: "flex", gap: 10, alignItems: "center" }}>
                     {logo
                       ? <img src={logo} alt="" style={{ width: 46, height: 46, borderRadius: 12, objectFit: "contain", background: "#f6f1ea", flexShrink: 0 }} />
-                      : <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 12, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#fff", flexShrink: 0 }}>{iniziali}</span>}
+                      : <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 12, background: "linear-gradient(135deg, #e0552f, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#fff", flexShrink: 0 }}>{iniziali}</span>}
                     <span style={{ minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 14.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.nome || "Pilota di droni"}</span>
                       <span style={{ display: "block", fontSize: 12.5, color: "#6b6258", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[x.citta, (x.servizi || []).slice(0, 2).join(", ")].filter(Boolean).join(" · ")}</span>
@@ -11063,7 +11064,7 @@ function TrovaPilota() {
 
         {sezione && (
           <section className="tp-domande" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <h2 style={{ fontSize: 20, margin: "0 0 4px 0" }}>Le domande di tutti</h2>
+            <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 20, margin: "0 0 4px 0" }}>Le domande di tutti</h2>
             {sezione.domande.map(([d, r]) => (
               <details key={d}>
                 <summary>{d}</summary>
@@ -11277,7 +11278,7 @@ function MieiLavori() {
             {l.stato === "confermata" && p && (
               <>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, paddingTop: 12, borderTop: "1px solid #f0e9e0" }}>
-                  {logo ? <img src={logo} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "contain", background: "#f6f1ea" }} /> : <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#fff" }}>{iniziali}</span>}
+                  {logo ? <img src={logo} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "contain", background: "#f6f1ea" }} /> : <span aria-hidden="true" style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #e0552f, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#fff" }}>{iniziali}</span>}
                   <div style={{ fontSize: 14 }}><strong>{p.nome}</strong>{l.prezzo ? <span style={{ color: "#6b6258" }}> · {euroIt(l.prezzo)}</span> : null}{l.stelle ? <div style={{ color: "#f5a623", fontSize: 15 }}>{fileStelle(l.stelle)}</div> : null}</div>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
@@ -11421,7 +11422,7 @@ function OfferteCliente({ codice }) {
             <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.25 }}>{titoloServizio(o.dettagli, r.servizio)}</div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: "#e0552f", whiteSpace: "nowrap" }}>{euroIt(o.prezzo)}</div>
-              {piuCompleta === o.id && o.stato === "inviata" && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#7e3af2" }}>la più completa</div>}
+              {piuCompleta === o.id && o.stato === "inviata" && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#e0552f" }}>la più completa</div>}
               {piuBassa != null && Number(o.prezzo) === piuBassa && o.stato === "inviata" && piuCompleta !== o.id && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1f8a4c" }}>la più economica</div>}
             </div>
           </div>
@@ -11433,7 +11434,7 @@ function OfferteCliente({ codice }) {
           <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, paddingTop: 12, borderTop: "1px solid #f0e9e0" }}>
             {logo
               ? <img src={logo} alt="" style={{ width: 34, height: 34, borderRadius: 9, objectFit: "contain", background: "#f6f1ea", flexShrink: 0 }} />
-              : <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 9, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, color: "#fff", flexShrink: 0 }}>{iniziali}</span>}
+              : <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 9, background: "linear-gradient(135deg, #e0552f, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, color: "#fff", flexShrink: 0 }}>{iniziali}</span>}
             <div style={{ fontSize: 12.5, color: "#6b6258", lineHeight: 1.4 }}>
               Lo fa <strong style={{ color: "#3a332c" }}>{p.nome}</strong>{p.citta ? ` · ${p.citta}` : ""}
               <div>{[p.registrato && "✓ operatore registrato", p.assicurato && "✓ assicurato"].filter(Boolean).join(" · ")}</div>
@@ -11527,7 +11528,7 @@ function OfferteCliente({ codice }) {
         {!confermata && scelta && schedaOfferta(scelta)}
         {!confermata && inGara.length > 0 && (
           <>
-            {scelta && <h2 style={{ fontSize: 16, margin: "6px 0 0 0", color: "#6b6258" }}>Le altre offerte</h2>}
+            {scelta && <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 16, margin: "6px 0 0 0", color: "#6b6258" }}>Le altre offerte</h2>}
             {inGara.length > 1 && !scelta && <p style={{ fontSize: 13.5, color: "#5b534b", margin: 0, lineHeight: 1.5 }}>💡 Il prezzo più basso non è sempre il migliore: guarda <strong>cosa comprende</strong> ogni offerta e i <strong>lavori fatti</strong> dal pilota.</p>}
             {inGara.map(schedaOfferta)}
           </>
@@ -11542,7 +11543,7 @@ function OfferteCliente({ codice }) {
       {scelgo && (
         <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, background: "rgba(20,12,6,.55)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000, padding: 12 }} onClick={() => lavoro !== "invio" && setScelgo(null)}>
           <div onClick={(e) => e.stopPropagation()} style={{ ...CLIENTE.scheda, width: "100%", maxWidth: 460, marginBottom: 10 }}>
-            <h2 style={{ fontSize: 20, margin: "0 0 8px 0" }}>Scegli questa offerta?</h2>
+            <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 20, margin: "0 0 8px 0" }}>Scegli questa offerta?</h2>
             <p style={{ fontSize: 14.5, color: "#4a433c", lineHeight: 1.55, margin: "0 0 14px 0" }}><strong>{titoloServizio(scelgo.dettagli, r.servizio)}</strong> a <strong>{euroIt(scelgo.prezzo)}</strong>, con {scelgo.pilota?.nome}. Gli diciamo che l'hai scelto: appena conferma (entro 48 ore) ti mandiamo i suoi contatti e lui riceve i tuoi. Per te è gratis.</p>
             {lavoro && lavoro !== "invio" && <p style={{ color: "#c0392b", fontSize: 14, margin: "0 0 10px 0" }}>{lavoro}</p>}
             <div style={{ display: "flex", gap: 8 }}>
@@ -11670,7 +11671,7 @@ function PaginaPilotaPubblica({ slug }) {
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {logo
               ? <img src={logo} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "contain", background: "#0d111c", border: "1px solid #2a3349", flexShrink: 0 }} />
-              : <div aria-hidden="true" style={{ width: 68, height: 68, borderRadius: 14, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 24, color: "#10141f", flexShrink: 0 }}>{iniziali}</div>}
+              : <div aria-hidden="true" style={{ width: 68, height: 68, borderRadius: 14, background: "linear-gradient(135deg, #e0552f, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 24, color: "#10141f", flexShrink: 0 }}>{iniziali}</div>}
             <div style={{ minWidth: 0 }}>
               <h1 style={{ fontSize: 22, margin: 0, lineHeight: 1.2, overflowWrap: "anywhere" }}>{dati.nome || "Pilota di droni"}</h1>
               <div style={{ fontSize: 13.5, color: "#aab3bf", marginTop: 4 }}>
