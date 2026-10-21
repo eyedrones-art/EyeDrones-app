@@ -59,5 +59,5 @@ export default function MappaPunto({ punto, zone, onSposta }) {
     return () => livello.remove();
   }, [zone]);
 
-  return <div ref={contenitore} style={{ height: 230, borderRadius: 8, overflow: "hidden", marginTop: 8, border: "1px solid #262b33", zIndex: 0, position: "relative" }} />;
+  return <div ref={contenitore} style={{ height: 230, borderRadius: 8, overflow: "hidden", marginTop: 8, border: "1px solid #232b3f", zIndex: 0, position: "relative" }} />;
 }

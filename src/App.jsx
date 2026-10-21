@@ -16,6 +16,8 @@ import { GIRO_VUOTO, giroUsato, aggiungiAllaCoda, prendiCoda, tappaDa, MAX_TAPPE
 import { SPAZI, spaziAttivi, moduliDa, leggiSpazio, scriviSpazio, spazioDalLink, linkUsato } from "./spazi.js";
 import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
+import VoloHero, { STILE_VOLO } from "./VoloHero.jsx";
+import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
@@ -67,11 +69,11 @@ function apriDflight(scelta, href) {
 function chiediDflight(href) {
   const sfondo = document.createElement("div");
   sfondo.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;font-family:'IBM Plex Sans',sans-serif";
-  sfondo.innerHTML = `<div style="background:#1b2028;border:1px solid #2b313d;border-radius:14px 14px 0 0;padding:18px 18px 22px;width:100%;max-width:460px;color:#e7eaee">
+  sfondo.innerHTML = `<div style="background:#151b2b;border:1px solid #2a3349;border-radius:14px 14px 0 0;padding:18px 18px 22px;width:100%;max-width:460px;color:#e7eaee">
     <div style="font-size:15px;font-weight:700;margin-bottom:4px">🗺️ Apri D-Flight</div>
     <div style="font-size:12.5px;color:#8b95a3;margin-bottom:14px">L'app D-Flight si apre dal Play Store: tocca «Apri» nella pagina che compare.</div>
-    <button data-s="app" style="width:100%;padding:12px;border-radius:8px;border:none;background:linear-gradient(90deg,#e0552f,#ff8c42);color:#161a1f;font-weight:700;font-size:14px;margin-bottom:8px">📱 Apri l'app D-Flight</button>
-    <button data-s="sito" style="width:100%;padding:12px;border-radius:8px;border:1px solid #333a45;background:#1f2530;color:#e7eaee;font-weight:600;font-size:14px;margin-bottom:10px">🌐 Apri il sito</button>
+    <button data-s="app" style="width:100%;padding:12px;border-radius:8px;border:none;background:linear-gradient(90deg,#e0552f,#ff8c42);color:#10141f;font-weight:700;font-size:14px;margin-bottom:8px">📱 Apri l'app D-Flight</button>
+    <button data-s="sito" style="width:100%;padding:12px;border-radius:8px;border:1px solid #343e57;background:#1a2133;color:#e7eaee;font-weight:600;font-size:14px;margin-bottom:10px">🌐 Apri il sito</button>
     <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;color:#aab3bf"><input type="checkbox" data-r> Ricorda la scelta (si cambia in Impostazioni)</label>
   </div>`;
   sfondo.addEventListener("click", (e) => {
@@ -224,7 +226,7 @@ function sbloccatoPro(piano, volo) {
 }
 
 function EtichettaPro() {
-  return <span title="Funzione del piano Pro" style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: "#161a1f", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", borderRadius: 4, padding: "1px 5px", marginLeft: 6, verticalAlign: "middle" }}>PRO</span>;
+  return <span title="Funzione del piano Pro" style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: "#10141f", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", borderRadius: 4, padding: "1px 5px", marginLeft: 6, verticalAlign: "middle" }}>PRO</span>;
 }
 
 function linkRichiestaPass(volo) {
@@ -240,7 +242,7 @@ function InvitoPro({ volo, cosa, passQuestoMese = 0, onVaiAbbonamento }) {
     <div style={{ background: "#241d16", border: "1px solid #4a2f16", borderRadius: 6, padding: 10, marginTop: 8 }}>
       <p style={{ fontSize: 12.5, color: "#ffb877", margin: "0 0 6px 0" }}>🔒 {cosa} fa parte del piano Pro.</p>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <a href={linkRichiestaPass(volo)} target={LINK_PAGAMENTO_PASS ? "_blank" : undefined} rel="noreferrer" style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>🎟️ Sblocca questo lavoro · {euro(PREZZO_PASS_LAVORO)}</a>
+        <a href={linkRichiestaPass(volo)} target={LINK_PAGAMENTO_PASS ? "_blank" : undefined} rel="noreferrer" style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>🎟️ Sblocca questo lavoro · {euro(PREZZO_PASS_LAVORO)}</a>
         {onVaiAbbonamento && <button onClick={onVaiAbbonamento} style={{ background: "none", border: "1px solid #4a2f16", color: "#ffb877", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Passa a Pro · {euro(PREZZI_PIANO.pro.mese)}/mese</button>}
       </div>
       <p style={{ fontSize: 10.5, color: "#8b95a3", margin: "6px 0 0 0" }}>
@@ -605,10 +607,10 @@ function Suggerimenti({ session, paginaPrecedente }) {
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>💬 Suggerimenti</h1>
       <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 18px 0", maxWidth: 560 }}>EyeDrones è appena nata e cresce con i consigli dei piloti. Scrivi cosa ti manca, cosa miglioreresti o cosa non funziona: leggiamo tutto.</p>
-      <form onSubmit={invia} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 18, maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
+      <form onSubmit={invia} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 18, maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {TIPI_SUGGERIMENTO.map((t) => (
-            <button key={t.key} type="button" onClick={() => setTipo(t.key)} aria-pressed={tipo === t.key} style={{ background: tipo === t.key ? "#ff8c4222" : "#262b33", border: `1px solid ${tipo === t.key ? "#ff8c42" : "#333a45"}`, color: tipo === t.key ? "#ffb877" : "#c3cad4", borderRadius: 6, padding: "7px 11px", fontSize: 12.5 }}>{t.label}</button>
+            <button key={t.key} type="button" onClick={() => setTipo(t.key)} aria-pressed={tipo === t.key} style={{ background: tipo === t.key ? "#ff8c4222" : "#232b3f", border: `1px solid ${tipo === t.key ? "#ff8c42" : "#343e57"}`, color: tipo === t.key ? "#ffb877" : "#c3cad4", borderRadius: 6, padding: "7px 11px", fontSize: 12.5 }}>{t.label}</button>
           ))}
         </div>
         <textarea rows={6} value={testo} onChange={(e) => { setTesto(e.target.value); if (invio && invio !== "invio") setInvio(null); }} placeholder={tipo === "problema" ? "Cosa stavi facendo e cosa è successo? (es. ho toccato «Salva volo» e non è comparso niente)" : "Scrivi qui la tua idea o cosa ti piacerebbe trovare nell'app"} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
@@ -616,7 +618,7 @@ function Suggerimenti({ session, paginaPrecedente }) {
           📎 {file ? file.name : "Allega uno screenshot (facoltativo)"}
           <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
         </label>
-        <button type="submit" disabled={!testo.trim() || invio === "invio"} style={{ background: testo.trim() ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#333a45", color: testo.trim() ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "10px 0", fontWeight: 700, fontSize: 13.5 }}>{invio === "invio" ? "Invio…" : "Invia"}</button>
+        <button type="submit" disabled={!testo.trim() || invio === "invio"} style={{ background: testo.trim() ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#343e57", color: testo.trim() ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "10px 0", fontWeight: 700, fontSize: 13.5 }}>{invio === "invio" ? "Invio…" : "Invia"}</button>
         {invio === "ok" && <p style={{ fontSize: 12.5, color: "#4ade80", margin: 0 }}>✓ Grazie! Messaggio ricevuto. Se serve ti rispondiamo all'indirizzo email del tuo account.</p>}
         {invio && invio !== "ok" && invio !== "invio" && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: 0 }}>{invio}</p>}
       </form>
@@ -1702,8 +1704,8 @@ function NuovaPassword({ onFatto, dentroApp = false }) {
       <input type="password" autoComplete="new-password" placeholder="Ripeti la nuova password" value={ripeti} onChange={(e) => setRipeti(e.target.value)} style={inputStyle} />
       {errore && <p style={{ fontSize: 12, color: "#ff9c9c", margin: 0 }}>{errore}</p>}
       {fatto && <p style={{ fontSize: 12, color: "#4ade80", margin: 0 }}>✓ Password cambiata.</p>}
-      <button type="submit" disabled={salvando} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 6, padding: "10px 0", fontWeight: 700, fontSize: 13.5 }}>{salvando ? "Salvo…" : "Salva la nuova password"}</button>
-      {fatto && onFatto && <button type="button" onClick={onFatto} style={{ background: "none", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "9px 0", fontSize: 13 }}>Entra nell'app</button>}
+      <button type="submit" disabled={salvando} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 6, padding: "10px 0", fontWeight: 700, fontSize: 13.5 }}>{salvando ? "Salvo…" : "Salva la nuova password"}</button>
+      {fatto && onFatto && <button type="button" onClick={onFatto} style={{ background: "none", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "9px 0", fontSize: 13 }}>Entra nell'app</button>}
     </form>
   );
   if (dentroApp) return modulo;
@@ -2220,9 +2222,23 @@ function AppShell({ session }) {
         ::selection { background: #ff8c4255; }
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #333a45; border-radius: 8px; }
+        ::-webkit-scrollbar-thumb { background: #343e57; border-radius: 8px; }
         ::-webkit-scrollbar-thumb:hover { background: #454c59; }
         .mono { font-family: 'IBM Plex Mono', monospace; }
+        ${STILE_VOLO}
+        ${STILE_MENU_ROTONDO}
+        /* i titoli delle pagine: grandi, larghi, in maiuscolo, come nella Home */
+        .app-shell h1 { font-family: 'Archivo', 'IBM Plex Sans', sans-serif; font-stretch: 115%; font-weight: 850; text-transform: uppercase; letter-spacing: 0; }
+        .app-shell h1::after { content: ""; display: block; width: 38px; height: 2px; margin-top: 8px; background: #ff8c42; border-radius: 2px; }
+        .app-shell .volo-titolo::after { display: none; }
+        .ed-consiglio { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: linear-gradient(120deg, rgba(255,140,66,.12), rgba(21,27,43,.9)); border: 1px solid rgba(255,140,66,.35); border-radius: 16px; padding: 12px 16px; margin: 0 0 22px; color: #eef1f6; }
+        .ed-consiglio-etichetta { display: block; font-size: 10.5px; letter-spacing: .16em; color: #ffb48f; }
+        .mr-overlay { position: fixed; inset: 0; z-index: 950; background: radial-gradient(90% 55% at 50% 22%, #18203a 0%, #0b0e16 60%, #06080d 100%); overflow-y: auto; padding: calc(14px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom)); animation: ed-entra .25s ease-out both; }
+        .mr-chiudi { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+        .mr-voce { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 52px; padding: 0 4px; background: transparent; border: none; border-bottom: 1px solid rgba(243,240,234,.1); color: #eef1f6; font-size: 15.5px; font-weight: 600; text-align: left; text-decoration: none; }
+        .mr-voce.on { color: #ff8c42; }
+        .mr-num { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #ff8c42; width: 22px; flex: none; }
+        .mr-titolo-gruppo { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: #8f9bb2; padding: 18px 4px 6px; }
         .app-shell { flex-direction: row; }
         .sidebar { width: 220px; flex-direction: column; }
         .sidebar-label { display: inline; }
@@ -2233,12 +2249,12 @@ function AppShell({ session }) {
         .menu-telefono { display: none; }
         .avviso-caricamento { bottom: 24px; }
         .home-azioni { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
-        .home-azione { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #1b2028; border: 1px solid #2b313d; border-radius: 14px; padding: 14px 16px; color: #e7eaee; min-height: 74px; transition: border-color .15s, transform .15s, background .15s; }
+        .home-azione { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #151b2b; border: 1px solid #2a3349; border-radius: 14px; padding: 14px 16px; color: #e7eaee; min-height: 74px; transition: border-color .15s, transform .15s, background .15s; }
         .home-azione:hover { border-color: #ff8c4288; background: #1f252e; transform: translateY(-1px); }
         .home-azione-emoji { font-size: 22px; flex: none; width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; }
         .home-azione-titolo { display: block; font-size: 14.5px; font-weight: 700; }
         .home-azione-testo { display: block; font-size: 12px; margin-top: 2px; color: #8b95a3; }
-        .home-testata { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid #2b313d; padding: 26px 28px; margin-bottom: 18px; min-height: 170px; background-size: cover; background-position: center; display: flex; align-items: flex-end; }
+        .home-testata { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid #2a3349; padding: 26px 28px; margin-bottom: 18px; min-height: 170px; background-size: cover; background-position: center; display: flex; align-items: flex-end; }
         /* animazioni leggere della Home: il drone della testata e un'entrata morbida (solo opacità, niente spostamenti) */
         @keyframes ed-vola { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-7px) rotate(-1.2deg); } }
         @keyframes ed-elica { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(.45); } }
@@ -2261,10 +2277,10 @@ function AppShell({ session }) {
         .home-azione .corto { display: none; }
         .home-due { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
         .cartelle { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-        .cartella { position: relative; display: block; text-align: left; background: linear-gradient(160deg, #241d16, #1b2028 60%); border: 1px solid #ff8c4255; border-radius: 4px 14px 14px 14px; padding: 18px 14px 14px; margin-top: 10px; color: #e7eaee; min-height: 128px; transition: border-color .15s, transform .15s; }
+        .cartella { position: relative; display: block; text-align: left; background: linear-gradient(160deg, #241d16, #151b2b 60%); border: 1px solid #ff8c4255; border-radius: 4px 14px 14px 14px; padding: 18px 14px 14px; margin-top: 10px; color: #e7eaee; min-height: 128px; transition: border-color .15s, transform .15s; }
         .cartella:hover { border-color: #ff8c42; transform: translateY(-1px); }
         .cartella-linguetta { position: absolute; top: -10px; left: -1px; width: 46%; height: 11px; background: #241d16; border: 1px solid #ff8c4255; border-bottom: none; border-radius: 8px 10px 0 0; }
-        .cartella-nuova { background: transparent; border: 1px dashed #333a45; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .cartella-nuova { background: transparent; border: 1px dashed #343e57; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         @media (max-width: 680px) {
           .cartelle { grid-template-columns: 1fr 1fr; gap: 10px; }
           .app-shell { flex-direction: column; }
@@ -2279,13 +2295,13 @@ function AppShell({ session }) {
           .home-testata { padding: 18px 16px; min-height: 150px; border-radius: 14px; }
           .home-testata h1 { font-size: 24px !important; }
           .menu-telefono { display: contents; }
-          .mt-topbar { position: sticky; top: 0; z-index: 800; display: flex; align-items: center; gap: 8px; padding: 10px 16px; padding-top: calc(10px + env(safe-area-inset-top)); background: rgba(18, 21, 26, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #262b33; }
-          .mt-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; display: flex; background: rgba(18, 21, 26, 0.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid #262b33; padding-bottom: env(safe-area-inset-bottom); }
+          .mt-topbar { position: sticky; top: 0; z-index: 800; display: flex; align-items: center; gap: 8px; padding: 10px 16px; padding-top: calc(10px + env(safe-area-inset-top)); background: rgba(12, 15, 26, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #232b3f; }
+          .mt-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; display: flex; background: rgba(12, 15, 26, 0.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid #232b3f; padding-bottom: env(safe-area-inset-bottom); }
           .mt-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px 7px 2px; background: none; border: none; color: #7c8694; font-size: 10.5px; font-weight: 500; min-height: 56px; justify-content: center; }
           .mt-tab.on { color: #ff8c42; font-weight: 700; }
           .avviso-caricamento { bottom: calc(72px + env(safe-area-inset-bottom)) !important; }
           .mt-overlay { position: fixed; inset: 0; z-index: 950; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end; }
-          .mt-sheet { width: 100%; max-height: 82vh; overflow-y: auto; background: #161a20; border-top: 1px solid #2b313d; border-radius: 16px 16px 0 0; padding: 10px 14px calc(16px + env(safe-area-inset-bottom)) 14px; }
+          .mt-sheet { width: 100%; max-height: 82vh; overflow-y: auto; background: #10141f; border-top: 1px solid #2a3349; border-radius: 16px 16px 0 0; padding: 10px 14px calc(16px + env(safe-area-inset-bottom)) 14px; }
           .app-shell > div:last-child { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
           .main-content { padding: 18px 16px; }
         }
@@ -2318,13 +2334,13 @@ function AppShell({ session }) {
         )}
         {guidaSopra && (
           <div role="dialog" aria-label="Guida zona rossa" style={{ position: "fixed", inset: 0, zIndex: 2500, background: "#0f1216", display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: "calc(10px + env(safe-area-inset-top))", borderBottom: "1px solid #262b33", background: "#12151a" }}>
-              <button type="button" onClick={chiudiGuida} style={{ background: "#1f2530", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "8px 14px", fontSize: 14, fontWeight: 700, minHeight: 44 }}>← Torna al piano</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: "calc(10px + env(safe-area-inset-top))", borderBottom: "1px solid #232b3f", background: "#0d111c" }}>
+              <button type="button" onClick={chiudiGuida} style={{ background: "#1a2133", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 8, padding: "8px 14px", fontSize: 14, fontWeight: 700, minHeight: 44 }}>← Torna al piano</button>
               <span style={{ fontSize: 14.5, fontWeight: 700, color: "#ffb877" }}>🔴 Zona rossa: cosa serve</span>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 24px", maxWidth: 820, width: "100%", boxSizing: "border-box", margin: "0 auto" }}>
               <Suspense fallback={<p style={{ color: "#8b95a3" }}>Carico la guida…</p>}><GuidaZonaRossa /></Suspense>
-              <button type="button" onClick={chiudiGuida} style={{ display: "block", width: "100%", marginTop: 16, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 10, padding: "12px", fontSize: 15, fontWeight: 800, minHeight: 50 }}>← Torna al piano (non si perde niente)</button>
+              <button type="button" onClick={chiudiGuida} style={{ display: "block", width: "100%", marginTop: 16, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 10, padding: "12px", fontSize: 15, fontWeight: 800, minHeight: 50 }}>← Torna al piano (non si perde niente)</button>
             </div>
           </div>
         )}
@@ -2449,13 +2465,13 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
   if (inRegola && leggiLocale(CHIAVE_PRIMI_PASSI_VECCHIA) === "si") return null;
   const fattiRegole = regole.filter((x) => x.fatto).length;
   return (
-    <div style={{ position: "relative", background: inRegola ? "linear-gradient(135deg, #142619, #1b2028)" : "linear-gradient(135deg, #16202c, #1b2028)", border: `1px solid ${inRegola ? "#2f6b45" : "#3d8bfd88"}`, borderRadius: 12, padding: "14px 16px", marginBottom: 18, maxWidth: 720 }}>
+    <div style={{ position: "relative", background: inRegola ? "linear-gradient(135deg, #142619, #151b2b)" : "linear-gradient(135deg, #16202c, #151b2b)", border: `1px solid ${inRegola ? "#2f6b45" : "#3d8bfd88"}`, borderRadius: 12, padding: "14px 16px", marginBottom: 18, maxWidth: 720 }}>
       <button type="button" onClick={rimanda} aria-label="Nascondi per qualche giorno" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
       {tutti ? (
         <div style={{ fontSize: 13, color: "#c3cad4" }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80", marginBottom: 4 }}>🎉 Tutto pronto!</div>
           Hai fatto tutto: l'app è pronta per i tuoi voli. Se ti serve una mano, in <strong>Impara</strong> trovi regole, manovre e consigli.
-          <div><button type="button" onClick={chiudi} style={{ marginTop: 10, background: "#4ade80", color: "#12151a", border: "none", borderRadius: 6, padding: "8px 16px", minHeight: 40, fontSize: 13, fontWeight: 700 }}>Perfetto, chiudi</button></div>
+          <div><button type="button" onClick={chiudi} style={{ marginTop: 10, background: "#4ade80", color: "#0d111c", border: "none", borderRadius: 6, padding: "8px 16px", minHeight: 40, fontSize: 13, fontWeight: 700 }}>Perfetto, chiudi</button></div>
         </div>
       ) : (
         <>
@@ -2467,7 +2483,7 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
               <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>Così, se arriva un controllo, hai tutto sul telefono. Passo {Math.min(fattiRegole + 1, regole.length)} di {regole.length}.</div>
             </div>
           )}
-          <div style={{ height: 6, background: "#262b33", borderRadius: 3, margin: "10px 0", overflow: "hidden" }}>
+          <div style={{ height: 6, background: "#232b3f", borderRadius: 3, margin: "10px 0", overflow: "hidden" }}>
             <div style={{ width: `${Math.round(((inRegola ? fatti : fattiRegole) / (inRegola ? passi.length : regole.length)) * 100)}%`, height: "100%", background: inRegola ? "#4ade80" : "#3d8bfd", transition: "width .4s" }} />
           </div>
           {prossimo && (
@@ -2480,7 +2496,7 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             {(inRegola ? passi : regole.concat(passi.filter((x) => x.chiave === "account"))).filter((x) => x !== prossimo).sort((x, y) => passi.indexOf(x) - passi.indexOf(y)).map((x) => (
               <button key={x.chiave} type="button" disabled={x.fatto || !x.pagina} onClick={() => apri(x)} style={{ display: "flex", gap: 10, alignItems: "center", textAlign: "left", padding: "5px 2px", background: "none", border: "none", color: "#e7eaee", minHeight: 36 }}>
-                <span style={{ width: 20, height: 20, flex: "none", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, background: x.fatto ? "#4ade80" : "transparent", color: "#12151a", border: x.fatto ? "none" : "1.5px solid #4a505a" }}>{x.fatto ? "✓" : ""}</span>
+                <span style={{ width: 20, height: 20, flex: "none", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, background: x.fatto ? "#4ade80" : "transparent", color: "#0d111c", border: x.fatto ? "none" : "1.5px solid #4a505a" }}>{x.fatto ? "✓" : ""}</span>
                 <span style={{ flex: 1, fontSize: 13, color: x.fatto ? "#6b7480" : "#c3cad4", textDecoration: x.fatto ? "line-through" : "none" }}>{x.titolo}</span>
                 {!x.fatto && x.pagina && <span style={{ color: "#6b7480" }}>›</span>}
               </button>
@@ -2515,7 +2531,7 @@ function BarraPrimiPassi({ pagina, droni, attestati, voli, preventivi, onNav }) 
           : <><strong style={{ color: "#7fb0ff" }}>🚀 Passo {n} di 4 · {qui.titolo}</strong><br />{qui.aiuto}</>}
       </div>
       {qui.fatto
-        ? <button type="button" onClick={vaiDopo} style={{ background: "#4ade80", color: "#12151a", border: "none", borderRadius: 8, padding: "9px 14px", minHeight: 42, fontSize: 13.5, fontWeight: 800 }}>{dopo ? `${dopo.bottone} ›` : "Torna alla Home"}</button>
+        ? <button type="button" onClick={vaiDopo} style={{ background: "#4ade80", color: "#0d111c", border: "none", borderRadius: 8, padding: "9px 14px", minHeight: 42, fontSize: 13.5, fontWeight: 800 }}>{dopo ? `${dopo.bottone} ›` : "Torna alla Home"}</button>
         : <button type="button" onClick={chiudi} aria-label="Chiudi la guida" style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 18, minWidth: 36, minHeight: 36 }}>×</button>}
     </div>
   );
@@ -2556,7 +2572,7 @@ function RiquadroNovita({ onVai }) {
   if (visto) return null;
   const chiudi = () => { try { localStorage.setItem("eyedrones_novita_viste", VERSIONE_NOVITA); } catch { /* niente */ } setVisto(true); };
   return (
-    <div style={{ position: "relative", background: "linear-gradient(135deg, #1c1726, #1b2028)", border: "1px solid #3d2f5a", borderRadius: 12, padding: "14px 16px", marginBottom: 18, maxWidth: 720 }}>
+    <div style={{ position: "relative", background: "linear-gradient(135deg, #1c1726, #151b2b)", border: "1px solid #3d2f5a", borderRadius: 12, padding: "14px 16px", marginBottom: 18, maxWidth: 720 }}>
       <button type="button" onClick={chiudi} aria-label="Chiudi le novità" style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
       <div style={{ fontSize: 14.5, fontWeight: 700, color: "#c4b5fd", marginBottom: 8 }}>✨ Novità di ottobre</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -2590,9 +2606,9 @@ const FUNZIONI_PRESENTAZIONE = [
 ];
 
 function Presentazione({ onAccedi, onRegistrati }) {
-  const bottonePrimario = { background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "12px 22px", fontWeight: 700, fontSize: 15 };
-  const bottoneSecondario = { background: "transparent", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "12px 22px", fontWeight: 600, fontSize: 15 };
-  const riquadro = { background: "#1b2028", border: "1px solid #262b33", borderRadius: 12 };
+  const bottonePrimario = { background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 8, padding: "12px 22px", fontWeight: 700, fontSize: 15 };
+  const bottoneSecondario = { background: "transparent", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 8, padding: "12px 22px", fontWeight: 600, fontSize: 15 };
+  const riquadro = { background: "#151b2b", border: "1px solid #232b3f", borderRadius: 12 };
 
   return (
     <div className="lp" style={{ fontFamily: "'IBM Plex Sans', sans-serif", color: "#e7eaee", minHeight: "100vh" }}>
@@ -2661,20 +2677,20 @@ function Presentazione({ onAccedi, onRegistrati }) {
           <div style={{ ...riquadro, padding: 18, boxShadow: "0 30px 80px rgba(126, 58, 242, 0.18)", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
             <p style={{ fontSize: 12, color: "#6b7480", margin: "4px 0 10px 0" }}>Sabato · Lago di Viverone</p>
-            <div style={{ background: "#161a1f", border: "1px solid #4ade8055", borderRadius: 8, padding: 12, fontSize: 13.5, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            <div style={{ background: "#10141f", border: "1px solid #4ade8055", borderRadius: 8, padding: 12, fontSize: 13.5, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
               <div>💨 max 14 km/h</div><div>🌧️ 0 mm</div>
               <div>🧲 Kp 2 · GPS ok</div><div style={{ color: "#4ade80", fontWeight: 700 }}>✓ Si vola</div>
             </div>
-            <div style={{ background: "#161a1f", border: "1px solid #f5b94255", borderRadius: 8, padding: 12, fontSize: 13.5, marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            <div style={{ background: "#10141f", border: "1px solid #f5b94255", borderRadius: 8, padding: 12, fontSize: 13.5, marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
               <div>🌅 Alba 07:21</div><div>🌇 Tramonto 19:04</div>
               <div style={{ color: "#f5b942" }}>✨ 06:58 – 08:02</div><div style={{ color: "#f5b942" }}>✨ 18:22 – 19:27</div>
             </div>
-            <div style={{ background: "#161a1f", border: "1px solid #3d8bfd55", borderRadius: 8, padding: "10px 12px", fontSize: 13.5, marginTop: 10, color: "#f5b942", fontWeight: 600 }}>
+            <div style={{ background: "#10141f", border: "1px solid #3d8bfd55", borderRadius: 8, padding: "10px 12px", fontSize: 13.5, marginTop: 10, color: "#f5b942", fontWeight: 600 }}>
               🛡️ Libero fino a 45 m · sopra serve autorizzazione
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
               {[["🎬", "Video", "#a78bfa", "DJI Mini 4 Pro · 22 min"], ["🥽", "FPV", "#ff8c42", "Avata 2 · 9 min"]].map(([e, t, c, d]) => (
-                <div key={t} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: "10px 12px", fontSize: 13 }}>
+                <div key={t} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: "10px 12px", fontSize: 13 }}>
                   <span style={{ color: "#aab3bf" }}>{d}</span>
                   <span style={{ fontSize: 11.5, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: c + "22", color: c }}>{e} {t}</span>
                 </div>
@@ -2698,11 +2714,11 @@ function Presentazione({ onAccedi, onRegistrati }) {
         </section>
 
         <section className="lp-wrap" style={{ paddingBottom: 64 }}>
-          <div style={{ ...riquadro, padding: "32px 24px", textAlign: "center", background: "linear-gradient(135deg, rgba(126, 58, 242, 0.16), rgba(255, 140, 66, 0.12)), #1b2028" }}>
+          <div style={{ ...riquadro, padding: "32px 24px", textAlign: "center", background: "linear-gradient(135deg, rgba(126, 58, 242, 0.16), rgba(255, 140, 66, 0.12)), #151b2b" }}>
             <h2 style={{ fontSize: 26, margin: "0 0 8px 0" }}>Pronto a decollare?</h2>
             <p style={{ color: "#aab3bf", margin: "0 0 20px 0", fontSize: 15 }}>Crea l'account in un minuto e registra il tuo primo volo.</p>
             {lancioInCorso() && (
-              <div style={{ textAlign: "left", background: "#161a1f", border: "1px solid #4a2f16", borderRadius: 10, padding: "14px 18px", margin: "0 auto 20px", maxWidth: 520 }}>
+              <div style={{ textAlign: "left", background: "#10141f", border: "1px solid #4a2f16", borderRadius: 10, padding: "14px 18px", margin: "0 auto 20px", maxWidth: 520 }}>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>🚀 Prezzo fondatori, per chi si iscrive entro il {fineLancio()}</div>
                 <div style={{ color: "#aab3bf", fontSize: 14, marginTop: 6, lineHeight: 1.55 }}>Fino al {fineLancio()} tutto gratis. Poi il primo anno a metà prezzo: Pro a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12)} al mese</strong> (poi {euro(PREZZI_PIANO.pro.anno / 12)}), Pilota a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pilota.anno) / 12)} al mese</strong> (poi {euro(PREZZI_PIANO.pilota.anno / 12)}), con l'abbonamento annuale.</div>
               </div>
@@ -2737,7 +2753,7 @@ function SceltaIniziale({ onPilota, onAccedi }) {
       <header style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", color: "#e7eaee" }}>
         <img src={LOGO_EYEDRONES} alt="" style={{ width: 30, height: 30 }} />
         <span style={{ fontWeight: 700, fontSize: 17 }}>EyeDrones</span>
-        <button type="button" onClick={onAccedi} style={{ marginLeft: "auto", background: "none", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "7px 12px", fontSize: 13.5, fontWeight: 600 }}>Accedi</button>
+        <button type="button" onClick={onAccedi} style={{ marginLeft: "auto", background: "none", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 8, padding: "7px 12px", fontSize: 13.5, fontWeight: 600 }}>Accedi</button>
       </header>
       <div className="scelta-due">
         <button type="button" onClick={onPilota} style={meta("/benvenuto/pilota.webp", "50% 30%")}>
@@ -2877,12 +2893,12 @@ function Login({ modoIniziale = "login", onTorna }) {
           <img src={LOGO_EYEDRONES} alt="EyeDrones" style={{ width: 52, height: 52, objectFit: "contain", position: "relative", zIndex: 1 }} />
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 17, position: "relative", zIndex: 1 }}>EyeDrones</span>
         </div>
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 22, position: "relative", overflow: "hidden" }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 22, position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
           {modo !== "recupera" && (
             <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
-              <button type="button" onClick={() => setModo("login")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "login" ? "linear-gradient(90deg, #e0552f, #ff8c42)" : "#262b33", color: modo === "login" ? "#161a1f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Accedi</button>
-              <button type="button" onClick={() => setModo("registrati")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "registrati" ? "linear-gradient(90deg, #e0552f, #ff8c42)" : "#262b33", color: modo === "registrati" ? "#161a1f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Registrati</button>
+              <button type="button" onClick={() => setModo("login")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "login" ? "linear-gradient(90deg, #e0552f, #ff8c42)" : "#232b3f", color: modo === "login" ? "#10141f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Accedi</button>
+              <button type="button" onClick={() => setModo("registrati")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "registrati" ? "linear-gradient(90deg, #e0552f, #ff8c42)" : "#232b3f", color: modo === "registrati" ? "#10141f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Registrati</button>
             </div>
           )}
           {modo === "recupera" && (
@@ -2907,12 +2923,12 @@ function Login({ modoIniziale = "login", onTorna }) {
             )}
             {errore && <p style={{ color: "#ff9c9c", fontSize: 12, margin: 0 }}>{errore}</p>}
             {messaggio && <p style={{ color: "#4ade80", fontSize: 12, margin: 0 }}>{messaggio}</p>}
-            <button type="submit" disabled={caricamento} style={{ marginTop: 4, background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+            <button type="submit" disabled={caricamento} style={{ marginTop: 4, background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
               {caricamento ? "Attendi..." : modo === "login" ? "Accedi" : modo === "registrati" ? "Crea account" : "Invia link"}
             </button>
           </form>
           {modo === "login" && improntaPossibile() && improntaAttiva() && (
-            <button type="button" disabled={caricamento} onClick={entraConImpronta} style={{ width: "100%", marginTop: 10, background: improntaAttiva() ? "#1d3a2a" : "#1f2530", color: improntaAttiva() ? "#4ade80" : "#e7eaee", border: `1px solid ${improntaAttiva() ? "#2c5a3a" : "#333a45"}`, padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+            <button type="button" disabled={caricamento} onClick={entraConImpronta} style={{ width: "100%", marginTop: 10, background: improntaAttiva() ? "#1d3a2a" : "#1a2133", color: improntaAttiva() ? "#4ade80" : "#e7eaee", border: `1px solid ${improntaAttiva() ? "#2c5a3a" : "#343e57"}`, padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
               👆 Entra con l'impronta o il volto
             </button>
           )}
@@ -3019,8 +3035,8 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
   const avvisi = { attestati: attestatiInScadenza, droni: droniInScadenza, batterie: batterieAvvisi, "pagina-pilota": richiesteNuove };
   return (
     <>
-    <div className="sidebar" style={{ background: "#12151a", borderRight: "1px solid #262b33", padding: "20px 14px", display: "flex", flexShrink: 0 }}>
-      <div className="sidebar-brand" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px 18px 8px", marginBottom: 4, borderBottom: "1px solid #262b33", position: "relative" }}>
+    <div className="sidebar" style={{ background: "#0d111c", borderRight: "1px solid #232b3f", padding: "20px 14px", display: "flex", flexShrink: 0 }}>
+      <div className="sidebar-brand" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px 18px 8px", marginBottom: 4, borderBottom: "1px solid #232b3f", position: "relative" }}>
         <img src={LOGO_EYEDRONES} alt="EyeDrones" style={{ width: 36, height: 36, objectFit: "contain", flexShrink: 0 }} />
         <span className="sidebar-brand-label" style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>EyeDrones</span>
         <div style={{ position: "absolute", bottom: -1, left: 0, width: 46, height: 2, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
@@ -3028,14 +3044,14 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
       {(spazio || cartelle) && (
         <div className="sidebar-label" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 4px 4px 4px" }}>
           {spazi.length > 1 && (
-            <button type="button" onClick={onCartelle} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: cartelle ? "1px solid #ff8c42" : "1px solid #2b313d", background: cartelle ? "#241d16" : "transparent", color: cartelle ? "#fff" : "#9aa4b2", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
+            <button type="button" onClick={onCartelle} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: cartelle ? "1px solid #ff8c42" : "1px solid #2a3349", background: cartelle ? "#241d16" : "transparent", color: cartelle ? "#fff" : "#9aa4b2", fontSize: 13, fontWeight: 600, textAlign: "left" }}>
               <span>📁</span>Tutte le cartelle
             </button>
           )}
           {spazi.map((x) => {
             const su = spazio && x.key === spazio.key;
             return (
-              <button key={x.key} type="button" onClick={() => onCambiaSpazio(x.key)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: su ? "1px solid #ff8c42" : "1px solid #2b313d", background: su ? "#241d16" : "transparent", color: su ? "#fff" : "#9aa4b2", fontSize: 13, fontWeight: 600, textAlign: "left", marginLeft: spazi.length > 1 ? 10 : 0 }}>
+              <button key={x.key} type="button" onClick={() => onCambiaSpazio(x.key)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: su ? "1px solid #ff8c42" : "1px solid #2a3349", background: su ? "#241d16" : "transparent", color: su ? "#fff" : "#9aa4b2", fontSize: 13, fontWeight: 600, textAlign: "left", marginLeft: spazi.length > 1 ? 10 : 0 }}>
                 <span>{x.emoji}</span>{x.nome}
               </button>
             );
@@ -3081,7 +3097,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
             onClick={() => setPage(it.key)}
             style={{
               display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 6,
-              background: active ? "#1f2530" : "transparent", border: "none", color: active ? "#fff" : "#9aa4b2",
+              background: active ? "#1a2133" : "transparent", border: "none", color: active ? "#fff" : "#9aa4b2",
               fontSize: 13.5, fontWeight: active ? 600 : 500, textAlign: "left", whiteSpace: "nowrap",
               borderLeft: active ? "2px solid #ff8c42" : "2px solid transparent",
             }}
@@ -3104,7 +3120,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
           </button>
         );
       })}
-      <div className="sidebar-label" style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid #262b33" }}>
+      <div className="sidebar-label" style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid #232b3f" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 10px 8px 10px" }}>
           <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: piano === "pro" ? "#1d3a2a" : piano === "pilota" ? "#16263d" : "#2a2416", color: COLORE_PIANO[piano] || "#f5b942" }}>{(NOME_PIANO[piano] || "Free").toUpperCase()}</span>
           {piano !== "pro" && <span style={{ fontSize: 10.5, color: "#6b7480" }}>{reportQuestoMese}/{LIMITI_FREE.reportMese} report</span>}
@@ -3165,7 +3181,7 @@ function AvvisoInstallaApp() {
   };
 
   return (
-    <div style={{ margin: "12px 16px 0 16px", background: "linear-gradient(135deg, rgba(126, 58, 242, 0.18), rgba(255, 140, 66, 0.14)), #1b2028", border: "1px solid #ff8c4255", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+    <div style={{ margin: "12px 16px 0 16px", background: "linear-gradient(135deg, rgba(126, 58, 242, 0.18), rgba(255, 140, 66, 0.14)), #151b2b", border: "1px solid #ff8c4255", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
       <img src="/icon-192.png" alt="" style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 180 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700 }}>Installa EyeDrones sul telefono</div>
@@ -3180,8 +3196,8 @@ function AvvisoInstallaApp() {
         )}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        {!passiIphone && <button onClick={installa} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>Installa</button>}
-        <button onClick={nonOra} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "8px 12px", fontSize: 12.5 }}>{passiIphone ? "Fatto" : "Non ora"}</button>
+        {!passiIphone && <button onClick={installa} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>Installa</button>}
+        <button onClick={nonOra} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "8px 12px", fontSize: 12.5 }}>{passiIphone ? "Fatto" : "Non ora"}</button>
       </div>
     </div>
   );
@@ -3259,45 +3275,54 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
       {sceltaSpazio && (
         <div className="mt-overlay" onClick={() => setSceltaSpazio(false)}>
           <div className="mt-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Le tue cartelle">
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#333a45", margin: "0 auto 10px auto" }} />
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#343e57", margin: "0 auto 10px auto" }} />
             <div style={{ fontSize: 13, fontWeight: 700, color: "#c3cad4", padding: "0 6px 8px" }}>Le tue cartelle</div>
             {spazi.map((x) => (
-              <button key={x.key} type="button" onClick={() => { setSceltaSpazio(false); onCambiaSpazio(x.key); }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 10px", borderRadius: 10, marginBottom: 6, background: spazio && x.key === spazio.key ? "#241d16" : "#1b2028", border: spazio && x.key === spazio.key ? "1px solid #ff8c42" : "1px solid #2b313d", color: "#e7eaee", textAlign: "left" }}>
+              <button key={x.key} type="button" onClick={() => { setSceltaSpazio(false); onCambiaSpazio(x.key); }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 10px", borderRadius: 10, marginBottom: 6, background: spazio && x.key === spazio.key ? "#241d16" : "#151b2b", border: spazio && x.key === spazio.key ? "1px solid #ff8c42" : "1px solid #2a3349", color: "#e7eaee", textAlign: "left" }}>
                 <span style={{ fontSize: 24 }}>{x.emoji}</span>
                 <span style={{ flex: 1 }}><span style={{ display: "block", fontSize: 14.5, fontWeight: 700 }}>{x.nome}</span><span style={{ display: "block", fontSize: 12, color: "#8b95a3", marginTop: 2 }}>{x.testo}</span></span>
                 {spazio && x.key === spazio.key && <span style={{ color: "#ff8c42" }}>✓</span>}
               </button>
             ))}
-            <button type="button" onClick={() => { setSceltaSpazio(false); setPage("impostazioni"); }} style={{ display: "block", width: "100%", padding: "10px", background: "none", border: "1px dashed #333a45", borderRadius: 10, color: "#8b95a3", fontSize: 13 }}>＋ Aggiungi o togli una cartella</button>
+            <button type="button" onClick={() => { setSceltaSpazio(false); setPage("impostazioni"); }} style={{ display: "block", width: "100%", padding: "10px", background: "none", border: "1px dashed #343e57", borderRadius: 10, color: "#8b95a3", fontSize: 13 }}>＋ Aggiungi o togli una cartella</button>
           </div>
         </div>
       )}
       {altroAperto && (
-        <div className="mt-overlay" onClick={() => setAltroAperto(false)}>
-          <div className="mt-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Altre sezioni">
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#333a45", margin: "0 auto 10px auto" }} />
+        <div className="mr-overlay" role="dialog" aria-label="Menu">
+          <div className="mr-chiudi">
+            <span style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "125%", fontWeight: 800, fontSize: 13, letterSpacing: ".2em" }}>EYEDRONES</span>
+            <button type="button" onClick={() => setAltroAperto(false)} aria-label="Chiudi il menu" style={{ minWidth: 44, minHeight: 44, background: "transparent", border: "1px solid rgba(243,240,234,.25)", borderRadius: 22, color: "#eef1f6", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={18} /></button>
+          </div>
+          {/* il cerchio con le funzioni principali: gira e si apre verso quella che tocchi */}
+          <MenuRotondo voci={[
+            { key: "qui", label: "Sono sul posto", corto: "Sul posto", sigla: "GPS", icon: MapPin, vai: () => { setAltroAperto(false); vaiA({ pagina: "qui" }); } },
+            ...[["pianificazione", "Pianifica", "PLN", CalendarDays], ["registro-voli", "Registro", "LOG", BookOpen], ["documenti-controllo", "Controllo", "CTR", ShieldCheck], ["preventivi", "Preventivi", "EUR", FileText], ["impara", "Impara", "EDU", GraduationCap], ["galleria", "Foto e video", "IMG", Camera], ["permessi", "Permessi", "PRM", ClipboardCheck]]
+              .filter(([k]) => items.some((it) => it.key === k)).map(([k, l, sg, ic]) => ({ key: k, label: l, sigla: sg, icon: ic })),
+          ]} onScegli={(v) => (v.vai ? v.vai() : scegli(v.key))} />
+          <div>
             {items.filter((it) => it.intestazione || !chiaviPrincipali.includes(it.key)).map((it, idx, arr) => {
               if (it.intestazione) {
                 const prossima = arr[idx + 1];
                 if (!prossima || prossima.intestazione) return null; // intestazione rimasta senza voci
-                return <div key={"h-" + it.intestazione} style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#5b6572", padding: "12px 6px 4px 6px" }}>{it.intestazione}</div>;
+                return <div key={"h-" + it.intestazione} className="mr-titolo-gruppo">{it.intestazione}</div>;
               }
               const Icon = it.icon;
-              const stile = { display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "11px 8px", borderRadius: 8, background: page === it.key ? "#1f2530" : "transparent", border: "none", color: page === it.key ? "#fff" : "#c3cad4", fontSize: 14.5, textAlign: "left", textDecoration: "none" };
+              const numero = String(arr.slice(0, idx + 1).filter((x) => !x.intestazione).length).padStart(2, "0");
               if (it.esterno) {
-                return <a key={it.key} href={it.esterno} target="_blank" rel="noreferrer" style={stile}><Icon size={18} /> {it.label} <span style={{ marginLeft: "auto", color: "#6b7480", fontSize: 12 }}>↗</span></a>;
+                return <a key={it.key} href={it.esterno} target="_blank" rel="noreferrer" className="mr-voce"><span className="mr-num">{numero}</span><Icon size={18} /> {it.label} <span style={{ marginLeft: "auto", color: "#8f9bb2", fontSize: 12 }}>↗</span></a>;
               }
               return (
-                <button key={it.key} onClick={() => scegli(it.key)} style={stile}>
-                  <Icon size={18} /> {it.label}
+                <button key={it.key} onClick={() => scegli(it.key)} className={`mr-voce${page === it.key ? " on" : ""}`}>
+                  <span className="mr-num">{numero}</span><Icon size={18} /> {it.label}
                   {it.key === "preventivi" && piano !== "pro" && <span style={{ marginLeft: "auto", fontSize: 12 }}>🔒</span>}
                   {bollino(avvisi[it.key])}
                 </button>
               );
             })}
-            <div style={{ borderTop: "1px solid #262b33", marginTop: 10, paddingTop: 12 }}>
+            <div style={{ marginTop: 18, paddingTop: 4 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <span style={{ fontSize: 12, color: "#6b7480", flex: 1, minWidth: 0, wordBreak: "break-all" }}>Accesso con {userEmail}</span>
+                <span style={{ fontSize: 12, color: "#8f9bb2", flex: 1, minWidth: 0, wordBreak: "break-all" }}>Accesso con {userEmail}</span>
                 <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontSize: 13, color: "#3d8bfd", textDecoration: "none" }}>Assistenza</a>
               </div>
               <button onClick={esciDallAccount} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 8, padding: "12px", fontSize: 14.5, fontWeight: 600 }}>
@@ -3315,7 +3340,7 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
 
 function TitoloSezione({ emoji, titolo, azione }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "0 0 12px 0", paddingBottom: 8, borderBottom: "1px solid #262b33" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "0 0 12px 0", paddingBottom: 8, borderBottom: "1px solid #232b3f" }}>
       <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}><span>{emoji}</span>{titolo}</h2>
       {azione}
     </div>
@@ -3344,7 +3369,7 @@ function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
     <button
       type="button"
       onClick={() => setSel({ ...sel, [chiave]: !sel[chiave] })}
-      style={{ textAlign: "left", flex: 1, minWidth: 230, background: sel[chiave] ? "#241d16" : "#161a1f", border: sel[chiave] ? "1px solid #ff8c42" : "1px solid #333a45", borderRadius: 8, padding: "12px 14px", color: "#e7eaee" }}
+      style={{ textAlign: "left", flex: 1, minWidth: 230, background: sel[chiave] ? "#241d16" : "#10141f", border: sel[chiave] ? "1px solid #ff8c42" : "1px solid #343e57", borderRadius: 8, padding: "12px 14px", color: "#e7eaee" }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 600 }}>
         <span style={{ fontSize: 18 }}>{emoji}</span>{titolo}
@@ -3360,7 +3385,7 @@ function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
         {SPAZI.map((x) => opzione(x.modulo, x.emoji, x.nome, x.testo))}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-        <button type="button" onClick={salva} disabled={nessuno || salvando} style={{ background: nessuno ? "#333a45" : "#ff8c42", color: nessuno ? "#6b7480" : "#161a1f", border: "none", padding: "8px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+        <button type="button" onClick={salva} disabled={nessuno || salvando} style={{ background: nessuno ? "#343e57" : "#ff8c42", color: nessuno ? "#6b7480" : "#10141f", border: "none", padding: "8px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {salvando ? "Salvataggio..." : testoBottone}
         </button>
         {nessuno && <span style={{ fontSize: 11.5, color: "#f5b942" }}>Scegline almeno una.</span>}
@@ -3376,7 +3401,7 @@ function AvvisoLancio({ onScopri }) {
   if (chiuso) return null;
   const chiudi = () => { setChiuso(true); try { localStorage.setItem("eyedrones_lancio_chiuso", LANCIO.fino); } catch (e) { /* solo comodità */ } };
   return (
-    <div style={{ display: "flex", gap: 12, alignItems: "flex-start", background: "linear-gradient(135deg, rgba(255,140,66,0.14), rgba(126,58,242,0.12)), #1b2028", border: "1px solid #4a2f16", borderRadius: 10, padding: "12px 14px", marginBottom: 22, maxWidth: 720 }}>
+    <div style={{ display: "flex", gap: 12, alignItems: "flex-start", background: "linear-gradient(135deg, rgba(255,140,66,0.14), rgba(126,58,242,0.12)), #151b2b", border: "1px solid #4a2f16", borderRadius: 10, padding: "12px 14px", marginBottom: 22, maxWidth: 720 }}>
       <span style={{ fontSize: 22 }}>🚀</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700 }}>EyeDrones è in lancio: tutte le funzioni Pro sono gratis fino al {fineLancio()}</div>
@@ -3437,7 +3462,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
     <div style={{ marginTop: p ? 10 : 0, display: "flex", flexDirection: "column", gap: 4 }}>
       {!p && <TitoloSezione emoji="🗓️" titolo="Prossimi voli" />}
       {altri.map((x) => (
-        <button key={x.id} onClick={() => onApriPiano(x.id)} style={{ textAlign: "left", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 8, padding: "8px 12px", color: "#c3cad4", fontSize: 12.5 }}>
+        <button key={x.id} onClick={() => onApriPiano(x.id)} style={{ textAlign: "left", background: "#151b2b", border: "1px solid #2a3349", borderRadius: 8, padding: "8px 12px", color: "#c3cad4", fontSize: 12.5 }}>
           🗓️ <strong style={{ color: "#e7eaee" }}>{giorno(x.data_prevista)}{ora(x) ? ` alle ${ora(x)}` : ""}</strong> · {x.impianto_nome}{x.tipo_ispezione ? ` · ${ETICHETTE_TIPO_PIANO[x.tipo_ispezione] || x.tipo_ispezione}` : ""}
         </button>
       ))}
@@ -3499,13 +3524,13 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
     : !zona.zone || zona.zone.length === 0 ? ["#4ade80", "Nessuna zona UAS: fino a 120 m"]
     : libera >= 120 ? ["#4ade80", "Fino a 120 m con le condizioni della zona"]
     : libera > 0 ? ["#f5b942", `Massimo ${libera} m senza autorizzazione`] : ["#ff8c42", "Serve autorizzazione già da terra"];
-  const btn = (primario) => ({ background: primario ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#1f2530", color: primario ? "#161a1f" : "#e7eaee", border: primario ? "none" : "1px solid #333a45", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 });
+  const btn = (primario) => ({ background: primario ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#1a2133", color: primario ? "#10141f" : "#e7eaee", border: primario ? "none" : "1px solid #343e57", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 });
 
   // ora passata: scheda piccola, solo «l'hai fatto?», senza meteo e consigli che ormai non servono
   if (passato) {
     return (
       <section style={{ marginBottom: 18 }}>
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 14, padding: 16, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 14, padding: 16, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 22, width: 44, height: 44, borderRadius: 12, background: "#4ade8022", display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}>✈️</span>
           <div style={{ flex: "1 1 220px", minWidth: 0 }}>
             <div style={{ fontSize: 11.5, color: "#8b95a3", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>Volo di oggi · {oraP}</div>
@@ -3524,7 +3549,7 @@ function ProssimoVolo({ droni, batterie, onApriPiano, onDocumenti, onRegistra })
 
   return (
     <section style={{ marginBottom: 18 }}>
-      <div style={{ background: "linear-gradient(135deg, #1d2633, #1b2028)", border: "1px solid #3d8bfd66", borderRadius: 12, padding: 16 }}>
+      <div style={{ background: "linear-gradient(135deg, #1d2633, #151b2b)", border: "1px solid #3d8bfd66", borderRadius: 12, padding: 16 }}>
         <div style={{ fontSize: 11.5, color: "#7fb0ff", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>✈️ Il tuo prossimo volo</div>
         <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>{giorno(p.data_prevista)}{oraP ? ` alle ${oraP}` : ""} · {p.impianto_nome}</div>
         <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2 }}>{[ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione, drone ? `${drone.nome}${drone.marcatura_classe ? ` (${drone.marcatura_classe})` : ""}` : null].filter(Boolean).join(" · ")}</div>
@@ -3699,7 +3724,7 @@ function StrisciaLavori({ media, onApri }) {
       <TitoloSezione emoji="🎞️" titolo="I tuoi ultimi lavori" azione={<button type="button" onClick={onApri} style={{ background: "none", border: "none", color: "#3d8bfd", fontSize: 12.5, padding: 0 }}>Galleria →</button>} />
       <div className="home-striscia">
         {media.slice(0, 10).map((x) => (
-          <button key={x.id} type="button" onClick={onApri} aria-label={x.nome || "Apri la galleria"} style={{ flex: "none", width: 150, height: 96, padding: 0, border: "1px solid #2b313d", borderRadius: 10, overflow: "hidden", background: "#0e1116", position: "relative" }}>
+          <button key={x.id} type="button" onClick={onApri} aria-label={x.nome || "Apri la galleria"} style={{ flex: "none", width: 150, height: 96, padding: 0, border: "1px solid #2a3349", borderRadius: 10, overflow: "hidden", background: "#0a0d16", position: "relative" }}>
             {x.tipo === "video"
               ? <video src={`${x.url}#t=0.5`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               : <img src={x.url} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
@@ -3711,48 +3736,27 @@ function StrisciaLavori({ media, onApri }) {
   );
 }
 
-// immagine della testata: drone in volo al tramonto, nei colori dell'app (arancio e viola su fondo scuro)
-const DRONE_TESTATA = (
-  <svg viewBox="0 0 1200 400" preserveAspectRatio="xMaxYMax slice" aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
-    <defs>
-      <linearGradient id="t-cielo" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#141226" /><stop offset=".45" stopColor="#3b2350" /><stop offset=".72" stopColor="#b8506a" /><stop offset=".9" stopColor="#ff9d5c" />
-      </linearGradient>
-      <radialGradient id="t-sole" cx=".72" cy=".72" r=".4"><stop offset="0" stopColor="#ffd29a" stopOpacity=".95" /><stop offset=".25" stopColor="#ff9d5c" stopOpacity=".55" /><stop offset="1" stopColor="#ff9d5c" stopOpacity="0" /></radialGradient>
-      <linearGradient id="t-lago" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ff9d5c" stopOpacity=".55" /><stop offset="1" stopColor="#1a1426" stopOpacity="1" /></linearGradient>
-      <radialGradient id="t-luce" r=".5"><stop offset="0" stopColor="#fff" stopOpacity=".9" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></radialGradient>
-    </defs>
-    <rect width="1200" height="400" fill="url(#t-cielo)" />
-    <rect width="1200" height="400" fill="url(#t-sole)" />
-    <g fill="#fff" opacity=".55" className="ed-stelle">
-      <circle cx="610" cy="190" r="1.2" /><circle cx="760" cy="205" r="1" /><circle cx="880" cy="185" r="1.4" /><circle cx="1150" cy="200" r="1.2" /><circle cx="700" cy="235" r=".9" /><circle cx="1180" cy="250" r=".8" /><circle cx="520" cy="215" r="1" />
-    </g>
-    <circle cx="865" cy="282" r="30" fill="#ffd8a8" opacity=".95" />
-    <path d="M0 330 L120 290 L230 315 L360 262 L480 300 L600 250 L720 292 L830 258 L960 300 L1080 266 L1200 296 L1200 400 L0 400 Z" fill="#5a2f5c" />
-    <path d="M0 350 L150 318 L300 342 L450 306 L620 340 L760 312 L900 345 L1050 316 L1200 340 L1200 400 L0 400 Z" fill="#2c1b38" />
-    <rect y="352" width="1200" height="48" fill="url(#t-lago)" />
-    <g stroke="#ffd8a8" strokeOpacity=".5" strokeWidth="2" strokeLinecap="round"><path d="M835 362 h60 M845 372 h40 M855 381 h22" /></g>
-    <path className="ed-scia" d="M600 318 C 700 300, 780 240, 985 226" fill="none" stroke="#ffb877" strokeWidth="2.5" strokeDasharray="2 10" strokeLinecap="round" opacity=".85" />
-    <g transform="translate(1050 220) rotate(-6) scale(.9)"><g className="ed-vola">
-      <g stroke="#0d0b14" strokeWidth="7" strokeLinecap="round"><path d="M-14 -4 L-62 -26 M14 -4 L62 -26 M-14 8 L-58 28 M14 8 L58 28" /></g>
-      <g fill="#0d0b14">
-        <rect x="-26" y="-14" width="52" height="30" rx="12" />
-        <rect x="-8" y="16" width="16" height="10" rx="3" />
-        <circle cx="0" cy="31" r="8" />
-        <rect x="-70" y="-33" width="16" height="9" rx="3" /><rect x="54" y="-33" width="16" height="9" rx="3" />
-        <rect x="-66" y="22" width="16" height="9" rx="3" /><rect x="50" y="22" width="16" height="9" rx="3" />
-      </g>
-      <circle cx="0" cy="31" r="3.5" fill="#7c5cd6" />
-      <g fill="none" stroke="#e7d9ff" strokeOpacity=".35" strokeWidth="2.5">
-        <ellipse className="ed-elica" cx="-62" cy="-33" rx="38" ry="5" /><ellipse className="ed-elica ed-elica-b" cx="62" cy="-33" rx="38" ry="5" />
-        <ellipse className="ed-elica ed-elica-b" cx="-58" cy="21" rx="36" ry="4.5" /><ellipse className="ed-elica" cx="58" cy="21" rx="36" ry="4.5" />
-      </g>
-      <g className="ed-luce"><circle cx="-62" cy="-24" r="10" fill="url(#t-luce)" /><circle cx="-62" cy="-24" r="2.6" fill="#ff5a5a" /></g>
-      <g className="ed-luce ed-luce-b"><circle cx="62" cy="-24" r="10" fill="url(#t-luce)" /><circle cx="62" cy="-24" r="2.6" fill="#4ade80" /></g>
-      <circle cx="-58" cy="30" r="2.2" fill="#ff9d5c" /><circle cx="58" cy="30" r="2.2" fill="#ff9d5c" />
-    </g></g>
-  </svg>
-);
+// un solo consiglio in Home, che cambia ogni giorno (prima erano tre riquadri uno sotto l'altro)
+const CONSIGLI_DEL_GIORNO = [
+  { emoji: "💾", testo: <>Prima di ogni volo: <strong>scheda SD inserita e vuota</strong>, batterie cariche, eliche integre</>, vai: null },
+  { emoji: "📝", testo: <><strong>Permessi e avvisi</strong>: ENAC, Prefettura, Comune, Polizia locale, parchi. Ti dico a chi scrivere e preparo io la richiesta</>, vai: "permessi" },
+  { emoji: "⭐", testo: <>Conosci un bel posto dove volare? <strong>Consiglialo</strong> agli altri piloti</>, vai: "consiglia" },
+];
+function ConsiglioDelGiorno() {
+  const giorno = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
+  const c = CONSIGLI_DEL_GIORNO[giorno % CONSIGLI_DEL_GIORNO.length];
+  const apri = () => {
+    if (c.vai === "permessi") { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } vaiA({ pagina: "permessi" }); }
+    else if (c.vai) vaiA({ pagina: c.vai });
+  };
+  return (
+    <button type="button" onClick={apri} className="ed-consiglio" style={{ cursor: c.vai ? "pointer" : "default" }}>
+      <span style={{ fontSize: 22 }}>{c.emoji}</span>
+      <span style={{ flex: 1, minWidth: 0 }}><span className="ed-consiglio-etichetta mono">CONSIGLIO DEL GIORNO</span><span style={{ display: "block", fontSize: 13.5, marginTop: 3, lineHeight: 1.4 }}>{c.testo}</span></span>
+      {c.vai && <span style={{ color: "#ff8c42" }}>→</span>}
+    </button>
+  );
+}
 
 function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [], nomeSaluto }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
@@ -3786,7 +3790,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
   // le scadenze da sistemare: un solo riquadro, si apre se lo tocchi
   const bloccoScadenze = urgenti.length > 0 && (
     <section style={{ marginBottom: 22 }}>
-      <button type="button" onClick={() => setTutteScadenze(!tutteScadenze)} aria-expanded={tutteScadenze} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "#1b2028", border: `1px solid ${urgenti.some((v) => v.stato.livello === "scaduto") ? "#ff6b6b66" : "#f5b94266"}`, borderRadius: 12, padding: "12px 16px", color: "#e7eaee" }}>
+      <button type="button" onClick={() => setTutteScadenze(!tutteScadenze)} aria-expanded={tutteScadenze} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "#151b2b", border: `1px solid ${urgenti.some((v) => v.stato.livello === "scaduto") ? "#ff6b6b66" : "#f5b94266"}`, borderRadius: 12, padding: "12px 16px", color: "#e7eaee" }}>
         <span style={{ fontSize: 22 }}>⚠️</span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: "block", fontSize: 14, fontWeight: 700 }}>{urgenti.length === 1 ? "1 cosa da sistemare" : `${urgenti.length} cose da sistemare`}</span>
@@ -3797,7 +3801,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
       {tutteScadenze && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
           {urgenti.map((v) => (
-            <button key={v.id} onClick={() => onNav(v.vai)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#161a1f", border: `1px solid ${v.stato.colore}44`, borderRadius: 8, padding: "10px 14px", color: "#e7eaee", fontSize: 13 }}>
+            <button key={v.id} onClick={() => onNav(v.vai)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#10141f", border: `1px solid ${v.stato.colore}44`, borderRadius: 8, padding: "10px 14px", color: "#e7eaee", fontSize: 13 }}>
               <span>{v.nome}</span>
               <span style={{ color: v.stato.colore, fontWeight: 600, fontSize: 12 }}>{v.stato.testo} ›</span>
             </button>
@@ -3814,13 +3818,13 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
       usaIspezioni ? `${impianti.length} ${impianti.length === 1 ? "impianto monitorato" : "impianti monitorati"}` : null,
       usaRiprese ? `${voli.length} ${voli.length === 1 ? "volo registrato" : "voli registrati"}` : null,
     ].filter(Boolean).join(" · ");
-  const btnPrimario = { display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 };
+  const btnPrimario = { display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 };
 
   const ora = new Date();
   const saluto = ora.getHours() < 13 ? "Buongiorno" : ora.getHours() < 18 ? "Buon pomeriggio" : "Buonasera";
   const oggi = ora.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
-  const btnPiccolo = { display: "inline-flex", alignItems: "center", gap: 5, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "6px 10px", borderRadius: 6, fontWeight: 600, fontSize: 12 };
-  const scheda = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: "14px 16px" };
+  const btnPiccolo = { display: "inline-flex", alignItems: "center", gap: 5, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "6px 10px", borderRadius: 6, fontWeight: 600, fontSize: 12 };
+  const scheda = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: "14px 16px" };
   const numeri = [
     usaIspezioni && { valore: impianti.length, etichetta: impianti.length === 1 ? "impianto" : "impianti" },
     usaIspezioni && { valore: totAnomalie, etichetta: totAnomalie === 1 ? "anomalia aperta" : "anomalie aperte", colore: totAnomalie ? "#ff8c42" : undefined },
@@ -3832,40 +3836,9 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
   return (
     <div className="home" style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
-        <section className="home-testata">
-          {DRONE_TESTATA}
-          <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(12,11,20,.92) 0%, rgba(12,11,20,.7) 38%, rgba(12,11,20,0) 70%)" }} />
-          <div style={{ position: "relative" }}>
-            <div style={{ fontSize: 12.5, color: "#ffb877", fontWeight: 600, letterSpacing: ".02em" }}>{oggi.charAt(0).toUpperCase() + oggi.slice(1)}</div>
-            <h1 style={{ fontSize: 30, fontWeight: 800, margin: "2px 0 0 0", lineHeight: 1.15 }}>{saluto}{nomeSaluto ? `, ${nomeSaluto}` : ""}</h1>
-            {sottotitolo && <p style={{ color: "#c3cad4", fontSize: 13, margin: "4px 0 14px 0" }}>{sottotitolo}</p>}
-            {!sottotitolo && <div style={{ height: 14 }} />}
-            <SiVolaQui />
-          </div>
-        </section>
-
-        {cartelle && <Cartelle spazi={cartelle} impianti={impianti} voli={voli} onApri={onEntraSpazio} onAggiungi={() => onNav("impostazioni")} />}
-
-        {!spazio && !cartelle && (
-          <div style={{ background: "linear-gradient(135deg, #241d16, #1b2028)", border: "1px solid #ff8c4288", borderRadius: 12, padding: 18, marginBottom: 22 }}>
-            <h3 style={{ fontSize: 17, fontWeight: 800, margin: "0 0 4px 0" }}>Cosa fai col drone?</h3>
-            <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0" }}>Scegli la tua cartella: dentro trovi solo quello che ti serve. Se fai più cose, ne aggiungi altre in Impostazioni e in Home le trovi tutte.</p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-              {SPAZI.map((x) => (
-                <button key={x.key} type="button" onClick={() => onEntraSpazio(x.key)} style={{ display: "flex", gap: 12, alignItems: "flex-start", textAlign: "left", background: "#161a1f", border: "1px solid #333a45", borderRadius: 10, padding: "14px", color: "#e7eaee" }}>
-                  <span style={{ fontSize: 30, lineHeight: 1 }}>{x.emoji}</span>
-                  <span><span style={{ display: "block", fontSize: 15, fontWeight: 800 }}>{x.nome}</span><span style={{ display: "block", fontSize: 12, color: "#8b95a3", marginTop: 3, lineHeight: 1.4 }}>{x.testo}</span></span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <InvitoImpronta />
-        <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
-        <NotamFiniti />
-        <RiquadroNovita onVai={onNav} />
-        {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
+        <VoloHero data={oggi} titolo={<>{saluto}{nomeSaluto ? <>,<br />{nomeSaluto}</> : ""}.</>} sottotitolo={sottotitolo}>
+          <SiVolaQui />
+        </VoloHero>
 
         {/* la missione del giorno (o il prossimo volo) */}
         {onApriPiano && <ProssimoVolo droni={droni} batterie={batterie} onApriPiano={onApriPiano} onDocumenti={onDocumentiPiano} onRegistra={onRegistraDaPiano} />}
@@ -3884,25 +3857,34 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
             </button>
           )}
         </div>
-        {/* sempre: la scheda SD è la cosa che si dimentica più spesso */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, background: "#211a0c", border: "1px solid #f5b94255", borderRadius: 8, padding: "8px 12px", margin: "10px 0 22px", fontSize: 12.5, color: "#ffe2a8" }}>
-          <span style={{ fontSize: 16 }}>💾</span>
-          <span>Prima di ogni volo: <strong>scheda SD inserita e vuota</strong> · batterie cariche · eliche integre</span>
-        </div>
-        {/* l'assistente permessi: per chi ha paura delle zone rosse */}
-        <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } onNav("permessi"); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "#141c28", border: "1px solid #3d8bfd44", borderRadius: 8, padding: "8px 12px", margin: "-12px 0 22px", fontSize: 12.5, color: "#cfe2ff" }}>
-          <span style={{ fontSize: 16 }}>📝</span>
-          <span style={{ flex: 1 }}><strong>Permessi e avvisi</strong>: ENAC, Prefettura, Comune, Polizia locale, parchi. Ti dico a chi scrivere e <strong>preparo io la richiesta</strong></span>
-          <span style={{ color: "#7fb0ff" }}>→</span>
-        </button>
-        {/* la community: chi conosce un bel posto lo consiglia agli altri piloti */}
-        <button type="button" onClick={() => vaiA({ pagina: "consiglia" })} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", background: "#1f1a0e", border: "1px solid #f5b94255", borderRadius: 8, padding: "8px 12px", margin: "-12px 0 22px", fontSize: 12.5, color: "#ffe2a8" }}>
-          <span style={{ fontSize: 16 }}>⭐</span>
-          <span style={{ flex: 1 }}>Conosci un bel posto dove volare? <strong>Consiglialo</strong> agli altri piloti</span>
-          <span style={{ color: "#f5b942" }}>→</span>
-        </button>
-
+        <div style={{ height: 18 }} />
         {bloccoScadenze}
+        <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
+        <ConsiglioDelGiorno />
+
+        {cartelle && <Cartelle spazi={cartelle} impianti={impianti} voli={voli} onApri={onEntraSpazio} onAggiungi={() => onNav("impostazioni")} />}
+
+        {!spazio && !cartelle && (
+          <div style={{ background: "linear-gradient(135deg, #241d16, #151b2b)", border: "1px solid #ff8c4288", borderRadius: 12, padding: 18, marginBottom: 22 }}>
+            <h3 style={{ fontSize: 17, fontWeight: 800, margin: "0 0 4px 0" }}>Cosa fai col drone?</h3>
+            <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0" }}>Scegli la tua cartella: dentro trovi solo quello che ti serve. Se fai più cose, ne aggiungi altre in Impostazioni e in Home le trovi tutte.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+              {SPAZI.map((x) => (
+                <button key={x.key} type="button" onClick={() => onEntraSpazio(x.key)} style={{ display: "flex", gap: 12, alignItems: "flex-start", textAlign: "left", background: "#10141f", border: "1px solid #343e57", borderRadius: 10, padding: "14px", color: "#e7eaee" }}>
+                  <span style={{ fontSize: 30, lineHeight: 1 }}>{x.emoji}</span>
+                  <span><span style={{ display: "block", fontSize: 15, fontWeight: 800 }}>{x.nome}</span><span style={{ display: "block", fontSize: 12, color: "#8b95a3", marginTop: 3, lineHeight: 1.4 }}>{x.testo}</span></span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <InvitoImpronta />
+        <NotamFiniti />
+        {/* le novità servono a chi usa già l'app: a chi è appena arrivato è tutto nuovo */}
+        {(voli.length > 0 || droni.length > 0) && <RiquadroNovita onVai={onNav} />}
+        {lancioInCorso() && <AvvisoLancio onScopri={() => onNav("abbonamento")} />}
+
 
         <div className="home-due">
           <div style={{ minWidth: 0 }}>
@@ -3969,7 +3951,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
                         const tipo = TIPI_ATTIVITA_VOLO.find((t) => t.key === v.tipo_attivita) || TIPI_ATTIVITA_VOLO[TIPI_ATTIVITA_VOLO.length - 1];
                         const dettaglio = [v.luogo, v.drone_nome, v.durata_minuti ? formattaDurata(v.durata_minuti) : null].filter(Boolean).join(" · ");
                         return (
-                          <button key={v.id} onClick={() => onNav("registro-voli")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, textAlign: "left", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "9px 14px", color: "#e7eaee" }}>
+                          <button key={v.id} onClick={() => onNav("registro-voli")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, textAlign: "left", background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "9px 14px", color: "#e7eaee" }}>
                             <div style={{ minWidth: 0 }}>
                               <div style={{ fontSize: 13, fontWeight: 600 }}>{formatData(v.data)}</div>
                               <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dettaglio || "—"}</div>
@@ -4031,13 +4013,13 @@ function HomeRilievi({ rilievi, onNav, onNuovoVolo }) {
   const daElaborare = rilievi.filter((v) => statoRilievo(v) === "volato").length;
   const daConsegnare = rilievi.filter((v) => statoRilievo(v) === "elaborato").length;
   return (
-    <section style={{ background: "#1b2028", border: "1px solid #22d3ee55", borderRadius: 12, padding: "14px 16px", marginBottom: 22 }}>
+    <section style={{ background: "#151b2b", border: "1px solid #22d3ee55", borderRadius: 12, padding: "14px 16px", marginBottom: 22 }}>
       <div style={{ fontSize: 15, fontWeight: 800 }}>📐 I tuoi rilievi</div>
       <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>{rilievi.length === 0 ? "Nessun rilievo ancora: registra il primo volo di rilievo." : `${rilievi.length} ${rilievi.length === 1 ? "rilievo" : "rilievi"} · ${daElaborare} da elaborare · ${daConsegnare} da consegnare`}</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
         <button type="button" onClick={() => onNav("rilievi")} style={{ background: "#22d3ee", color: "#0f1216", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 800 }}>Apri i rilievi ›</button>
-        <button type="button" onClick={() => onNav("pianificazione")} style={{ background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }}>📐 Calcola GSD e sovrapposizioni</button>
-        <button type="button" onClick={onNuovoVolo} style={{ background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }}>＋ Registra un volo</button>
+        <button type="button" onClick={() => onNav("pianificazione")} style={{ background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }}>📐 Calcola GSD e sovrapposizioni</button>
+        <button type="button" onClick={onNuovoVolo} style={{ background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }}>＋ Registra un volo</button>
       </div>
     </section>
   );
@@ -4090,10 +4072,10 @@ function ListaRilievo() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 10 }}>
         <div style={{ fontSize: 13, color: "#aab3bf" }}>{n} di {totale} fatte</div>
-        <button type="button" onClick={() => salva({})} style={{ background: "#1f2530", color: "#c3cad4", border: "1px solid #333a45", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>↺ Ricomincia per un nuovo rilievo</button>
+        <button type="button" onClick={() => salva({})} style={{ background: "#1a2133", color: "#c3cad4", border: "1px solid #343e57", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>↺ Ricomincia per un nuovo rilievo</button>
       </div>
       {LISTA_RILIEVO.map(([titolo, voci]) => (
-        <div key={titolo} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+        <div key={titolo} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#67e8f9", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{titolo}</div>
           {voci.map((voce) => (
             <label key={voce} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "6px 0", fontSize: 13.5, color: fatti[voce] ? "#8b95a3" : "#e7eaee", textDecoration: fatti[voce] ? "line-through" : "none", cursor: "pointer" }}>
@@ -4131,10 +4113,10 @@ function PaginaRilievi({ voli, droni = [], azienda, piano, onNav, onNuovo, onCam
     if (error) setErrore("Non sono riuscito a salvare: riprova tra poco."); else if (onCambiato) onCambiato();
   };
   const scheda = (k, t) => (
-    <button key={k} type="button" onClick={() => setVista(k)} style={{ background: vista === k ? "#22d3ee22" : "#1f2530", border: `1px solid ${vista === k ? "#22d3ee" : "#333a45"}`, color: vista === k ? "#67e8f9" : "#c3cad4", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700 }}>{t}</button>
+    <button key={k} type="button" onClick={() => setVista(k)} style={{ background: vista === k ? "#22d3ee22" : "#1a2133", border: `1px solid ${vista === k ? "#22d3ee" : "#343e57"}`, color: vista === k ? "#67e8f9" : "#c3cad4", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700 }}>{t}</button>
   );
   const numero = (t, v, col) => (
-    <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "10px 12px", minWidth: 0 }}>
+    <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "10px 12px", minWidth: 0 }}>
       <div className="mono" style={{ fontSize: 20, fontWeight: 700, color: col || "#e7eaee" }}>{v}</div>
       <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>{t}</div>
     </div>
@@ -4152,10 +4134,10 @@ function PaginaRilievi({ voli, droni = [], azienda, piano, onNav, onNuovo, onCam
         </div>
 
         {vista === "calcolo" && (
-          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 10, padding: 14 }}>
+          <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 10, padding: 14 }}>
             <p style={{ fontSize: 12.5, color: "#aab3bf", margin: "0 0 10px 0" }}>Scegli la camera e parti dall'altezza o dal dettaglio che vuoi (GSD): ti dico foto, strisciate, tempo e batterie.</p>
             <CalcolatoreRilievo drone={droneCalcolo} />
-            <button type="button" onClick={() => onNav("pianificazione")} style={{ marginTop: 12, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }}>🗺️ Pianifica il volo: zona, meteo e area STS ›</button>
+            <button type="button" onClick={() => onNav("pianificazione")} style={{ marginTop: 12, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 }}>🗺️ Pianifica il volo: zona, meteo e area STS ›</button>
           </div>
         )}
 
@@ -4170,9 +4152,9 @@ function PaginaRilievi({ voli, droni = [], azienda, piano, onNav, onNuovo, onCam
               {numero("da consegnare", conta("elaborato"), conta("elaborato") ? "#ff9d5c" : undefined)}
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-              <button type="button" onClick={onNuovo} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13.5, fontWeight: 800 }}>＋ Nuovo rilievo</button>
+              <button type="button" onClick={onNuovo} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13.5, fontWeight: 800 }}>＋ Nuovo rilievo</button>
               {rilievi.length > 0 && FILTRI_RILIEVI.map(([k, t]) => (
-                <button key={k} type="button" onClick={() => setFiltro(k)} style={{ background: filtro === k ? "#22d3ee22" : "transparent", border: `1px solid ${filtro === k ? "#22d3ee" : "#333a45"}`, color: filtro === k ? "#67e8f9" : "#aab3bf", borderRadius: 999, padding: "5px 10px", fontSize: 12 }}>{t}</button>
+                <button key={k} type="button" onClick={() => setFiltro(k)} style={{ background: filtro === k ? "#22d3ee22" : "transparent", border: `1px solid ${filtro === k ? "#22d3ee" : "#343e57"}`, color: filtro === k ? "#67e8f9" : "#aab3bf", borderRadius: 999, padding: "5px 10px", fontSize: 12 }}>{t}</button>
               ))}
             </div>
             {errore && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "0 0 10px 0" }}>{errore}</p>}
@@ -4189,7 +4171,7 @@ function PaginaRilievi({ voli, droni = [], azienda, piano, onNav, onNuovo, onCam
                   const drone = droni.find((d) => d.id === v.drone_id) || null;
                   const suo = aperto === v.id;
                   return (
-                    <div key={v.id} style={{ background: "#1b2028", border: `1px solid ${suo ? "#22d3ee66" : "#2b313d"}`, borderRadius: 10, padding: "10px 14px" }}>
+                    <div key={v.id} style={{ background: "#151b2b", border: `1px solid ${suo ? "#22d3ee66" : "#2a3349"}`, borderRadius: 10, padding: "10px 14px" }}>
                       <button type="button" onClick={() => setAperto(suo ? null : v.id)} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: "#e7eaee", padding: 0 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                           <div style={{ fontSize: 13.5, fontWeight: 600, minWidth: 0 }}>{formatData(v.data)}{v.luogo ? ` · ${v.luogo}` : ""}</div>
@@ -4199,7 +4181,7 @@ function PaginaRilievi({ voli, droni = [], azienda, piano, onNav, onNuovo, onCam
                         <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
                           {PASSI_RILIEVO.map(([k, t], i) => (
                             <div key={k} style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ height: 4, borderRadius: 2, background: i <= indice ? (i === 2 ? "#4ade80" : "#22d3ee") : "#333a45" }} />
+                              <div style={{ height: 4, borderRadius: 2, background: i <= indice ? (i === 2 ? "#4ade80" : "#22d3ee") : "#343e57" }} />
                               <div style={{ fontSize: 10.5, marginTop: 3, color: i <= indice ? "#c3cad4" : "#6b7480", fontWeight: i === indice ? 700 : 400 }}>{i <= indice ? "✓ " : ""}{t}</div>
                             </div>
                           ))}
@@ -4208,7 +4190,7 @@ function PaginaRilievi({ voli, droni = [], azienda, piano, onNav, onNuovo, onCam
                       {suo && (
                         <div style={{ marginTop: 10 }}>
                           {st !== "consegnato" && (
-                            <button type="button" onClick={() => segnaElaborato(v, st === "volato")} style={{ background: st === "volato" ? "#22d3ee" : "#1f2530", color: st === "volato" ? "#0f1216" : "#c3cad4", border: st === "volato" ? "none" : "1px solid #333a45", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>
+                            <button type="button" onClick={() => segnaElaborato(v, st === "volato")} style={{ background: st === "volato" ? "#22d3ee" : "#1a2133", color: st === "volato" ? "#0f1216" : "#c3cad4", border: st === "volato" ? "none" : "1px solid #343e57", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>
                               {st === "volato" ? "✓ Ho elaborato le foto" : "↺ Non ancora elaborato"}
                             </button>
                           )}
@@ -4238,7 +4220,7 @@ function LoadingBlock() {
 
 function EmptyState({ text }) {
   return (
-    <div style={{ border: "1px dashed #333a45", borderRadius: 8, padding: "24px 16px", textAlign: "center", color: "#8b95a3", fontSize: 13 }}>
+    <div style={{ border: "1px dashed #343e57", borderRadius: 8, padding: "24px 16px", textAlign: "center", color: "#8b95a3", fontSize: 13 }}>
       {text}
     </div>
   );
@@ -4246,7 +4228,7 @@ function EmptyState({ text }) {
 
 function StatCard({ label, value, sub, accent }) {
   return (
-    <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "16px 18px" }}>
+    <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "16px 18px" }}>
       <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 8 }}>{label}</div>
       <div className="mono" style={{ fontSize: 24, fontWeight: 600, color: accent || "#fff" }}>{value}</div>
       <div style={{ fontSize: 11.5, color: "#6b7480", marginTop: 4 }}>{sub}</div>
@@ -4256,7 +4238,7 @@ function StatCard({ label, value, sub, accent }) {
 
 function ImpiantoRow({ imp, onClick, onDelete, onEdit }) {
   return (
-    <div onClick={onClick} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", textAlign: "left", flexWrap: "wrap", gap: 8, cursor: "pointer" }}>
+    <div onClick={onClick} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", textAlign: "left", flexWrap: "wrap", gap: 8, cursor: "pointer" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: imp.anomalie > 4 ? "#ff4d4d" : imp.anomalie > 0 ? "#f5b942" : "#4ade80", flexShrink: 0 }} />
         <div>
@@ -4271,17 +4253,17 @@ function ImpiantoRow({ imp, onClick, onDelete, onEdit }) {
         <div style={{ fontSize: 12.5, color: imp.anomalie > 0 ? "#ff8c42" : "#4ade80" }}>{imp.anomalie} anomalie</div>
         <div style={{ fontSize: 12, color: "#6b7480" }}>{imp.ultima}</div>
         {onDelete && (
-          <button onClick={(e) => { e.stopPropagation(); onClick(); }} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+          <button onClick={(e) => { e.stopPropagation(); onClick(); }} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
             Apri
           </button>
         )}
         {onEdit && (
-          <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+          <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
             Modifica
           </button>
         )}
         {onDelete && (
-          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
             Elimina
           </button>
         )}
@@ -4344,19 +4326,19 @@ function ListaImpianti({ impianti, loading, onReload, onOpenImpianto, ispezioni,
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Impianti</h1>
-        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo impianto</>}
         </button>
       </div>
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }}>
           {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un impianto esistente</div>}
           <input placeholder="Nome impianto" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} style={inputStyle} />
           <input placeholder="Zona / località" value={form.zona} onChange={(e) => setForm({ ...form, zona: e.target.value })} style={inputStyle} />
           <input placeholder="Potenza (kWp)" type="number" value={form.kwp} onChange={(e) => setForm({ ...form, kwp: e.target.value })} style={inputStyle} />
           <input placeholder="Cliente" list="rubrica-clienti" value={form.cliente} onChange={(e) => setForm({ ...form, cliente: e.target.value })} style={inputStyle} />
-          <button onClick={salva} disabled={!form.nome || saving} style={{ marginTop: 6, background: form.nome ? "#ff8c42" : "#333a45", color: form.nome ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          <button onClick={salva} disabled={!form.nome || saving} style={{ marginTop: 6, background: form.nome ? "#ff8c42" : "#343e57", color: form.nome ? "#10141f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
             {saving ? "Salvataggio..." : editingId ? "Aggiorna impianto" : "Salva impianto"}
           </button>
         </div>
@@ -4375,7 +4357,7 @@ function ListaImpianti({ impianti, loading, onReload, onOpenImpianto, ispezioni,
   );
 }
 
-const inputStyle = { width: "100%", background: "#161a1f", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "9px 12px", fontSize: 13.5, transition: "border-color .15s ease, background .15s ease" };
+const inputStyle = { width: "100%", background: "#10141f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 8, padding: "9px 12px", fontSize: 13.5, transition: "border-color .15s ease, background .15s ease" };
 
 // --- Dettaglio impianto -----------------------------------------------------------
 
@@ -4450,7 +4432,7 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda,
         </h2>
         {storico.length > 0 && (
           <div>
-            <button onClick={scaricaRiassuntoPDF} disabled={generandoRiassunto} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>
+            <button onClick={scaricaRiassuntoPDF} disabled={generandoRiassunto} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>
               <FileDown size={13} /> {generandoRiassunto ? "Preparazione..." : "Riepilogo PDF impianto"}
             </button>
             {pdfUrlRiassunto && (
@@ -4468,7 +4450,7 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda,
           {storico.map((s) => {
             const sev = SEVERITY.find((sv) => sv.key === s.gravitaMax);
             return (
-              <div key={s.id} onClick={() => setIspezioneAperta(s.id)} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "11px 16px", flexWrap: "wrap", gap: 8, cursor: "pointer" }}>
+              <div key={s.id} onClick={() => setIspezioneAperta(s.id)} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "11px 16px", flexWrap: "wrap", gap: 8, cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   {s.fotoUrl && <img src={s.fotoUrl} alt="" style={{ width: 40, height: 26, objectFit: "cover", borderRadius: 4 }} />}
                   <div>
@@ -4483,7 +4465,7 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda,
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                   <span style={{ fontSize: 12.5, color: "#8b95a3" }}>{s.anomalie} anomalie</span>
                   <span style={{ fontSize: 11.5, padding: "3px 9px", borderRadius: 4, background: sev.color + "22", color: sev.color, fontWeight: 600 }}>{sev.label}</span>
-                  <button onClick={(e) => { e.stopPropagation(); eliminaIspezione(s.id); }} disabled={eliminandoId === s.id} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  <button onClick={(e) => { e.stopPropagation(); eliminaIspezione(s.id); }} disabled={eliminandoId === s.id} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     {eliminandoId === s.id ? "..." : "Elimina"}
                   </button>
                   <ChevronRight size={15} color="#6b7480" />
@@ -4700,7 +4682,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
       <button onClick={onBack} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5, marginBottom: 14, padding: 0 }}>&larr; {impianto.nome}</button>
 
       <div style={{ maxWidth: 520, marginBottom: 12 }}>
-        <button onClick={() => setModificaReport(!modificaReport)} style={{ display: "flex", alignItems: "center", gap: 6, background: modificaReport ? "#ff8c42" : "#1f2530", color: modificaReport ? "#161a1f" : "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
+        <button onClick={() => setModificaReport(!modificaReport)} style={{ display: "flex", alignItems: "center", gap: 6, background: modificaReport ? "#ff8c42" : "#1a2133", color: modificaReport ? "#10141f" : "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
           {modificaReport ? "✓ Modalità modifica attiva" : "✏️ Modifica report"}
         </button>
         {modificaReport && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "6px 0 0 0" }}>Tocca una foto per aggiungere un'anomalia, o la × su un pallino per toglierla. Carica nuove foto sotto.</p>}
@@ -4755,7 +4737,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
             <label style={{ fontSize: 11.5, color: "#6b7480" }}>Note</label>
             <textarea rows={3} value={campiModificabili.note} onChange={(e) => { setCampiModificabili({ ...campiModificabili, note: e.target.value }); setCampiSalvatiOk(false); }} style={{ ...inputStyle, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", resize: "vertical", fontFamily: "inherit" }} />
             <FrasiReport chiaro tipo={ispezione.tipo_ispezione || "fotovoltaico"} valori={{ data: ispezione.data ? formatData(ispezione.data) : "", ora: campiModificabili.ora, irraggiamento: campiModificabili.irraggiamento }} onAggiungi={(t) => { setCampiModificabili((c) => ({ ...c, note: (c.note ? c.note + "\n" : "") + t })); setCampiSalvatiOk(false); }} />
-            <button onClick={salvaCampiBase} disabled={salvandoCampi} style={{ marginTop: 4, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 0", borderRadius: 6, fontWeight: 600, fontSize: 12.5 }}>
+            <button onClick={salvaCampiBase} disabled={salvandoCampi} style={{ marginTop: 4, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "8px 0", borderRadius: 6, fontWeight: 600, fontSize: 12.5 }}>
               {salvandoCampi ? "Salvataggio..." : "Salva questi dati"}
             </button>
             {campiSalvatiOk && <p style={{ fontSize: 11.5, color: "#2e7d32", fontWeight: 600, margin: 0 }}>✓ Salvato correttamente</p>}
@@ -4795,7 +4777,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
                   return (
                     <React.Fragment key={a.id}>
                       <div style={{ position: "absolute", left: `${a.pos_x}%`, top: `${a.pos_y}%`, width: 14, height: 14, borderRadius: "50%", border: `2.5px solid ${sev.color}`, boxShadow: "0 0 0 1.5px rgba(0,0,0,0.6)", transform: "translate(-50%,-50%)" }} />
-                      <div style={{ position: "absolute", left: `${a.pos_x}%`, top: `${a.pos_y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(6px, -22px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
+                      <div style={{ position: "absolute", left: `${a.pos_x}%`, top: `${a.pos_y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(6px, -22px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#10141f", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
                         {i + 1}
                       </div>
                       {modificaReport && (
@@ -4810,7 +4792,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
                 })}
                 {pendingPinModifica && fotoAttivaModificaId === f.id && (
                   <div style={{ position: "absolute", left: `${pendingPinModifica.x}%`, top: `${pendingPinModifica.y}%`, transform: "translate(-50%,-50%)" }}>
-                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", border: "2px solid #161a1f" }} />
+                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", border: "2px solid #10141f" }} />
                   </div>
                 )}
               </div>
@@ -4826,7 +4808,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
                     onChange={(e) => setDidascalieModifica({ ...didascalieModifica, [f.id]: e.target.value })}
                     style={{ ...inputStyle, flex: 1, background: "#f5f5f5", color: "#1a1a1a", border: "1px solid #ddd", fontSize: 12 }}
                   />
-                  <button onClick={() => salvaDidascalia(f.id)} disabled={salvandoDidascaliaId === f.id} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 5, padding: "0 12px", fontSize: 11.5, fontWeight: 600 }}>
+                  <button onClick={() => salvaDidascalia(f.id)} disabled={salvandoDidascaliaId === f.id} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 5, padding: "0 12px", fontSize: 11.5, fontWeight: 600 }}>
                     {salvandoDidascaliaId === f.id ? "..." : "Salva"}
                   </button>
                 </div>
@@ -4886,7 +4868,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
       </div>
 
       {(ispezione.drone_usato || ispezione.scenario_volo || ispezione.altezza_volo || ispezione.buffer_sicurezza || ispezione.dflight_screenshot_url || ispezione.ora_atterraggio || ispezione.coordinate_gps || ispezione.zona_rossa) && (
-        <div style={{ maxWidth: 520, marginTop: 16, background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16 }}>
+        <div style={{ maxWidth: 520, marginTop: 16, background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16 }}>
           <h3 style={{ fontSize: 13, fontWeight: 600, margin: "0 0 4px 0", color: "#c3cad4" }}>📋 Dati di volo — registro interno</h3>
           <p style={{ fontSize: 10.5, color: "#6b7480", margin: "0 0 12px 0" }}>Non incluso nel report per il cliente — solo per la tua documentazione.</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -4901,16 +4883,16 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
             <div style={{ marginTop: 10 }}>
               <span style={{ fontSize: 11, color: "#8b95a3", display: "block", marginBottom: 6 }}>Screenshot D-Flight</span>
               <LinkFile url={ispezione.dflight_screenshot_url}>
-                <ImmagineFile src={ispezione.dflight_screenshot_url} alt="D-Flight" style={{ width: "100%", maxWidth: 300, borderRadius: 6, border: "1px solid #333a45" }} />
+                <ImmagineFile src={ispezione.dflight_screenshot_url} alt="D-Flight" style={{ width: "100%", maxWidth: 300, borderRadius: 6, border: "1px solid #343e57" }} />
               </LinkFile>
             </div>
           )}
           {ispezione.zona_rossa && (
-            <div style={{ marginTop: 12, borderTop: "1px solid #262b33", paddingTop: 12 }}>
+            <div style={{ marginTop: 12, borderTop: "1px solid #232b3f", paddingTop: 12 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "#ffb877" }}>⚠️ Zona rossa / area soggetta a restrizioni</span>
                 {!modificaPermesso && (
-                  <button onClick={() => setModificaPermesso(true)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "3px 9px", fontSize: 11 }}>
+                  <button onClick={() => setModificaPermesso(true)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "3px 9px", fontSize: 11 }}>
                     Modifica esito
                   </button>
                 )}
@@ -4934,7 +4916,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
                   )}
                 </>
               ) : (
-                <div style={{ marginTop: 8, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ marginTop: 8, background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
                   <div>
                     <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Esito permesso</label>
                     <select value={nuovoStato} onChange={(e) => setNuovoStato(e.target.value)} style={inputStyle}>
@@ -4965,10 +4947,10 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={salvaStatoPermesso} disabled={salvandoPermesso} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "7px 14px", borderRadius: 5, fontWeight: 600, fontSize: 12 }}>
+                    <button onClick={salvaStatoPermesso} disabled={salvandoPermesso} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "7px 14px", borderRadius: 5, fontWeight: 600, fontSize: 12 }}>
                       {salvandoPermesso ? "Salvataggio..." : "Salva"}
                     </button>
-                    <button onClick={() => setModificaPermesso(false)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", padding: "7px 14px", borderRadius: 5, fontSize: 12 }}>
+                    <button onClick={() => setModificaPermesso(false)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", padding: "7px 14px", borderRadius: 5, fontSize: 12 }}>
                       Annulla
                     </button>
                   </div>
@@ -4976,8 +4958,8 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
               )}
             </div>
           )}
-          <div style={{ marginTop: 14, borderTop: "1px solid #262b33", paddingTop: 12 }}>
-            <button onClick={scaricaPDFRegistroVolo} disabled={generandoRegistro} style={{ display: "flex", alignItems: "center", gap: 6, background: "#161a1f", color: "#c3cad4", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 12.5 }}>
+          <div style={{ marginTop: 14, borderTop: "1px solid #232b3f", paddingTop: 12 }}>
+            <button onClick={scaricaPDFRegistroVolo} disabled={generandoRegistro} style={{ display: "flex", alignItems: "center", gap: 6, background: "#10141f", color: "#c3cad4", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 12.5 }}>
               <FileDown size={13} /> {generandoRegistro ? "Preparazione..." : "Scarica PDF registro voli"}
             </button>
             {pdfUrlRegistro && (
@@ -4990,7 +4972,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
       )}
 
       <div style={{ maxWidth: 520, marginTop: 16 }}>
-        <button onClick={scaricaPDF} disabled={generando} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 16px", borderRadius: 6, fontSize: 13 }}>
+        <button onClick={scaricaPDF} disabled={generando} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "9px 16px", borderRadius: 6, fontSize: 13 }}>
           <FileDown size={14} /> {generando ? "Preparazione..." : "Scarica PDF"}
         </button>
         {pdfUrl && (
@@ -5014,7 +4996,7 @@ function BloccoPiano({ titolo, testo, pianoRichiesto = "Pro", onVai }) {
       <div style={{ maxWidth: 440, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 10, padding: 20 }}>
         <p style={{ fontSize: 13.5, color: "#ffb877", margin: "0 0 10px 0", fontWeight: 600 }}>🔒 Funzione del piano {pianoRichiesto}</p>
         <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0", lineHeight: 1.5 }}>{testo}</p>
-        {onVai && <button onClick={onVai} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 16px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>Vedi i piani</button>}
+        {onVai && <button onClick={onVai} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "8px 16px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>Vedi i piani</button>}
       </div>
     </div>
   );
@@ -5089,14 +5071,14 @@ function Abbonamento({ piano }) {
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Abbonamento</h1>
       {lancio ? (
-        <div style={{ background: "linear-gradient(135deg, rgba(255,140,66,0.14), rgba(126,58,242,0.12)), #1b2028", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, margin: "0 0 22px 0", maxWidth: 820 }}>
+        <div style={{ background: "linear-gradient(135deg, rgba(255,140,66,0.14), rgba(126,58,242,0.12)), #151b2b", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, margin: "0 0 22px 0", maxWidth: 820 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>🚀 Sei un fondatore di EyeDrones</div>
           <p style={{ fontSize: 13, color: "#c3cad4", margin: "6px 0 0 0", lineHeight: 1.55 }}>
             Fino al <strong>{fineLancio()}</strong> hai <strong>tutte le funzioni Pro gratis</strong>, senza limiti e senza carta di credito.
             Quando partiranno gli abbonamenti, chi si è iscritto durante il lancio avrà il <strong>primo anno a metà prezzo</strong>: per esempio Pro a {euro(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12)} al mese con l'annuale (poi {euro(PREZZI_PIANO.pro.anno / 12)} al mese). Ti avviseremo prima, e potrai scegliere se continuare.
           </p>
           {/* la domanda che arriva per email: alla fine del lancio cosa succede? niente addebiti a sorpresa */}
-          <div style={{ marginTop: 12, background: "#161a1f", border: "1px solid #2b313d", borderRadius: 8, padding: "10px 12px" }}>
+          <div style={{ marginTop: 12, background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: "10px 12px" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#e7eaee" }}>❓ Cosa succede dopo il {fineLancio()}?</div>
             <ul style={{ fontSize: 12.5, color: "#c3cad4", margin: "6px 0 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
               <li>Passi <strong>da solo al piano Free</strong>, <strong>senza nessun addebito</strong>: non ti abbiamo chiesto la carta e non c'è nessun rinnovo automatico.</li>
@@ -5109,10 +5091,10 @@ function Abbonamento({ piano }) {
         <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 24px 0" }}>Sei attualmente sul piano <strong style={{ color: COLORE_PIANO[piano] || "#f5b942" }}>{NOME_PIANO[piano] || "Free"}</strong>.</p>
       )}
 
-      <div role="group" aria-label="Periodo di pagamento" style={{ display: "inline-flex", background: "#161a1f", border: "1px solid #333a45", borderRadius: 999, padding: 3, marginBottom: 22 }}>
+      <div role="group" aria-label="Periodo di pagamento" style={{ display: "inline-flex", background: "#10141f", border: "1px solid #343e57", borderRadius: 999, padding: 3, marginBottom: 22 }}>
         {[["mese", "Mensile"], ["anno", "Annuale"]].map(([k, label]) => (
-          <button key={k} onClick={() => setPeriodo(k)} aria-pressed={periodo === k} style={{ border: "none", borderRadius: 999, padding: "7px 16px", fontSize: 13, fontWeight: 600, background: periodo === k ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "transparent", color: periodo === k ? "#161a1f" : "#8b95a3" }}>
-            {label}{k === "anno" && <span style={{ marginLeft: 6, fontSize: 11, color: periodo === k ? "#161a1f" : "#4ade80" }}>mesi gratis</span>}
+          <button key={k} onClick={() => setPeriodo(k)} aria-pressed={periodo === k} style={{ border: "none", borderRadius: 999, padding: "7px 16px", fontSize: 13, fontWeight: 600, background: periodo === k ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "transparent", color: periodo === k ? "#10141f" : "#8b95a3" }}>
+            {label}{k === "anno" && <span style={{ marginLeft: 6, fontSize: 11, color: periodo === k ? "#10141f" : "#4ade80" }}>mesi gratis</span>}
           </button>
         ))}
       </div>
@@ -5122,12 +5104,12 @@ function Abbonamento({ piano }) {
           const attivo = lancio ? p.chiave === "pro" : piano === p.chiave;
           const superiore = ORDINE_PIANO[p.chiave] > (ORDINE_PIANO[piano] ?? 0);
           return (
-            <div key={p.chiave} style={{ background: "#1b2028", border: attivo ? "2px solid #ff8c42" : "1px solid #262b33", borderRadius: 10, padding: 20, position: "relative", display: "flex", flexDirection: "column" }}>
+            <div key={p.chiave} style={{ background: "#151b2b", border: attivo ? "2px solid #ff8c42" : "1px solid #232b3f", borderRadius: 10, padding: 20, position: "relative", display: "flex", flexDirection: "column" }}>
               {attivo && (
-                <span style={{ position: "absolute", top: -10, left: 16, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>PIANO ATTUALE</span>
+                <span style={{ position: "absolute", top: -10, left: 16, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>PIANO ATTUALE</span>
               )}
               {!attivo && p.badge && (
-                <span style={{ position: "absolute", top: -10, left: 16, background: "#4ade80", color: "#161a1f", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>{p.badge}</span>
+                <span style={{ position: "absolute", top: -10, left: 16, background: "#4ade80", color: "#10141f", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>{p.badge}</span>
               )}
               <h2 style={{ fontSize: 16, fontWeight: 700, margin: "4px 0 2px 0" }}>{p.nome}</h2>
               <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "0 0 10px 0" }}>{p.sotto}</p>
@@ -5146,7 +5128,7 @@ function Abbonamento({ piano }) {
                 <div style={{ textAlign: "center", marginTop: 18, border: "1px dashed #4ade8066", color: "#4ade80", borderRadius: 6, padding: "9px 0", fontSize: 12.5, fontWeight: 600 }}>{p.chiave === "pro" ? "✓ Attivo gratis durante il lancio" : "Incluso gratis durante il lancio"}</div>
               )}
               {!lancio && superiore && (
-                <a href={linkUpgrade(p.chiave)} target={linkDiretto(p.chiave) ? "_blank" : undefined} rel="noreferrer" style={{ display: "block", textAlign: "center", marginTop: 18, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", padding: "9px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, textDecoration: "none" }}>
+                <a href={linkUpgrade(p.chiave)} target={linkDiretto(p.chiave) ? "_blank" : undefined} rel="noreferrer" style={{ display: "block", textAlign: "center", marginTop: 18, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", padding: "9px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, textDecoration: "none" }}>
                   Passa a {p.nome}{periodo === "anno" ? " (annuale)" : ""}
                 </a>
               )}
@@ -5156,7 +5138,7 @@ function Abbonamento({ piano }) {
       </div>
 
       {!lancio && piano !== "pro" && (
-        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", background: "linear-gradient(135deg, rgba(255,140,66,0.12), rgba(126,58,242,0.10)), #1b2028", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginTop: 16, maxWidth: 820 }}>
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", background: "linear-gradient(135deg, rgba(255,140,66,0.12), rgba(126,58,242,0.10)), #151b2b", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginTop: 16, maxWidth: 820 }}>
           <div style={{ fontSize: 34 }}>🎟️</div>
           <div style={{ flex: 1, minWidth: 220 }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 2px 0" }}>Pass Lavoro <span className="mono" style={{ color: "#ff8c42", marginLeft: 6 }}>{euro(PREZZO_PASS_LAVORO)}</span></h3>
@@ -5173,7 +5155,7 @@ function Abbonamento({ piano }) {
       </p>}
 
       {piano !== "free" && (
-        <div style={{ background: "#1b2028", border: "1px solid #262b33", borderRadius: 10, padding: 18, marginTop: 20, maxWidth: 820 }}>
+        <div style={{ background: "#151b2b", border: "1px solid #232b3f", borderRadius: 10, padding: 18, marginTop: 20, maxWidth: 820 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px 0" }}>⏸️ Metti in pausa l'abbonamento</h3>
           <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "0 0 12px 0" }}>Durante la pausa non paghi e l'app torna alle funzioni del piano Free, ma non perdi nulla: voli, foto, batterie e documenti restano dove sono.</p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -5182,7 +5164,7 @@ function Abbonamento({ piano }) {
               <option value={2}>2 mesi</option>
               <option value={3}>3 mesi</option>
             </select>
-            <a href={linkPausa} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>Chiedi la pausa</a>
+            <a href={linkPausa} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>Chiedi la pausa</a>
           </div>
         </div>
       )}
@@ -5192,7 +5174,7 @@ function Abbonamento({ piano }) {
           {!vuoleDisdire ? (
             <button onClick={() => setVuoleDisdire(true)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5, padding: 0, textDecoration: "underline" }}>Disdici l'abbonamento</button>
           ) : (
-            <div style={{ background: "#1b2028", border: "1px solid #5a2a2a", borderRadius: 10, padding: 18 }}>
+            <div style={{ background: "#151b2b", border: "1px solid #5a2a2a", borderRadius: 10, padding: 18 }}>
               <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 6px 0" }}>Vuoi davvero disdire?</h3>
               <ul style={{ fontSize: 12.5, color: "#aab3bf", margin: "0 0 12px 0", paddingLeft: 18, lineHeight: 1.6 }}>
                 <li>L'abbonamento resta attivo fino alla fine del periodo già pagato, poi non paghi più nulla.</li>
@@ -5200,7 +5182,7 @@ function Abbonamento({ piano }) {
                 <li>Se ti serve solo una pausa d'inverno, con la <strong style={{ color: "#e7eaee" }}>pausa</strong> qui sopra non perdi le funzioni del tuo piano quando riprendi.</li>
               </ul>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button onClick={() => setVuoleDisdire(false)} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600 }}>Tengo l'abbonamento</button>
+                <button onClick={() => setVuoleDisdire(false)} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600 }}>Tengo l'abbonamento</button>
                 <a href={linkDisdetta} style={{ background: "none", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>Disdici comunque</a>
               </div>
             </div>
@@ -5208,7 +5190,7 @@ function Abbonamento({ piano }) {
         </div>
       )}
 
-      <div style={{ borderTop: "1px solid #262b33", marginTop: 28, paddingTop: 20, maxWidth: 480 }}>
+      <div style={{ borderTop: "1px solid #232b3f", marginTop: 28, paddingTop: 20, maxWidth: 480 }}>
         <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 6px 0" }}>Serve assistenza?</h3>
         <p style={{ fontSize: 12.5, color: "#8b95a3", margin: 0 }}>
           Per problemi tecnici o altre domande scrivi a{" "}
@@ -5305,7 +5287,7 @@ function RiepilogoIncassi({ preventivi }) {
   const incMese = somma(pagati.filter((p) => dataIncasso(p).startsWith(mese)));
   const inRitardo = daIncassare.filter((p) => giorniRitardo(p) > 0);
   const box = (titolo, valore, colore, sotto) => (
-    <div style={{ flex: "1 1 140px", background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "10px 14px" }}>
+    <div style={{ flex: "1 1 140px", background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "10px 14px" }}>
       <div style={{ fontSize: 11.5, color: "#8b95a3" }}>{titolo}</div>
       <div className="mono" style={{ fontSize: 19, fontWeight: 700, color: colore, marginTop: 2 }}>{euro(valore)}</div>
       {sotto && <div style={{ fontSize: 11, color: "#6b7480", marginTop: 2 }}>{sotto}</div>}
@@ -5356,7 +5338,7 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
       <input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} style={inputStyle} {...extra} />
     </div>
   );
-  const linkSt = { fontSize: 12, color: "#3d8bfd", textDecoration: "none", border: "1px solid #2b313d", borderRadius: 5, padding: "4px 8px" };
+  const linkSt = { fontSize: 12, color: "#3d8bfd", textDecoration: "none", border: "1px solid #2a3349", borderRadius: 5, padding: "4px 8px" };
   const soloNumeri = (t) => (t || "").replace(/[^\d+]/g, "").replace(/^00/, "+");
   const perWhatsapp = (t) => { const n = soloNumeri(t).replace(/^\+/, ""); return n.length <= 10 ? "39" + n : n; };
 
@@ -5364,14 +5346,14 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
     <div style={{ padding: "28px 32px", maxWidth: 820 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Clienti</h1>
-        <button onClick={() => { setForm(vuoto); setEditingId(null); setAperto(!aperto); }} style={{ display: "flex", alignItems: "center", gap: 6, background: aperto ? "transparent" : "#ff8c42", color: aperto ? "#8b95a3" : "#161a1f", border: aperto ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+        <button onClick={() => { setForm(vuoto); setEditingId(null); setAperto(!aperto); }} style={{ display: "flex", alignItems: "center", gap: 6, background: aperto ? "transparent" : "#ff8c42", color: aperto ? "#8b95a3" : "#10141f", border: aperto ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {aperto ? "Annulla" : <><Plus size={14} /> Nuovo cliente</>}
         </button>
       </div>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0" }}>La tua rubrica: la ritrovi già pronta quando scrivi il cliente in preventivi e voli. I clienti nuovi dei preventivi si aggiungono da soli.</p>
 
       {aperto && (
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 16, marginBottom: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 16, marginBottom: 18, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{campo("nome", "Nome o ragione sociale *", { placeholder: "es. Studio Rossi" })}{campo("telefono", "Telefono", { type: "tel", placeholder: "es. 333 1234567" })}</div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{campo("email", "Email", { type: "email" })}{campo("piva_cf", "P. IVA o codice fiscale")}</div>
           {campo("indirizzo", "Indirizzo")}
@@ -5379,7 +5361,7 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note</label>
             <textarea rows={2} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="es. preferisce WhatsApp, cancello sul retro" style={{ ...inputStyle, resize: "vertical" }} />
           </div>
-          <button onClick={salva} disabled={!form.nome.trim() || salvando} style={{ background: form.nome.trim() ? "#ff8c42" : "#333a45", color: form.nome.trim() ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          <button onClick={salva} disabled={!form.nome.trim() || salvando} style={{ background: form.nome.trim() ? "#ff8c42" : "#343e57", color: form.nome.trim() ? "#10141f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
             {salvando ? "Salvataggio..." : editingId ? "Aggiorna cliente" : "Salva cliente"}
           </button>
         </div>
@@ -5398,7 +5380,7 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
             const daIncassare = accettati.filter((p) => !p.pagato).reduce((t, p) => t + (Number(p.prezzo) || 0), 0);
             const aperta = espanso === c.id;
             return (
-              <div key={c.id} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "12px 16px" }}>
+              <div key={c.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "12px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center", cursor: "pointer" }} onClick={() => setEspanso(aperta ? null : c.id)}>
                   <div>
                     <div style={{ fontSize: 14.5, fontWeight: 700 }}>{c.nome}</div>
@@ -5424,7 +5406,7 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
                   {c.indirizzo && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.indirizzo)}`} target="_blank" rel="noreferrer" style={linkSt}>📍 Mappa</a>}
                 </div>
                 {aperta && (
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2b313d", fontSize: 12.5, color: "#c3cad4", display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2a3349", fontSize: 12.5, color: "#c3cad4", display: "flex", flexDirection: "column", gap: 4 }}>
                     {c.telefono && <div>📞 {c.telefono}</div>}
                     {c.email && <div>✉️ {c.email}</div>}
                     {c.indirizzo && <div>📍 {c.indirizzo}</div>}
@@ -5443,8 +5425,8 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
                       </div>
                     )}
                     <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                      <button type="button" onClick={() => modifica(c)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Modifica</button>
-                      <button type="button" onClick={() => elimina(c)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Togli dalla rubrica</button>
+                      <button type="button" onClick={() => modifica(c)} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Modifica</button>
+                      <button type="button" onClick={() => elimina(c)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Togli dalla rubrica</button>
                     </div>
                   </div>
                 )}
@@ -5498,13 +5480,13 @@ function CalcoloAMisura({ onAggiungi }) {
   const totale = Math.round(q * pu * 100) / 100;
   if (!aperto) {
     return (
-      <button type="button" onClick={() => setAperto(true)} style={{ background: "#161a1f", border: "1px dashed #333a45", color: "#c3cad4", borderRadius: 6, padding: "10px 12px", fontSize: 12.5, fontWeight: 600, textAlign: "left" }}>
+      <button type="button" onClick={() => setAperto(true)} style={{ background: "#10141f", border: "1px dashed #343e57", color: "#c3cad4", borderRadius: 6, padding: "10px 12px", fontSize: 12.5, fontWeight: 600, textAlign: "left" }}>
         📏 Lavoro a misura? Calcola a m², ettari, ore o pezzi
       </button>
     );
   }
   return (
-    <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <span style={{ fontSize: 12.5, fontWeight: 700 }}>📏 Lavoro a misura</span>
         <button type="button" onClick={() => setAperto(false)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12 }}>Chiudi</button>
@@ -5519,7 +5501,7 @@ function CalcoloAMisura({ onAggiungi }) {
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span className="mono" style={{ fontSize: 13.5 }}>{q ? `${q.toLocaleString("it-IT")} ${u.sigla} × ${euro(pu)} = ` : ""}<strong>{euro(totale)}</strong></span>
-        <button type="button" disabled={!q || !pu} onClick={() => { onAggiungi({ descrizione: `${c.descrizione.trim() || "Lavoro"}: ${q.toLocaleString("it-IT")} ${u.sigla} × ${euro(pu)}`, importo: String(totale) }); setC({ ...c, quantita: "", descrizione: "" }); }} style={{ background: q && pu ? "#ff8c42" : "#333a45", color: q && pu ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>Aggiungi al preventivo</button>
+        <button type="button" disabled={!q || !pu} onClick={() => { onAggiungi({ descrizione: `${c.descrizione.trim() || "Lavoro"}: ${q.toLocaleString("it-IT")} ${u.sigla} × ${euro(pu)}`, importo: String(totale) }); setC({ ...c, quantita: "", descrizione: "" }); }} style={{ background: q && pu ? "#ff8c42" : "#343e57", color: q && pu ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>Aggiungi al preventivo</button>
       </div>
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>Il prezzo unitario lo decidi tu in base alla zona e al lavoro. Puoi aggiungere più righe (es. superficie + trasferta + pratiche).</p>
     </div>
@@ -5560,7 +5542,7 @@ function ConsigliPrezzo({ onUsa }) {
   // drone e batterie si consumano in circa 3 anni; assicurazione divisa sui voli dell'anno
   const minimo = arrot(n("attrezzatura") / (3 * voli) + n("assicurazione") / voli + n("ore") * n("orario") + kmAR * n("euroKm"));
 
-  const chip = (attivo) => ({ background: attivo ? "#ff8c4222" : "#262b33", border: `1px solid ${attivo ? "#ff8c42" : "#333a45"}`, color: attivo ? "#ffb877" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 });
+  const chip = (attivo) => ({ background: attivo ? "#ff8c4222" : "#232b3f", border: `1px solid ${attivo ? "#ff8c42" : "#343e57"}`, color: attivo ? "#ffb877" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 });
   const spunta = (val, set, etichetta) => (
     <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#c3cad4" }}>
       <input type="checkbox" checked={val} onChange={(e) => set(e.target.checked)} /> {etichetta}
@@ -5578,13 +5560,13 @@ function ConsigliPrezzo({ onUsa }) {
 
   if (!aperto) {
     return (
-      <button type="button" onClick={() => setAperto(true)} style={{ background: "#161a1f", border: "1px dashed #ff8c4288", color: "#ffb877", borderRadius: 6, padding: "10px 12px", fontSize: 12.5, fontWeight: 600, textAlign: "left" }}>
+      <button type="button" onClick={() => setAperto(true)} style={{ background: "#10141f", border: "1px dashed #ff8c4288", color: "#ffb877", borderRadius: 6, padding: "10px 12px", fontSize: 12.5, fontWeight: 600, textAlign: "left" }}>
         💡 Quanto chiedere? Fascia di mercato e il tuo prezzo minimo
       </button>
     );
   }
   return (
-    <div style={{ background: "#161a1f", border: "1px solid #ff8c4255", borderRadius: 6, padding: "10px 12px" }}>
+    <div style={{ background: "#10141f", border: "1px solid #ff8c4255", borderRadius: 6, padding: "10px 12px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <span style={{ fontSize: 12.5, fontWeight: 700, color: "#ffb877" }}>💡 Quanto chiedere?</span>
         <button type="button" onClick={() => setAperto(false)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12 }}>Chiudi</button>
@@ -5604,13 +5586,13 @@ function ConsigliPrezzo({ onUsa }) {
         </label>
       </div>
 
-      <div style={{ marginTop: 10, padding: "10px 12px", background: "#1b2028", borderRadius: 6, border: "1px solid #262b33" }}>
+      <div style={{ marginTop: 10, padding: "10px 12px", background: "#151b2b", borderRadius: 6, border: "1px solid #232b3f" }}>
         <div style={{ fontSize: 12, color: "#8b95a3" }}>Fascia indicativa in Italia</div>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#e7eaee" }} className="mono">{da} – {a} €</div>
         <div style={{ fontSize: 12.5, marginTop: 4 }}>Consigliato per te: <strong className="mono" style={{ color: "#4ade80", fontSize: 14 }}>{consigliato} €</strong></div>
         {consigliato < minimo && <div style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 4 }}>⚠ È sotto il tuo prezzo minimo ({minimo} €): con i tuoi costi ci rimetteresti.</div>}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-          <button type="button" onClick={() => onUsa(Math.max(consigliato, 0), f.nome)} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>Usa {consigliato} €</button>
+          <button type="button" onClick={() => onUsa(Math.max(consigliato, 0), f.nome)} style={{ background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>Usa {consigliato} €</button>
           {consigliato < minimo && <button type="button" onClick={() => onUsa(minimo, f.nome)} style={{ background: "none", border: "1px solid #ff8c42", color: "#ffb877", borderRadius: 6, padding: "7px 12px", fontSize: 12.5 }}>Usa il minimo {minimo} €</button>}
         </div>
       </div>
@@ -5829,13 +5811,13 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Preventivi</h1>
-        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo preventivo</>}
         </button>
       </div>
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 540, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 540, display: "flex", flexDirection: "column", gap: 12 }}>
           {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un preventivo esistente</div>}
           {richiesta && !editingId && (
             <div style={{ background: "#16263d", border: "1px solid #24456e", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5 }}>
@@ -5876,26 +5858,26 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
             <textarea placeholder="es. Rilievo aereo con drone dei danni da grandine su coperture — 7 villette" value={oggetto} onChange={(e) => setOggetto(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
 
-          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "10px 12px" }}>
+          <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: "10px 12px" }}>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 6 }}>Calcolo rapido per impianto fotovoltaico (opzionale)</label>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="number" placeholder="Potenza (kWp)" value={kwp} onChange={(e) => setKwp(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-              <button onClick={aggiungiVociDaKwp} disabled={!kwp} style={{ background: kwp ? "#ff8c42" : "#333a45", color: kwp ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>
+              <button onClick={aggiungiVociDaKwp} disabled={!kwp} style={{ background: kwp ? "#ff8c42" : "#343e57", color: kwp ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>
                 Aggiungi voci
               </button>
             </div>
             <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Usa le tue tariffe da Impostazioni ({Number(azienda.tariffaBase) || 0}€ base + {Number(azienda.tariffaKwp) || 0}€/kWp) e aggiunge le righe qui sotto, che restano modificabili.</p>
           </div>
 
-          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "10px 12px" }}>
+          <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: "10px 12px" }}>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 6 }}>Pacchetti pronti per riprese aeree (opzionale)</label>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {PACCHETTI_PREVENTIVO.map((pk) => (
-                <button key={pk.key} type="button" onClick={() => aggiungiPacchetto(pk)} style={{ background: "#262b33", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 }}>
+                <button key={pk.key} type="button" onClick={() => aggiungiPacchetto(pk)} style={{ background: "#232b3f", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 }}>
                   {pk.emoji} {pk.nome}
                 </button>
               ))}
-              <button type="button" onClick={aggiungiVociRiprese} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "8px 12px", fontSize: 12.5 }}>
+              <button type="button" onClick={aggiungiVociRiprese} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 6, padding: "8px 12px", fontSize: 12.5 }}>
                 Voci generiche
               </button>
             </div>
@@ -5913,12 +5895,12 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
                   <input placeholder="es. Diritto di uscita" value={v.descrizione} onChange={(e) => aggiornaVoce(idx, "descrizione", e.target.value)} style={{ ...inputStyle, flex: 3 }} />
                   <input type="number" step="0.01" placeholder="€" value={v.importo} onChange={(e) => aggiornaVoce(idx, "importo", e.target.value)} style={{ ...inputStyle, flex: 1 }} />
                   {voci.length > 1 && (
-                    <button onClick={() => rimuoviVoce(idx)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "8px 10px", fontSize: 13 }}>×</button>
+                    <button onClick={() => rimuoviVoce(idx)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "8px 10px", fontSize: 13 }}>×</button>
                   )}
                 </div>
               ))}
             </div>
-            <button onClick={aggiungiVoce} style={{ marginTop: 8, background: "none", border: "1px dashed #333a45", color: "#8b95a3", borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>
+            <button onClick={aggiungiVoce} style={{ marginTop: 8, background: "none", border: "1px dashed #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>
               + Aggiungi voce
             </button>
           </div>
@@ -5934,7 +5916,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
             </div>
           </div>
 
-          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "10px 12px", fontSize: 12.5 }}>
+          <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: "10px 12px", fontSize: 12.5 }}>
             <div style={{ display: "flex", justifyContent: "space-between", color: "#8b95a3" }}>
               <span>Prezzo di listino</span><span className="mono">{listino.toFixed(2)} €</span>
             </div>
@@ -5943,7 +5925,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
                 <span>Sconto</span><span className="mono">− {scontoVal.toFixed(2)} €</span>
               </div>
             )}
-            <div style={{ display: "flex", justifyContent: "space-between", color: "#e7eaee", fontWeight: 700, fontSize: 14.5, marginTop: 6, paddingTop: 6, borderTop: "1px solid #262b33" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#e7eaee", fontWeight: 700, fontSize: 14.5, marginTop: 6, paddingTop: 6, borderTop: "1px solid #232b3f" }}>
               <span>Totale</span><span className="mono">{totale.toFixed(2)} €</span>
             </div>
           </div>
@@ -5953,7 +5935,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
             <textarea placeholder="es. Zona di volo verificata, sopralluogo da concordare, importo non comprensivo di IVA..." value={note} onChange={(e) => setNote(e.target.value)} rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
 
-          <button onClick={salvaPreventivo} disabled={!cliente || salvataggio} style={{ marginTop: 4, background: cliente ? "#ff8c42" : "#333a45", color: cliente ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          <button onClick={salvaPreventivo} disabled={!cliente || salvataggio} style={{ marginTop: 4, background: cliente ? "#ff8c42" : "#343e57", color: cliente ? "#10141f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
             {salvataggio ? "Salvataggio..." : editingId ? "Aggiorna preventivo" : "Salva preventivo"}
           </button>
         </div>
@@ -5976,7 +5958,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
               else if (giorni <= 5) promemoria = { testo: `Scade tra ${giorni} giorni, nessuna risposta`, colore: "#f5b942" };
             }
             return (
-              <div key={p.id} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+              <div key={p.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.cliente} {p.numero && <span style={{ color: "#6b7480", fontWeight: 400, fontSize: 12 }}>· {p.numero}</span>}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
@@ -5992,7 +5974,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
                     return (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4, fontSize: 11.5, color: rit ? "#ff6b6b" : "#8b95a3" }}>
                         {rit ? <strong>⏰ In ritardo di {rit} {rit === 1 ? "giorno" : "giorni"}</strong> : <span>Pagamento entro</span>}
-                        <input type="date" value={scadenzaPagamento(p) || ""} onChange={(e) => cambiaScadenza(p, e.target.value)} title="Entro quando deve pagare" style={{ background: "#161a1f", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 4, padding: "2px 6px", fontSize: 11.5 }} />
+                        <input type="date" value={scadenzaPagamento(p) || ""} onChange={(e) => cambiaScadenza(p, e.target.value)} title="Entro quando deve pagare" style={{ background: "#10141f", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 4, padding: "2px 6px", fontSize: 11.5 }} />
                         {rit > 0 && <button type="button" onClick={() => mandaSollecito(p, schedaCliente)} style={{ background: "none", color: "#4ade80", fontWeight: 700, fontSize: 11.5, border: "1px solid #2c5a3a", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>💬 Manda un promemoria{numeroWhatsapp(tel) ? "" : " · aggiungi numero"}</button>}
                       </div>
                     );
@@ -6012,13 +5994,13 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
                   >
                     {STATI_PREVENTIVO.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                   </select>
-                  <button onClick={() => apriModifica(p)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  <button onClick={() => apriModifica(p)} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     Modifica
                   </button>
-                  <button onClick={() => scaricaPDF(p)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  <button onClick={() => scaricaPDF(p)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     <FileDown size={12} /> PDF
                   </button>
-                  <button onClick={() => eliminaPreventivo(p.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  <button onClick={() => eliminaPreventivo(p.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     Elimina
                   </button>
                 </div>
@@ -6144,13 +6126,13 @@ function Permessi({ permessi, impianti, azienda, piano, onReload, droni = [], em
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Permessi</h1>
-        <button onClick={() => setShowForm(!showForm)} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+        <button onClick={() => setShowForm(!showForm)} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuova richiesta</>}
         </button>
       </div>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 14px 0" }}>Richiedi e traccia i permessi di volo per zone soggette a restrizioni, prima ancora di fare il rilievo.</p>
       {!assistente ? (
-        <button type="button" onClick={() => apriAssistente(true)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 760, textAlign: "left", background: "linear-gradient(135deg, #1d2633, #1b2028)", border: "1px solid #3d8bfd66", borderRadius: 12, padding: "14px 16px", marginBottom: 20, color: "#e7eaee" }}>
+        <button type="button" onClick={() => apriAssistente(true)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 760, textAlign: "left", background: "linear-gradient(135deg, #1d2633, #151b2b)", border: "1px solid #3d8bfd66", borderRadius: 12, padding: "14px 16px", marginBottom: 20, color: "#e7eaee" }}>
           <span style={{ fontSize: 26 }}>🧭</span>
           <span><span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>Non sai come chiedere un permesso? Ti guido io</span>
             <span style={{ display: "block", fontSize: 12.5, color: "#9fb4d6", marginTop: 2 }}>Dimmi dove voli: ti dico se si può chiedere, a chi, quanti giorni prima, e ti preparo la richiesta già compilata (anche il Modello ATM-09A).</span></span>
@@ -6162,7 +6144,7 @@ function Permessi({ permessi, impianti, azienda, piano, onReload, droni = [], em
       )}
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Collega a un impianto esistente (opzionale)</label>
             <select value={impiantoIdSel} onChange={(e) => selezionaImpianto(e.target.value)} style={inputStyle}>
@@ -6201,10 +6183,10 @@ function Permessi({ permessi, impianti, azienda, piano, onReload, droni = [], em
             {documento ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 12, color: "#c3cad4" }}>{documento.nome}</span>
-                <button onClick={() => setDocumento(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+                <button onClick={() => setDocumento(null)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
               </div>
             ) : (
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #343e57", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
                 <Upload size={13} /> Carica documento
                 <input type="file" accept="image/*,.pdf" onChange={scegliDocumento} style={{ display: "none" }} />
               </label>
@@ -6214,11 +6196,11 @@ function Permessi({ permessi, impianti, azienda, piano, onReload, droni = [], em
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight (facoltativo)</label>
             {dflightShot ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 70, height: 46, objectFit: "cover", borderRadius: 4, border: "1px solid #333a45" }} />
-                <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+                <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 70, height: 46, objectFit: "cover", borderRadius: 4, border: "1px solid #343e57" }} />
+                <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
               </div>
             ) : (
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #343e57", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
                 <Upload size={13} /> Carica screenshot
                 <input type="file" accept="image/*" onChange={caricaDflightShot} style={{ display: "none" }} />
               </label>
@@ -6228,7 +6210,7 @@ function Permessi({ permessi, impianti, azienda, piano, onReload, droni = [], em
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note (opzionale)</label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
-          <button onClick={salvaPermesso} disabled={!impianto || salvataggio} style={{ marginTop: 4, background: impianto ? "#ff8c42" : "#333a45", color: impianto ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          <button onClick={salvaPermesso} disabled={!impianto || salvataggio} style={{ marginTop: 4, background: impianto ? "#ff8c42" : "#343e57", color: impianto ? "#10141f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
             {salvataggio ? "Salvataggio..." : "Salva richiesta"}
           </button>
         </div>
@@ -6293,7 +6275,7 @@ function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando
   };
 
   return (
-    <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px" }}>
+    <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px" }}>
       <div onClick={onToggle} role="button" tabIndex={0} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", flexWrap: "wrap", gap: 8 }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.impianto}</div>
@@ -6304,13 +6286,13 @@ function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 4, background: stato.color + "22", color: stato.color }}>{stato.label}</span>
-          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
           <ChevronRight size={15} color="#6b7480" style={{ transform: espanso ? "rotate(90deg)" : "none" }} />
         </div>
       </div>
 
       {espanso && (
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #262b33", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #232b3f", display: "flex", flexDirection: "column", gap: 6 }}>
           {p.permessi_richiesti && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Permessi: </span>{p.permessi_richiesti}</div>}
           {p.buffer_sicurezza && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Buffer di sicurezza: </span>{p.buffer_sicurezza} m</div>}
           {p.ora_richiesta && <div style={{ fontSize: 12.5 }}><span style={{ color: "#8b95a3" }}>Ora invio richiesta: </span>{p.ora_richiesta}</div>}
@@ -6324,7 +6306,7 @@ function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando
             <div style={{ marginTop: 4 }}>
               <span style={{ fontSize: 11, color: "#8b95a3", display: "block", marginBottom: 6 }}>Screenshot D-Flight</span>
               <LinkFile url={p.dflight_screenshot_url}>
-                <ImmagineFile src={p.dflight_screenshot_url} alt="D-Flight" style={{ width: "100%", maxWidth: 280, borderRadius: 6, border: "1px solid #333a45" }} />
+                <ImmagineFile src={p.dflight_screenshot_url} alt="D-Flight" style={{ width: "100%", maxWidth: 280, borderRadius: 6, border: "1px solid #343e57" }} />
               </LinkFile>
             </div>
           )}
@@ -6338,11 +6320,11 @@ function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando
 
           <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
             {!modificaStato && (
-              <button onClick={() => setModificaStato(true)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+              <button onClick={() => setModificaStato(true)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                 Modifica esito
               </button>
             )}
-            <button onClick={scaricaPDF} disabled={generandoPDF} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+            <button onClick={scaricaPDF} disabled={generandoPDF} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
               <FileDown size={12} /> {generandoPDF ? "Preparazione..." : "Scarica PDF"}
             </button>
           </div>
@@ -6353,7 +6335,7 @@ function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando
           )}
 
           {modificaStato && (
-            <div style={{ marginTop: 8, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ marginTop: 8, background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
               <div>
                 <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Esito</label>
                 <select value={nuovoStato} onChange={(e) => setNuovoStato(e.target.value)} style={inputStyle}>
@@ -6382,10 +6364,10 @@ function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando
                 </div>
               )}
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={salvaStato} disabled={cambiando} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "7px 14px", borderRadius: 5, fontWeight: 600, fontSize: 12 }}>
+                <button onClick={salvaStato} disabled={cambiando} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "7px 14px", borderRadius: 5, fontWeight: 600, fontSize: 12 }}>
                   {cambiando ? "Salvataggio..." : "Salva"}
                 </button>
-                <button onClick={() => setModificaStato(false)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", padding: "7px 14px", borderRadius: 5, fontSize: 12 }}>
+                <button onClick={() => setModificaStato(false)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", padding: "7px 14px", borderRadius: 5, fontSize: 12 }}>
                   Annulla
                 </button>
               </div>
@@ -6423,13 +6405,13 @@ function RinnovoAttestato({ attestato }) {
   if (!r || !attestato.data_scadenza) return null;
   const giorni = Math.ceil((new Date(attestato.data_scadenza) - new Date()) / 86400000);
   if (giorni > 90) return null;
-  const btn = { display: "inline-flex", alignItems: "center", gap: 4, background: "#1f2530", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 10px", fontSize: 12, fontWeight: 600, textDecoration: "none" };
+  const btn = { display: "inline-flex", alignItems: "center", gap: 4, background: "#1a2133", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "6px 10px", fontSize: 12, fontWeight: 600, textDecoration: "none" };
   return (
-    <div style={{ flexBasis: "100%", background: "#161a1f", border: `1px solid ${giorni < 0 ? "#ff4d4d55" : "#f5b94255"}`, borderRadius: 8, padding: "10px 12px", marginTop: 2 }}>
+    <div style={{ flexBasis: "100%", background: "#10141f", border: `1px solid ${giorni < 0 ? "#ff4d4d55" : "#f5b94255"}`, borderRadius: 8, padding: "10px 12px", marginTop: 2 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: giorni < 0 ? "#ff9c9c" : "#ffd68a" }}>🔁 {giorni < 0 ? `Attestato ${r.nome} scaduto` : `È ora di rinnovare l'attestato ${r.nome}`}</div>
       <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "4px 0 8px 0", lineHeight: 1.5 }}>{giorni < 0 ? r.scaduto : r.testo}</p>
       {/* il pulsante grande: apre subito dove si rinnova */}
-      <a href={r.rinnova.url} target="_blank" rel={r.rinnova.partner ? "noreferrer sponsored" : "noreferrer"} style={{ display: "block", textAlign: "center", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", borderRadius: 8, padding: "11px 14px", fontSize: 14.5, fontWeight: 800, textDecoration: "none", marginBottom: 4 }}>🔁 {r.rinnova.testo} ↗</a>
+      <a href={r.rinnova.url} target="_blank" rel={r.rinnova.partner ? "noreferrer sponsored" : "noreferrer"} style={{ display: "block", textAlign: "center", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", borderRadius: 8, padding: "11px 14px", fontSize: 14.5, fontWeight: 800, textDecoration: "none", marginBottom: 4 }}>🔁 {r.rinnova.testo} ↗</a>
       <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "0 0 8px 0", textAlign: "center" }}>{r.rinnova.nota}{r.rinnova.partner ? " · Partner · link affiliato" : ""}</p>
       {r.gratis && (
         <a href={r.gratis.url} target="_blank" rel="noreferrer" style={{ display: "block", background: "#14231a", border: "1px solid #4ade8066", borderRadius: 8, padding: "8px 12px", textDecoration: "none", marginBottom: 8 }}>
@@ -6566,13 +6548,13 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Attestati</h1>
-        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo attestato</>}
         </button>
       </div>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0" }}>Tieni traccia di patentini, attestati e scadenze. Per le operazioni in categoria Specific (scenari standard STS) controlla sempre i requisiti aggiornati sul sito ENAC.</p>
 
-      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 14, marginBottom: 20, maxWidth: 460 }}>
+      <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 14, marginBottom: 20, maxWidth: 460 }}>
         <label style={{ fontSize: 11.5, fontWeight: 600, color: "#c3cad4", display: "block", marginBottom: 6 }}>Il tuo prossimo obiettivo formativo</label>
         <select value={obiettivoSel} onChange={(e) => salvaObiettivo(e.target.value)} disabled={salvandoObiettivo} style={inputStyle}>
           {OBIETTIVI_FORMATIVI.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
@@ -6580,7 +6562,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
         {obiettivoSalvatoOk && <p style={{ fontSize: 11, color: "#4ade80", margin: "6px 0 0 0" }}>✓ Salvato</p>}
       </div>
 
-      <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
+      <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
         <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Corsi consigliati</p>
         {CORSI_CONSIGLIATI.length === 0 ? (
           <p style={{ fontSize: 11.5, color: "#6b7480", margin: 0, lineHeight: 1.5 }}>Nessun corso ancora aggiunto — qui compariranno, ad esempio, corsi di fotogrammetria o FPV.</p>
@@ -6597,7 +6579,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
       </div>
 
       {RISORSE_CONSIGLIATE.length > 0 && (
-        <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
+        <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
           <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Servizi consigliati</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {RISORSE_CONSIGLIATE.map((r) => (
@@ -6611,7 +6593,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
       )}
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Tipo di attestato</label>
             <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={inputStyle}>
@@ -6643,10 +6625,10 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
             {documento ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 12, color: "#c3cad4" }}>{documento.nome}</span>
-                <button onClick={() => setDocumento(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+                <button onClick={() => setDocumento(null)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
               </div>
             ) : (
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #343e57", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
                 <Upload size={13} /> Carica documento
                 <input type="file" accept="image/*,.pdf" onChange={scegliDocumento} style={{ display: "none" }} />
               </label>
@@ -6660,7 +6642,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note (opzionale)</label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
-          <button onClick={salvaAttestato} disabled={salvataggio} style={{ marginTop: 4, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          <button onClick={salvaAttestato} disabled={salvataggio} style={{ marginTop: 4, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
             {salvataggio ? "Salvataggio..." : editingId ? "Aggiorna attestato" : "Salva attestato"}
           </button>
         </div>
@@ -6673,7 +6655,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
           {attestati.map((a) => {
             const stato = statoScadenza(a.data_scadenza);
             return (
-              <div key={a.id} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+              <div key={a.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{a.tipo}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
@@ -6683,22 +6665,22 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   {a.link_url && (
-                    <a href={a.link_url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#4ade80", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
+                    <a href={a.link_url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #343e57", color: "#4ade80", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
                       🔗 Link
                     </a>
                   )}
                   {a.documento_url && (
-                    <LinkFile url={a.documento_url} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#3d8bfd", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
+                    <LinkFile url={a.documento_url} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #343e57", color: "#3d8bfd", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
                       <FileDown size={12} /> Documento
                     </LinkFile>
                   )}
-                  <button onClick={() => scaricaPDFAttestato(a)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  <button onClick={() => scaricaPDFAttestato(a)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     <FileDown size={12} /> PDF
                   </button>
-                  <button onClick={() => apriModifica(a)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  <button onClick={() => apriModifica(a)} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     Modifica
                   </button>
-                  <button onClick={() => eliminaAttestato(a.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  <button onClick={() => eliminaAttestato(a.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     Elimina
                   </button>
                 </div>
@@ -6793,7 +6775,7 @@ function ManutenzioniDrone({ drone }) {
 
   const ultimo = elenco && elenco[0];
   return (
-    <div style={{ flexBasis: "100%", borderTop: "1px solid #262b33", paddingTop: 8 }}>
+    <div style={{ flexBasis: "100%", borderTop: "1px solid #232b3f", paddingTop: 8 }}>
       <button type="button" onClick={() => setAperto(!aperto)} style={{ background: "none", border: "none", color: "#c3cad4", fontSize: 12.5, padding: 0, textAlign: "left" }}>
         {aperto ? "▾" : "▸"} 🔧 Registro interventi{elenco && elenco.length ? ` (${elenco.length})` : ""}
         {ultimo && !aperto && <span style={{ color: "#8b95a3" }}> · ultimo: {etichettaManutenzione(ultimo.tipo).toLowerCase()} il {formatData(ultimo.data)}</span>}
@@ -6815,7 +6797,7 @@ function ManutenzioniDrone({ drone }) {
                   📎 {file ? file.name.slice(0, 18) : "Foto o ricevuta"}
                   <input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
                 </label>
-                <button type="button" onClick={salva} disabled={salvando} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 }}>{salvando ? "Salvo…" : "Aggiungi"}</button>
+                <button type="button" onClick={salva} disabled={salvando} style={{ background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 }}>{salvando ? "Salvo…" : "Aggiungi"}</button>
               </div>
               {elenco && elenco.length === 0 && <p style={{ fontSize: 11.5, color: "#6b7480", margin: "8px 0 0 0" }}>Nessun intervento registrato. Segna qui eliche, firmware, calibrazioni e riparazioni: finiscono nel fascicolo di ogni volo.</p>}
               <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
@@ -6988,14 +6970,14 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>I miei droni</h1>
-        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo drone</>}
         </button>
       </div>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Tieni traccia di modelli, matricole, registrazione D-Flight e scadenze di manutenzione della tua flotta.</p>
 
       {dflightScadenza !== undefined && (
-        <div style={{ background: "#1b2028", border: `1px solid ${statoDflight && statoDflight.livello !== "ok" ? statoDflight.colore + "88" : "#2b313d"}`, borderRadius: 10, padding: 16, marginBottom: 20, maxWidth: 620 }}>
+        <div style={{ background: "#151b2b", border: `1px solid ${statoDflight && statoDflight.livello !== "ok" ? statoDflight.colore + "88" : "#2a3349"}`, borderRadius: 10, padding: 16, marginBottom: 20, maxWidth: 620 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>🪪 Iscrizione D-Flight</h3>
             {statoDflight && <span style={{ fontSize: 12, fontWeight: 600, color: statoDflight.colore }}>{statoDflight.testo}</span>}
@@ -7005,7 +6987,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
           </p>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input type="date" value={scadenzaDflight} onChange={(e) => setScadenzaDflight(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
-            <button onClick={() => onSalvaDflightScadenza && onSalvaDflightScadenza(scadenzaDflight)} disabled={scadenzaDflight === (dflightScadenza || "")} style={{ background: scadenzaDflight === (dflightScadenza || "") ? "#262b33" : "#ff8c42", color: scadenzaDflight === (dflightScadenza || "") ? "#6b7480" : "#161a1f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600 }}>Salva</button>
+            <button onClick={() => onSalvaDflightScadenza && onSalvaDflightScadenza(scadenzaDflight)} disabled={scadenzaDflight === (dflightScadenza || "")} style={{ background: scadenzaDflight === (dflightScadenza || "") ? "#232b3f" : "#ff8c42", color: scadenzaDflight === (dflightScadenza || "") ? "#6b7480" : "#10141f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 600 }}>Salva</button>
             <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd" }}>Apri D-Flight ↗</a>
           </div>
           {droni.some((d) => d.qr_dflight_nuovo !== undefined) && (
@@ -7019,7 +7001,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
       {showForm && !editingId && (() => {
         const assicurazioneConsigliata = RISORSE_CONSIGLIATE.find((r) => r.nome.toLowerCase().includes("assicura"));
         return (
-          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: "10px 14px", marginBottom: 14, maxWidth: 460, fontSize: 12, color: "#c3cad4" }}>
+          <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: "10px 14px", marginBottom: 14, maxWidth: 460, fontSize: 12, color: "#c3cad4" }}>
             💡 Ricorda: ogni drone dev'essere assicurato, anche in categoria Aperta.{" "}
             {assicurazioneConsigliata ? (
               <a href={assicurazioneConsigliata.url} target="_blank" rel="noreferrer" style={{ color: "#4ade80", fontWeight: 600 }}>{assicurazioneConsigliata.nome} ↗</a>
@@ -7031,7 +7013,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
       })()}
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Nome / etichetta</label>
             <input placeholder="es. Matrice 4T principale" value={nome} onChange={(e) => { setNome(e.target.value); riconosciModello(e.target.value, modello); }} style={inputStyle} />
@@ -7075,7 +7057,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
             <div style={{ display: "flex", gap: 6 }}>
               <input type="text" inputMode="decimal" placeholder={ventoInMs ? "es. 10,7 (lo trovi nel manuale)" : "es. 38 (lo trovi nel manuale)"} value={ventoMax} onChange={(e) => { setVentoMax(e.target.value); setDaCatalogo(null); }} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
               {/* il manuale DJI scrive «resistenza al vento 10,7 m/s»: si sceglie l'unità e converto io */}
-              <div role="group" aria-label="Unità del vento" style={{ display: "flex", border: "1px solid #333a45", borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
+              <div role="group" aria-label="Unità del vento" style={{ display: "flex", border: "1px solid #343e57", borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
                 {[["km/h", false], ["m/s", true]].map(([etichetta, ms]) => {
                   const scelto = ventoInMs === ms;
                   return (
@@ -7086,7 +7068,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
                       if (daCatalogo) setVentoMax(ms ? String(daCatalogo.ms).replace(".", ",") : String(daCatalogo.kmh));
                       else if (ventoMax !== "" && !Number.isNaN(n)) setVentoMax(ms ? (n / 3.6).toFixed(1).replace(".", ",") : String(Math.round(n * 3.6)));
                       setVentoInMs(ms);
-                    }} style={{ background: scelto ? "#ff8c42" : "#1f2530", color: scelto ? "#161a1f" : "#c3cad4", border: "none", padding: "0 12px", fontSize: 12.5, fontWeight: 700 }}>{etichetta}</button>
+                    }} style={{ background: scelto ? "#ff8c42" : "#1a2133", color: scelto ? "#10141f" : "#c3cad4", border: "none", padding: "0 12px", fontSize: 12.5, fontWeight: 700 }}>{etichetta}</button>
                   );
                 })}
               </div>
@@ -7100,10 +7082,10 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
             {documento ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 12, color: "#c3cad4" }}>{documento.nome}</span>
-                <button onClick={() => setDocumento(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+                <button onClick={() => setDocumento(null)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
               </div>
             ) : (
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #343e57", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
                 <Upload size={13} /> Carica documento
                 <input type="file" accept="image/*,.pdf" onChange={scegliDocumento} style={{ display: "none" }} />
               </label>
@@ -7113,7 +7095,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Note (opzionale)</label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
-          <button onClick={salvaDrone} disabled={!nome || salvataggio} style={{ marginTop: 4, background: nome ? "#ff8c42" : "#333a45", color: nome ? "#161a1f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          <button onClick={salvaDrone} disabled={!nome || salvataggio} style={{ marginTop: 4, background: nome ? "#ff8c42" : "#343e57", color: nome ? "#10141f" : "#6b7480", border: "none", padding: "9px 0", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
             {salvataggio ? "Salvataggio..." : editingId ? "Aggiorna drone" : "Salva drone"}
           </button>
         </div>
@@ -7126,7 +7108,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
           {droni.map((d) => {
             const stato = statoManutenzione(d.prossima_manutenzione);
             return (
-              <div key={d.id} style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+              <div key={d.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{d.nome}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
@@ -7144,17 +7126,17 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   {d.documento_url && (
-                    <LinkFile url={d.documento_url} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#3d8bfd", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
+                    <LinkFile url={d.documento_url} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #343e57", color: "#3d8bfd", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" }}>
                       <FileDown size={12} /> Documento
                     </LinkFile>
                   )}
-                  <button onClick={() => scaricaPDFDrone(d)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  <button onClick={() => scaricaPDFDrone(d)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     <FileDown size={12} /> PDF
                   </button>
-                  <button onClick={() => apriModifica(d)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  <button onClick={() => apriModifica(d)} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     Modifica
                   </button>
-                  <button onClick={() => eliminaDrone(d.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  <button onClick={() => eliminaDrone(d.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     Elimina
                   </button>
                 </div>
@@ -7245,16 +7227,16 @@ function AnalisiTermica({ piano }) {
         Carica una foto termica radiometrica originale del drone (R-JPEG, non modificata da altri software). Ricalcoliamo la temperatura reale di ogni pixel e la ricoloriamo con la palette che scegli.
       </p>
 
-      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 480, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 480, display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
           <label style={{ fontSize: 12, color: "#8b95a3", display: "block", marginBottom: 6 }}>Foto termica (R-JPEG)</label>
           {fotoOriginale ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12.5, color: "#c3cad4" }}>{fotoOriginale.nome}</span>
-              <button onClick={() => { setFotoOriginale(null); setRisultato(null); }} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+              <button onClick={() => { setFotoOriginale(null); setRisultato(null); }} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
             </div>
           ) : (
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "10px 16px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #343e57", borderRadius: 6, padding: "10px 16px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
               <Upload size={13} /> Carica foto termica
               <input type="file" accept="image/jpeg,.jpg" onChange={caricaFoto} style={{ display: "none" }} />
             </label>
@@ -7268,7 +7250,7 @@ function AnalisiTermica({ piano }) {
           </select>
         </div>
 
-        <button onClick={elabora} disabled={!fotoOriginale || elaborando} style={{ background: fotoOriginale ? "#ff8c42" : "#333a45", color: fotoOriginale ? "#161a1f" : "#6b7480", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+        <button onClick={elabora} disabled={!fotoOriginale || elaborando} style={{ background: fotoOriginale ? "#ff8c42" : "#343e57", color: fotoOriginale ? "#10141f" : "#6b7480", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
           {elaborando ? "Elaborazione..." : "Genera"}
         </button>
 
@@ -7285,11 +7267,11 @@ function AnalisiTermica({ piano }) {
             <span>Min: <strong style={{ color: "#3d8bfd" }}>{risultato.minTemp}°C</strong></span>
             <span>Max: <strong style={{ color: "#ff4d4d" }}>{risultato.maxTemp}°C</strong></span>
           </div>
-          <img src={`data:image/png;base64,${risultato.imageBase64}`} alt="Foto termica ricolorata" style={{ width: "100%", borderRadius: 8, border: "1px solid #333a45" }} />
+          <img src={`data:image/png;base64,${risultato.imageBase64}`} alt="Foto termica ricolorata" style={{ width: "100%", borderRadius: 8, border: "1px solid #343e57" }} />
           <a
             href={`data:image/png;base64,${risultato.imageBase64}`}
             download={`termica-${palette}.png`}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 16px", borderRadius: 6, fontSize: 13, textDecoration: "none" }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "9px 16px", borderRadius: 6, fontSize: 13, textDecoration: "none" }}
           >
             <FileDown size={14} /> Scarica immagine
           </a>
@@ -7340,7 +7322,7 @@ function CalcolatoreND({ evIniziale = 15, apertoIniziale = false }) {
   const r = calcolaND({ fps, apertura, iso, ev });
   const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
   return (
-    <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 }}>
+    <div style={{ marginTop: 10, background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: 12 }}>
       <button type="button" onClick={() => setAperto(!aperto)} style={{ background: "none", border: "none", color: "#e7eaee", fontSize: 12.5, fontWeight: 600, padding: 0, display: "flex", alignItems: "center", gap: 6, width: "100%", textAlign: "left" }}>
         🎚️ Calcolatore filtri ND per video fluidi
         <ChevronRight size={14} style={{ marginLeft: "auto", transform: aperto ? "rotate(90deg)" : "none", color: "#6b7480" }} />
@@ -7552,7 +7534,7 @@ function FileZoneVeloce() {
   if (archivio === undefined) return null;
   const giorni = archivio ? Math.floor((Date.now() - new Date(archivio.caricato).getTime()) / 86400000) : 0;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: archivio ? "#1b2028" : "#3a2a12", border: `1px solid ${archivio ? "#2b313d" : "#f5b94266"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, maxWidth: 620, fontSize: 12.5, color: archivio ? "#c3cad4" : "#ffd9a0" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: archivio ? "#151b2b" : "#3a2a12", border: `1px solid ${archivio ? "#2a3349" : "#f5b94266"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, maxWidth: 620, fontSize: 12.5, color: archivio ? "#c3cad4" : "#ffd9a0" }}>
       <span style={{ flex: "1 1 220px" }}>
         🛡️ <strong>File zone di D-Flight</strong>: {archivio ? <>caricato il {formatData(String(archivio.caricato || "").slice(0, 10))} ({archivio.zone.length} zone){giorni > 14 ? <span style={{ color: "#f5b942" }}> · ⚠ aggiornalo</span> : " ✓"}</> : "non ancora caricato. Serve per sapere se nel posto puoi volare."}
         {errore && <span style={{ display: "block", color: "#ff9c9c", marginTop: 4 }}>{errore}</span>}
@@ -7744,7 +7726,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
   }, [esito]);
 
   const giorniFile = archivio ? Math.floor((Date.now() - new Date(archivio.caricato).getTime()) / 86400000) : 0;
-  const box = { marginTop: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 };
+  const box = { marginTop: 10, background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: 12 };
   const linkD = { color: "#3d8bfd", fontSize: 12 };
 
   const schedaZona = (z, vicina) => {
@@ -7861,7 +7843,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
               <span>{cercando ? "Cerco il luogo…" : "Scrivi via e comune (o le coordinate): lo cerco da solo appena smetti di scrivere."}</span>
             )}
             {!coordinate && testoLuogo && (
-              <button type="button" onClick={cercaIndirizzo} disabled={cercando} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5 }}>
+              <button type="button" onClick={cercaIndirizzo} disabled={cercando} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5 }}>
                 {cercando ? "Cerco…" : "🔎 Trova l'indirizzo"}
               </button>
             )}
@@ -7925,7 +7907,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
             </>
           )}
           {esito && (
-            <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 10, paddingTop: 8, borderTop: "1px solid #262b33" }}>
+            <div style={{ fontSize: 11.5, color: "#c3cad4", marginTop: 10, paddingTop: 8, borderTop: "1px solid #232b3f" }}>
               📣 <strong>NOTAM</strong>: avvisi temporanei (eventi, esercitazioni, elisoccorso) che non sempre sono nel file. Controllali su <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={linkD}>D-Flight ↗</a> il giorno prima e il giorno del volo.
             </div>
           )}
@@ -7970,7 +7952,7 @@ function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zon
 
   const voce = (ok, testo) => <li style={{ marginTop: 3, color: ok === false ? "#ffb877" : "#c3cad4" }}>{ok === true ? "✓ " : ok === false ? "⚠ " : ""}{testo}</li>;
   return (
-    <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #4ade8044", borderRadius: 6, padding: 12 }}>
+    <div style={{ marginTop: 10, background: "#10141f", border: "1px solid #4ade8044", borderRadius: 6, padding: 12 }}>
       <div style={{ fontSize: 13, fontWeight: 700 }}>📋 Regole per questo volo</div>
       <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "4px 0 0 0" }}>
         {!drone ? "Scegli il drone qui sopra per vedere le regole della sua classe."
@@ -8018,7 +8000,7 @@ function RegoleVolo({ drone, altezzaZona, zonaVerificata = true, motivoZona, zon
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                     <button type="button" onClick={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} style={{ background: "none", border: "1px solid #ff8c4266", color: "#ffb877", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>🔴 Come si chiede?</button>
-                    <button type="button" onClick={() => vaiA({ pagina: "permessi" })} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>📋 I miei permessi</button>
+                    <button type="button" onClick={() => vaiA({ pagina: "permessi" })} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "4px 9px", fontSize: 11.5 }}>📋 I miei permessi</button>
                   </div>
                 </li>
               );
@@ -8391,7 +8373,7 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
   );
   if (!aperto) {
     return (
-      <button type="button" onClick={() => { setAperto(true); onCambia(pacchetto(campi)); }} style={{ marginTop: 10, background: "#161a1f", border: "1px dashed #a78bfa88", color: "#c4b5fd", borderRadius: 6, padding: "10px 12px", fontSize: 12.5, fontWeight: 600, textAlign: "left", width: "100%" }}>
+      <button type="button" onClick={() => { setAperto(true); onCambia(pacchetto(campi)); }} style={{ marginTop: 10, background: "#10141f", border: "1px dashed #a78bfa88", color: "#c4b5fd", borderRadius: 6, padding: "10px 12px", fontSize: 12.5, fontWeight: 600, textAlign: "left", width: "100%" }}>
         📐 Voli in STS-01? Calcola contingenza e buffer e disegnali sulla mappa
       </button>
     );
@@ -8403,14 +8385,14 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
     </div>
   );
   return (
-    <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #a78bfa55", borderRadius: 6, padding: 12 }}>
+    <div style={{ marginTop: 10, background: "#10141f", border: "1px solid #a78bfa55", borderRadius: 6, padding: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 13, fontWeight: 700 }}>📐 Volumi STS-01<EtichettaPro /></span>
         <button type="button" onClick={() => { setAperto(false); setImmagine(null); onCambia(null); }} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12 }}>Togli</button>
       </div>
       <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
         {[["cerchio", "⭕ Cerchio attorno al punto"], ["disegno", "✏️ Disegno l'area sulla mappa"]].map(([v, t]) => (
-          <button key={v} type="button" onClick={() => aggiorna("forma", v)} style={{ background: campi.forma === v ? "#a78bfa22" : "#262b33", border: `1px solid ${campi.forma === v ? "#a78bfa" : "#333a45"}`, color: campi.forma === v ? "#c4b5fd" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>{t}</button>
+          <button key={v} type="button" onClick={() => aggiorna("forma", v)} style={{ background: campi.forma === v ? "#a78bfa22" : "#232b3f", border: `1px solid ${campi.forma === v ? "#a78bfa" : "#343e57"}`, color: campi.forma === v ? "#c4b5fd" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>{t}</button>
         ))}
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
@@ -8418,7 +8400,7 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
         {!aMano && campo("raggio", "Raggio dell'area di volo", "m")}
         {campo("velocita", "Velocità massima", "m/s")}
       </div>
-      <label style={{ display: "inline-block", marginTop: 8, background: "#262b33", border: "1px solid #a78bfa66", color: "#c4b5fd", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+      <label style={{ display: "inline-block", marginTop: 8, background: "#232b3f", border: "1px solid #a78bfa66", color: "#c4b5fd", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
         📂 Carica la missione da DJI Pilot 2 (.kmz)
         <input type="file" accept=".kmz,.kml,.wpml,application/vnd.google-earth.kmz,application/vnd.google-earth.kml+xml" onChange={caricaMissione} style={{ display: "none" }} />
       </label>
@@ -8440,12 +8422,12 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
           <p style={{ fontSize: 12, color: "#c3cad4", margin: 0, lineHeight: 1.5 }}>
             Tocca la mappa per mettere i vertici dell'area di volo, uno dopo l'altro (almeno 3). I punti bianchi si trascinano per correggerli. Contingenza e buffer si disegnano da soli tutto attorno.
           </p>
-          <Suspense fallback={<div style={{ height: 340, marginTop: 8, borderRadius: 8, background: "#0e1116" }} />}>
+          <Suspense fallback={<div style={{ height: 340, marginTop: 8, borderRadius: 8, background: "#0a0d16" }} />}>
             <MappaAreaSTS centro={punto} punti={campi.poligono} aree={aree} zone={zoneArea ? zoneArea.zone.map((t) => t.zona) : null} onCambia={(pp) => aggiorna("poligono", pp)} />
           </Suspense>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6, alignItems: "center" }}>
-            <button type="button" disabled={!campi.poligono.length} onClick={() => aggiorna("poligono", campi.poligono.slice(0, -1))} style={{ background: "#262b33", border: "1px solid #333a45", color: campi.poligono.length ? "#e7eaee" : "#6b7480", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>↶ Togli l'ultimo punto</button>
-            <button type="button" disabled={!campi.poligono.length} onClick={() => { if (confirm("Cancello l'area disegnata?")) aggiorna("poligono", []); }} style={{ background: "#262b33", border: "1px solid #333a45", color: campi.poligono.length ? "#e7eaee" : "#6b7480", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>Ricomincia</button>
+            <button type="button" disabled={!campi.poligono.length} onClick={() => aggiorna("poligono", campi.poligono.slice(0, -1))} style={{ background: "#232b3f", border: "1px solid #343e57", color: campi.poligono.length ? "#e7eaee" : "#6b7480", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>↶ Togli l'ultimo punto</button>
+            <button type="button" disabled={!campi.poligono.length} onClick={() => { if (confirm("Cancello l'area disegnata?")) aggiorna("poligono", []); }} style={{ background: "#232b3f", border: "1px solid #343e57", color: campi.poligono.length ? "#e7eaee" : "#6b7480", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>Ricomincia</button>
             <span style={{ fontSize: 11.5, color: "#8b95a3" }}>
               {poligonoOk
                 ? `${campi.poligono.length} punti · ${(misura.m2 / 10000).toLocaleString("it-IT", { maximumFractionDigits: 2 })} ha · perimetro ${Math.round(misura.perimetro)} m`
@@ -8464,10 +8446,10 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
       )}
       <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
         {[[false, "Fino a 10 kg"], [true, "Oltre 10 kg"]].map(([v, t]) => (
-          <button key={t} type="button" onClick={() => aggiorna("pesante", v)} style={{ background: campi.pesante === v ? "#a78bfa22" : "#262b33", border: `1px solid ${campi.pesante === v ? "#a78bfa" : "#333a45"}`, color: campi.pesante === v ? "#c4b5fd" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>{t} al decollo</button>
+          <button key={t} type="button" onClick={() => aggiorna("pesante", v)} style={{ background: campi.pesante === v ? "#a78bfa22" : "#232b3f", border: `1px solid ${campi.pesante === v ? "#a78bfa" : "#343e57"}`, color: campi.pesante === v ? "#c4b5fd" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>{t} al decollo</button>
         ))}
       </div>
-      <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid #262b33" }}>
+      <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid #232b3f" }}>
         {riga("#2e7d32", "Area di volo", aMano ? `${poligonoOk ? `area disegnata, ${(misura.m2 / 10000).toLocaleString("it-IT", { maximumFractionDigits: 2 })} ha` : "da disegnare"} · fino a ${r.altezza} m` : `raggio ${r.raggio} m · fino a ${r.altezza} m`)}
         {riga("#e68a00", "Contingenza", aMano ? `+${r.contingenza} m tutto attorno · fino a ${r.altezzaContingenza} m` : `+${r.contingenza} m (raggio ${r.raggioContingenza} m) · fino a ${r.altezzaContingenza} m`)}
         {r.fuoriScenario
@@ -8480,7 +8462,7 @@ function CalcolatoreSTS({ punto, valore, onCambia, nomeLuogo, chiave }) {
         {(() => {
           const pronto = aMano ? poligonoOk : !!punto;
           return (
-            <button type="button" onClick={disegna} disabled={!pronto || disegnando || r.fuoriScenario} style={{ background: pronto ? "#a78bfa" : "#333a45", color: pronto ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>
+            <button type="button" onClick={disegna} disabled={!pronto || disegnando || r.fuoriScenario} style={{ background: pronto ? "#a78bfa" : "#343e57", color: pronto ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>
               {disegnando ? "Disegno…" : aMano ? "🖼️ Crea l'immagine per il fascicolo" : "🗺️ Disegna sulla mappa"}
             </button>
           );
@@ -8552,7 +8534,7 @@ function CalcolatoreRilievo({ drone, altezzaZona }) {
     </label>
   );
   const risultato = (t, v, avviso) => (
-    <div style={{ background: "#1b2028", border: `1px solid ${avviso ? "#f5b94266" : "#262b33"}`, borderRadius: 6, padding: "8px 10px", minWidth: 0 }}>
+    <div style={{ background: "#151b2b", border: `1px solid ${avviso ? "#f5b94266" : "#232b3f"}`, borderRadius: 6, padding: "8px 10px", minWidth: 0 }}>
       <div style={{ fontSize: 10.5, color: "#8b95a3" }}>{t}</div>
       <div className="mono" style={{ fontSize: 15, fontWeight: 600, color: avviso ? "#f5b942" : "#e7eaee" }}>{v}</div>
     </div>
@@ -8596,7 +8578,7 @@ function CalcolatoreRilievo({ drone, altezzaZona }) {
       )}
       <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
         {[["altezza", "Parto dall'altezza"], ["gsd", "Parto dal dettaglio (GSD)"]].map(([k, t]) => (
-          <button key={k} type="button" onClick={() => { setModo(k); setC({ ...c, valore: k === "altezza" ? String(Math.round(r.H)) : f1(r.gsd).replace(",", ".") }); }} style={{ background: modo === k ? "#22d3ee22" : "#262b33", border: `1px solid ${modo === k ? "#22d3ee" : "#333a45"}`, color: modo === k ? "#67e8f9" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>{t}</button>
+          <button key={k} type="button" onClick={() => { setModo(k); setC({ ...c, valore: k === "altezza" ? String(Math.round(r.H)) : f1(r.gsd).replace(",", ".") }); }} style={{ background: modo === k ? "#22d3ee22" : "#232b3f", border: `1px solid ${modo === k ? "#22d3ee" : "#343e57"}`, color: modo === k ? "#67e8f9" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>{t}</button>
         ))}
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
@@ -8941,7 +8923,7 @@ function ManovreVideo({ apertoIniziale = false, scelte, onCambiaScelte, tipo = "
       {conScelta && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 10, background: "#251e33", borderRadius: 6, padding: "8px 10px" }}>
           <span style={{ fontSize: 12, color: "#e7eaee", fontWeight: 600 }}>{ispezione ? "Che ispezione fai?" : "Che lavoro fai?"}</span>
-          <select value={scalettaSel} onChange={(e) => setScalettaSel(e.target.value)} style={{ background: "#1b2028", color: "#e7eaee", border: "1px solid #3d2f5a", borderRadius: 5, padding: "5px 8px", fontSize: 12 }}>
+          <select value={scalettaSel} onChange={(e) => setScalettaSel(e.target.value)} style={{ background: "#151b2b", color: "#e7eaee", border: "1px solid #3d2f5a", borderRadius: 5, padding: "5px 8px", fontSize: 12 }}>
             {scalette.map((sc) => <option key={sc.id} value={sc.id}>{sc.titolo}</option>)}
           </select>
           <button type="button" onClick={usaScaletta} style={{ background: "#7c5cd6", color: "#fff", border: "none", borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700 }}>Usa questa scaletta</button>
@@ -9123,7 +9105,7 @@ function ImpostazioniCamera({ tipo = "video", lucePrevista }) {
       <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#8fc1ff" }}>📷 Come impostare la camera</summary>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
         {LUCI_CAMERA.map((x) => (
-          <button key={x.id} type="button" onClick={() => setLuceSel(x.id)} style={{ background: luceSel === x.id ? "#2a4562" : "#1b2028", color: "#e7eaee", border: `1px solid ${luceSel === x.id ? "#8fc1ff" : "#333a45"}`, borderRadius: 14, padding: "4px 10px", fontSize: 11.5 }}>{x.label}</button>
+          <button key={x.id} type="button" onClick={() => setLuceSel(x.id)} style={{ background: luceSel === x.id ? "#2a4562" : "#151b2b", color: "#e7eaee", border: `1px solid ${luceSel === x.id ? "#8fc1ff" : "#343e57"}`, borderRadius: 14, padding: "4px 10px", fontSize: 11.5 }}>{x.label}</button>
         ))}
       </div>
       <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
@@ -9166,7 +9148,7 @@ function GuideVolo({ droni = [], incorporata = false }) {
       {droni.length > 0 && (
         <label style={{ display: "block", fontSize: 12, color: "#8b95a3", marginBottom: 14 }}>
           Aggiungi i consigli per il tuo drone
-          <select value={droneId} onChange={(e) => setDroneId(e.target.value)} style={{ display: "block", marginTop: 4, background: "#1b2028", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "8px 10px", fontSize: 13 }}>
+          <select value={droneId} onChange={(e) => setDroneId(e.target.value)} style={{ display: "block", marginTop: 4, background: "#151b2b", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "8px 10px", fontSize: 13 }}>
             <option value="">— Nessuno —</option>
             {droni.map((d) => <option key={d.id} value={d.id}>{d.nome}{d.marcatura_classe ? ` (${d.marcatura_classe})` : ""}</option>)}
           </select>
@@ -9195,12 +9177,12 @@ function StrumentiLavoro({ tipo, drone, altezzaZona }) {
   const [aperto, setAperto] = useState(false);
   const cfg = {
     rilievo: { titolo: "📐 Calcolatore missione di fotogrammetria", sotto: "Altezza, dettaglio (GSD), sovrapposizioni, numero di foto, tempo e batterie", comp: <CalcolatoreRilievo drone={drone} altezzaZona={altezzaZona} /> },
-    agricoltura: { titolo: "🌾 Calcolo del lavoro in campo", sotto: "Miscela, pieni del serbatoio e ore; per la mappatura NDVI usa il calcolatore di fotogrammetria", comp: <><CalcolatoreTrattamento /><div style={{ borderTop: "1px solid #262b33", marginTop: 12, paddingTop: 10 }}><p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 6px 0" }}>Mappatura (NDVI) dei campi</p><CalcolatoreRilievo drone={drone} altezzaZona={altezzaZona} /></div></> },
+    agricoltura: { titolo: "🌾 Calcolo del lavoro in campo", sotto: "Miscela, pieni del serbatoio e ore; per la mappatura NDVI usa il calcolatore di fotogrammetria", comp: <><CalcolatoreTrattamento /><div style={{ borderTop: "1px solid #232b3f", marginTop: 12, paddingTop: 10 }}><p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 6px 0" }}>Mappatura (NDVI) dei campi</p><CalcolatoreRilievo drone={drone} altezzaZona={altezzaZona} /></div></> },
     pulizia: { titolo: "🧽 Calcolo superficie e area di sicurezza", sotto: "Metri quadri, ore di lavoro e zona da delimitare a terra", comp: <CalcolatorePulizia /> },
   }[tipo];
   if (!cfg) return null;
   return (
-    <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #22d3ee44", borderRadius: 6, padding: 12 }}>
+    <div style={{ marginTop: 10, background: "#10141f", border: "1px solid #22d3ee44", borderRadius: 6, padding: 12 }}>
       <button type="button" onClick={() => setAperto(!aperto)} style={{ background: "none", border: "none", color: "#e7eaee", padding: 0, textAlign: "left", width: "100%" }}>
         <div style={{ fontSize: 13, fontWeight: 700 }}>{aperto ? "▾" : "▸"} {cfg.titolo}</div>
         <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>{cfg.sotto}</div>
@@ -9630,8 +9612,8 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
       {bozzaRipresa && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#16221b", border: "1px solid #2c5a3a", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#c9f2d6" }}>
           <span style={{ flex: "1 1 240px" }}>📝 <strong>Ho ripreso il piano che stavi preparando</strong>, così com'era. Ricordati di salvarlo quando hai finito.</span>
-          <button type="button" onClick={() => setBozzaRipresa(false)} style={{ background: "#1f2530", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Ok</button>
-          <button type="button" onClick={() => { if (window.confirm("Ricomincio da capo? Quello che avevi scritto in questo piano si cancella.")) annullaModifica(); }} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Ricomincia da capo</button>
+          <button type="button" onClick={() => setBozzaRipresa(false)} style={{ background: "#1a2133", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Ok</button>
+          <button type="button" onClick={() => { if (window.confirm("Ricomincio da capo? Quello che avevi scritto in questo piano si cancella.")) annullaModifica(); }} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Ricomincia da capo</button>
         </div>
       )}
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Pianificazione volo</h1>
@@ -9706,7 +9688,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
             <label style={lblPian}>Oppure le coordinate</label>
             <div style={{ display: "flex", gap: 6 }}>
               <input type="text" placeholder="45.0703, 7.6869" value={coordinateLibere} onChange={(e) => { setCoordinateLibere(e.target.value); setMeteo(null); }} style={inputStyle} />
-              <button type="button" onClick={usaPosizione} disabled={gpsInCorso} title="Usa la mia posizione" style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>
+              <button type="button" onClick={usaPosizione} disabled={gpsInCorso} title="Usa la mia posizione" style={{ background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>
                 {gpsInCorso ? "..." : "📍"}
               </button>
             </div>
@@ -9720,12 +9702,12 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
       {!destinazione && <FileZoneVeloce />}
 
       {destinazione && (
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 620 }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 620 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" onClick={controllaMeteo} disabled={caricandoMeteo} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600 }}>
+            <button type="button" onClick={controllaMeteo} disabled={caricandoMeteo} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600 }}>
               {caricandoMeteo ? "Controllo in corso..." : "Controlla meteo e attività solare"}
             </button>
-            <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}>
+            <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}>
               🗺️ Apri D-Flight
             </a>
           </div>
@@ -9819,7 +9801,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
           />
 
           {giornoPrevisto && (
-            <div style={{ marginTop: 12, background: "#161a1f", border: `1px solid ${giornoPrevisto.adatto ? "#4ade8055" : "#ff9c9c55"}`, borderRadius: 6, padding: 12 }}>
+            <div style={{ marginTop: 12, background: "#10141f", border: `1px solid ${giornoPrevisto.adatto ? "#4ade8055" : "#ff9c9c55"}`, borderRadius: 6, padding: 12 }}>
               <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Previsione per il {formatData(dataPrevista)} · soglia vento {limiteVento} km/h ({notoSelezionato ? `${String(notoSelezionato.ms).replace(".", ",")} m/s` : inMs(limiteVento)}){droneSelezionato && droneSelezionato.vento_max_kmh ? ` (da ${droneSelezionato.nome})` : notoSelezionato ? ` (dal manuale ${notoSelezionato.nome})` : " (standard)"}</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12.5 }}>
                 <div>🌡️ {giornoPrevisto.tMin}° / {giornoPrevisto.tMax}°</div>
@@ -9835,7 +9817,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
             const tOra = hP != null ? (meteo?.orari || []).find((o) => o.data === dataPrevista && o.ora === hP)?.temperatura : null;
             const a = tOra != null ? avvisoBatterieTemperatura(tOra) : (avvisoBatterieTemperatura(giornoPrevisto.tMin) || avvisoBatterieTemperatura(giornoPrevisto.tMax));
             return a && (
-              <div style={{ marginTop: 8, background: "#161a1f", border: `1px solid ${a.colore}66`, borderRadius: 6, padding: "8px 12px", fontSize: 12.5, color: a.colore }}>
+              <div style={{ marginTop: 8, background: "#10141f", border: `1px solid ${a.colore}66`, borderRadius: 6, padding: "8px 12px", fontSize: 12.5, color: a.colore }}>
                 🔋 {a.testo}{tOra == null ? " (temperature del giorno: per un avviso preciso inserisci l'ora prevista)" : ""}
               </div>
             );
@@ -9865,7 +9847,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
             const hh = (n) => `${String(n).padStart(2, "0")}:00`;
             const riprese = ["video", "foto", "fpv"].includes(tipoIspezione);
             return (
-              <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 12 }}>
+              <div style={{ marginTop: 10, background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: 12 }}>
                 <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Ora per ora · soglia vento {limiteVento} km/h ({inMs(limiteVento)}) · 💨 vento e ↑ raffiche in {ventoInMsScelto() ? "m/s" : "km/h"} · ✨ = ora d'oro · tocca un'ora per sceglierla</p>
                 {finestre.length > 0 ? (
                   <div style={{ fontSize: 12.5, marginBottom: 8 }}>
@@ -9895,7 +9877,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
           {meteo && <VentoInQuota orari={meteo.orari} data={dataPrevista} ora={oraPrevista} limite={limiteVento} />}
 
           {luce && (
-            <div style={{ marginTop: 10, background: "#161a1f", border: "1px solid #f5b94255", borderRadius: 6, padding: 12 }}>
+            <div style={{ marginTop: 10, background: "#10141f", border: "1px solid #f5b94255", borderRadius: 6, padding: 12 }}>
               <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 6px 0" }}>Luce del {formatData(dataPrevista)} · orari del luogo del volo</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12.5 }}>
                 <div>🌅 Alba {oraLuce(luce.alba)}</div>
@@ -9907,9 +9889,9 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
               </div>
               {["video", "foto", "fpv"].includes(tipoIspezione) && meteo && <PrevisioneCielo orari={meteo.orari} data={dataPrevista} albaMin={minutiDelGiorno(luce.alba, meteo.fusoOrario)} tramontoMin={minutiDelGiorno(luce.tramonto, meteo.fusoOrario)} />}
               {sole && (
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid #262b33", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10, paddingTop: 10, borderTop: "1px solid #232b3f", flexWrap: "wrap" }}>
                   <svg width="54" height="54" viewBox="-30 -30 60 60" aria-hidden="true" style={{ flexShrink: 0 }}>
-                    <circle r="26" fill="none" stroke="#333a45" strokeWidth="1.5" />
+                    <circle r="26" fill="none" stroke="#343e57" strokeWidth="1.5" />
                     <text y="-17" textAnchor="middle" fontSize="8" fill="#8b95a3">N</text>
                     <g transform={`rotate(${sole.azimut})`}>
                       <line x1="0" y1="14" x2="0" y2="-16" stroke={sole.altezza > 0 ? "#f5b942" : "#5b6572"} strokeWidth="2.5" strokeLinecap="round" />
@@ -9940,7 +9922,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
           )}
 
           {kpPrevisto ? (
-            <div style={{ marginTop: 10, background: "#161a1f", border: `1px solid ${kpPrevisto.colore}55`, borderRadius: 6, padding: 12 }}>
+            <div style={{ marginTop: 10, background: "#10141f", border: `1px solid ${kpPrevisto.colore}55`, borderRadius: 6, padding: 12 }}>
               <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 4px 0" }}>Attività geomagnetica prevista per il {formatData(dataPrevista)}</p>
               <p style={{ fontSize: 12.5, color: kpPrevisto.colore, margin: 0, fontWeight: 600 }}>Kp {kpPrevisto.kpMax} — {kpPrevisto.testo}</p>
             </div>
@@ -9948,7 +9930,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
             <p style={{ fontSize: 11, color: "#6b7480", marginTop: 8 }}>Previsione geomagnetica affidabile solo fino a 3 giorni prima — per date più lontane, ricontrolla vicino al volo.</p>
           )}
 
-          <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
+          <div style={{ marginTop: 16, borderTop: "1px solid #232b3f", paddingTop: 14 }}>
             <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 8px 0" }}>Checklist pre-volo</p>
             {(checklistItems || []).map((voce, idx) => (
               <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -9961,12 +9943,12 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
             ))}
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <input type="text" placeholder="Aggiungi voce personalizzata..." value={nuovaVoceChecklist} onChange={(e) => setNuovaVoceChecklist(e.target.value)} onKeyDown={(e) => e.key === "Enter" && aggiungiVoceChecklist()} style={{ ...inputStyle, flex: 1, fontSize: 12.5, padding: "6px 10px" }} />
-              <button type="button" onClick={aggiungiVoceChecklist} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>+ Aggiungi</button>
+              <button type="button" onClick={aggiungiVoceChecklist} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>+ Aggiungi</button>
             </div>
           </div>
 
           {CHECKLIST_SPECIFICHE[tipoIspezione] && (
-            <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
+            <div style={{ marginTop: 16, borderTop: "1px solid #232b3f", paddingTop: 14 }}>
               <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 8px 0" }}>{CHECKLIST_SPECIFICHE[tipoIspezione].titolo}</p>
               {(CHECKLIST_SPECIFICHE[tipoIspezione].voci || CHECKLIST_FPV).map((voce, idx) => (
                 <label key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: checklistFpvSpuntati[idx] ? "#4ade80" : "#c3cad4", marginBottom: 6, cursor: "pointer" }}>
@@ -9977,7 +9959,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
             </div>
           )}
 
-          <div style={{ marginTop: 16, borderTop: "1px solid #262b33", paddingTop: 14 }}>
+          <div style={{ marginTop: 16, borderTop: "1px solid #232b3f", paddingTop: 14 }}>
             <p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 4px 0" }}>🚔 In caso di controllo</p>
             <p style={{ fontSize: 11, color: "#6b7480", margin: "0 0 10px 0" }}>Riepilogo dei documenti da mostrare a chi ti ferma.</p>
 
@@ -10012,11 +9994,11 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
               <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight per questa missione (facoltativo)</label>
               {dflightShot ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
-                  <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+                  <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #343e57" }} />
+                  <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
                 </div>
               ) : (
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #343e57", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
                   <Upload size={13} /> Carica screenshot
                   <input type="file" accept="image/*" onChange={caricaDflightShot} style={{ display: "none" }} />
                 </label>
@@ -10024,10 +10006,10 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-              <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
+              <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
                 📱 Mostra a schermo pieno
               </button>
-              <button type="button" onClick={scaricaPdfControllo} disabled={generandoPdfControllo} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 14px", borderRadius: 6, fontSize: 12.5 }}>
+              <button type="button" onClick={scaricaPdfControllo} disabled={generandoPdfControllo} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "9px 14px", borderRadius: 6, fontSize: 12.5 }}>
                 <FileDown size={13} /> {generandoPdfControllo ? "Preparazione..." : "Scarica PDF"}
               </button>
             </div>
@@ -10048,7 +10030,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
               {salvandoPiano ? "Salvataggio..." : editingId ? "💾 Aggiorna piano di volo" : "💾 Salva questo piano di volo"}
             </button>
             {editingId && (
-              <button type="button" onClick={annullaModifica} style={{ background: "transparent", border: "1px solid #333a45", color: "#8b95a3", padding: "10px 16px", borderRadius: 6, fontSize: 13.5 }}>
+              <button type="button" onClick={annullaModifica} style={{ background: "transparent", border: "1px solid #343e57", color: "#8b95a3", padding: "10px 16px", borderRadius: 6, fontSize: 13.5 }}>
                 Annulla
               </button>
             )}
@@ -10072,7 +10054,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
           <h3 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 10px 0" }}>Piani di volo salvati</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {pianiSalvati.map((p) => (
-              <div key={p.id} style={{ background: "#1b2028", border: editingId === p.id ? "1px solid #ff8c42" : "1px solid #262b33", borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <div key={p.id} style={{ background: "#151b2b", border: editingId === p.id ? "1px solid #ff8c42" : "1px solid #232b3f", borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.impianto_nome} {editingId === p.id && <span style={{ color: "#ff8c42", fontWeight: 400, fontSize: 11.5 }}>— in modifica</span>}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3" }}>{formatData(p.data_prevista)}{p.ora_prevista ? ` · ore ${String(p.ora_prevista).slice(0, 5)}` : ""} · {ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione}</div>
@@ -10099,8 +10081,8 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
                     tipo_attivita: MAPPA_TIPO_PIANO_A_REGISTRO[p.tipo_ispezione] || "altro",
                   })} style={{ background: "#241d16", border: "1px solid #ff8c42", color: "#ffb877", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, fontWeight: 600 }}>📷 Aggiungi foto/video</button>
                   <PulsantiNavigatore piano={p} />
-                  <button onClick={() => apriPiano(p)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Apri / Modifica</button>
-                  <button onClick={() => eliminaPiano(p.id)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
+                  <button onClick={() => apriPiano(p)} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Apri / Modifica</button>
+                  <button onClick={() => eliminaPiano(p.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
                 </div>
               </div>
             ))}
@@ -10111,8 +10093,8 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
       {mostraSchermoControllo && (() => {
         const assicurazione = attestatiUtente.find((a) => a.tipo.toLowerCase().includes("assicura"));
         return (
-          <div style={{ position: "fixed", inset: 0, background: "#fff", color: "#161a1f", zIndex: 1000, overflow: "auto", padding: "20px 18px" }}>
-            <button onClick={() => setMostraSchermoControllo(false)} style={{ position: "sticky", top: 0, float: "right", background: "#161a1f", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>
+          <div style={{ position: "fixed", inset: 0, background: "#fff", color: "#10141f", zIndex: 1000, overflow: "auto", padding: "20px 18px" }}>
+            <button onClick={() => setMostraSchermoControllo(false)} style={{ position: "sticky", top: 0, float: "right", background: "#10141f", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>
               Chiudi ✕
             </button>
             <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px 0" }}>Documenti pilota</h1>
@@ -10331,7 +10313,7 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
         {pianiOrdinati.length === 0 && <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0" }}>Crea un piano in «Pianifica»: qui ritrovi luogo, drone, screenshot D-Flight e zona di volo, pronti da mostrare.</p>}
       </div>
 
-      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 560 }}>
+      <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 560 }}>
         <div style={{ marginBottom: 10 }}>
           <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Drone che stai usando</label>
           <select value={droneSelId} onChange={(e) => setDroneSelId(e.target.value)} style={{ ...inputStyle, fontSize: 12.5 }}>
@@ -10396,18 +10378,18 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
           <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight {pianoSel ? "del piano di volo" : impiantoSel ? "di questo impianto" : "di oggi"} (facoltativo)</label>
           {dflightShot ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
-              <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
+              <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #343e57" }} />
+              <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "4px 9px", fontSize: 11 }}>Rimuovi</button>
             </div>
           ) : screenshotAutomatico ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <LinkFile url={screenshotAutomatico}>
-                <ImmagineFile src={screenshotAutomatico} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #333a45" }} />
+                <ImmagineFile src={screenshotAutomatico} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #343e57" }} />
               </LinkFile>
               <span style={{ fontSize: 10.5, color: "#6b7480" }}>recuperato automaticamente da un permesso/piano di volo</span>
             </div>
           ) : (
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #343e57", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
               <Upload size={13} /> Carica screenshot
               <input type="file" accept="image/*" onChange={caricaDflightShot} style={{ display: "none" }} />
             </label>
@@ -10419,20 +10401,20 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
             <strong>Volumi {stsPiano.scenario || "STS-01"}:</strong> area di volo {stsPiano.raggio} m · contingenza +{stsPiano.contingenza} m{stsPiano.buffer != null ? ` · buffer +${stsPiano.buffer} m (raggio totale ${stsPiano.raggioTotale} m)` : ""} · altezza max {stsPiano.altezza} m
             {stsPiano.immagine_url && (
               <LinkFile url={stsPiano.immagine_url} style={{ display: "block", marginTop: 6 }}>
-                <ImmagineFile src={stsPiano.immagine_url} alt="Aree STS" style={{ width: 160, borderRadius: 6, border: "1px solid #333a45", display: "block" }} />
+                <ImmagineFile src={stsPiano.immagine_url} alt="Aree STS" style={{ width: 160, borderRadius: 6, border: "1px solid #343e57", display: "block" }} />
               </LinkFile>
             )}
           </div>
         )}
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
-          <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
+          <button type="button" onClick={() => setMostraSchermoControllo(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "9px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 600 }}>
             📱 Mostra a schermo pieno
           </button>
-          <button type="button" onClick={scaricaPdfControllo} disabled={generandoPdfControllo} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 14px", borderRadius: 6, fontSize: 12.5 }}>
+          <button type="button" onClick={scaricaPdfControllo} disabled={generandoPdfControllo} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "9px 14px", borderRadius: 6, fontSize: 12.5 }}>
             <FileDown size={13} /> {generandoPdfControllo ? "Preparazione..." : "Scarica PDF"}
           </button>
-          <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "9px 14px", fontSize: 12.5, textDecoration: "none" }}>
+          <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "9px 14px", fontSize: 12.5, textDecoration: "none" }}>
             🗺️ Apri D-Flight
           </a>
         </div>
@@ -10443,7 +10425,7 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
         )}
       </div>
 
-      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 18, maxWidth: 560, marginTop: 16 }}>
+      <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 18, maxWidth: 560, marginTop: 16 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700 }}>📁 Fascicolo del volo<EtichettaPro /></div>
         <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "4px 0 10px 0" }}>Ti chiedono informazioni su un volo passato (forze dell'ordine, ENAC, assicurazione, un cliente)? Scegli il giorno: trovi i voli del Registro e scarichi il PDF con tutto quello che riguarda quel volo.</p>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -10453,7 +10435,7 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
         {giornoVoli && voliMostrati.length === 0 && <p style={{ fontSize: 12, color: "#6b7480", margin: "8px 0 0 0" }}>Nessun volo nel Registro il {formatData(giornoVoli)}{pianoSel && !dataCercata ? ": dopo il volo registralo (anche da «Registra il volo» nella Home), così il fascicolo si collega al piano." : "."}</p>}
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
           {voliMostrati.map((v) => (
-            <button key={v.id} type="button" disabled={!pro || aprendoFascicolo === v.id} onClick={async () => { setAprendoFascicolo(v.id); await apriFascicoloVolo(v, { azienda }); setAprendoFascicolo(null); }} style={{ textAlign: "left", background: "#1f2530", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 }}>
+            <button key={v.id} type="button" disabled={!pro || aprendoFascicolo === v.id} onClick={async () => { setAprendoFascicolo(v.id); await apriFascicoloVolo(v, { azienda }); setAprendoFascicolo(null); }} style={{ textAlign: "left", background: "#1a2133", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "8px 12px", fontSize: 12.5, fontWeight: 600 }}>
               {aprendoFascicolo === v.id ? "Preparo il fascicolo…" : `📁 ${formatData(v.data)}${v.ora ? ` · ${String(v.ora).slice(0, 5)}` : ""} · ${v.luogo || "volo"}${v.drone_nome ? ` · ${v.drone_nome}` : ""}`}
             </button>
           ))}
@@ -10462,8 +10444,8 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
       </div>
 
       {mostraSchermoControllo && (
-        <div style={{ position: "fixed", inset: 0, background: "#fff", color: "#161a1f", zIndex: 1000, overflow: "auto", padding: "20px 18px" }}>
-          <button onClick={() => setMostraSchermoControllo(false)} style={{ position: "sticky", top: 0, float: "right", background: "#161a1f", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>
+        <div style={{ position: "fixed", inset: 0, background: "#fff", color: "#10141f", zIndex: 1000, overflow: "auto", padding: "20px 18px" }}>
+          <button onClick={() => setMostraSchermoControllo(false)} style={{ position: "sticky", top: 0, float: "right", background: "#10141f", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>
             Chiudi ✕
           </button>
           <h1 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 4px 0" }}>Documenti pilota</h1>
@@ -11610,7 +11592,7 @@ function PaginaPilotaPubblica({ slug }) {
   }, [lightbox]);
 
   const pagina = { minHeight: "100vh", color: "#e7eaee", fontFamily: "'IBM Plex Sans', sans-serif", padding: "24px 16px 40px 16px" };
-  const scheda = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: 18 };
+  const scheda = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: 18 };
   const titoletto = { fontSize: 12, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#8b95a3", margin: "0 0 10px 0" };
   const linkIscrizione = "https://app.eyedrones.it/?ref=pagina-pilota";
 
@@ -11663,8 +11645,8 @@ function PaginaPilotaPubblica({ slug }) {
   };
 
   const etichetta = { fontSize: 11.5, color: "#8b95a3", display: "block", marginBottom: 4 };
-  const bottonePrincipale = { background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "11px 16px", fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 };
-  const bottoneSecondario = { background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "10px 14px", fontWeight: 600, fontSize: 13.5, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 };
+  const bottonePrincipale = { background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 8, padding: "11px 16px", fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 };
+  const bottoneSecondario = { background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 8, padding: "10px 14px", fontWeight: 600, fontSize: 13.5, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 };
 
   return (
     <div style={pagina}>
@@ -11672,8 +11654,8 @@ function PaginaPilotaPubblica({ slug }) {
         <header style={{ ...scheda, display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {logo
-              ? <img src={logo} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "contain", background: "#12151a", border: "1px solid #2b313d", flexShrink: 0 }} />
-              : <div aria-hidden="true" style={{ width: 68, height: 68, borderRadius: 14, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 24, color: "#161a1f", flexShrink: 0 }}>{iniziali}</div>}
+              ? <img src={logo} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "contain", background: "#0d111c", border: "1px solid #2a3349", flexShrink: 0 }} />
+              : <div aria-hidden="true" style={{ width: 68, height: 68, borderRadius: 14, background: "linear-gradient(135deg, #7e3af2, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 24, color: "#10141f", flexShrink: 0 }}>{iniziali}</div>}
             <div style={{ minWidth: 0 }}>
               <h1 style={{ fontSize: 22, margin: 0, lineHeight: 1.2, overflowWrap: "anywhere" }}>{dati.nome || "Pilota di droni"}</h1>
               <div style={{ fontSize: 13.5, color: "#aab3bf", marginTop: 4 }}>
@@ -11685,7 +11667,7 @@ function PaginaPilotaPubblica({ slug }) {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {dati.codice_operatore && <span style={{ fontSize: 12, background: "#16263d", border: "1px solid #24456e", color: "#9cc4ff", borderRadius: 20, padding: "3px 10px" }}>✓ Operatore registrato</span>}
               {dati.assicurato && <span style={{ fontSize: 12, background: "#1d3a2a", border: "1px solid #2c5a3f", color: "#86efac", borderRadius: 20, padding: "3px 10px" }}>✓ Assicurazione RC</span>}
-              {abilitazioni.slice(0, 3).map((a) => <span key={a} style={{ fontSize: 12, background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 20, padding: "3px 10px" }}>{a}</span>)}
+              {abilitazioni.slice(0, 3).map((a) => <span key={a} style={{ fontSize: 12, background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 20, padding: "3px 10px" }}>{a}</span>)}
             </div>
           )}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -11716,7 +11698,7 @@ function PaginaPilotaPubblica({ slug }) {
             <h2 style={titoletto}>Lavori</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
               {portfolio.map((m, i) => (
-                <button key={m.url + i} onClick={() => setLightbox(m)} aria-label={`Apri ${m.nome || "lavoro " + (i + 1)}`} style={{ padding: 0, border: "1px solid #2b313d", borderRadius: 8, overflow: "hidden", background: "#12151a", aspectRatio: "4 / 3", position: "relative" }}>
+                <button key={m.url + i} onClick={() => setLightbox(m)} aria-label={`Apri ${m.nome || "lavoro " + (i + 1)}`} style={{ padding: 0, border: "1px solid #2a3349", borderRadius: 8, overflow: "hidden", background: "#0d111c", aspectRatio: "4 / 3", position: "relative" }}>
                   {m.tipo === "video"
                     ? <><video src={m.url} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /><span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, color: "#fff", textShadow: "0 1px 6px #000" }}>▶</span></>
                     : <img src={m.url} alt={m.nome || ""} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
@@ -11805,7 +11787,7 @@ function PaginaPilotaPubblica({ slug }) {
 
       {lightbox && (
         <div role="dialog" aria-modal="true" onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 1000 }}>
-          <button onClick={() => setLightbox(null)} aria-label="Chiudi" style={{ position: "absolute", top: 14, right: 14, background: "#262b33", border: "none", color: "#fff", borderRadius: 20, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}><X size={18} /></button>
+          <button onClick={() => setLightbox(null)} aria-label="Chiudi" style={{ position: "absolute", top: 14, right: 14, background: "#232b3f", border: "none", color: "#fff", borderRadius: 20, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}><X size={18} /></button>
           {lightbox.tipo === "video"
             ? <video src={lightbox.url} controls autoPlay playsInline onClick={(e) => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 8 }} />
             : <img src={lightbox.url} alt={lightbox.nome || ""} onClick={(e) => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 8, objectFit: "contain" }} />}
@@ -12034,8 +12016,8 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   const finiti = lavori.filter((l) => l.mia && ["non_scelta", "decaduta", "rinunciata"].includes(l.mia.stato) || (l.mia?.stato === "inviata" && l.stato !== "aperta"));
   const dataBreve = (d) => new Date(d + (String(d).length === 10 ? "T12:00:00" : "")).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
   const riga = (l) => [l.servizio || "Richiesta", l.luogo, l.data_desiderata ? `per il ${dataBreve(l.data_desiderata)}` : null].filter(Boolean).join(" · ");
-  const st = { scheda: { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 12, marginTop: 8 } };
-  const chip = (on) => ({ background: on ? "#ff8c4222" : "#262b33", border: `1px solid ${on ? "#ff8c42" : "#333a45"}`, color: on ? "#ffb877" : "#c3cad4" });
+  const st = { scheda: { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 12, marginTop: 8 } };
+  const chip = (on) => ({ background: on ? "#ff8c4222" : "#232b3f", border: `1px solid ${on ? "#ff8c42" : "#343e57"}`, color: on ? "#ffb877" : "#c3cad4" });
   // dov'è il lavoro e cosa dice il file zone D-Flight del pilota (il controllo si fa sul telefono, con i suoi dati)
   const apriPermessi = (l) => {
     try { sessionStorage.setItem("eyedrones_permessi_punto", JSON.stringify({ lat: Number(l.lat), lon: Number(l.lon), etichetta: l.luogo || "Luogo del lavoro", quando: Date.now() })); sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ }
@@ -12150,7 +12132,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
               <div style={{ flex: "1 1 200px", fontSize: 13 }}><span style={{ color: "#e7eaee", fontWeight: 600 }}>{x.testo}</span><div style={{ fontSize: 12, color: "#8b95a3" }}>{x.perche}</div></div>
               {x.file
                 ? <label style={{ background: "#1f2a3a", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "6px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>{leggoFile ? "Leggo il file…" : "📂 Carica il file"}<input type="file" onChange={caricaZone} disabled={leggoFile} style={{ display: "none" }} /></label>
-                : x.azione && <button type="button" onClick={x.azione} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>{x.bottone}</button>}
+                : x.azione && <button type="button" onClick={x.azione} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>{x.bottone}</button>}
             </div>
           ))}
           {erroreFile && <div style={{ color: "#ff9c9c", fontSize: 12.5, marginTop: 6 }}>{erroreFile}</div>}
@@ -12169,14 +12151,14 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
             {testaLavoro(l)}
             <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 10 }}>Conferma{scade ? ` entro ${scade.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })} alle ${scade.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : " entro 48 ore"}: subito dopo vedi nome, telefono ed email del cliente.</div>
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>
-              <button type="button" disabled={lavoro === l.id} onClick={() => conferma(l)} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 800 }}>
+              <button type="button" disabled={lavoro === l.id} onClick={() => conferma(l)} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 800 }}>
                 {lavoro === l.id ? "Un attimo…" : comm > 0 ? `Conferma e paga ${euroIt(comm)}` : "Conferma il lavoro"}
               </button>
               {rinuncia?.id !== l.id && <button type="button" onClick={() => setRinuncia({ id: l.id, motivo: "", altro: "" })} style={{ background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>Non posso farlo</button>}
             </div>
             {comm > 0 && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 6 }}>Commissione di EyeDrones: la paghi solo per i lavori che ottieni.</div>}
             {rinuncia?.id === l.id && (
-              <div style={{ marginTop: 10, background: "#1b2028", border: "1px solid #333a45", borderRadius: 8, padding: 10 }}>
+              <div style={{ marginTop: 10, background: "#151b2b", border: "1px solid #343e57", borderRadius: 8, padding: 10 }}>
                 <div style={{ fontSize: 12.5, color: "#c3cad4", marginBottom: 6 }}>Perché? Lo leggerà il cliente. Nessuna penalità: è giusto dirlo subito.</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {["Zona vietata o permesso non ottenibile in tempo", "Serve una categoria o un attestato che non ho", "Non sono più libero quel giorno"].map((m) => (
@@ -12185,7 +12167,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                 </div>
                 <input value={rinuncia.altro} onChange={(e) => setRinuncia({ ...rinuncia, altro: e.target.value })} maxLength={200} placeholder="Altro o dettagli (facoltativo)" style={{ ...inputStyle, marginTop: 8 }} />
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <button type="button" disabled={lavoro === l.id} onClick={() => rinuncia_(l)} style={{ background: "#262b33", border: "1px solid #ff9c9c66", color: "#ffb4b4", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>{lavoro === l.id ? "Un attimo…" : "Avvisa il cliente"}</button>
+                  <button type="button" disabled={lavoro === l.id} onClick={() => rinuncia_(l)} style={{ background: "#232b3f", border: "1px solid #ff9c9c66", color: "#ffb4b4", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>{lavoro === l.id ? "Un attimo…" : "Avvisa il cliente"}</button>
                   <button type="button" onClick={() => setRinuncia(null)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5 }}>Annulla</button>
                 </div>
               </div>
@@ -12209,10 +12191,10 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
           )}
           {!l.mia.consegna && consegna?.id !== l.id && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 6 }}>Quando hai finito, consegna qui foto, video o report: il cliente riceve un'email e li ritrova sempre in «I miei lavori». Poi gli chiediamo le stelle.</div>}
           {consegna?.id !== l.id && (
-            <button type="button" onClick={() => apriConsegna(l)} style={{ marginTop: 10, background: l.mia.consegna ? "#262b33" : "linear-gradient(90deg, #e0552f, #ff8c42)", color: l.mia.consegna ? "#e7eaee" : "#161a1f", border: l.mia.consegna ? "1px solid #333a45" : "none", borderRadius: 8, padding: "9px 14px", fontSize: 13.5, fontWeight: 800 }}>{l.mia.consegna ? "Cambia il link" : "📦 Consegna il lavoro"}</button>
+            <button type="button" onClick={() => apriConsegna(l)} style={{ marginTop: 10, background: l.mia.consegna ? "#232b3f" : "linear-gradient(90deg, #e0552f, #ff8c42)", color: l.mia.consegna ? "#e7eaee" : "#10141f", border: l.mia.consegna ? "1px solid #343e57" : "none", borderRadius: 8, padding: "9px 14px", fontSize: 13.5, fontWeight: 800 }}>{l.mia.consegna ? "Cambia il link" : "📦 Consegna il lavoro"}</button>
           )}
           {consegna?.id === l.id && (
-            <div style={{ marginTop: 10, background: "#141820", border: "1px solid #333a45", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ marginTop: 10, background: "#141820", border: "1px solid #343e57", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
               {gallerie && gallerie.length > 0 && (
                 <div>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 6 }}>Le tue gallerie per il cliente: tocca quella giusta</div>
@@ -12225,7 +12207,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
               <input value={consegna.link} onChange={(e) => setConsegna({ ...consegna, link: e.target.value })} placeholder="https://… (galleria, Google Drive, WeTransfer o report)" inputMode="url" style={inputStyle} />
               <textarea rows={2} maxLength={500} value={consegna.nota} onChange={(e) => setConsegna({ ...consegna, nota: e.target.value })} placeholder="Due righe per il cliente (facoltativo): es. «Ecco il video e le foto, grazie!»" style={{ ...inputStyle, resize: "vertical" }} />
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" disabled={lavoro === l.id} onClick={() => consegna_(l)} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 800 }}>{lavoro === l.id ? "Un attimo…" : l.mia.consegna ? "Salva" : "Consegna al cliente"}</button>
+                <button type="button" disabled={lavoro === l.id} onClick={() => consegna_(l)} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 800 }}>{lavoro === l.id ? "Un attimo…" : l.mia.consegna ? "Salva" : "Consegna al cliente"}</button>
                 <button type="button" onClick={() => setConsegna(null)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5 }}>Annulla</button>
               </div>
             </div>
@@ -12248,7 +12230,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
             {l.mia && !modulo && <div style={{ fontSize: 12.5, color: "#86efac", marginTop: 10 }}>✓ Hai offerto {euroIt(l.mia.prezzo)}: il cliente sta guardando le offerte. <button type="button" onClick={() => setAperto(l.id)} style={{ background: "none", border: "none", color: "#7fb0ff", padding: 0, fontSize: 12.5, textDecoration: "underline" }}>Cambia</button></div>}
             {!l.mia && !modulo && <button type="button" onClick={() => setAperto(l.id)} style={{ marginTop: 12, background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13.5, fontWeight: 700 }}>Manda la tua offerta</button>}
             {modulo && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12, paddingTop: 12, borderTop: "1px solid #2b313d" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12, paddingTop: 12, borderTop: "1px solid #2a3349" }}>
                 <div style={{ fontSize: 13, color: "#e7eaee", fontWeight: 700 }}>La tua offerta</div>
                 <div style={{ fontSize: 12, color: "#8b95a3", marginTop: -6 }}>1 · Cosa comprende (il cliente lo vede per primo)</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, alignItems: "end" }}>
@@ -12276,7 +12258,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                 <div style={{ fontSize: 11.5, color: "#6b7480" }}>Il cliente vede il tuo nome abbreviato e le foto della tua pagina, non attestati né contatti: numeri ed email nel messaggio vengono nascosti finché non ti sceglie.</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button type="button" disabled={lavoro === l.id} onClick={() => inviaOfferta(l)} style={{ background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13.5, fontWeight: 700 }}>{lavoro === l.id ? "Invio…" : l.mia ? "Aggiorna l'offerta" : "Invia l'offerta"}</button>
-                  <button type="button" onClick={() => setAperto(null)} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "9px 12px", fontSize: 13 }}>Annulla</button>
+                  <button type="button" onClick={() => setAperto(null)} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 8, padding: "9px 12px", fontSize: 13 }}>Annulla</button>
                 </div>
               </div>
             )}
@@ -12481,10 +12463,10 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
     setAbilitazioneLibera("");
   };
 
-  const sezione = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 18, display: "flex", flexDirection: "column", gap: 12 };
+  const sezione = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 18, display: "flex", flexDirection: "column", gap: 12 };
   const titoloSezione = { fontSize: 14, fontWeight: 700, margin: 0 };
   const etichetta = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
-  const chip = (on) => ({ background: on ? "#ff8c4222" : "#262b33", border: `1px solid ${on ? "#ff8c42" : "#333a45"}`, color: on ? "#ffb877" : "#c3cad4", borderRadius: 20, padding: "5px 12px", fontSize: 12.5 });
+  const chip = (on) => ({ background: on ? "#ff8c4222" : "#232b3f", border: `1px solid ${on ? "#ff8c42" : "#343e57"}`, color: on ? "#ffb877" : "#c3cad4", borderRadius: 20, padding: "5px 12px", fontSize: 12.5 });
   const nuoveRichieste = richieste.filter((r) => r.stato === "nuova").length;
   const richiesteAperte = richieste.filter((r) => r.stato !== "archiviata");
   const richiesteArchiviate = richieste.filter((r) => r.stato === "archiviata");
@@ -12505,9 +12487,9 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
     const wa = numeroWhatsapp(r.telefono);
     const evidenziata = nuoveAllApertura.includes(r.id);
     return (
-      <div key={r.id} style={{ background: "#1b2028", border: `1px solid ${evidenziata ? "#ff8c4288" : "#2b313d"}`, borderRadius: 10, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div key={r.id} style={{ background: "#151b2b", border: `1px solid ${evidenziata ? "#ff8c4288" : "#2a3349"}`, borderRadius: 10, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{r.nome}{evidenziata && <span style={{ fontSize: 10.5, fontWeight: 700, background: "#ff8c42", color: "#161a1f", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle" }}>NUOVA</span>}</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{r.nome}{evidenziata && <span style={{ fontSize: 10.5, fontWeight: 700, background: "#ff8c42", color: "#10141f", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle" }}>NUOVA</span>}</div>
           <div style={{ fontSize: 12, color: "#8b95a3" }}>{new Date(r.created_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
         </div>
         <div style={{ fontSize: 13, color: "#c3cad4", display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
@@ -12518,15 +12500,15 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
         </div>
         {r.descrizione && <div style={{ fontSize: 13.5, color: "#d5dae1", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{r.descrizione}</div>}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2 }}>
-          {r.stato !== "archiviata" && <button onClick={() => onCreaPreventivo(r)} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "7px 12px", fontWeight: 700, fontSize: 12.5 }}>Crea preventivo{piano !== "pro" ? " 🔒" : ""}</button>}
-          {wa && <a href={`https://wa.me/${wa}?text=${encodeURIComponent(`Ciao ${r.nome}, ti scrivo per la tua richiesta${r.servizio ? ` di ${r.servizio.toLowerCase()}` : ""}.`)}`} target="_blank" rel="noopener noreferrer" style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 11px", fontSize: 12.5, textDecoration: "none" }}>💬 WhatsApp</a>}
-          {r.telefono && <a href={`tel:${String(r.telefono).replace(/[^\d+]/g, "")}`} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 11px", fontSize: 12.5, textDecoration: "none" }}>📞 {r.telefono}</a>}
-          {r.email && <a href={`mailto:${r.email}?subject=${encodeURIComponent("Il tuo preventivo" + (r.servizio ? ` — ${r.servizio}` : ""))}`} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 11px", fontSize: 12.5, textDecoration: "none" }}>✉️ {r.email}</a>}
+          {r.stato !== "archiviata" && <button onClick={() => onCreaPreventivo(r)} style={{ background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "7px 12px", fontWeight: 700, fontSize: 12.5 }}>Crea preventivo{piano !== "pro" ? " 🔒" : ""}</button>}
+          {wa && <a href={`https://wa.me/${wa}?text=${encodeURIComponent(`Ciao ${r.nome}, ti scrivo per la tua richiesta${r.servizio ? ` di ${r.servizio.toLowerCase()}` : ""}.`)}`} target="_blank" rel="noopener noreferrer" style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "6px 11px", fontSize: 12.5, textDecoration: "none" }}>💬 WhatsApp</a>}
+          {r.telefono && <a href={`tel:${String(r.telefono).replace(/[^\d+]/g, "")}`} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "6px 11px", fontSize: 12.5, textDecoration: "none" }}>📞 {r.telefono}</a>}
+          {r.email && <a href={`mailto:${r.email}?subject=${encodeURIComponent("Il tuo preventivo" + (r.servizio ? ` — ${r.servizio}` : ""))}`} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "6px 11px", fontSize: 12.5, textDecoration: "none" }}>✉️ {r.email}</a>}
           <span style={{ flex: 1 }} />
           {r.stato === "archiviata"
-            ? <button onClick={() => aggiornaRichiesta(r, "letta")} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "6px 11px", fontSize: 12 }}>Ripristina</button>
-            : <button onClick={() => aggiornaRichiesta(r, "archiviata")} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "6px 11px", fontSize: 12 }}>Archivia</button>}
-          <button onClick={() => eliminaRichiesta(r)} aria-label={`Elimina la richiesta di ${r.nome}`} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 6, padding: "6px 9px", fontSize: 12 }}><X size={13} /></button>
+            ? <button onClick={() => aggiornaRichiesta(r, "letta")} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 11px", fontSize: 12 }}>Ripristina</button>
+            : <button onClick={() => aggiornaRichiesta(r, "archiviata")} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 11px", fontSize: 12 }}>Archivia</button>}
+          <button onClick={() => eliminaRichiesta(r)} aria-label={`Elimina la richiesta di ${r.nome}`} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 9px", fontSize: 12 }}><X size={13} /></button>
         </div>
       </div>
     );
@@ -12573,14 +12555,14 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
       {scheda === "pagina" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {/* stato e link */}
-          <div style={{ ...sezione, borderColor: salvata?.attiva ? "#2c5a3f" : "#2b313d" }}>
+          <div style={{ ...sezione, borderColor: salvata?.attiva ? "#2c5a3f" : "#2a3349" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 10, background: salvata?.attiva ? "#1d3a2a" : "#262b33", color: salvata?.attiva ? "#4ade80" : "#8b95a3" }}>{salvata?.attiva ? "● ONLINE" : "○ NON PUBBLICATA"}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 10, background: salvata?.attiva ? "#1d3a2a" : "#232b3f", color: salvata?.attiva ? "#4ade80" : "#8b95a3" }}>{salvata?.attiva ? "● ONLINE" : "○ NON PUBBLICATA"}</span>
               {salvata?.attiva && <span style={{ fontSize: 12, color: "#8b95a3" }}>{salvata.visite || 0} {salvata.visite === 1 ? "visita" : "visite"} · {richieste.length} {richieste.length === 1 ? "richiesta" : "richieste"}</span>}
             </div>
             <label>
               <span style={etichetta}>Indirizzo della pagina</span>
-              <div style={{ display: "flex", alignItems: "center", background: "#161a1f", border: "1px solid #333a45", borderRadius: 8, overflow: "hidden", ...bordoErrore("slug") }}>
+              <div style={{ display: "flex", alignItems: "center", background: "#10141f", border: "1px solid #343e57", borderRadius: 8, overflow: "hidden", ...bordoErrore("slug") }}>
                 <span className="mono" style={{ fontSize: 12.5, color: "#6b7480", padding: "0 0 0 12px", whiteSpace: "nowrap" }}>{window.location.host}/p/</span>
                 <input ref={campi.slug} value={f.slug} onChange={(e) => { setF({ ...f, slug: pulisciSlugMentreScrivi(e.target.value) }); setSlugAutomatico(false); setSalvataggio(null); if (campoDaSistemare === "slug") setCampoDaSistemare(null); }} placeholder="il-tuo-nome" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="mono" style={{ ...inputStyle, border: "none", background: "transparent", paddingLeft: 2 }} />
               </div>
@@ -12590,9 +12572,9 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
             </label>
             {salvata?.attiva && (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <a href={link} target="_blank" rel="noopener noreferrer" style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, textDecoration: "none" }}>Apri la pagina ↗</a>
-                <button onClick={copia} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "7px 12px", fontSize: 12.5 }}>{copiato ? "✓ Copiato" : "Copia il link"}</button>
-                {typeof navigator !== "undefined" && navigator.share && <button onClick={condividi} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "7px 12px", fontSize: 12.5 }}>Condividi</button>}
+                <a href={link} target="_blank" rel="noopener noreferrer" style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, textDecoration: "none" }}>Apri la pagina ↗</a>
+                <button onClick={copia} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "7px 12px", fontSize: 12.5 }}>{copiato ? "✓ Copiato" : "Copia il link"}</button>
+                {typeof navigator !== "undefined" && navigator.share && <button onClick={condividi} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "7px 12px", fontSize: 12.5 }}>Condividi</button>}
               </div>
             )}
           </div>
@@ -12601,7 +12583,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
           <div style={sezione}>
             <h2 style={titoloSezione}>Chi sei</h2>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <img src={azienda.logo} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: "contain", background: "#12151a", border: "1px solid #2b313d" }} />
+              <img src={azienda.logo} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: "contain", background: "#0d111c", border: "1px solid #2a3349" }} />
               <span style={{ fontSize: 12, color: "#8b95a3" }}>Il logo è quello di <strong>Impostazioni azienda</strong>, lo stesso dei report e dei preventivi.</span>
             </div>
             <label><span style={etichetta}>Nome sulla pagina</span><input ref={campi.nome} value={f.nome} onChange={cambia("nome")} maxLength={80} placeholder={azienda.nomeImpostato ? azienda.nome : "es. Marco Rossi Riprese Aeree"} style={{ ...inputStyle, ...bordoErrore("nome") }} />{avvisoCampo("nome", "Scrivi il nome da mostrare ai clienti: da qui nasce anche il tuo link.")}</label>
@@ -12639,12 +12621,12 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
                   {media.map((m) => {
                     const pos = f.portfolio.findIndex((p) => p.url === m.url);
                     return (
-                      <button key={m.id} type="button" aria-pressed={pos >= 0} onClick={() => alternaPortfolio(m)} title={m.nome || ""} style={{ position: "relative", padding: 0, aspectRatio: "1 / 1", borderRadius: 6, overflow: "hidden", border: pos >= 0 ? "2px solid #ff8c42" : "1px solid #2b313d", background: "#12151a", opacity: pos < 0 && f.portfolio.length >= limitePortfolio ? 0.4 : 1 }}>
+                      <button key={m.id} type="button" aria-pressed={pos >= 0} onClick={() => alternaPortfolio(m)} title={m.nome || ""} style={{ position: "relative", padding: 0, aspectRatio: "1 / 1", borderRadius: 6, overflow: "hidden", border: pos >= 0 ? "2px solid #ff8c42" : "1px solid #2a3349", background: "#0d111c", opacity: pos < 0 && f.portfolio.length >= limitePortfolio ? 0.4 : 1 }}>
                         {m.tipo === "video"
                           ? <video src={m.url} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                           : <img src={m.url} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
                         {m.tipo === "video" && <span style={{ position: "absolute", left: 4, bottom: 3, fontSize: 11, color: "#fff", textShadow: "0 1px 3px #000" }}>▶</span>}
-                        {pos >= 0 && <span style={{ position: "absolute", top: 4, right: 4, background: "#ff8c42", color: "#161a1f", borderRadius: 10, minWidth: 20, height: 20, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{pos + 1}</span>}
+                        {pos >= 0 && <span style={{ position: "absolute", top: 4, right: 4, background: "#ff8c42", color: "#10141f", borderRadius: 10, minWidth: 20, height: 20, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{pos + 1}</span>}
                       </button>
                     );
                   })}
@@ -12670,7 +12652,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
             )}
             <div style={{ display: "flex", gap: 6 }}>
               <input value={abilitazioneLibera} onChange={(e) => setAbilitazioneLibera(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aggiungiAbilitazioneLibera(); } }} maxLength={80} placeholder="Aggiungi altro (es. Corso fotogrammetria)" style={inputStyle} />
-              <button type="button" onClick={aggiungiAbilitazioneLibera} disabled={!abilitazioneLibera.trim()} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "0 12px", fontSize: 13 }}>Aggiungi</button>
+              <button type="button" onClick={aggiungiAbilitazioneLibera} disabled={!abilitazioneLibera.trim()} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "0 12px", fontSize: 13 }}>Aggiungi</button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, alignItems: "end" }}>
               <label><span style={etichetta}>Codice operatore D-Flight (facoltativo)</span><input value={f.codice_operatore} onChange={cambia("codice_operatore")} maxLength={20} placeholder="ITAxxxxxxxxxxxx" className="mono" style={inputStyle} /></label>
@@ -12708,13 +12690,13 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "4px 0 12px 0" }}>
             {salvata?.attiva ? (
               <>
-                <button onClick={() => salva(true)} disabled={salvataggio === "salvo"} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 700, fontSize: 13.5 }}>{salvataggio === "salvo" ? "Salvo…" : "Salva le modifiche"}</button>
-                <button onClick={() => salva(false)} disabled={salvataggio === "salvo"} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 8, padding: "9px 14px", fontSize: 13 }}>Nascondi la pagina</button>
+                <button onClick={() => salva(true)} disabled={salvataggio === "salvo"} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 700, fontSize: 13.5 }}>{salvataggio === "salvo" ? "Salvo…" : "Salva le modifiche"}</button>
+                <button onClick={() => salva(false)} disabled={salvataggio === "salvo"} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 8, padding: "9px 14px", fontSize: 13 }}>Nascondi la pagina</button>
               </>
             ) : (
               <>
-                <button onClick={() => salva(true)} disabled={salvataggio === "salvo" || stato === "manca-script"} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 700, fontSize: 13.5, opacity: stato === "manca-script" ? 0.5 : 1 }}>{salvataggio === "salvo" ? "Pubblico…" : "Pubblica la pagina"}</button>
-                <button onClick={() => salva(false)} disabled={salvataggio === "salvo" || stato === "manca-script"} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 8, padding: "9px 14px", fontSize: 13 }}>Salva bozza</button>
+                <button onClick={() => salva(true)} disabled={salvataggio === "salvo" || stato === "manca-script"} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 700, fontSize: 13.5, opacity: stato === "manca-script" ? 0.5 : 1 }}>{salvataggio === "salvo" ? "Pubblico…" : "Pubblica la pagina"}</button>
+                <button onClick={() => salva(false)} disabled={salvataggio === "salvo" || stato === "manca-script"} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 8, padding: "9px 14px", fontSize: 13 }}>Salva bozza</button>
               </>
             )}
             {salvataggio === "ok" && <span role="status" style={{ fontSize: 12.5, color: "#4ade80" }}>✓ {salvata?.attiva ? "Pagina online" : "Salvata (non pubblica)"}</span>}
@@ -12835,7 +12817,7 @@ function CondivisioneVolo({ volo, nMedia, media, piano, passQuestoMese, onVaiAbb
 
   const ora = new Date();
   const attivi = (links || []).filter((c) => c.attiva && (!c.scade_il || new Date(c.scade_il) > ora));
-  const piccolo = { background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5, textDecoration: "none" };
+  const piccolo = { background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5, textDecoration: "none" };
   const opzione = (checked, onChange, testo, sotto) => (
     <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12.5, color: "#c3cad4", cursor: "pointer" }}>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ marginTop: 2 }} />
@@ -12844,11 +12826,11 @@ function CondivisioneVolo({ volo, nMedia, media, piano, passQuestoMese, onVaiAbb
   );
 
   return (
-    <div id={`condividi-${volo.id}`} style={{ marginTop: 8, background: "#161a1f", border: "1px solid #ff8c4255", borderRadius: 6, padding: 10 }}>
+    <div id={`condividi-${volo.id}`} style={{ marginTop: 8, background: "#10141f", border: "1px solid #ff8c4255", borderRadius: 6, padding: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>📤 Consegna al cliente</span>
         {!aperto && (
-          <button onClick={() => setAperto(true)} disabled={nMedia === 0} title={nMedia === 0 ? "Aggiungi prima foto o video a questo volo" : "Crea un link da mandare al cliente"} style={{ background: nMedia === 0 ? "#262b33" : "#ff8c42", color: nMedia === 0 ? "#6b7480" : "#161a1f", border: "none", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 600 }}>
+          <button onClick={() => setAperto(true)} disabled={nMedia === 0} title={nMedia === 0 ? "Aggiungi prima foto o video a questo volo" : "Crea un link da mandare al cliente"} style={{ background: nMedia === 0 ? "#232b3f" : "#ff8c42", color: nMedia === 0 ? "#6b7480" : "#10141f", border: "none", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 600 }}>
             + Crea link
           </button>
         )}
@@ -12876,8 +12858,8 @@ function CondivisioneVolo({ volo, nMedia, media, piano, passQuestoMese, onVaiAbb
             <InvitoPro volo={volo} cosa="La galleria con PIN e filigrana" passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} />
           )}
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={crea} disabled={creando} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{creando ? "Creazione..." : "Crea e copia il link"}</button>
-            <button onClick={() => setAperto(false)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
+            <button onClick={crea} disabled={creando} style={{ background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{creando ? "Creazione..." : "Crea e copia il link"}</button>
+            <button onClick={() => setAperto(false)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
           </div>
         </div>
       )}
@@ -12890,15 +12872,15 @@ function CondivisioneVolo({ volo, nMedia, media, piano, passQuestoMese, onVaiAbb
             const pref = preferiti[c.id] || [];
             const testoWa = `${c.titolo ? c.titolo + " — " : ""}ecco le tue foto e i tuoi video: ${linkCondivisione(c.token)}${c.pin ? ` (PIN: ${c.pin})` : ""}`;
             return (
-              <div key={c.id} style={{ borderTop: "1px solid #262b33", paddingTop: 8 }}>
+              <div key={c.id} style={{ borderTop: "1px solid #232b3f", paddingTop: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12 }}>
                   <span className="mono" style={{ color: "#c3cad4", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{linkCondivisione(c.token)}</span>
                   <span style={{ color: "#6b7480" }}>{c.scade_il ? `scade il ${formatData(c.scade_il)}` : "senza scadenza"}</span>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6, fontSize: 11.5, color: "#aab3bf" }}>
-                  {c.pin && <span style={{ ...piccolo, background: "#1f2530" }}>🔒 PIN <strong className="mono">{c.pin}</strong></span>}
-                  {c.filigrana && <span style={{ ...piccolo, background: "#1f2530" }}>💧 Filigrana</span>}
-                  {c.download === false ? <span style={{ ...piccolo, background: "#1f2530", color: "#f5b942" }}>⛔ Download bloccato</span> : null}
+                  {c.pin && <span style={{ ...piccolo, background: "#1a2133" }}>🔒 PIN <strong className="mono">{c.pin}</strong></span>}
+                  {c.filigrana && <span style={{ ...piccolo, background: "#1a2133" }}>💧 Filigrana</span>}
+                  {c.download === false ? <span style={{ ...piccolo, background: "#1a2133", color: "#f5b942" }}>⛔ Download bloccato</span> : null}
                   <button onClick={() => setPreferitiAperti(preferitiAperti === c.id ? null : c.id)} disabled={pref.length === 0} style={{ ...piccolo, color: pref.length ? "#ff6b8b" : "#6b7480" }}>❤️ {pref.length} {pref.length === 1 ? "preferita" : "preferite"}</button>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
@@ -12916,7 +12898,7 @@ function CondivisioneVolo({ volo, nMedia, media, piano, passQuestoMese, onVaiAbb
                       if (!m) return null;
                       return m.tipo === "foto"
                         ? <img key={id} src={m.url} alt={m.nome || ""} title={m.nome || ""} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 4 }} />
-                        : <div key={id} title={m.nome || ""} style={{ aspectRatio: "1 / 1", background: "#262b33", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, color: "#c3cad4", padding: 4, textAlign: "center", overflow: "hidden" }}>🎬 {m.nome}</div>;
+                        : <div key={id} title={m.nome || ""} style={{ aspectRatio: "1 / 1", background: "#232b3f", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, color: "#c3cad4", padding: 4, textAlign: "center", overflow: "hidden" }}>🎬 {m.nome}</div>;
                     })}
                   </div>
                 )}
@@ -12983,7 +12965,7 @@ function GalleriaCondivisa({ token }) {
   // link per scaricare direttamente il file (Supabase Storage lo consente con ?download)
   const linkDownload = (m) => (/\/storage\/v1\/object\/public\//.test(m.url) ? `${m.url}${m.url.includes("?") ? "&" : "?"}download=${encodeURIComponent(m.nome || "")}` : m.url);
 
-  const pagina = { minHeight: "100vh", background: "#12151a", color: "#e7eaee", fontFamily: "'IBM Plex Sans', sans-serif", padding: "24px 16px" };
+  const pagina = { minHeight: "100vh", background: "#0d111c", color: "#e7eaee", fontFamily: "'IBM Plex Sans', sans-serif", padding: "24px 16px" };
 
   if (dati === undefined) {
     return <div style={{ ...pagina, display: "flex", alignItems: "center", justifyContent: "center", color: "#8b95a3" }}>Caricamento...</div>;
@@ -12997,7 +12979,7 @@ function GalleriaCondivisa({ token }) {
           <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 16px 0" }}>Inserisci il PIN che ti ha mandato chi ha fatto le riprese.</p>
           <input inputMode="numeric" autoFocus maxLength={8} value={pinScritto} onChange={(e) => setPinScritto(e.target.value)} placeholder="PIN" style={{ ...inputStyle, textAlign: "center", fontSize: 22, letterSpacing: 8 }} />
           {dati.pinErrato && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>PIN non corretto, riprova.</p>}
-          <button type="submit" style={{ marginTop: 12, width: "100%", background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 14 }}>Apri la galleria</button>
+          <button type="submit" style={{ marginTop: 12, width: "100%", background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 14 }}>Apri la galleria</button>
         </form>
       </div>
     );
@@ -13041,7 +13023,7 @@ function GalleriaCondivisa({ token }) {
           <p style={{ fontSize: 12, color: "#6b7480", margin: 0, flex: 1, minWidth: 200 }}>
             {tuttiFile.length} file{dati.scade_il ? ` · disponibile fino al ${formatData(dati.scade_il)}` : ""}{puoScaricare && dati.scade_il ? ": scarica i file prima di questa data" : ""}
           </p>
-          <button onClick={() => setSoloPreferiti(!soloPreferiti)} disabled={idPreferiti.length === 0 && !soloPreferiti} style={{ background: soloPreferiti ? "#ff6b8b22" : "#1b2028", border: "1px solid #ff6b8b66", color: "#ff8fa6", borderRadius: 999, padding: "6px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+          <button onClick={() => setSoloPreferiti(!soloPreferiti)} disabled={idPreferiti.length === 0 && !soloPreferiti} style={{ background: soloPreferiti ? "#ff6b8b22" : "#151b2b", border: "1px solid #ff6b8b66", color: "#ff8fa6", borderRadius: 999, padding: "6px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
             ❤️ {soloPreferiti ? "Mostra tutte" : `Le mie preferite (${idPreferiti.length})`}
           </button>
         </div>
@@ -13264,10 +13246,10 @@ function LiberatorieVolo({ volo, azienda, piano, passQuestoMese, onVaiAbbonament
 
   if (elenco === null) return null;
   const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
-  const piccolo = { background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5, textDecoration: "none" };
+  const piccolo = { background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "4px 10px", fontSize: 11.5, textDecoration: "none" };
 
   return (
-    <div style={{ marginTop: 8, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: 10 }}>
+    <div style={{ marginTop: 8, background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>✍️ Liberatorie<EtichettaPro /></span>
         {!aperto && !mancaTabella && pro && <button onClick={() => setAperto(true)} style={{ ...piccolo, color: "#ffb877", borderColor: "#ff8c4266", fontWeight: 600 }}>+ Fai firmare</button>}
@@ -13313,8 +13295,8 @@ function LiberatorieVolo({ volo, azienda, piano, passQuestoMese, onVaiAbbonament
           </div>
           <AreaFirma onCambio={setFirma} />
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={salva} disabled={salvando || !nome.trim() || !firma || !operatore.trim()} style={{ background: nome.trim() && firma && operatore.trim() ? "#ff8c42" : "#333a45", color: nome.trim() && firma && operatore.trim() ? "#161a1f" : "#6b7480", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{salvando ? "Salvataggio..." : "Salva liberatoria firmata"}</button>
-            <button onClick={() => { setAperto(false); setFirma(null); }} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
+            <button onClick={salva} disabled={salvando || !nome.trim() || !firma || !operatore.trim()} style={{ background: nome.trim() && firma && operatore.trim() ? "#ff8c42" : "#343e57", color: nome.trim() && firma && operatore.trim() ? "#10141f" : "#6b7480", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{salvando ? "Salvataggio..." : "Salva liberatoria firmata"}</button>
+            <button onClick={() => { setAperto(false); setFirma(null); }} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
           </div>
         </div>
       )}
@@ -13446,10 +13428,10 @@ function EventiVolo({ volo, azienda, droni, batterie, onCambiato }) {
   };
 
   if (eventi === null) return null;
-  const bottone = { background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" };
+  const bottone = { background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, textDecoration: "none" };
 
   return (
-    <div style={{ marginTop: 8, background: "#161a1f", border: eventi.some((e) => !e.segnalato) ? "1px solid #ff4d4d66" : "1px solid #262b33", borderRadius: 6, padding: 10 }}>
+    <div style={{ marginTop: 8, background: "#10141f", border: eventi.some((e) => !e.segnalato) ? "1px solid #ff4d4d66" : "1px solid #232b3f", borderRadius: 6, padding: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>⚠️ Eventi e inconvenienti</span>
         {!aperto && !mancaTabella && (
@@ -13496,8 +13478,8 @@ function EventiVolo({ volo, azienda, droni, batterie, onCambiato }) {
             <textarea rows={3} value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} placeholder="es. In volo a 60 m il segnale video è caduto, il drone ha attivato il ritorno automatico ed è atterrato senza danni." style={{ ...inputStyle, resize: "vertical" }} />
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={salva} disabled={salvando} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{salvando ? "Salvataggio..." : "Registra evento"}</button>
-            <button onClick={() => { setAperto(false); setForm(vuoto()); }} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
+            <button onClick={salva} disabled={salvando} style={{ background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 5, padding: "7px 14px", fontSize: 12.5, fontWeight: 600 }}>{salvando ? "Salvataggio..." : "Registra evento"}</button>
+            <button onClick={() => { setAperto(false); setForm(vuoto()); }} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "7px 14px", fontSize: 12.5 }}>Annulla</button>
           </div>
         </div>
       )}
@@ -13509,7 +13491,7 @@ function EventiVolo({ volo, azienda, droni, batterie, onCambiato }) {
           {eventi.map((e) => {
             const stato = statoEvento(e);
             return (
-              <div key={e.id} style={{ borderTop: "1px solid #262b33", paddingTop: 8 }}>
+              <div key={e.id} style={{ borderTop: "1px solid #232b3f", paddingTop: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: 12.5 }}>
                   <span style={{ fontWeight: 600 }}>{etichettaEvento(e.tipo)}{e.feriti ? " · feriti" : ""}{e.danni_terzi ? " · danni a terzi" : ""}</span>
                   {stato ? (
@@ -13980,7 +13962,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
     onReload && onReload();
   };
 
-  const piccolo = { background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 };
+  const piccolo = { background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 };
 
   const scheda = (b) => {
     const soglia = Number(b.soglia_cicli) || 150;
@@ -13994,7 +13976,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
     const statoAttuale = STATI_CARICA.find((x) => x.key === b.stato_carica);
     const giorni = giorniDa(b.stato_dal);
     return (
-      <div key={b.id} data-batteria={b.nome} style={{ background: "#1b2028", border: avvisi.length > 0 ? `1px solid ${avvisi[0].colore}66` : "1px solid #262b33", borderRadius: 8, padding: "13px 16px" }}>
+      <div key={b.id} data-batteria={b.nome} style={{ background: "#151b2b", border: avvisi.length > 0 ? `1px solid ${avvisi[0].colore}66` : "1px solid #232b3f", borderRadius: 8, padding: "13px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{b.nome}</div>
@@ -14003,7 +13985,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
           <div className="mono" style={{ fontSize: 13, color: colBarra, fontWeight: 600 }}>{cicli} / {soglia} cicli</div>
         </div>
 
-        <div style={{ height: 6, background: "#262b33", borderRadius: 3, margin: "10px 0 8px 0", overflow: "hidden" }}>
+        <div style={{ height: 6, background: "#232b3f", borderRadius: 3, margin: "10px 0 8px 0", overflow: "hidden" }}>
           <div style={{ width: `${perc}%`, height: "100%", background: colBarra }} />
         </div>
 
@@ -14017,14 +13999,14 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
         </div>
 
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          <button onClick={() => aggiungiCiclo(b)} title="Un volo fatto con questa batteria" style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 700 }}>+1 ciclo</button>
+          <button onClick={() => aggiungiCiclo(b)} title="Un volo fatto con questa batteria" style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 5, padding: "6px 12px", fontSize: 12, fontWeight: 700 }}>+1 ciclo</button>
           <button onClick={() => togliCiclo(b)} disabled={cicli === 0} title="Correggi un ciclo aggiunto per errore" style={{ ...piccolo, opacity: cicli === 0 ? 0.4 : 1 }}>−1</button>
           {conStato && (
             <div style={{ display: "flex", gap: 4, marginLeft: 6 }}>
               {STATI_CARICA.map((st) => {
                 const on = b.stato_carica === st.key;
                 return (
-                  <button key={st.key} onClick={() => impostaStato(b, st.key)} style={{ background: on ? st.colore + "22" : "transparent", border: `1px solid ${on ? st.colore : "#333a45"}`, color: on ? st.colore : "#8b95a3", borderRadius: 999, padding: "4px 10px", fontSize: 11.5, fontWeight: 600 }}>
+                  <button key={st.key} onClick={() => impostaStato(b, st.key)} style={{ background: on ? st.colore + "22" : "transparent", border: `1px solid ${on ? st.colore : "#343e57"}`, color: on ? st.colore : "#8b95a3", borderRadius: 999, padding: "4px 10px", fontSize: 11.5, fontWeight: 600 }}>
                     {st.emoji} {st.label}
                   </button>
                 );
@@ -14044,7 +14026,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Batterie</h1>
-        <button onClick={apriNuova} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm && !editingId ? "transparent" : "#ff8c42", color: showForm && !editingId ? "#8b95a3" : "#161a1f", border: showForm && !editingId ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+        <button onClick={apriNuova} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm && !editingId ? "transparent" : "#ff8c42", color: showForm && !editingId ? "#8b95a3" : "#10141f", border: showForm && !editingId ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm && !editingId ? "Annulla" : <><Plus size={14} /> Nuova batteria</>}
         </button>
       </div>
@@ -14065,12 +14047,12 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
         <div style={{ maxWidth: 460, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 10, padding: 16, marginBottom: 18 }}>
           <p style={{ fontSize: 13.5, color: "#ffb877", margin: "0 0 8px 0", fontWeight: 600 }}>Hai raggiunto il limite del piano Free</p>
           <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 12px 0", lineHeight: 1.5 }}>Il piano Free include fino a {LIMITI_FREE.batterie} batterie. Con il piano Pilota ({euro(PREZZI_PIANO.pilota.mese)} al mese) puoi aggiungerne quante vuoi.</p>
-          <button onClick={onVaiAbbonamento} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "8px 16px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>Vedi i piani</button>
+          <button onClick={onVaiAbbonamento} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "8px 16px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>Vedi i piani</button>
         </div>
       )}
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 520, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 520, display: "flex", flexDirection: "column", gap: 12 }}>
           {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando una batteria esistente</div>}
           <div>
             <label style={lbl}>Nome / etichetta</label>
@@ -14115,7 +14097,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
             <label style={lbl}>Note (facoltativo)</label>
             <textarea rows={2} placeholder="es. leggermente gonfia, resistenza interna alta..." value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
-          <button onClick={salva} disabled={!form.nome.trim() || salvando} style={{ marginTop: 2, background: form.nome.trim() ? "#ff8c42" : "#333a45", color: form.nome.trim() ? "#161a1f" : "#6b7480", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+          <button onClick={salva} disabled={!form.nome.trim() || salvando} style={{ marginTop: 2, background: form.nome.trim() ? "#ff8c42" : "#343e57", color: form.nome.trim() ? "#10141f" : "#6b7480", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
             {salvando ? "Salvataggio..." : editingId ? "Aggiorna batteria" : "Salva batteria"}
           </button>
         </div>
@@ -14137,7 +14119,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
           {mostraRitirate && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
               {ritirate.map((b) => (
-                <div key={b.id} style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", opacity: 0.8 }}>
+                <div key={b.id} style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", opacity: 0.8 }}>
                   <div>
                     <div style={{ fontSize: 13, color: "#c3cad4" }}>{b.nome}</div>
                     <div style={{ fontSize: 11.5, color: "#6b7480" }}>{Number(b.cicli) || 0} cicli fatti</div>
@@ -14286,12 +14268,12 @@ function ImportaSRT({ droni, numeroVoli, piano, onImportati, onVaiAbbonamento })
   const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
   return (
     <>
-      <label title="Crea i voli dai file .SRT che i droni DJI salvano accanto ai video" style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, cursor: "pointer" }}>
+      <label title="Crea i voli dai file .SRT che i droni DJI salvano accanto ai video" style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 13, cursor: "pointer" }}>
         <Upload size={14} /> Importa da .SRT
         <input type="file" accept=".srt,.SRT" multiple onChange={scegliFile} style={{ display: "none" }} />
       </label>
       {(proposte || lavoro || errore) && (
-        <div style={{ width: "100%", order: 99, background: "#1b2028", border: "1px solid #ff8c4255", borderRadius: 10, padding: 16, marginTop: 4 }}>
+        <div style={{ width: "100%", order: 99, background: "#151b2b", border: "1px solid #ff8c4255", borderRadius: 10, padding: 16, marginTop: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>📥 Voli trovati nei file</h3>
             <button onClick={() => { setProposte(null); setErrore(null); setLavoro(null); }} style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={16} /></button>
@@ -14303,7 +14285,7 @@ function ImportaSRT({ droni, numeroVoli, piano, onImportati, onVaiAbbonamento })
               <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 10px 0" }}>Video a meno di 15 minuti l'uno dall'altro sono messi nello stesso volo. Togli la spunta a quelli che non vuoi creare.</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {proposte.map((v, i) => (
-                  <label key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "8px 10px", fontSize: 12.5, cursor: "pointer" }}>
+                  <label key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: "8px 10px", fontSize: 12.5, cursor: "pointer" }}>
                     <input type="checkbox" checked={!!scelte[i]} onChange={() => setScelte({ ...scelte, [i]: !scelte[i] })} />
                     <span style={{ flex: 1 }}>
                       <strong>{formatData(dataLocaleIso(v.inizio))} · {due(v.inizio.getHours())}:{due(v.inizio.getMinutes())}</strong>
@@ -14326,7 +14308,7 @@ function ImportaSRT({ droni, numeroVoli, piano, onImportati, onVaiAbbonamento })
                     {TIPI_ATTIVITA_VOLO.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
                   </select>
                 </div>
-                <button onClick={crea} disabled={scelti.length === 0} style={{ background: scelti.length ? "#ff8c42" : "#333a45", color: scelti.length ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13, fontWeight: 700 }}>
+                <button onClick={crea} disabled={scelti.length === 0} style={{ background: scelti.length ? "#ff8c42" : "#343e57", color: scelti.length ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13, fontWeight: 700 }}>
                   Crea {scelti.length} {scelti.length === 1 ? "volo" : "voli"}
                 </button>
               </div>
@@ -14432,7 +14414,7 @@ function StatisticheAnno({ voli, azienda }) {
   };
 
   const casella = (valore, etichetta) => (
-    <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: "10px 12px", minWidth: 110, flex: 1 }}>
+    <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: "10px 12px", minWidth: 110, flex: 1 }}>
       <div className="mono" style={{ fontSize: 20, fontWeight: 700, color: "#fff" }}>{valore}</div>
       <div style={{ fontSize: 11, color: "#8b95a3" }}>{etichetta}</div>
     </div>
@@ -14441,11 +14423,11 @@ function StatisticheAnno({ voli, azienda }) {
 
   return (
     <>
-      <button onClick={() => setAperto(!aperto)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13 }}>
+      <button onClick={() => setAperto(!aperto)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 13 }}>
         📊 Il mio anno
       </button>
       {aperto && (
-        <div style={{ width: "100%", order: 98, background: "linear-gradient(135deg, rgba(126,58,242,0.14), rgba(255,140,66,0.10)), #1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 16, marginTop: 4 }}>
+        <div style={{ width: "100%", order: 98, background: "linear-gradient(135deg, rgba(126,58,242,0.14), rgba(255,140,66,0.10)), #151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 16, marginTop: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Il mio {anno} in volo</h3>
             {anni.length > 1 && (
@@ -14470,7 +14452,7 @@ function StatisticheAnno({ voli, azienda }) {
                 {st.tipo && <span>{st.tipo.emoji} Più di tutto: <strong>{st.tipo.label}</strong></span>}
                 {st.mese && <span>📅 Mese più attivo: <strong>{st.mese}</strong></span>}
               </div>
-              <button onClick={condividi} disabled={lavoro} style={{ marginTop: 12, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13, fontWeight: 700 }}>
+              <button onClick={condividi} disabled={lavoro} style={{ marginTop: 12, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13, fontWeight: 700 }}>
                 {lavoro ? "Preparo l'immagine..." : "📲 Crea l'immagine da condividere"}
               </button>
               <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Un'immagine verticale pronta per Instagram, WhatsApp e Facebook. Sul computer viene scaricata.</p>
@@ -14490,7 +14472,7 @@ function VideoAnteprima({ m, mostraLink = true, controlsList }) {
   return (
     <div>
       {errore ? (
-        <div style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#161a1f", border: "1px solid #333a45", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, padding: 8, textAlign: "center", fontSize: 11.5, color: "#aab3bf" }}>
+        <div style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 6, background: "#10141f", border: "1px solid #343e57", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, padding: 8, textAlign: "center", fontSize: 11.5, color: "#aab3bf" }}>
           <span style={{ fontSize: 22 }}>🎬</span>
           Anteprima non disponibile su questo dispositivo
         </div>
@@ -14791,8 +14773,8 @@ function ReportConsegnaRilievo({ volo, drone, azienda, piano, passQuestoMese, on
     }
   };
   return (
-    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #262b33" }}>
-      <button type="button" onClick={() => setAperto(!aperto)} style={{ background: "#1f2530", border: "1px solid #ffb02088", color: "#ffd07a", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 }}>
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #232b3f" }}>
+      <button type="button" onClick={() => setAperto(!aperto)} style={{ background: "#1a2133", border: "1px solid #ffb02088", color: "#ffd07a", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 }}>
         📦 Report di consegna per il cliente {aperto ? "▾" : "▸"}
       </button> <EtichettaPro />
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>Relazione in PDF con il tuo logo: area sulla mappa, acquisizione, precisione, file consegnati e firma.</p>
@@ -14805,7 +14787,7 @@ function ReportConsegnaRilievo({ volo, drone, azienda, piano, passQuestoMese, on
             {campo("oggetto", "Oggetto del lavoro (facoltativo)", { largo: true, righe: 2, placeholder: "es. Rilievo dell'area di cava per il calcolo dei volumi" })}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <label style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>
+            <label style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>
               🗺️ {d.poligono ? "Cambia l'area" : "Carica l'area (missione KMZ, o volo KML/GPX)"}
               <input type="file" accept=".kmz,.kml,.wpml,.gpx" onChange={caricaArea} style={{ display: "none" }} />
             </label>
@@ -14849,7 +14831,7 @@ function ReportConsegnaRilievo({ volo, drone, azienda, piano, passQuestoMese, on
             {campo("scadenza_link", "Disponibili fino al", { tipo: "date" })}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <label style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>
+            <label style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>
               🖼️ Aggiungi un'anteprima (ortofoto, modello…)
               <input type="file" accept="image/*" onChange={aggiungiImmagine} style={{ display: "none" }} />
             </label>
@@ -14863,7 +14845,7 @@ function ReportConsegnaRilievo({ volo, drone, azienda, piano, passQuestoMese, on
             {campo("attestato", "Attestato / n. operatore", { placeholder: "es. Operatore ITA-xxxx · A2" })}
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <button type="button" onClick={genera} style={{ background: "#ffb020", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>📄 Crea il PDF</button>
+            <button type="button" onClick={genera} style={{ background: "#ffb020", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>📄 Crea il PDF</button>
             {stato && <span style={{ fontSize: 11.5, color: "#8b95a3" }}>{stato}</span>}
           </div>
           <p style={{ fontSize: 10.5, color: "#6b7480", margin: 0 }}>Le anteprime vanno solo nel PDF, non vengono salvate.</p>
@@ -14882,9 +14864,9 @@ function FascicoloVolo({ volo, drone, batterie, media, eventi, azienda, piano, p
     setGenerando(false);
   };
   return (
-    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #262b33" }}>
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #232b3f" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <button type="button" onClick={genera} disabled={generando || !pro} style={{ background: "#1f2530", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 }}>
+        <button type="button" onClick={genera} disabled={generando || !pro} style={{ background: "#1a2133", border: "1px solid #3d8bfd88", color: "#7fb0ff", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 }}>
           {generando ? "Preparo il fascicolo…" : "📁 Fascicolo del volo (PDF)"}
         </button>
         <EtichettaPro />
@@ -15296,7 +15278,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
   const chip = (attivo, colore) => ({
     background: attivo ? colore + "22" : "transparent",
-    border: `1px solid ${attivo ? colore : "#333a45"}`,
+    border: `1px solid ${attivo ? colore : "#343e57"}`,
     color: attivo ? colore : "#8b95a3",
     borderRadius: 999, padding: "5px 12px", fontSize: 12, fontWeight: 600,
   });
@@ -15321,7 +15303,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             <VideoAnteprima m={m} />
           )}
           {m.tipo === "link" && (
-            <a href={m.url} target="_blank" rel="noreferrer" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, aspectRatio: "1 / 1", background: "#161a1f", border: "1px solid #333a45", borderRadius: 6, color: "#3d8bfd", fontSize: 11, textDecoration: "none", padding: 6, textAlign: "center", wordBreak: "break-all", overflow: "hidden" }}>
+            <a href={m.url} target="_blank" rel="noreferrer" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, aspectRatio: "1 / 1", background: "#10141f", border: "1px solid #343e57", borderRadius: 6, color: "#3d8bfd", fontSize: 11, textDecoration: "none", padding: 6, textAlign: "center", wordBreak: "break-all", overflow: "hidden" }}>
               <span style={{ fontSize: 20 }}>🔗</span>{m.nome}
             </a>
           )}
@@ -15339,7 +15321,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       {statoCaricamento && (
-        <div role="status" className="avviso-caricamento" style={{ position: "fixed", left: "50%", transform: "translateX(-50%)", zIndex: 940, width: "min(560px, calc(100% - 32px))", background: statoCaricamento.stato === "in_corso" ? "#1f2530" : statoCaricamento.stato === "ok" ? "#16221b" : "#2a1616", border: `1px solid ${statoCaricamento.stato === "in_corso" ? "#ff8c42" : statoCaricamento.stato === "ok" ? "#4ade80" : "#ff6b6b"}`, color: "#e7eaee", borderRadius: 10, padding: "12px 14px", fontSize: 13, boxShadow: "0 10px 30px rgba(0,0,0,0.45)", display: "flex", alignItems: "center", gap: 10 }}>
+        <div role="status" className="avviso-caricamento" style={{ position: "fixed", left: "50%", transform: "translateX(-50%)", zIndex: 940, width: "min(560px, calc(100% - 32px))", background: statoCaricamento.stato === "in_corso" ? "#1a2133" : statoCaricamento.stato === "ok" ? "#16221b" : "#2a1616", border: `1px solid ${statoCaricamento.stato === "in_corso" ? "#ff8c42" : statoCaricamento.stato === "ok" ? "#4ade80" : "#ff6b6b"}`, color: "#e7eaee", borderRadius: 10, padding: "12px 14px", fontSize: 13, boxShadow: "0 10px 30px rgba(0,0,0,0.45)", display: "flex", alignItems: "center", gap: 10 }}>
           {statoCaricamento.stato === "in_corso" && <Loader2 size={16} className="spin" style={{ flexShrink: 0, color: "#ff8c42" }} />}
           <span style={{ flex: 1, wordBreak: "break-word" }}>{statoCaricamento.testo}</span>
           {statoCaricamento.stato !== "in_corso" && <button onClick={() => setStatoCaricamento(null)} style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={15} /></button>}
@@ -15348,7 +15330,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Registro voli</h1>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => (showForm ? chiudiForm() : apriNuovo())} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#161a1f", border: showForm ? "1px solid #333a45" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+          <button onClick={() => (showForm ? chiudiForm() : apriNuovo())} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
             {showForm ? "Annulla" : <><Plus size={14} /> Nuovo volo</>}
           </button>
           <label style={{ display: "flex", alignItems: "center", gap: 6, background: "#241d16", color: "#ffb877", border: "1px solid #ff8c42", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
@@ -15356,14 +15338,14 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple onChange={scegliFileRapido} style={{ display: "none" }} />
           </label>
           <details className="menu-strumenti" style={{ position: "relative" }}>
-            <summary style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13 }}>⋯ Altro</summary>
+            <summary style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 13 }}>⋯ Altro</summary>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
               <StatisticheAnno voli={tutti} azienda={azienda} />
               <ImportaSRT droni={droni} numeroVoli={voli.length} piano={piano} onVaiAbbonamento={onVaiAbbonamento} onImportati={(n) => { carica(); window.alert(`Creati ${n} ${n === 1 ? "volo" : "voli"} dai file .SRT.`); }} />
-              <button onClick={scaricaPdf} disabled={generandoPdf || visibili.length === 0} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
+              <button onClick={scaricaPdf} disabled={generandoPdf || visibili.length === 0} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
                 <FileDown size={14} /> {generandoPdf ? "Preparazione..." : "PDF"}
               </button>
-              <button onClick={scaricaCsv} disabled={visibili.length === 0} title={piano === "free" ? "Esportazione CSV: disponibile dal piano Pilota" : "Scarica i dati in formato CSV"} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: piano === "free" ? "#8b95a3" : "#e7eaee", border: "1px solid #333a45", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
+              <button onClick={scaricaCsv} disabled={visibili.length === 0} title={piano === "free" ? "Esportazione CSV: disponibile dal piano Pilota" : "Scarica i dati in formato CSV"} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: piano === "free" ? "#8b95a3" : "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
                 {piano === "free" ? "🔒" : <FileDown size={14} />} CSV
               </button>
             </div>
@@ -15392,12 +15374,12 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       )}
 
       {showForm && (
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
           {editingId && <div style={{ fontSize: 12, color: "#ff8c42", fontWeight: 600 }}>Stai modificando un volo esistente</div>}
 
-          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 12.5, fontWeight: 600, color: "#c3cad4" }}>📎 Foto e video di questo volo <span style={{ color: "#6b7480", fontWeight: 400 }}>(facoltativo)</span></div>
-            <label style={{ display: "inline-flex", alignSelf: "flex-start", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "9px 14px", color: "#c3cad4", fontSize: 12.5, cursor: "pointer" }}>
+            <label style={{ display: "inline-flex", alignSelf: "flex-start", alignItems: "center", gap: 6, border: "1px dashed #343e57", borderRadius: 6, padding: "9px 14px", color: "#c3cad4", fontSize: 12.5, cursor: "pointer" }}>
               <Upload size={14} /> Scegli foto e video
               <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple onChange={scegliFileForm} style={{ display: "none" }} />
             </label>
@@ -15408,7 +15390,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                     {x.anteprima ? (
                       <img src={x.anteprima} alt={x.file.name} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 6, display: "block" }} />
                     ) : (
-                      <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: 6, background: "#0e1116", border: "1px solid #333a45", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: 4, overflow: "hidden" }}>
+                      <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: 6, background: "#0a0d16", border: "1px solid #343e57", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: 4, overflow: "hidden" }}>
                         <span style={{ fontSize: 20 }}>🎬</span>
                         <span style={{ fontSize: 9.5, color: "#8b95a3", textAlign: "center", wordBreak: "break-all", lineHeight: 1.2 }}>{x.file.name.slice(0, 22)}</span>
                       </div>
@@ -15420,7 +15402,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             )}
             <div style={{ display: "flex", gap: 6 }}>
               <input type="text" placeholder="Oppure incolla un link (Drive, YouTube…)" value={linkFormNuovo} onChange={(e) => setLinkFormNuovo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aggiungiLinkInAttesa(); } }} style={{ ...inputStyle, fontSize: 12.5, padding: "7px 10px" }} />
-              <button type="button" onClick={aggiungiLinkInAttesa} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>+ Link</button>
+              <button type="button" onClick={aggiungiLinkInAttesa} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>+ Link</button>
             </div>
             {linkInAttesa.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -15434,7 +15416,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             )}
             {(fileInAttesa.length > 0 || linkInAttesa.length > 0) && (
               <div>
-                <button type="button" onClick={salva} disabled={!form.data || salvando} style={{ width: "100%", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 700, fontSize: 13.5 }}>
+                <button type="button" onClick={salva} disabled={!form.data || salvando} style={{ width: "100%", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 700, fontSize: 13.5 }}>
                   {salvando ? "Salvataggio..." : "💾 Salva subito"}
                 </button>
                 <p style={{ fontSize: 10.5, color: "#8b95a3", margin: "5px 0 0 0" }}>Data e ora sono già quelle di adesso: luogo, drone e il resto puoi completarli anche dopo.</p>
@@ -15513,7 +15495,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             <label style={lbl}>Coordinate GPS (facoltativo)</label>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <input type="text" placeholder="es. 45.0703, 7.6869" value={form.coordinate_gps} onChange={(e) => setForm({ ...form, coordinate_gps: e.target.value })} style={{ ...inputStyle, flex: 1, minWidth: 160 }} />
-              <button type="button" onClick={usaPosizione} disabled={gpsInCorso} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>
+              <button type="button" onClick={usaPosizione} disabled={gpsInCorso} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>
                 {gpsInCorso ? "Cerco..." : "📍 Usa la mia posizione"}
               </button>
             </div>
@@ -15570,7 +15552,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             <textarea rows={3} placeholder="es. vento debole, batterie usate: 3, autorizzazione ottenuta..." value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
           </div>
 
-          <button onClick={salva} disabled={!form.data || salvando} style={{ marginTop: 2, background: form.data ? "#ff8c42" : "#333a45", color: form.data ? "#161a1f" : "#6b7480", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+          <button onClick={salva} disabled={!form.data || salvando} style={{ marginTop: 2, background: form.data ? "#ff8c42" : "#343e57", color: form.data ? "#10141f" : "#6b7480", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
             {salvando ? "Salvataggio..." : editingId ? "Aggiorna volo" : "Salva volo"}
           </button>
         </div>
@@ -15585,7 +15567,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
           </div>
 
           {Object.keys(perDrone).length > 0 && (
-            <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: "10px 14px", marginBottom: 16, maxWidth: 620 }}>
+            <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: "10px 14px", marginBottom: 16, maxWidth: 620 }}>
               <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 6px 0" }}>Tempo di volo per drone</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 18px" }}>
                 {Object.entries(perDrone).map(([nome, min]) => (
@@ -15658,7 +15640,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                 const aperto = espansoId === v.id;
                 const sottotitolo = [v.luogo, v.drone_nome, v.durata_minuti ? formattaDurata(v.durata_minuti) : null].filter(Boolean).join(" · ");
                 return (
-                  <div key={v.id} style={{ background: "#1b2028", border: aperto ? "1px solid #ff8c42" : "1px solid #262b33", borderRadius: 8, padding: "12px 16px" }}>
+                  <div key={v.id} style={{ background: "#151b2b", border: aperto ? "1px solid #ff8c42" : "1px solid #232b3f", borderRadius: 8, padding: "12px 16px" }}>
                     <div
                       onClick={() => { if (v._derived) return; setEspansoId(aperto ? null : v.id); setLinkNuovo(""); }}
                       style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", cursor: v._derived ? "default" : "pointer" }}
@@ -15691,7 +15673,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                                 setTimeout(() => document.getElementById(`condividi-${v.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
                               }}
                               title="Crea un link per consegnare foto e video al cliente"
-                              style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}
                             >
                               📤 Condividi
                             </button>
@@ -15705,10 +15687,10 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                     </div>
 
                     {aperto && !v._derived && (
-                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #262b33", display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #232b3f", display: "flex", flexDirection: "column", gap: 6 }}>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                           {[["condividi", "📤 Manda al cliente"], ["liberatorie", "✍️ Liberatoria"], ["fascicolo", "📁 Fascicolo PDF"]].map(([k, t]) => (
-                            <button key={k} type="button" onClick={() => document.getElementById(`volo-${v.id}-${k}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ background: "#1f2530", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 999, padding: "6px 12px", fontSize: 12.5 }}>{t}</button>
+                            <button key={k} type="button" onClick={() => document.getElementById(`volo-${v.id}-${k}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ background: "#1a2133", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 999, padding: "6px 12px", fontSize: 12.5 }}>{t}</button>
                           ))}
                         </div>
                         {riga("Categoria", etichettaCategoriaVolo(v.categoria_operativa))}
@@ -15745,7 +15727,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                                   <VideoAnteprima m={m} />
                                 )}
                                 {m.tipo === "link" && (
-                                  <a href={m.url} target="_blank" rel="noreferrer" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, aspectRatio: "1 / 1", background: "#161a1f", border: "1px solid #333a45", borderRadius: 6, color: "#3d8bfd", fontSize: 11, textDecoration: "none", padding: 6, textAlign: "center", wordBreak: "break-all", overflow: "hidden" }}>
+                                  <a href={m.url} target="_blank" rel="noreferrer" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, aspectRatio: "1 / 1", background: "#10141f", border: "1px solid #343e57", borderRadius: 6, color: "#3d8bfd", fontSize: 11, textDecoration: "none", padding: 6, textAlign: "center", wordBreak: "break-all", overflow: "hidden" }}>
                                     <span style={{ fontSize: 20 }}>🔗</span>{m.nome}
                                   </a>
                                 )}
@@ -15756,13 +15738,13 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         )}
 
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
-                          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #343e57", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
                             <Upload size={13} /> {caricandoMediaId === v.id ? "Caricamento..." : "Aggiungi foto / video"}
                             <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple disabled={caricandoMediaId === v.id} onChange={(e) => aggiungiMedia(v.id, e)} style={{ display: "none" }} />
                           </label>
                           <div style={{ display: "flex", gap: 6, flex: 1, minWidth: 220 }}>
                             <input type="text" placeholder="Link video (Drive, YouTube, WeTransfer...)" value={linkNuovo} onChange={(e) => setLinkNuovo(e.target.value)} onKeyDown={(e) => e.key === "Enter" && aggiungiLink(v.id)} style={{ ...inputStyle, fontSize: 12.5, padding: "7px 10px" }} />
-                            <button onClick={() => aggiungiLink(v.id)} style={{ background: "#262b33", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>+ Link</button>
+                            <button onClick={() => aggiungiLink(v.id)} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 6, padding: "0 12px", fontSize: 12.5, whiteSpace: "nowrap" }}>+ Link</button>
                           </div>
                         </div>
                         <p style={{ fontSize: 10.5, color: "#6b7480", margin: "2px 0 0 0" }}>
@@ -15780,8 +15762,8 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                         <div id={`volo-${v.id}-fascicolo`} style={{ scrollMarginTop: 80 }}><FascicoloVolo volo={v} drone={(droni || []).find((d) => d.id === v.drone_id) || null} batterie={batterie} media={mediaVolo} eventi={(eventiVolo || []).filter((e) => e.volo_id === String(v.id))} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={onVaiAbbonamento} /></div>
 
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                          <button onClick={() => apriModifica(v)} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Modifica</button>
-                          <button onClick={() => eliminaVolo(v)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Elimina</button>
+                          <button onClick={() => apriModifica(v)} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Modifica</button>
+                          <button onClick={() => eliminaVolo(v)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "6px 12px", fontSize: 12 }}>Elimina</button>
                         </div>
                       </div>
                     )}
@@ -15796,7 +15778,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
           <img src={lightbox.url} alt={lightbox.nome || "foto"} style={{ maxWidth: "96vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 6 }} />
-          <button onClick={() => setLightbox(null)} style={{ position: "fixed", top: 12, right: 12, background: "#161a1f", color: "#fff", border: "1px solid #333a45", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>Chiudi ✕</button>
+          <button onClick={() => setLightbox(null)} style={{ position: "fixed", top: 12, right: 12, background: "#10141f", color: "#fff", border: "1px solid #343e57", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>Chiudi ✕</button>
         </div>
       )}
     </div>
@@ -15840,9 +15822,9 @@ function SceltaDflight() {
   const [scelta, setScelta] = useState(() => { try { return localStorage.getItem(CHIAVE_DFLIGHT) || ""; } catch { return ""; } });
   if (!/Android/i.test(navigator.userAgent)) return null;
   const cambia = (v) => { setScelta(v); try { v ? localStorage.setItem(CHIAVE_DFLIGHT, v) : localStorage.removeItem(CHIAVE_DFLIGHT); } catch { /* niente */ } };
-  const chip = (v, testo) => <button type="button" onClick={() => cambia(v)} style={{ background: scelta === v ? "#ff8c42" : "#1f2530", color: scelta === v ? "#161a1f" : "#e7eaee", border: scelta === v ? "none" : "1px solid #333a45", borderRadius: 14, padding: "4px 12px", fontSize: 12, fontWeight: scelta === v ? 700 : 500 }}>{testo}</button>;
+  const chip = (v, testo) => <button type="button" onClick={() => cambia(v)} style={{ background: scelta === v ? "#ff8c42" : "#1a2133", color: scelta === v ? "#10141f" : "#e7eaee", border: scelta === v ? "none" : "1px solid #343e57", borderRadius: 14, padding: "4px 12px", fontSize: 12, fontWeight: scelta === v ? 700 : 500 }}>{testo}</button>;
   return (
-    <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+    <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12 }}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>🗺️ Quando apri D-Flight</div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{chip("", "Chiedi ogni volta")}{chip("app", "📱 App")}{chip("sito", "🌐 Sito")}</div>
     </div>
@@ -15867,13 +15849,13 @@ function AccessoImpronta() {
     setLavoro(false);
   };
   return (
-    <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+    <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12 }}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>👆 Accesso con impronta o volto</div>
       <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 10px 0", lineHeight: 1.45 }}>
         {stato === "attiva" ? "Attivo su questo telefono: se l'app ti chiede di rientrare, tocca «Entra con l'impronta o il volto»." : "Se l'app ti chiede di rientrare, entri con l'impronta (o il volto) invece di scrivere la password. Va attivato su ogni telefono o computer."}
       </p>
-      {stato !== "attiva" && <button type="button" disabled={lavoro} onClick={attiva} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 12.5, fontWeight: 700 }}>{lavoro ? "Attendi…" : "Attiva su questo telefono"}</button>}
-      {stato === "attiva" && <button type="button" disabled={lavoro} onClick={attiva} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>Registra di nuovo</button>}
+      {stato !== "attiva" && <button type="button" disabled={lavoro} onClick={attiva} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 12.5, fontWeight: 700 }}>{lavoro ? "Attendi…" : "Attiva su questo telefono"}</button>}
+      {stato === "attiva" && <button type="button" disabled={lavoro} onClick={attiva} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 6, padding: "6px 12px", fontSize: 12 }}>Registra di nuovo</button>}
       {stato === "server" && <p style={{ fontSize: 12, color: "#f5b942", margin: "8px 0 0 0" }}>Non ancora disponibile: lo stiamo attivando, riprova tra qualche giorno.</p>}
       {stato === "errore" && <p style={{ fontSize: 12, color: "#ff9c9c", margin: "8px 0 0 0" }}>Non riuscito. Controlla che sul telefono sia attivo il blocco schermo con impronta o volto, poi riprova.</p>}
     </div>
@@ -15896,11 +15878,11 @@ function SpazioEPromemoria() {
   const mb = byte != null ? byte / 1048576 : null;
   const perc = mb != null ? Math.min(100, Math.round((mb / LIMITE_SPAZIO_MB) * 100)) : 0;
   return (
-    <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12, display: "flex", flexDirection: "column", gap: 12 }}>
       {mb != null && (
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>💾 Spazio per foto, video e documenti</div>
-          <div style={{ height: 8, background: "#262b33", borderRadius: 4, overflow: "hidden" }}><div style={{ width: `${perc}%`, height: 8, background: perc >= 90 ? "#ff6b6b" : perc >= 70 ? "#f5b942" : "#4ade80" }} /></div>
+          <div style={{ height: 8, background: "#232b3f", borderRadius: 4, overflow: "hidden" }}><div style={{ width: `${perc}%`, height: 8, background: perc >= 90 ? "#ff6b6b" : perc >= 70 ? "#f5b942" : "#4ade80" }} /></div>
           <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 4 }}>{mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB usati su {LIMITE_SPAZIO_MB} MB{perc >= 80 ? " · per liberare spazio elimina i video vecchi o usa i link di Google Drive e YouTube" : ""}</div>
         </div>
       )}
@@ -15919,12 +15901,12 @@ function SceltaUnitaVento() {
   const [ms, setMs] = useState(ventoInMsScelto);
   const scegli = (v) => { scegliUnitaVento(v); setMs(v); };
   return (
-    <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 24, maxWidth: 560 }}>
+    <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 24, maxWidth: 560 }}>
       <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>💨 Vento in km/h o m/s</h3>
       <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>Il manuale del drone di solito scrive la resistenza al vento in m/s. Scegli l'unità per il meteo ora per ora e per il vento in quota: l'altra resta scritta accanto.</p>
-      <div role="group" aria-label="Unità del vento" style={{ display: "inline-flex", border: "1px solid #333a45", borderRadius: 8, overflow: "hidden" }}>
+      <div role="group" aria-label="Unità del vento" style={{ display: "inline-flex", border: "1px solid #343e57", borderRadius: 8, overflow: "hidden" }}>
         {[["km/h", false], ["m/s", true]].map(([etichetta, v]) => (
-          <button key={etichetta} type="button" aria-pressed={ms === v} onClick={() => scegli(v)} style={{ background: ms === v ? "#ff8c42" : "#1f2530", color: ms === v ? "#161a1f" : "#c3cad4", border: "none", padding: "8px 18px", fontSize: 13, fontWeight: 700 }}>{etichetta}</button>
+          <button key={etichetta} type="button" aria-pressed={ms === v} onClick={() => scegli(v)} style={{ background: ms === v ? "#ff8c42" : "#1a2133", color: ms === v ? "#10141f" : "#c3cad4", border: "none", padding: "8px 18px", fontSize: 13, fontWeight: 700 }}>{etichetta}</button>
         ))}
       </div>
       <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "8px 0 0 0" }}>Esempio: {ms ? "10,7 m/s (39 km/h)" : "39 km/h (10,7 m/s)"}</p>
@@ -15968,7 +15950,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Impostazioni azienda</h1>
       <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 24px 0" }}>Personalizza i report con il tuo brand — verranno usati in tutti i PDF generati.</p>
 
-      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 24, maxWidth: 560 }}>
+      <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 24, maxWidth: 560 }}>
         <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Come usi l'app</h3>
         <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>Scegli cosa ti serve: nel menu e nella prima pagina vedrai solo le sezioni giuste.</p>
         <SelettoreModuli moduli={moduli} onSave={onSalvaModuli} testoBottone="Salva" />
@@ -16002,17 +15984,17 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
           ) : azienda.logo ? (
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <img src={azienda.logo} alt="logo" style={{ height: 48, maxWidth: 140, objectFit: "contain", background: "#fff", borderRadius: 6, padding: 6 }} />
-              <button onClick={() => setAzienda({ ...azienda, logo: null })} style={{ fontSize: 12.5, color: "#8b95a3", background: "none", border: "1px solid #333a45", borderRadius: 6, padding: "7px 12px" }}>Rimuovi</button>
+              <button onClick={() => setAzienda({ ...azienda, logo: null })} style={{ fontSize: 12.5, color: "#8b95a3", background: "none", border: "1px solid #343e57", borderRadius: 6, padding: "7px 12px" }}>Rimuovi</button>
             </div>
           ) : (
-            <label style={{ display: "flex", alignItems: "center", gap: 8, width: "fit-content", border: "1px dashed #333a45", borderRadius: 8, padding: "10px 16px", color: "#8b95a3", fontSize: 13, cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, width: "fit-content", border: "1px dashed #343e57", borderRadius: 8, padding: "10px 16px", color: "#8b95a3", fontSize: 13, cursor: "pointer" }}>
               <Upload size={15} /> Carica logo
               <input type="file" accept="image/*" onChange={handleLogo} style={{ display: "none" }} />
             </label>
           )}
         </div>
 
-        <div style={{ borderTop: "1px solid #262b33", paddingTop: 18 }}>
+        <div style={{ borderTop: "1px solid #232b3f", paddingTop: 18 }}>
           <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Tariffe per i preventivi</h3>
           <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>Usate per calcolare il prezzo suggerito in "Preventivi" — puoi comunque modificare ogni prezzo a mano.</p>
           <div style={{ display: "flex", gap: 10 }}>
@@ -16027,7 +16009,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
           </div>
         </div>
 
-        <div style={{ borderTop: "1px solid #262b33", paddingTop: 18 }}>
+        <div style={{ borderTop: "1px solid #232b3f", paddingTop: 18 }}>
           <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Diciture legali nei preventivi</h3>
           <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0", lineHeight: 1.5 }}>
             Compare in fondo a ogni preventivo in PDF. Il testo qui sotto è un punto di partenza generico, non una consulenza legale: fattelo controllare da un commercialista o da chi ti segue, soprattutto una volta aperta la partita IVA. "{"{validita}"}" viene sostituito con i giorni di validità che imposti su ogni preventivo.
@@ -16044,7 +16026,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
           )}
         </div>
 
-        <div style={{ borderTop: "1px solid #262b33", paddingTop: 18 }}>
+        <div style={{ borderTop: "1px solid #232b3f", paddingTop: 18 }}>
           <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Account e privacy</h3>
           <button onClick={esciDallAccount} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>
             <LogOut size={14} /> Esci dall'account
@@ -16056,16 +16038,16 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
           <SpazioEPromemoria />
           <AccessoImpronta />
           <SceltaDflight />
-          <details style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+          <details style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12 }}>
             <summary style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>🔑 Cambia password</summary>
             <div style={{ marginTop: 10, maxWidth: 340 }}><NuovaPassword dentroApp /></div>
           </details>
-          <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+          <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12 }}>
             <p style={{ fontSize: 13, fontWeight: 600, margin: "0 0 4px 0" }}>🔐 Spazio riservato per i documenti</p>
             <p style={{ fontSize: 12, color: "#aab3bf", margin: "0 0 10px 0", lineHeight: 1.5 }}>
               Attestati, assicurazione, permessi, documenti dei droni, screenshot D-Flight e liberatorie firmate si salvano in uno spazio privato: li vedi solo tu, con link che scadono dopo un'ora. Foto e video dei voli restano dove sono, perché servono alle gallerie dei clienti. Se hai caricato documenti prima di questa novità, spostali qui con un tocco.
             </p>
-            <button onClick={spostaDocumenti} disabled={!!spostamento && !spostamento.startsWith("✓") && !spostamento.startsWith("Lo spazio") && !spostamento.startsWith("Non sono")} style={{ background: "#262b33", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "8px 14px", fontSize: 12.5, fontWeight: 600 }}>Sposta i documenti già caricati</button>
+            <button onClick={spostaDocumenti} disabled={!!spostamento && !spostamento.startsWith("✓") && !spostamento.startsWith("Lo spazio") && !spostamento.startsWith("Non sono")} style={{ background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "8px 14px", fontSize: 12.5, fontWeight: 600 }}>Sposta i documenti già caricati</button>
             {spostamento && <p style={{ fontSize: 12, color: spostamento.startsWith("✓") ? "#4ade80" : "#c3cad4", margin: "8px 0 0 0", wordBreak: "break-all" }}>{spostamento}</p>}
           </div>
           <div style={{ background: "#1f1719", border: "1px solid #5a2a2a", borderRadius: 8, padding: 14 }}>
@@ -16357,9 +16339,9 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       <div style={{ display: "flex", gap: 6, marginBottom: 24, flexWrap: "wrap" }}>
         {["Impianto", tipoIspezione === "danni" ? "Foto" : "Foto termica", "Report"].map((label, i) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 22, height: 22, borderRadius: "50%", background: step === i + 1 ? "#ff8c42" : step > i + 1 ? "#3d8bfd" : "#262b33", color: step >= i + 1 ? "#161a1f" : "#8b95a3", fontSize: 11.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }} className="mono">{i + 1}</div>
+            <div style={{ width: 22, height: 22, borderRadius: "50%", background: step === i + 1 ? "#ff8c42" : step > i + 1 ? "#3d8bfd" : "#232b3f", color: step >= i + 1 ? "#10141f" : "#8b95a3", fontSize: 11.5, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }} className="mono">{i + 1}</div>
             <span style={{ fontSize: 12.5, color: step === i + 1 ? "#fff" : "#8b95a3" }}>{label}</span>
-            {i < 2 && <div style={{ width: 24, height: 1, background: "#262b33", margin: "0 4px" }} />}
+            {i < 2 && <div style={{ width: 24, height: 1, background: "#232b3f", margin: "0 4px" }} />}
           </div>
         ))}
       </div>
@@ -16379,7 +16361,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {impianti.map((imp) => (
-                <button key={imp.id} onClick={() => setImpiantoSel(imp)} style={{ textAlign: "left", padding: "11px 14px", borderRadius: 7, border: impiantoSel?.id === imp.id ? "1px solid #ff8c42" : "1px solid #262b33", background: impiantoSel?.id === imp.id ? "#241d16" : "#1b2028", color: "#e7eaee", fontSize: 13.5 }}>
+                <button key={imp.id} onClick={() => setImpiantoSel(imp)} style={{ textAlign: "left", padding: "11px 14px", borderRadius: 7, border: impiantoSel?.id === imp.id ? "1px solid #ff8c42" : "1px solid #232b3f", background: impiantoSel?.id === imp.id ? "#241d16" : "#151b2b", color: "#e7eaee", fontSize: 13.5 }}>
                   {imp.nome} <span style={{ color: "#6b7480", fontSize: 12 }}>&middot; {imp.zona}</span>
                 </button>
               ))}
@@ -16411,11 +16393,11 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
           )}
           {impiantoSel && (
             <div style={{ marginTop: 18 }}>
-              <button type="button" onClick={() => setMostraDatiVolo(!mostraDatiVolo)} style={{ width: "100%", background: "#1b2028", border: "1px solid #333a45", borderRadius: 8, color: "#e7eaee", fontSize: 14, fontWeight: 600, padding: "12px 16px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <button type="button" onClick={() => setMostraDatiVolo(!mostraDatiVolo)} style={{ width: "100%", background: "#151b2b", border: "1px solid #343e57", borderRadius: 8, color: "#e7eaee", fontSize: 14, fontWeight: 600, padding: "12px 16px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
                 <span style={{ fontSize: 16 }}>{mostraDatiVolo ? "▾" : "▸"}</span> 📋 Dati di volo (per il registro voli) <span style={{ fontWeight: 400, color: "#8b95a3", fontSize: 12.5 }}>— opzionale</span>
               </button>
               {mostraDatiVolo && (
-                <div style={{ marginTop: 10, background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ marginTop: 10, background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
                   <div>
                     <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 5, fontWeight: 500 }}>Drone utilizzato</label>
                     <input type="text" placeholder="es. DJI Matrice 4T" value={droneUsato} onChange={(e) => setDroneUsato(e.target.value)} style={inputStyle} />
@@ -16458,18 +16440,18 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                     <label style={{ fontSize: 13, color: "#8b95a3", display: "block", marginBottom: 4 }}>Screenshot D-Flight (facoltativo)</label>
                     {dflightShot ? (
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 70, height: 46, objectFit: "cover", borderRadius: 4, border: "1px solid #333a45" }} />
-                        <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #333a45", color: "#8b95a3", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Rimuovi</button>
+                        <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 70, height: 46, objectFit: "cover", borderRadius: 4, border: "1px solid #343e57" }} />
+                        <button onClick={() => setDflightShot(null)} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Rimuovi</button>
                       </div>
                     ) : (
-                      <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #333a45", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
+                      <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px dashed #343e57", borderRadius: 6, padding: "8px 14px", color: "#8b95a3", fontSize: 12.5, cursor: "pointer" }}>
                         <Upload size={13} /> Carica screenshot
                         <input type="file" accept="image/*" onChange={caricaDflightShot} style={{ display: "none" }} />
                       </label>
                     )}
                   </div>
 
-                  <div style={{ borderTop: "1px solid #262b33", paddingTop: 10 }}>
+                  <div style={{ borderTop: "1px solid #232b3f", paddingTop: 10 }}>
                     <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#e7eaee", cursor: "pointer" }}>
                       <input type="checkbox" checked={zonaRossa} onChange={(e) => setZonaRossa(e.target.checked)} />
                       Zona rossa / area soggetta a restrizioni
@@ -16540,7 +16522,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               )}
             </div>
           )}
-          <button disabled={!impiantoSel} onClick={() => setStep(2)} style={{ marginTop: 18, background: impiantoSel ? "#ff8c42" : "#333a45", color: impiantoSel ? "#161a1f" : "#6b7480", border: "none", padding: "9px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+          <button disabled={!impiantoSel} onClick={() => setStep(2)} style={{ marginTop: 18, background: impiantoSel ? "#ff8c42" : "#343e57", color: impiantoSel ? "#10141f" : "#6b7480", border: "none", padding: "9px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
             Continua
           </button>
         </div>
@@ -16556,7 +16538,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
           )}
           {foto.length === 0 ? (
             <div style={{ maxWidth: 420 }}>
-              <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 220, border: "1px dashed #333a45", borderRadius: 10, color: "#8b95a3", fontSize: 13, cursor: "pointer" }}>
+              <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", height: 220, border: "1px dashed #343e57", borderRadius: 10, color: "#8b95a3", fontSize: 13, cursor: "pointer" }}>
                 <Camera size={26} strokeWidth={1.5} />
                 Carica una foto termica dell'impianto
                 <input type="file" accept="image/*" onChange={aggiungiFotoDaFile} style={{ display: "none" }} />
@@ -16571,15 +16553,15 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                 {foto.map((f, idx) => (
                   <div key={f.id} style={{ position: "relative" }}>
-                    <button onClick={() => setFotoAttivaId(f.id)} style={{ width: 64, height: 44, borderRadius: 6, overflow: "hidden", border: fotoAttivaId === f.id ? "2px solid #ff8c42" : "2px solid #262b33", padding: 0, background: "#000" }}>
+                    <button onClick={() => setFotoAttivaId(f.id)} style={{ width: 64, height: 44, borderRadius: 6, overflow: "hidden", border: fotoAttivaId === f.id ? "2px solid #ff8c42" : "2px solid #232b3f", padding: 0, background: "#000" }}>
                       <img src={f.dataUrl} alt={`foto ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                     </button>
-                    <button onClick={() => rimuoviFoto(f.id)} title="Rimuovi foto" style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#ff4d4d", border: "2px solid #161a1f", color: "#161a1f", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+                    <button onClick={() => rimuoviFoto(f.id)} title="Rimuovi foto" style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#ff4d4d", border: "2px solid #10141f", color: "#10141f", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
                       <X size={10} />
                     </button>
                   </div>
                 ))}
-                <label style={{ width: 64, height: 44, borderRadius: 6, border: "1px dashed #333a45", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#8b95a3" }} title="Carica un'altra foto">
+                <label style={{ width: 64, height: 44, borderRadius: 6, border: "1px dashed #343e57", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#8b95a3" }} title="Carica un'altra foto">
                   <Plus size={16} />
                   <input type="file" accept="image/*" onChange={aggiungiFotoDaFile} style={{ display: "none" }} />
                 </label>
@@ -16587,7 +16569,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
 
               {fotoAttiva && (
                 <div style={{ marginBottom: 10 }}>
-                  <button type="button" onClick={rilevaAutomaticamente} disabled={rilevandoPunti} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1b2028", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "8px 14px", fontSize: 12.5 }}>
+                  <button type="button" onClick={rilevaAutomaticamente} disabled={rilevandoPunti} style={{ display: "flex", alignItems: "center", gap: 6, background: "#151b2b", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 6, padding: "8px 14px", fontSize: 12.5 }}>
                     🔍 {rilevandoPunti ? "Analisi in corso..." : "Rileva punti caldi automaticamente"}
                   </button>
                   <p style={{ fontSize: 10.5, color: "#6b7480", margin: "5px 0 0 0" }}>Individua automaticamente le zone più calde della foto — sono suggerimenti da confermare, non una diagnosi definitiva.</p>
@@ -16600,8 +16582,8 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                     const sev = SEVERITY.find((s) => s.key === a.gravita);
                     return (
                       <React.Fragment key={a.id}>
-                        <div title={a.categoria} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 14, height: 14, borderRadius: "50%", border: `2.5px solid ${sev.color}`, boxShadow: "0 0 0 1.5px #161a1f", transform: "translate(-50%,-50%)" }} />
-                        <div style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #161a1f", transform: "translate(6px, -22px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f" }}>
+                        <div title={a.categoria} style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 14, height: 14, borderRadius: "50%", border: `2.5px solid ${sev.color}`, boxShadow: "0 0 0 1.5px #10141f", transform: "translate(-50%,-50%)" }} />
+                        <div style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #10141f", transform: "translate(6px, -22px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#10141f" }}>
                           {i + 1}
                         </div>
                       </React.Fragment>
@@ -16612,13 +16594,13 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                       <button
                         onClick={(e) => { e.stopPropagation(); scartaSuggerimento(idx); }}
                         title="Scarta suggerimento"
-                        style={{ position: "absolute", top: -8, right: -8, width: 16, height: 16, borderRadius: "50%", background: "#333a45", border: "1px solid #161a1f", color: "#c3cad4", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                        style={{ position: "absolute", top: -8, right: -8, width: 16, height: 16, borderRadius: "50%", background: "#343e57", border: "1px solid #10141f", color: "#c3cad4", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
                       >×</button>
                     </div>
                   ))}
                   {pendingPin && (
                     <div style={{ position: "absolute", left: `${pendingPin.x}%`, top: `${pendingPin.y}%`, transform: "translate(-50%,-50%)" }}>
-                      <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#fff", border: "2px solid #161a1f" }} />
+                      <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#fff", border: "2px solid #10141f" }} />
                     </div>
                   )}
                 </div>
@@ -16660,8 +16642,8 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                 </div>
               )}
               <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-                <button onClick={() => setStep(1)} style={{ background: "transparent", border: "1px solid #333a45", color: "#c3cad4", padding: "9px 16px", borderRadius: 6, fontSize: 13 }}>Indietro</button>
-                <button onClick={vaiAlReport} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "9px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>Genera report</button>
+                <button onClick={() => setStep(1)} style={{ background: "transparent", border: "1px solid #343e57", color: "#c3cad4", padding: "9px 16px", borderRadius: 6, fontSize: 13 }}>Indietro</button>
+                <button onClick={vaiAlReport} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "9px 18px", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>Genera report</button>
               </div>
             </div>
           )}
@@ -16722,7 +16704,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
                       return (
                         <React.Fragment key={a.id}>
                           <div style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 14, height: 14, borderRadius: "50%", border: `2.5px solid ${sev.color}`, boxShadow: "0 0 0 1.5px rgba(0,0,0,0.6)", transform: "translate(-50%,-50%)" }} />
-                          <div style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(6px, -22px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#161a1f", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
+                          <div style={{ position: "absolute", left: `${a.x}%`, top: `${a.y}%`, width: 20, height: 20, borderRadius: "50%", background: sev.color, border: "2px solid #fff", transform: "translate(6px, -22px)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#10141f", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
                             {i + 1}
                           </div>
                         </React.Fragment>
@@ -16776,7 +16758,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
           </div>
 
           <div style={{ maxWidth: 520, marginTop: 16 }}>
-            <button onClick={generaPDF}  style={{ display: "flex", alignItems: "center", gap: 6, background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", padding: "9px 16px", borderRadius: 6, fontSize: 13 }}>
+            <button onClick={generaPDF}  style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "9px 16px", borderRadius: 6, fontSize: 13 }}>
               <FileDown size={14} /> Scarica PDF
             </button>
             <button onClick={onDone} style={{ display: "block", marginTop: 10, background: "transparent", color: "#8b95a3", border: "none", padding: "8px 0", fontSize: 12.5 }}>
@@ -16797,7 +16779,7 @@ function BloccoAnomalia({ a, numero, ritaglio, fotoNumero }) {
       {ritaglio && (
         <div style={{ position: "relative", marginBottom: 8, maxWidth: 320 }}>
           <img src={ritaglio} alt="Primo piano anomalia" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 8, border: "1px solid #e5e5e5", display: "block" }} />
-          <div style={{ position: "absolute", top: 8, left: 8, width: 26, height: 26, borderRadius: "50%", background: sev.color, color: "#161a1f", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
+          <div style={{ position: "absolute", top: 8, left: 8, width: 26, height: 26, borderRadius: "50%", background: sev.color, color: "#10141f", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
             {numero}
           </div>
           {fotoNumero && (
@@ -16824,28 +16806,28 @@ function AnomaliaPopup({ onConfirm, onCancel, categorie = CATEGORIE_FOTOVOLTAICO
   const [gravita, setGravita] = useState("media");
   const info = categorie.find((c) => c.key === categoria) || TUTTE_LE_CATEGORIE.find((c) => c.key === categoria);
   return (
-    <div style={{ marginTop: 12, background: "#1b2028", border: "1px solid #333a45", borderRadius: 8, padding: 14, width: "100%", maxWidth: 320 }}>
+    <div style={{ marginTop: 12, background: "#151b2b", border: "1px solid #343e57", borderRadius: 8, padding: 14, width: "100%", maxWidth: 320 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>Nuova anomalia</span>
         <button onClick={onCancel} style={{ background: "none", border: "none", color: "#6b7480" }}><X size={14} /></button>
       </div>
       <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Tipo di anomalia</label>
-      <select value={categoria} onChange={(e) => setCategoria(e.target.value)} style={{ width: "100%", background: "#161a1f", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 5, padding: "6px 8px", fontSize: 12.5, marginBottom: 8 }}>
+      <select value={categoria} onChange={(e) => setCategoria(e.target.value)} style={{ width: "100%", background: "#10141f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 5, padding: "6px 8px", fontSize: 12.5, marginBottom: 8 }}>
         {categorie.map((c) => <option key={c.key} value={c.key}>{c.key}</option>)}
       </select>
-      <div style={{ background: "#161a1f", border: "1px solid #262b33", borderRadius: 6, padding: "8px 10px", marginBottom: 10 }}>
+      <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: "8px 10px", marginBottom: 10 }}>
         <p style={{ fontSize: 11.5, color: "#9aa4b2", margin: "0 0 6px 0", lineHeight: 1.4 }}>{info.descrizione}</p>
         <p style={{ fontSize: 11.5, color: "#ff8c42", margin: 0, lineHeight: 1.4 }}><strong>Azione consigliata:</strong> {info.azione}</p>
       </div>
       <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Gravità</label>
       <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
         {SEVERITY.map((s) => (
-          <button key={s.key} onClick={() => setGravita(s.key)} style={{ flex: 1, padding: "5px 0", borderRadius: 5, fontSize: 11, border: gravita === s.key ? `1px solid ${s.color}` : "1px solid #333a45", background: gravita === s.key ? s.color + "22" : "transparent", color: gravita === s.key ? s.color : "#8b95a3" }}>
+          <button key={s.key} onClick={() => setGravita(s.key)} style={{ flex: 1, padding: "5px 0", borderRadius: 5, fontSize: 11, border: gravita === s.key ? `1px solid ${s.color}` : "1px solid #343e57", background: gravita === s.key ? s.color + "22" : "transparent", color: gravita === s.key ? s.color : "#8b95a3" }}>
             {s.label}
           </button>
         ))}
       </div>
-      <button onClick={() => onConfirm(categoria, gravita)} style={{ width: "100%", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", padding: "7px 0", borderRadius: 5, fontWeight: 600, fontSize: 12.5 }}>Conferma</button>
+      <button onClick={() => onConfirm(categoria, gravita)} style={{ width: "100%", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "7px 0", borderRadius: 5, fontWeight: 600, fontSize: 12.5 }}>Conferma</button>
     </div>
   );
 }

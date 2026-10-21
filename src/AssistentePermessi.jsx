@@ -135,12 +135,12 @@ const durata = (d) => { const m = String(d || "").match(/^P(?:(\d+)D)?(?:T(?:(\d
 function leggiRichiedente() { try { return JSON.parse(localStorage.getItem(CHIAVE_RICHIEDENTE) || "null") || {}; } catch { return {}; } }
 
 const st = {
-  card: { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: 16, marginBottom: 14 },
-  input: { width: "100%", boxSizing: "border-box", background: "#12151a", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "9px 10px", fontSize: 13.5, minHeight: 40 },
+  card: { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: 16, marginBottom: 14 },
+  input: { width: "100%", boxSizing: "border-box", background: "#0d111c", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "9px 10px", fontSize: 13.5, minHeight: 40 },
   etich: { fontSize: 11.5, color: "#8b95a3", display: "block", marginBottom: 4 },
-  primario: { background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 700, minHeight: 44 },
-  secondario: { background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 600, minHeight: 42 },
-  passo: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", background: "#ff8c42", color: "#161a1f", fontWeight: 800, fontSize: 13, flex: "none" },
+  primario: { background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 700, minHeight: 44 },
+  secondario: { background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 600, minHeight: 42 },
+  passo: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", background: "#ff8c42", color: "#10141f", fontWeight: 800, fontSize: 13, flex: "none" },
 };
 
 function Titolo({ n, children }) {
@@ -234,7 +234,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <div style={{ ...st.card, background: "linear-gradient(135deg, #1d2633, #1b2028)", borderColor: "#3d8bfd55" }}>
+      <div style={{ ...st.card, background: "linear-gradient(135deg, #1d2633, #151b2b)", borderColor: "#3d8bfd55" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 800 }}>🧭 Assistente permessi</div>
@@ -289,7 +289,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {ZONE_A_MANO.map((x) => {
               const attivo = aMano !== undefined && (x.zona ? aMano && aMano.id === x.zona.id : aMano === null);
-              return <button key={x.etichetta} type="button" onClick={() => { setAMano(x.zona); setScelta(null); }} aria-pressed={attivo} style={{ ...st.secondario, minHeight: 38, padding: "6px 12px", fontSize: 12.5, background: attivo ? "#2b3a52" : "#1f2530", borderColor: attivo ? "#3d8bfd" : "#333a45" }}>{x.etichetta}</button>;
+              return <button key={x.etichetta} type="button" onClick={() => { setAMano(x.zona); setScelta(null); }} aria-pressed={attivo} style={{ ...st.secondario, minHeight: 38, padding: "6px 12px", fontSize: 12.5, background: attivo ? "#2b3a52" : "#1a2133", borderColor: attivo ? "#3d8bfd" : "#343e57" }}>{x.etichetta}</button>;
             })}
           </div>
           <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "8px 0 0 0" }}>Con il file faccio tutto da solo, trovo anche il contatto dell'ente e i posti liberi lì vicino.</p>
@@ -303,7 +303,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
             <span style={{ fontSize: 12.5, color: "#8b95a3", alignSelf: "center" }}>Come voli?</span>
             {[["open", "Categoria Open (A1/A3, A2)"], ["specific", "Specific (STS o autorizzazione ENAC)"]].map(([k, l]) => (
-              <button key={k} type="button" onClick={() => { setCategoria(k); setScelta(null); }} aria-pressed={categoria === k} style={{ ...st.secondario, minHeight: 36, padding: "6px 12px", background: categoria === k ? "#2b3a52" : "#1f2530", borderColor: categoria === k ? "#3d8bfd" : "#333a45" }}>{l}</button>
+              <button key={k} type="button" onClick={() => { setCategoria(k); setScelta(null); }} aria-pressed={categoria === k} style={{ ...st.secondario, minHeight: 36, padding: "6px 12px", background: categoria === k ? "#2b3a52" : "#1a2133", borderColor: categoria === k ? "#3d8bfd" : "#343e57" }}>{l}</button>
             ))}
           </div>
 
@@ -397,7 +397,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
               {alternative === "cerco" && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 8 }}>Cerco nel raggio di 8 km…</div>}
               {Array.isArray(alternative) && alternative.length === 0 && <div style={{ fontSize: 12.5, color: "#f5b942", marginTop: 8 }}>Nel raggio di 8 km non trovo posti senza zone: qui conviene chiedere il permesso.</div>}
               {Array.isArray(alternative) && alternative.map((x) => (
-                <div key={x.altezza} style={{ background: "#12151a", border: "1px solid #2b313d", borderRadius: 8, padding: "8px 10px", marginTop: 8 }}>
+                <div key={x.altezza} style={{ background: "#0d111c", border: "1px solid #2a3349", borderRadius: 8, padding: "8px 10px", marginTop: 8 }}>
                   <div style={{ fontSize: 13, color: "#e7eaee" }}>📍 <strong>{x.distanza >= 1000 ? `${(x.distanza / 1000).toFixed(1).replace(".", ",")} km` : `${x.distanza} m`} a {x.direzione}</strong>{x.luogo && x.luogo.comune ? ` · ${x.luogo.comune}` : ""} · <span style={{ color: "#4ade80" }}>{x.altezza >= 120 ? "libero fino a 120 m" : `libero fino a ${x.altezza} m`}</span></div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                     <button type="button" onClick={() => { setScelta(null); setPunto({ lat: x.lat, lon: x.lon, etichetta: "Posto libero vicino" }); setTesto(`${x.lat.toFixed(5)}, ${x.lon.toFixed(5)}`); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ ...st.secondario, minHeight: 34, padding: "5px 10px", fontSize: 12 }}>Usa questo punto</button>
@@ -428,7 +428,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
           <div style={{ fontSize: 13, color: "#c3cad4", marginBottom: 8 }}>✍️ Devi scrivere a qualcun altro? Prefettura, Comune, Polizia locale, un parco che non è nel file o il proprietario del posto: ti scrivo io la richiesta o l'avviso.</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {ENTI_LIBERI.map((e) => (
-              <button key={e.id} type="button" onClick={() => setScelta({ tipo: "ente", libero: e, zona: { id: "libero-" + e.id, nome: "" }, ente: null })} style={{ ...st.secondario, minHeight: 38, padding: "6px 12px", fontSize: 12.5, borderColor: scelta?.libero?.id === e.id ? "#3d8bfd" : "#333a45" }}>{e.nome}</button>
+              <button key={e.id} type="button" onClick={() => setScelta({ tipo: "ente", libero: e, zona: { id: "libero-" + e.id, nome: "" }, ente: null })} style={{ ...st.secondario, minHeight: 38, padding: "6px 12px", fontSize: 12.5, borderColor: scelta?.libero?.id === e.id ? "#3d8bfd" : "#343e57" }}>{e.nome}</button>
             ))}
           </div>
         </div>
@@ -720,7 +720,7 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
         <Campo label="Ultimo giorno (se più giorni)"><input type="date" value={f.dataA} onChange={cambia("dataA")} style={st.input} /></Campo>
         <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "#c3cad4", background: "#141c28", border: "1px solid #3d8bfd33", borderRadius: 8, padding: "8px 10px" }}>
           🌧️ <strong>Consiglio:</strong> chiedi qualche giorno in più di quello che ti serve, così se piove o c'è vento sei già coperto (e una fascia oraria più larga).{" "}
-          {f.dataDa ? <>Aggiungi giorni di riserva:{" "}{[1, 2, 3].map((n) => <button key={n} type="button" onClick={() => setF({ ...f, dataA: piu(f.dataDa, n), riserva: true })} style={{ background: f.dataA === piu(f.dataDa, n) ? "#2b3a52" : "#1f2530", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 6, padding: "3px 9px", fontSize: 12, fontWeight: 600, marginLeft: 4 }}>+{n}</button>)}</> : "Prima scegli il giorno del volo."}
+          {f.dataDa ? <>Aggiungi giorni di riserva:{" "}{[1, 2, 3].map((n) => <button key={n} type="button" onClick={() => setF({ ...f, dataA: piu(f.dataDa, n), riserva: true })} style={{ background: f.dataA === piu(f.dataDa, n) ? "#2b3a52" : "#1a2133", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 6, padding: "3px 9px", fontSize: 12, fontWeight: 600, marginLeft: 4 }}>+{n}</button>)}</> : "Prima scegli il giorno del volo."}
           <div style={{ color: "#8b95a3", marginTop: 4 }}>Non esagerare: 2–3 giorni in più vanno bene, periodi troppo lunghi possono essere rifiutati. Il preavviso si conta dal primo giorno.</div>
         </div>
         <Campo label="Dalle"><input type="time" value={f.oraDa} onChange={cambia("oraDa")} style={st.input} /></Campo>

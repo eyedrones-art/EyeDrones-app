@@ -68,8 +68,8 @@ export default function MappaCampi({ campi, selezionato, onScegli, altezza = 320
 
   return (
     <div style={{ position: "relative" }}>
-      <div ref={contenitore} style={{ height: altezza, borderRadius: 10, overflow: "hidden", border: "1px solid #2b313d", background: "#0e1116" }} />
-      <button type="button" onClick={() => setSatellite(!satellite)} style={{ position: "absolute", top: 10, right: 10, zIndex: 500, background: "#12151cdd", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}>
+      <div ref={contenitore} style={{ height: altezza, borderRadius: 10, overflow: "hidden", border: "1px solid #2a3349", background: "#0a0d16" }} />
+      <button type="button" onClick={() => setSatellite(!satellite)} style={{ position: "absolute", top: 10, right: 10, zIndex: 500, background: "#12151cdd", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}>
         {satellite ? "🗺️ Strade" : "🛰️ Satellite"}
       </button>
     </div>

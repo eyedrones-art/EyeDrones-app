@@ -62,7 +62,7 @@ function MappaQui({ punto, liberi, zone }) {
     if (tutti.length > 1) m.fitBounds(L.latLngBounds(tutti), { padding: [36, 36], maxZoom: 16 });
     return () => s.remove();
   }, [punto.lat, punto.lon, liberi, zone]);
-  return <div ref={box} style={{ height: 260, borderRadius: 10, overflow: "hidden", border: "1px solid #2b313d", marginTop: 10 }} />;
+  return <div ref={box} style={{ height: 260, borderRadius: 10, overflow: "hidden", border: "1px solid #2a3349", marginTop: 10 }} />;
 }
 
 export default function QuiEOra({ supabase, onPianifica, onAlGiro, onCaricaZone, onConsiglia, puntoProva }) {
@@ -124,9 +124,9 @@ export default function QuiEOra({ supabase, onPianifica, onAlGiro, onCaricaZone,
     } catch { setAuto({ errore: "Le mappe non rispondono: controlla di avere campo e riprova." }); }
   };
 
-  const scheda = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: "14px 16px", marginBottom: 14 };
+  const scheda = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: "14px 16px", marginBottom: 14 };
   const titolo = { fontSize: 12, fontWeight: 700, color: "#8b95a3", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 };
-  const bottone = { background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center" };
+  const bottone = { background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center" };
 
   return (
     <div style={{ padding: "24px 20px", maxWidth: 680 }}>
@@ -139,7 +139,7 @@ export default function QuiEOra({ supabase, onPianifica, onAlGiro, onCaricaZone,
       {punto && (
         <>
           {/* 1. Posso volare qui? */}
-          <div style={{ ...scheda, borderColor: g ? g.colore + "88" : "#2b313d" }}>
+          <div style={{ ...scheda, borderColor: g ? g.colore + "88" : "#2a3349" }}>
             {g ? (
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <span style={{ fontSize: 42, lineHeight: 1 }}>{g.emoji}</span>
@@ -171,7 +171,7 @@ export default function QuiEOra({ supabase, onPianifica, onAlGiro, onCaricaZone,
               {liberi.length === 0 ? <div style={{ fontSize: 13, color: "#c3cad4" }}>Nel raggio di 3 km non trovo un punto libero: prova con «E adesso?» qui sotto per i posti in auto.</div> : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {liberi.map((q) => (
-                    <div key={`${q.lat},${q.lon}`} style={{ display: "flex", gap: 10, alignItems: "center", background: "#161a1f", border: "1px solid #4ade8055", borderRadius: 10, padding: "10px 12px" }}>
+                    <div key={`${q.lat},${q.lon}`} style={{ display: "flex", gap: 10, alignItems: "center", background: "#10141f", border: "1px solid #4ade8055", borderRadius: 10, padding: "10px 12px" }}>
                       <span style={{ fontSize: 22 }}>{q.altezza >= 120 ? "✅" : "⚠️"}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 700 }}>{q.distanza < 1000 ? `${q.distanza} m` : `${(q.distanza / 1000).toLocaleString("it-IT", { maximumFractionDigits: 1 })} km`} verso {q.direzione}</div>
@@ -190,7 +190,7 @@ export default function QuiEOra({ supabase, onPianifica, onAlGiro, onCaricaZone,
           {/* 3. In auto */}
           <div style={scheda}>
             <div style={titolo}>🎯 E adesso? Posti belli qui vicino</div>
-            {auto === null && <button type="button" onClick={cercaInAuto} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 800 }}>🎯 Dove vado adesso?</button>}
+            {auto === null && <button type="button" onClick={cercaInAuto} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 800 }}>🎯 Dove vado adesso?</button>}
             {auto === "cerco" && <div style={{ fontSize: 13, color: "#8b95a3" }}>Cerco i posti intorno e i minuti di strada…</div>}
             {auto && auto.errore && <div style={{ fontSize: 13, color: "#ff9c9c" }}>{auto.errore}</div>}
             {auto && auto.posti && auto.posti.length === 0 && <div style={{ fontSize: 13, color: "#c3cad4" }}>Qui intorno non trovo posti segnati dove si può volare. Se ne conosci uno, consiglialo dalla pagina Posti!</div>}
@@ -201,7 +201,7 @@ export default function QuiEOra({ supabase, onPianifica, onAlGiro, onCaricaZone,
                   {auto.posti.map((p) => {
                     const tardi = luce != null && p.min + 20 >= luce;
                     return (
-                      <div key={p.id} style={{ background: "#161a1f", border: `1px solid ${p.piloti ? "#5a4a16" : "#2b313d"}`, borderRadius: 10, padding: "10px 12px", opacity: tardi ? 0.6 : 1 }}>
+                      <div key={p.id} style={{ background: "#10141f", border: `1px solid ${p.piloti ? "#5a4a16" : "#2a3349"}`, borderRadius: 10, padding: "10px 12px", opacity: tardi ? 0.6 : 1 }}>
                         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                           <span style={{ fontSize: 22 }}>{p.emoji}</span>
                           <div style={{ flex: 1, minWidth: 0 }}>

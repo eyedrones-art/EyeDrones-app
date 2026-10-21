@@ -22,10 +22,10 @@ const mescolaRisposte = (banca) => banca.map((q) => { const p = mescola(q.r.map(
 const mescola = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 const AVVISO = "Domande di allenamento scritte sugli argomenti d'esame: non sono quelle ufficiali e non sostituiscono il corso ENAC o una scuola.";
 
-const stCard = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "14px 16px" };
-const stBtn = (attivo) => ({ background: attivo ? "#ff8c42" : "#1f2530", color: attivo ? "#161a1f" : "#e7eaee", border: attivo ? "none" : "1px solid #333a45", borderRadius: 18, padding: "6px 12px", fontSize: 12.5, fontWeight: attivo ? 700 : 500, whiteSpace: "nowrap" });
-const stAzione = { background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 700 };
-const stSecondario = { background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "9px 14px", fontSize: 13 };
+const stCard = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "14px 16px" };
+const stBtn = (attivo) => ({ background: attivo ? "#ff8c42" : "#1a2133", color: attivo ? "#10141f" : "#e7eaee", border: attivo ? "none" : "1px solid #343e57", borderRadius: 18, padding: "6px 12px", fontSize: 12.5, fontWeight: attivo ? 700 : 500, whiteSpace: "nowrap" });
+const stAzione = { background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 700 };
+const stSecondario = { background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "9px 14px", fontSize: 13 };
 
 // passi e link ufficiali per prendere l'attestato
 function ComeSiPrende({ esame }) {
@@ -56,7 +56,7 @@ function ComeSiPrende({ esame }) {
         </div>
       )}
       {c.estero && (
-        <details style={{ marginTop: 10, background: "#161a1f", border: "1px solid #2b313d", borderRadius: 8, padding: "8px 12px" }}>
+        <details style={{ marginTop: 10, background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: "8px 12px" }}>
           <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 700 }}>🌍 Si può fare anche all'estero{esame === "a1a3" ? " (anche gratis)" : ""}</summary>
           <ul style={{ margin: "8px 0 0 0", paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: "#c3cad4" }}>
             {c.estero.testo.map((t) => <li key={t} style={{ marginBottom: 4 }}>{t}</li>)}
@@ -103,13 +103,13 @@ function Domanda({ q, scelta, onScegli, mostraEsito }) {
           const giusta = mostraEsito && i === q.ok;
           const sbagliata = mostraEsito && i === scelta && i !== q.ok;
           return (
-            <button key={i} type="button" disabled={mostraEsito} onClick={() => onScegli(i)} style={{ textAlign: "left", background: giusta ? "#1d3a2a" : sbagliata ? "#3a1d1d" : scelta === i ? "#2a3446" : "#161a1f", border: `1px solid ${giusta ? "#4ade80" : sbagliata ? "#ff6b6b" : scelta === i ? "#7fb0ff" : "#333a45"}`, color: "#e7eaee", borderRadius: 8, padding: "10px 12px", fontSize: 13.5 }}>
+            <button key={i} type="button" disabled={mostraEsito} onClick={() => onScegli(i)} style={{ textAlign: "left", background: giusta ? "#1d3a2a" : sbagliata ? "#3a1d1d" : scelta === i ? "#2a3446" : "#10141f", border: `1px solid ${giusta ? "#4ade80" : sbagliata ? "#ff6b6b" : scelta === i ? "#7fb0ff" : "#343e57"}`, color: "#e7eaee", borderRadius: 8, padding: "10px 12px", fontSize: 13.5 }}>
               {String.fromCharCode(65 + i)}. {r} {giusta ? "✓" : sbagliata ? "✗" : ""}
             </button>
           );
         })}
       </div>
-      {mostraEsito && <div style={{ marginTop: 10, fontSize: 12.5, color: "#c3cad4", background: "#161a1f", borderRadius: 8, padding: "8px 10px" }}>💡 {q.perche}</div>}
+      {mostraEsito && <div style={{ marginTop: 10, fontSize: 12.5, color: "#c3cad4", background: "#10141f", borderRadius: 8, padding: "8px 10px" }}>💡 {q.perche}</div>}
     </div>
   );
 }
@@ -198,7 +198,7 @@ function Quiz({ esameIniziale = "a1a3" }) {
     const soglia = Math.ceil(massimo * 0.75);
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ ...stCard, borderColor: modo !== "simulazione" ? "#2b313d" : punti >= soglia ? "#4ade80" : "#ff6b6b" }}>
+        <div style={{ ...stCard, borderColor: modo !== "simulazione" ? "#2a3349" : punti >= soglia ? "#4ade80" : "#ff6b6b" }}>
           <div style={{ fontSize: 18, fontWeight: 800 }}>{modo !== "simulazione" ? `Fatto! ${giuste} giuste su ${date.length}` : punti >= soglia ? "✅ Superato!" : "❌ Non ancora"}</div>
           {modo === "simulazione" && <div style={{ fontSize: 13, color: "#c3cad4", marginTop: 4 }}>{punti} punti su {massimo} (serve {soglia}) · {giuste} giuste, {sbagliate} sbagliate, {date.length - giuste - sbagliate} non date</div>}
         </div>
@@ -232,7 +232,7 @@ function Quiz({ esameIniziale = "a1a3" }) {
         {modo === "simulazione" && <span style={{ color: restano < 300 ? "#ff8c42" : "#8b95a3" }}>⏱️ {Math.floor(restano / 60)}:{String(restano % 60).padStart(2, "0")}</span>}
         <button type="button" onClick={() => (modo === "simulazione" ? setFine(true) : setModo(null))} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12, padding: 0 }}>{modo === "simulazione" ? "Consegna" : "Esci"}</button>
       </div>
-      <div style={{ height: 4, background: "#262b33", borderRadius: 2 }}><div style={{ height: 4, width: `${((pos + 1) / ordine.length) * 100}%`, background: "#ff8c42", borderRadius: 2 }} /></div>
+      <div style={{ height: 4, background: "#232b3f", borderRadius: 2 }}><div style={{ height: 4, width: `${((pos + 1) / ordine.length) * 100}%`, background: "#ff8c42", borderRadius: 2 }} /></div>
       <div style={stCard}><Domanda q={q} scelta={scelte[i]} onScegli={scegli} mostraEsito={mostra} /></div>
       {(mostra || modo === "simulazione") && (
         <button type="button" onClick={avanti} style={{ ...stAzione, alignSelf: "flex-end" }}>{pos + 1 >= ordine.length ? (modo === "simulazione" ? "Consegna" : "Fine") : modo === "simulazione" && scelte[i] == null ? "Salta →" : "Avanti →"}</button>
@@ -248,10 +248,10 @@ function SigleZone() {
     <details style={stCard}>
       <summary style={{ cursor: "pointer", fontSize: 14.5, fontWeight: 700 }}>🔤 Le sigle spiegate</summary>
       <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "8px 0" }}>Su D-Flight trovi tante sigle: ecco cosa vogliono dire e cosa fare, senza giri di parole.</p>
-      <input placeholder="🔍 Cerca una sigla (es. CTR, NOTAM, AMSL)" value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ width: "100%", background: "#161a1f", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "8px 10px", fontSize: 13, marginBottom: 8 }} />
+      <input placeholder="🔍 Cerca una sigla (es. CTR, NOTAM, AMSL)" value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ width: "100%", background: "#10141f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 8, padding: "8px 10px", fontSize: 13, marginBottom: 8 }} />
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {elenco.map((x) => (
-          <div key={x.sigla} style={{ background: "#161a1f", borderRadius: 8, padding: "8px 10px" }}>
+          <div key={x.sigla} style={{ background: "#10141f", borderRadius: 8, padding: "8px 10px" }}>
             <div style={{ fontSize: 13, fontWeight: 700 }}><span style={{ color: "#ff8c42" }}>{x.sigla}</span> · {x.nome}</div>
             <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{x.cosa}</div>
             <div style={{ fontSize: 12.5, color: "#4ade80", marginTop: 2 }}>✅ {x.fare}</div>
@@ -282,9 +282,9 @@ function CheZonaRossa() {
   const [motivo, setMotivo] = useState(null);
   const [cat, setCat] = useState("open");
   const r = motivo && RISPOSTE_ZONA[motivo][cat];
-  const bottone = (attivo) => ({ background: attivo ? "#2b3a52" : "#161a1f", border: `1px solid ${attivo ? "#3d8bfd" : "#333a45"}`, color: "#e7eaee", borderRadius: 8, padding: "8px 12px", fontSize: 13, textAlign: "left", minHeight: 44 });
+  const bottone = (attivo) => ({ background: attivo ? "#2b3a52" : "#10141f", border: `1px solid ${attivo ? "#3d8bfd" : "#343e57"}`, color: "#e7eaee", borderRadius: 8, padding: "8px 12px", fontSize: 13, textAlign: "left", minHeight: 44 });
   return (
-    <div style={{ ...stCard, borderColor: "#3d8bfd66", background: "linear-gradient(135deg, #1d2633, #1b2028)" }}>
+    <div style={{ ...stCard, borderColor: "#3d8bfd66", background: "linear-gradient(135deg, #1d2633, #151b2b)" }}>
       <div style={{ fontSize: 15, fontWeight: 800 }}>🤔 Che zona rossa è? Scoprilo in 2 tocchi</div>
       <div style={{ fontSize: 12.5, color: "#c3cad4", margin: "4px 0 10px 0" }}>Su D-Flight tocca la zona e guarda «Motivo» o il nome.</div>
       <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 4 }}>1. Di cosa è la zona?</div>
@@ -304,7 +304,7 @@ function CheZonaRossa() {
           <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 4, lineHeight: 1.5 }}>{r.testo}</div>
           {r.azione && (
             <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail: { pagina: "permessi" } })); }}
-              style={{ marginTop: 10, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 14, fontWeight: 700, minHeight: 44 }}>🧭 Preparami la richiesta</button>
+              style={{ marginTop: 10, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 14, fontWeight: 700, minHeight: 44 }}>🧭 Preparami la richiesta</button>
           )}
         </div>
       )}
@@ -332,7 +332,7 @@ export function ZonaRossa() {
         <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "8px 0" }}>Il contatto giusto è quasi sempre scritto nella scheda della zona su D-Flight (e nella verifica zona di EyeDrones). Ecco chi è, caso per caso:</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {CONTATTI_ZONE.map((c) => (
-            <div key={c.dove} style={{ background: "#161a1f", borderRadius: 8, padding: "8px 10px" }}>
+            <div key={c.dove} style={{ background: "#10141f", borderRadius: 8, padding: "8px 10px" }}>
               <div style={{ fontSize: 13, fontWeight: 700 }}>{c.emoji} {c.dove}</div>
               <div style={{ fontSize: 12.5, color: "#ffb877", marginTop: 2 }}>👉 {c.chi}</div>
               <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{c.come}</div>

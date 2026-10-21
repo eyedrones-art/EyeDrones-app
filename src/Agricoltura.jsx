@@ -15,9 +15,9 @@ const testo = (v) => (String(v ?? "").trim() ? String(v).trim() : null);
 const manca = (msg) => /appezzamenti|trattamenti|does not exist|schema cache|column/i.test(String(msg || ""));
 const UNITA = ["l/ha", "kg/ha", "ml/ha", "g/ha"];
 
-const scheda = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: 16 };
+const scheda = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: 16 };
 const etichetta = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
-const btn = (primario) => ({ background: primario ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#1f2530", color: primario ? "#161a1f" : "#e7eaee", border: primario ? "none" : "1px solid #333a45", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 });
+const btn = (primario) => ({ background: primario ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#1a2133", color: primario ? "#10141f" : "#e7eaee", border: primario ? "none" : "1px solid #343e57", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 });
 
 const CHIAVE_VISTA = "eyedrones_agri_vista";
 
@@ -53,7 +53,7 @@ export function HomeAgricoltura({ supabase, onNav }) {
         </div>
       )}
       {d.scia && (
-        <button type="button" onClick={() => vai("scia")} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 10, textAlign: "left", background: "#161a1f", border: `1px solid ${d.scia.fatte === d.scia.voci.length ? "#4ade8066" : "#ff8c4266"}`, borderRadius: 8, padding: "9px 12px", color: "#e7eaee" }}>
+        <button type="button" onClick={() => vai("scia")} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 10, textAlign: "left", background: "#10141f", border: `1px solid ${d.scia.fatte === d.scia.voci.length ? "#4ade8066" : "#ff8c4266"}`, borderRadius: 8, padding: "9px 12px", color: "#e7eaee" }}>
           <span>📁</span><span style={{ flex: 1, fontSize: 12.5 }}><strong>Fascicolo SCIA</strong> · {d.scia.fatte === d.scia.voci.length ? "pronto ✅" : `${d.scia.fatte} di ${d.scia.voci.length}: mancano ${d.scia.voci.length - d.scia.fatte} cose`}</span><span style={{ color: "#8b95a3" }}>›</span>
         </button>
       )}
@@ -106,7 +106,7 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
 
         <div role="tablist" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
           {linguette.map(([k, t]) => (
-            <button key={k} role="tab" aria-selected={vista === k} type="button" onClick={() => setVista(k)} style={{ ...btn(false), background: vista === k ? "#241d16" : "#1f2530", border: vista === k ? "1px solid #ff8c42" : "1px solid #333a45", fontWeight: 600 }}>{t}</button>
+            <button key={k} role="tab" aria-selected={vista === k} type="button" onClick={() => setVista(k)} style={{ ...btn(false), background: vista === k ? "#241d16" : "#1a2133", border: vista === k ? "1px solid #ff8c42" : "1px solid #343e57", fontWeight: 600 }}>{t}</button>
           ))}
         </div>
 
@@ -195,7 +195,7 @@ function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selez
         <MappaCampi campi={scelti.map((c) => ({ id: c.chiave, nome: c.nome, confini: c.geometry, ettari: c.ettari }))} altezza={260} />
         <div style={{ display: "flex", flexDirection: "column", gap: 6, margin: "12px 0" }}>
           {importati.map((c, i) => (
-            <label key={c.chiave} style={{ display: "flex", alignItems: "center", gap: 8, background: "#161a1f", border: "1px solid #2b313d", borderRadius: 8, padding: "6px 10px" }}>
+            <label key={c.chiave} style={{ display: "flex", alignItems: "center", gap: 8, background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: "6px 10px" }}>
               <input type="checkbox" checked={c.scelto} onChange={(e) => setImportati(importati.map((x, j) => (j === i ? { ...x, scelto: e.target.checked } : x)))} />
               <input value={c.nome} onChange={(e) => setImportati(importati.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)))} style={{ ...inputStyle, padding: "6px 8px", flex: 1, minWidth: 0 }} aria-label="Nome del campo" />
               <span className="mono" style={{ fontSize: 12.5, color: "#c3cad4", whiteSpace: "nowrap" }}>{formattaEttari(c.ettari)}</span>
@@ -296,7 +296,7 @@ function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selez
               <div style={{ fontSize: 12, fontWeight: 700, color: "#8b95a3", textTransform: "uppercase", letterSpacing: ".05em", margin: "6px 0 4px" }}>{nome} · {formattaEttari(lista.reduce((s, c) => s + (Number(c.ettari) || 0), 0))}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {lista.map((c) => (
-                  <button key={c.id} type="button" onClick={() => { setSelezionato(c.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", background: c.id === selezionato ? "#241d16" : "#161a1f", border: `1px solid ${c.id === selezionato ? "#ff8c42" : "#2b313d"}`, borderRadius: 8, padding: "8px 12px", color: "#e7eaee", fontSize: 13 }}>
+                  <button key={c.id} type="button" onClick={() => { setSelezionato(c.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", background: c.id === selezionato ? "#241d16" : "#10141f", border: `1px solid ${c.id === selezionato ? "#ff8c42" : "#2a3349"}`, borderRadius: 8, padding: "8px 12px", color: "#e7eaee", fontSize: 13 }}>
                     <span>{c.confini ? "🟩" : "📍"} {c.nome}{c.coltura ? <span style={{ color: "#8b95a3" }}> · {c.coltura}</span> : null}</span>
                     <span className="mono" style={{ color: "#c3cad4", whiteSpace: "nowrap" }}>{c.ettari ? formattaEttari(c.ettari) : "—"}</span>
                   </button>
@@ -420,7 +420,7 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
           {campo("operatore", "Operatore / pilota")}
         </div>
 
-        <div style={{ marginTop: 14, background: "#161a1f", border: "1px solid #2b313d", borderRadius: 8, padding: 12 }}>
+        <div style={{ marginTop: 14, background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <strong style={{ fontSize: 13 }}>🌦️ Meteo durante il lavoro</strong>
             <button type="button" onClick={compilaMeteo} style={{ ...btn(false), padding: "6px 10px", fontSize: 12 }}>Compila dal meteo</button>
@@ -494,7 +494,7 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {filtrati.map((t) => (
-            <div key={t.id} style={{ background: "#161a1f", border: "1px solid #2b313d", borderRadius: 8, padding: "10px 12px", display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div key={t.id} style={{ background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: "10px 12px", display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600 }}>{(TIPI_LAVORO.find((x) => x.key === t.tipo) || {}).emoji || "📝"} {dataIt(t.data)}{t.ora_inizio ? ` · ${String(t.ora_inizio).slice(0, 5)}` : ""} · {t.campo_nome || "campo non indicato"}{t.azienda ? <span style={{ color: "#8b95a3" }}> ({t.azienda})</span> : null}</div>
                 <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{[t.prodotto, t.dose != null ? `${t.dose} ${t.unita || ""}` : null, t.ettari != null ? formattaEttari(t.ettari) : null, t.quantita_totale != null ? `tot. ${t.quantita_totale} ${(t.unita || "").split("/")[0]}` : null].filter(Boolean).join(" · ")}</div>

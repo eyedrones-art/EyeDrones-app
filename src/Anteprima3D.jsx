@@ -112,24 +112,24 @@ export default function Anteprima3D({ poligono, percorso, altezza = 60, velocita
     if (segui) m.jumpTo({ center: [qui.lon, qui.lat], bearing: qui.direzione });
   }, [qui?.lat, qui?.lon, segui, pronta]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const bottone = (attivo) => ({ minHeight: 40, padding: "0 12px", borderRadius: 8, border: `1px solid ${attivo ? "#ffe14d" : "#3a4150"}`, background: attivo ? "#ffe14d22" : "#1b2028", color: attivo ? "#ffe14d" : "#e7eaee", fontSize: 13, fontWeight: 700 });
+  const bottone = (attivo) => ({ minHeight: 40, padding: "0 12px", borderRadius: 8, border: `1px solid ${attivo ? "#ffe14d" : "#3a4150"}`, background: attivo ? "#ffe14d22" : "#151b2b", color: attivo ? "#ffe14d" : "#e7eaee", fontSize: 13, fontWeight: 700 });
   const fine = d >= totale && totale > 0;
 
   return (
     <div role="dialog" aria-label="Anteprima 3D del volo" style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#0b0e13", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#12151c", borderBottom: "1px solid #262b33" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#12151c", borderBottom: "1px solid #232b3f" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>🧊 Anteprima 3D{nome ? ` · ${nome}` : ""}</div>
           <div style={{ fontSize: 11.5, color: "#8b95a3" }}>{daMissione ? "Rotta della missione caricata" : `Rotta a strisciate ogni ${passoDaAltezza(h)} m (indicativa)`} · {Math.round(totale)} m · circa {tempo(totale / v)} a {v} m/s</div>
         </div>
-        <button type="button" onClick={onChiudi} style={{ ...bottone(false), background: "#262b33" }}>Chiudi ✕</button>
+        <button type="button" onClick={onChiudi} style={{ ...bottone(false), background: "#232b3f" }}>Chiudi ✕</button>
       </div>
       <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
         <div ref={box} style={{ position: "absolute", inset: 0 }} />
         {errore && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", color: "#ff9c9c", fontSize: 14 }}>{errore}</div>}
         {!errore && !pronta && <div style={{ position: "absolute", left: 0, right: 0, top: "45%", textAlign: "center", color: "#c3cad4", fontSize: 13 }}>Carico la mappa 3D…</div>}
         {qui && (
-          <div style={{ position: "absolute", left: 10, right: 10, bottom: 10, background: "rgba(18,21,28,.9)", border: "1px solid #2b313d", borderRadius: 12, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ position: "absolute", left: 10, right: 10, bottom: 10, background: "rgba(18,21,28,.9)", border: "1px solid #2a3349", borderRadius: 12, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontFamily: "ui-monospace, monospace", fontSize: 13, color: "#e7eaee" }}>
               <span>📍 {qui.punto}/{rotta.length}</span>
               <span>↑ {h} m</span>

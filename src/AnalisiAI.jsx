@@ -176,11 +176,11 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio, admin }
     }
   };
 
-  const bottone = (attivo) => ({ background: attivo ? "#a78bfa22" : "#262b33", border: `1px solid ${attivo ? "#a78bfa" : "#333a45"}`, color: attivo ? "#c4b5fd" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 });
+  const bottone = (attivo) => ({ background: attivo ? "#a78bfa22" : "#232b3f", border: `1px solid ${attivo ? "#a78bfa" : "#343e57"}`, color: attivo ? "#c4b5fd" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 });
   const esito = stato && stato.esito;
   const finite = !admin && crediti === 0;
   const pacchetti = (
-    <div style={{ marginTop: 12, background: "#161a1f", border: "1px solid #a78bfa55", borderRadius: 8, padding: 12 }}>
+    <div style={{ marginTop: 12, background: "#10141f", border: "1px solid #a78bfa55", borderRadius: 8, padding: 12 }}>
       <div style={{ fontSize: 14, fontWeight: 700 }}>{finite ? "Hai usato tutte le analisi" : "Altre analisi"}</div>
       <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "4px 0 10px 0", lineHeight: 1.5 }}>Scegli un pacchetto: lo paghi una volta sola, nessun abbonamento. Le analisi non scadono.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
@@ -220,8 +220,8 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio, admin }
         ))}
       </div>
 
-      <div style={{ marginTop: 12, background: "#161a1f", border: "1px solid #262b33", borderRadius: 8, padding: 12 }}>
-        <label style={{ display: "inline-block", background: "#a78bfa", color: "#161a1f", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+      <div style={{ marginTop: 12, background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 12 }}>
+        <label style={{ display: "inline-block", background: "#a78bfa", color: "#10141f", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
           📷 {foto ? "Cambia foto" : "Scegli foto o video"}
           <input type="file" accept="image/*,video/*" onChange={scegliFile} style={{ display: "none" }} />
         </label>
@@ -232,7 +232,7 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio, admin }
             <button type="button" onClick={usaFotogramma} style={{ ...bottone(true), fontWeight: 700 }}>✓ Usa questo fotogramma</button>
           </div>
         )}
-        {foto && <img src={foto.anteprima} alt="Foto da analizzare" style={{ display: "block", width: "100%", maxHeight: 360, objectFit: "contain", borderRadius: 6, marginTop: 10, background: "#0e1116" }} />}
+        {foto && <img src={foto.anteprima} alt="Foto da analizzare" style={{ display: "block", width: "100%", maxHeight: 360, objectFit: "contain", borderRadius: 6, marginTop: 10, background: "#0a0d16" }} />}
 
         {(DOMANDE[tipo] || []).map(([domanda, scelte]) => (
           <div key={domanda} style={{ marginTop: 12 }}>
@@ -258,7 +258,7 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio, admin }
         </label>
 
         {finite ? pacchetti : (
-          <button type="button" onClick={analizza} disabled={!foto || stato === "invio"} style={{ marginTop: 12, background: foto ? "#a78bfa" : "#333a45", color: foto ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13.5, fontWeight: 700 }}>
+          <button type="button" onClick={analizza} disabled={!foto || stato === "invio"} style={{ marginTop: 12, background: foto ? "#a78bfa" : "#343e57", color: foto ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13.5, fontWeight: 700 }}>
             {stato === "invio" ? "Analizzo… (qualche secondo)" : "✨ Analizza"}
           </button>
         )}
@@ -267,7 +267,7 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio, admin }
       {stato && stato.errore && <p style={{ marginTop: 10, fontSize: 13, color: "#ff9c9c" }}>{stato.errore}</p>}
 
       {esito && (
-        <div style={{ marginTop: 12, background: "#161a1f", border: "1px solid #a78bfa55", borderRadius: 8, padding: 14 }}>
+        <div style={{ marginTop: 12, background: "#10141f", border: "1px solid #a78bfa55", borderRadius: 8, padding: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4 }}>{esito.cosa_sembra}</div>
           {VOLO[esito.si_puo_volare] && (
             <div style={{ marginTop: 8, fontSize: 13, fontWeight: 600, color: VOLO[esito.si_puo_volare][0] }}>
