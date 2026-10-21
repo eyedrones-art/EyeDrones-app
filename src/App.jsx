@@ -2637,12 +2637,19 @@ function Presentazione({ onAccedi, onRegistrati }) {
         .lp button:hover { filter: brightness(1.08); }
         .lp-wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
         .lp-hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; align-items: center; padding-top: 56px; padding-bottom: 64px; }
-        .lp-hero h1 { font-size: 46px; line-height: 1.08; margin: 0 0 18px 0; letter-spacing: -0.02em; }
+        .lp-hero h1 { font-family: 'Archivo', sans-serif; font-stretch: 122%; font-weight: 900; text-transform: uppercase; font-size: 48px; line-height: 1.02; margin: 0 0 18px 0; letter-spacing: .005em; color: #f3f0ea; }
+        .lp-cielo { position: relative; overflow: hidden; isolation: isolate; }
+        .lp-cielo > .lp-foto { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; animation: lp-zoom 1.8s cubic-bezier(.2,.8,.2,1) both; }
+        .lp-cielo::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(10,13,22,.92) 0%, rgba(10,13,22,.7) 45%, rgba(10,13,22,.35) 100%), linear-gradient(180deg, rgba(10,13,22,0) 60%, #0a0d16 100%); }
+        .lp-sigla { font-size: 12px; letter-spacing: .16em; color: #ffc4a6; margin-bottom: 14px; }
+        @keyframes lp-zoom { from { opacity: 0; transform: scale(1.1); } }
+        @media (prefers-reduced-motion: reduce) { .lp-cielo > .lp-foto { animation: none; } }
         .lp-griglia { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
         .lp-solo-largo { display: inline; }
         @media (max-width: 820px) {
           .lp-hero { grid-template-columns: 1fr; gap: 32px; padding-top: 32px; padding-bottom: 44px; }
           .lp-hero h1 { font-size: 34px; }
+          .lp-cielo::after { background: linear-gradient(180deg, rgba(10,13,22,.35) 0%, rgba(10,13,22,.82) 42%, #0a0d16 100%); }
           .lp-griglia { grid-template-columns: 1fr; }
           .lp-solo-largo { display: none; }
         }
@@ -2659,27 +2666,29 @@ function Presentazione({ onAccedi, onRegistrati }) {
         </div>
       </header>
       {/* chi cerca un pilota (non è un pilota) sceglie subito cosa gli serve e va alla sua pagina */}
-      <section style={{ background: "#fbf7f2", color: "#3a332c", borderBottom: "1px solid #ece4da", padding: "12px 0 14px" }}>
+      <section style={{ background: "#10141f", color: "#c3cad4", borderBottom: "1px solid #1a2133", padding: "12px 0 14px" }}>
         <div className="lp-wrap">
-          <div style={{ fontSize: 14, marginBottom: 10 }}>Cerchi un pilota di droni per un lavoro? <strong>Scegli cosa ti serve:</strong></div>
+          <div style={{ fontSize: 14, marginBottom: 10 }}>Cerchi un pilota di droni per un lavoro? <strong style={{ color: "#f3f0ea" }}>Scegli cosa ti serve:</strong></div>
           <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none" }}>
             {SCELTE_CLIENTE.map(([k, nome]) => (
-              <a key={k} href={`/trova-pilota/${k}`} style={{ flex: "0 0 auto", width: 128, textDecoration: "none", color: "#3a332c", background: "#fff", border: "1px solid #ece4da", borderRadius: 12, overflow: "hidden" }}>
+              <a key={k} href={`/trova-pilota/${k}`} style={{ flex: "0 0 auto", width: 128, textDecoration: "none", color: "#e7eaee", background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, overflow: "hidden" }}>
                 <img src={`/trova-pilota/${k}.webp`} alt="" loading="lazy" style={{ width: "100%", height: 74, objectFit: "cover", display: "block" }} />
                 <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, padding: "6px 8px" }}>{nome}</span>
               </a>
             ))}
-            <a href="/trova-pilota" style={{ flex: "0 0 auto", width: 128, textDecoration: "none", color: "#e0552f", background: "#fff", border: "1px solid #ece4da", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontSize: 13, fontWeight: 800, padding: 8 }}>Tutti i servizi ›</a>
+            <a href="/trova-pilota" style={{ flex: "0 0 auto", width: 128, textDecoration: "none", color: "#ff8c42", background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontSize: 13, fontWeight: 800, padding: 8 }}>Tutti i servizi ›</a>
           </div>
         </div>
       </section>
 
       <main>
+        <div className="lp-cielo">
+        <img src="/volo/sfondo.webp" alt="" className="lp-foto" />
         <section className="lp-wrap lp-hero">
           <div>
-            <div style={{ display: "inline-block", fontSize: 12.5, fontWeight: 600, color: "#ffb877", background: "#ff8c4218", border: "1px solid #ff8c4240", borderRadius: 999, padding: "4px 12px", marginBottom: 16 }}>Per riprese, FPV e ispezioni</div>
-            <h1>L'app per piloti di droni.<br /><span style={{ background: "linear-gradient(90deg, #a06bff, #ff8c42)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>Tutto il tuo volo, in un posto solo.</span></h1>
-            <p style={{ fontSize: 17, lineHeight: 1.55, color: "#aab3bf", margin: "0 0 26px 0", maxWidth: 520 }}>
+            <div className="mono lp-sigla">UAS · RIPRESE, FPV E ISPEZIONI</div>
+            <h1>L'app per piloti di droni.<br /><span style={{ color: "#ff8c42", fontSize: ".7em", display: "inline-block", marginTop: 6 }}>Tutto il tuo volo, in un posto solo.</span></h1>
+            <p style={{ fontSize: 17, lineHeight: 1.55, color: "#c3cad4", margin: "0 0 26px 0", maxWidth: 520 }}>
               Pianifica con meteo, ora d'oro e zona di volo, registra voli e batterie, tieni pronti i documenti per i controlli e consegna foto e video ai tuoi clienti con un link.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -2694,8 +2703,8 @@ function Presentazione({ onAccedi, onRegistrati }) {
           </div>
 
           {/* anteprima illustrativa dell'app */}
-          <div style={{ ...riquadro, padding: 18, boxShadow: "0 30px 80px rgba(126, 58, 242, 0.18)", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
+          <div style={{ ...riquadro, background: "rgba(21,27,43,.82)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", padding: 18, boxShadow: "0 30px 80px rgba(0, 0, 0, 0.45)", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "#ff8c42" }} />
             <p style={{ fontSize: 12, color: "#6b7480", margin: "4px 0 10px 0" }}>Sabato · Lago di Viverone</p>
             <div style={{ background: "#10141f", border: "1px solid #4ade8055", borderRadius: 8, padding: 12, fontSize: 13.5, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
               <div>💨 max 14 km/h</div><div>🌧️ 0 mm</div>
@@ -2718,6 +2727,7 @@ function Presentazione({ onAccedi, onRegistrati }) {
             </div>
           </div>
         </section>
+        </div>
 
         <section className="lp-wrap" style={{ paddingBottom: 56 }}>
           <h2 style={{ fontSize: 26, margin: "0 0 6px 0" }}>Cosa puoi fare con EyeDrones</h2>
@@ -2903,26 +2913,45 @@ function Login({ modoIniziale = "login", onTorna }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", fontFamily: "'IBM Plex Sans', sans-serif", padding: 24 }}>
-      <div style={{ width: "100%", maxWidth: 340 }}>
-        {onTorna && (
-          <button type="button" onClick={onTorna} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 13, padding: 0, marginBottom: 18, cursor: "pointer", fontFamily: "inherit" }}>&larr; Torna alla presentazione</button>
-        )}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 26, position: "relative" }}>
-          <div style={{ position: "absolute", width: 130, height: 130, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,140,66,0.22), rgba(126,58,242,0.14) 60%, transparent 75%)", filter: "blur(2px)", zIndex: 0 }} />
-          <img src={LOGO_EYEDRONES} alt="EyeDrones" style={{ width: 52, height: 52, objectFit: "contain", position: "relative", zIndex: 1 }} />
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 17, position: "relative", zIndex: 1 }}>EyeDrones</span>
+    <div className="accesso" style={{ minHeight: "100vh", fontFamily: "'IBM Plex Sans', sans-serif", background: "#0a0d16" }}>
+      <style>{`
+        .accesso-cielo { position: relative; height: min(46vh, 380px); min-height: 260px; overflow: hidden; }
+        .accesso-sfondo, .accesso-drone { position: absolute; pointer-events: none; }
+        .accesso-sfondo { inset: -6% -4% auto; width: 108%; height: 112%; object-fit: cover; animation: accesso-entra 1.6s cubic-bezier(.2,.8,.2,1) both; }
+        .accesso-drone { left: 50%; top: 34%; width: 46%; max-width: 230px; transform: translateX(-50%); animation: accesso-vola 5s ease-in-out infinite, accesso-entra 1.2s .2s cubic-bezier(.2,.8,.2,1) both; filter: drop-shadow(0 18px 24px rgba(0,0,0,.45)); }
+        .accesso-velo { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,13,22,.25) 0%, rgba(10,13,22,0) 35%, rgba(10,13,22,.75) 78%, #0a0d16 100%); }
+        .accesso-titolo { font-family: 'Archivo', sans-serif; font-stretch: 122%; font-weight: 900; text-transform: uppercase; font-size: 34px; line-height: 1; letter-spacing: .01em; color: #f3f0ea; margin: 6px 0 0; }
+        .accesso-sigla { font-size: 11.5px; letter-spacing: .16em; color: #ffc4a6; }
+        .accesso input[type=email], .accesso input[type=password] { min-height: 48px; font-size: 15px !important; }
+        @keyframes accesso-vola { 50% { transform: translate(-50%, -10px) rotate(-1.5deg); } }
+        @keyframes accesso-entra { from { opacity: 0; transform: translate(-50%, 24px) scale(.96); } }
+        .accesso-sfondo { animation-name: accesso-zoom; } @keyframes accesso-zoom { from { opacity: 0; transform: scale(1.12); } }
+        @media (prefers-reduced-motion: reduce) { .accesso-sfondo, .accesso-drone { animation: none !important; } }
+      `}</style>
+      <div className="accesso-cielo">
+        <img src="/volo/sfondo.webp" alt="" className="accesso-sfondo" />
+        <img src="/volo/drone.webp" alt="" className="accesso-drone" />
+        <div className="accesso-velo" />
+        <div style={{ position: "absolute", top: 16, left: 16, right: 16, display: "flex", alignItems: "center", gap: 10 }}>
+          <img src={LOGO_EYEDRONES} alt="EyeDrones" style={{ width: 38, height: 38, objectFit: "contain" }} />
+          <span style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "125%", fontWeight: 800, fontSize: 13, letterSpacing: ".2em", color: "#f3f0ea" }}>EYEDRONES</span>
+          {onTorna && (
+            <button type="button" onClick={onTorna} style={{ marginLeft: "auto", background: "rgba(10,13,22,.5)", border: "1px solid rgba(243,240,234,.3)", color: "#f3f0ea", fontSize: 13, padding: "8px 12px", borderRadius: 999, cursor: "pointer", fontFamily: "inherit", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}>&larr; Indietro</button>
+          )}
         </div>
-        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 22, position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #7e3af2, #ff8c42)" }} />
+      </div>
+      <div style={{ width: "100%", maxWidth: 400, margin: "-74px auto 0", padding: "0 18px 32px", position: "relative" }}>
+        <div className="mono accesso-sigla">{modo === "registrati" ? "REG · BENVENUTO A BORDO" : modo === "recupera" ? "PWD · NUOVA PASSWORD" : "LOG · BENTORNATO PILOTA"}</div>
+        <h1 className="accesso-titolo">{modo === "registrati" ? "Crea l'account" : modo === "recupera" ? "Password dimenticata" : "Accedi"}</h1>
+        <div style={{ marginTop: 18 }}>
           {modo !== "recupera" && (
-            <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
-              <button type="button" onClick={() => setModo("login")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "login" ? "linear-gradient(90deg, #e0552f, #ff8c42)" : "#232b3f", color: modo === "login" ? "#10141f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Accedi</button>
-              <button type="button" onClick={() => setModo("registrati")} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: modo === "registrati" ? "linear-gradient(90deg, #e0552f, #ff8c42)" : "#232b3f", color: modo === "registrati" ? "#10141f" : "#8b95a3", fontWeight: 600, fontSize: 12.5 }}>Registrati</button>
+            <div role="tablist" style={{ display: "flex", gap: 4, marginBottom: 16, padding: 4, background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12 }}>
+              <button type="button" role="tab" aria-selected={modo === "login"} onClick={() => setModo("login")} style={{ flex: 1, minHeight: 42, borderRadius: 9, border: "none", background: modo === "login" ? "#ff8c42" : "transparent", color: modo === "login" ? "#10141f" : "#aab3bf", fontWeight: 700, fontSize: 14 }}>Accedi</button>
+              <button type="button" role="tab" aria-selected={modo === "registrati"} onClick={() => setModo("registrati")} style={{ flex: 1, minHeight: 42, borderRadius: 9, border: "none", background: modo === "registrati" ? "#ff8c42" : "transparent", color: modo === "registrati" ? "#10141f" : "#aab3bf", fontWeight: 700, fontSize: 14 }}>Registrati</button>
             </div>
           )}
           {modo === "recupera" && (
-            <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "0 0 14px 0" }}>Inserisci la tua email, ti mandiamo un link per reimpostare la password.</p>
+            <p style={{ fontSize: 14, color: "#aab3bf", margin: "0 0 14px 0" }}>Scrivi la tua email: ti mandiamo un link per sceglierne una nuova.</p>
           )}
           <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {/* name e autocomplete: così Google/Apple salvano la password e la volta dopo si entra con l'impronta o il volto */}
@@ -2930,7 +2959,7 @@ function Login({ modoIniziale = "login", onTorna }) {
             {modo !== "recupera" && (
               <input type="password" name="password" autoComplete={modo === "registrati" ? "new-password" : "current-password"} required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} minLength={6} />
             )}
-            {modo === "login" && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: 0 }}>💡 Quando il telefono chiede di salvare la password, tocca «Salva»: la prossima volta entri con l'impronta o il volto.</p>}
+            {modo === "login" && <p style={{ fontSize: 12.5, color: "#8b95a3", margin: 0, lineHeight: 1.45 }}>Quando il telefono chiede di salvare la password, tocca «Salva»: la prossima volta entri con l'impronta o il volto.</p>}
             {chiediAccettazione && (
               <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#aab3bf", lineHeight: 1.45, cursor: "pointer" }}>
                 <input type="checkbox" checked={accettato} onChange={(e) => setAccettato(e.target.checked)} style={{ marginTop: 2 }} />
@@ -2943,22 +2972,22 @@ function Login({ modoIniziale = "login", onTorna }) {
             )}
             {errore && <p style={{ color: "#ff9c9c", fontSize: 12, margin: 0 }}>{errore}</p>}
             {messaggio && <p style={{ color: "#4ade80", fontSize: 12, margin: 0 }}>{messaggio}</p>}
-            <button type="submit" disabled={caricamento} style={{ marginTop: 4, background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+            <button type="submit" disabled={caricamento} style={{ marginTop: 6, background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", minHeight: 50, borderRadius: 10, fontWeight: 800, fontSize: 15.5, boxShadow: "0 10px 26px rgba(255,140,66,.28)" }}>
               {caricamento ? "Attendi..." : modo === "login" ? "Accedi" : modo === "registrati" ? "Crea account" : "Invia link"}
             </button>
           </form>
           {modo === "login" && improntaPossibile() && improntaAttiva() && (
-            <button type="button" disabled={caricamento} onClick={entraConImpronta} style={{ width: "100%", marginTop: 10, background: improntaAttiva() ? "#1d3a2a" : "#1a2133", color: improntaAttiva() ? "#4ade80" : "#e7eaee", border: `1px solid ${improntaAttiva() ? "#2c5a3a" : "#343e57"}`, padding: "10px 0", borderRadius: 6, fontWeight: 600, fontSize: 13.5 }}>
+            <button type="button" disabled={caricamento} onClick={entraConImpronta} style={{ width: "100%", marginTop: 10, background: improntaAttiva() ? "#1d3a2a" : "#1a2133", color: improntaAttiva() ? "#4ade80" : "#e7eaee", border: `1px solid ${improntaAttiva() ? "#2c5a3a" : "#343e57"}`, minHeight: 48, borderRadius: 10, fontWeight: 700, fontSize: 14.5 }}>
               👆 Entra con l'impronta o il volto
             </button>
           )}
           {modo === "login" && (
-            <button type="button" onClick={() => { setModo("recupera"); setErrore(null); setMessaggio(null); }} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12, marginTop: 12, padding: 0, width: "100%", textAlign: "center" }}>
+            <button type="button" onClick={() => { setModo("recupera"); setErrore(null); setMessaggio(null); }} style={{ background: "none", border: "none", color: "#aab3bf", fontSize: 13.5, marginTop: 14, minHeight: 40, padding: 0, width: "100%", textAlign: "center" }}>
               Password dimenticata?
             </button>
           )}
           {modo === "recupera" && (
-            <button type="button" onClick={() => { setModo("login"); setErrore(null); setMessaggio(null); }} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12, marginTop: 12, padding: 0, width: "100%", textAlign: "center" }}>
+            <button type="button" onClick={() => { setModo("login"); setErrore(null); setMessaggio(null); }} style={{ background: "none", border: "none", color: "#aab3bf", fontSize: 13.5, marginTop: 14, minHeight: 40, padding: 0, width: "100%", textAlign: "center" }}>
               &larr; Torna al login
             </button>
           )}
