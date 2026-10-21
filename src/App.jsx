@@ -2350,7 +2350,7 @@ function AppShell({ session }) {
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo tipoPredefinito={spazioAperto ? spazioAperto.tipoPiano : null} azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} luogoIniziale={luogoDaPianificare} onLuogoUsato={() => setLuogoDaPianificare(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
-        {page === "registro-voli" && <RegistroVoli azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
+        {page === "registro-voli" && <RegistroVoli spazio={spazioAperto} azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} schermoPienoSubito={controlloSubito} onSchermoPienoAperto={() => setControlloSubito(false)} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={pianoReale} />}
@@ -13520,6 +13520,13 @@ function EventiVolo({ volo, azienda, droni, batterie, onCambiato }) {
   );
 }
 
+// quali voli mostra il registro dentro ogni cartella
+const TIPI_PER_CARTELLA = {
+  video: ["video", "foto", "fpv", "altro"],
+  ispezioni: ["ispezione", "pulizia"],
+  rilievi: ["rilievo"],
+  agricoltura: ["agricoltura"],
+};
 const TIPI_ATTIVITA_VOLO = [
   { key: "video", label: "Video", emoji: "🎬", colore: "#a78bfa" },
   { key: "foto", label: "Foto", emoji: "📷", colore: "#3d8bfd" },
@@ -14886,7 +14893,7 @@ function dateCercabili(d) {
   return [`${a}-${me}-${g}`, `${g}/${me}/${a}`, `${gg}/${Number(me)}/${a}`, `${gg} ${MESI_ESTESI[Number(me) - 1]} ${a}`, formatData(d)];
 }
 
-function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento, eventiVolo, onEventiCambiati }) {
+function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento, eventiVolo, onEventiCambiati }) {
   const [voli, setVoli] = useState([]);
   const [media, setMedia] = useState([]);
   const [caricando, setCaricando] = useState(true);
@@ -14895,10 +14902,8 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(formVoloVuoto());
   const [salvando, setSalvando] = useState(false);
-  const [filtroTipo, setFiltroTipo] = useState("tutti");
   const [filtroAnno, setFiltroAnno] = useState("tutti");
   const [cerca, setCerca] = useState("");
-  const [includiIspezioni, setIncludiIspezioni] = useState(true);
   const [espansoId, setEspansoId] = useState(null);
   const [caricandoMediaId, setCaricandoMediaId] = useState(null);
   const [statoCaricamento, setStatoCaricamento] = useState(null); // { stato: in_corso | ok | errore, testo }
@@ -14944,7 +14949,9 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   }, [aprireNuovo]);
 
   // le ispezioni sono voli a tutti gli effetti: le mostro nel registro (sola lettura)
-  const voliDaIspezioni = includiIspezioni ? costruisciVoliDaIspezioni(ispezioni, impianti) : [];
+  // i tipi di volo li sceglie la cartella aperta (prima c'erano i bottoni Video, Foto, FPV…); dalle cartelle si vedono tutti
+  const tipiCartella = TIPI_PER_CARTELLA[spazio && spazio.key] || null;
+  const voliDaIspezioni = !tipiCartella || tipiCartella.includes("ispezione") ? costruisciVoliDaIspezioni(ispezioni, impianti) : [];
 
   const tutti = [...voli, ...voliDaIspezioni].sort((a, b) => {
     const da = `${a.data || ""} ${a.ora ? String(a.ora).slice(0, 5) : "00:00"}`;
@@ -14956,7 +14963,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
   const passQuestoMese = voli.filter((v) => v.pass_lavoro && String(v.pass_lavoro).slice(0, 7) === meseCorrente).length;
   const q = cerca.trim().toLowerCase();
   const visibili = tutti.filter((v) =>
-    (filtroTipo === "tutti" || v.tipo_attivita === filtroTipo) &&
+    (!tipiCartella || tipiCartella.includes(v.tipo_attivita || "altro")) &&
     (filtroAnno === "tutti" || (v.data || "").startsWith(filtroAnno)) &&
     (!q || [v.luogo, v.cliente, v.note, v.drone_nome, ...dateCercabili(v.data)].some((t) => t && String(t).toLowerCase().includes(q)))
   );
@@ -15561,7 +15568,7 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
       {caricando ? <LoadingBlock /> : (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 16, maxWidth: 620 }}>
-            <StatCard label="Voli mostrati" value={visibili.length} sub={filtroTipo === "tutti" && filtroAnno === "tutti" && !q ? "in totale" : "con i filtri attivi"} />
+            <StatCard label="Voli mostrati" value={visibili.length} sub={filtroAnno === "tutti" && !q ? (tipiCartella ? `in «${spazio.nome}»` : "in totale") : "con i filtri attivi"} />
             <StatCard label="Tempo di volo" value={formattaDurata(minutiTotali)} sub="dove la durata è indicata" accent="#ff8c42" />
             {voliQuestAnno !== visibili.length && <StatCard label={`Voli nel ${annoCorrente}`} value={voliQuestAnno} sub="da inizio anno" />}
           </div>
@@ -15591,12 +15598,6 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
             </button>
           )}
 
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-            <button onClick={() => setFiltroTipo("tutti")} style={chip(filtroTipo === "tutti", "#e7eaee")}>Tutti</button>
-            {TIPI_ATTIVITA_VOLO.map((t) => (
-              <button key={t.key} onClick={() => setFiltroTipo(t.key)} style={chip(filtroTipo === t.key, t.colore)}>{t.emoji} {t.label}</button>
-            ))}
-          </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16, maxWidth: 620 }}>
             <input type="text" placeholder="Cerca per data (12 settembre), luogo, cliente, drone..." value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 200, fontSize: 12.5, padding: "7px 10px" }} />
             {anni.length > 1 && (
@@ -15605,10 +15606,6 @@ function RegistroVoli({ azienda, droni, ispezioni, impianti, aprireNuovo, onAper
                 {anni.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
             )}
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#8b95a3", cursor: "pointer" }}>
-              <input type="checkbox" checked={includiIspezioni} onChange={(e) => setIncludiIspezioni(e.target.checked)} />
-              Includi le ispezioni
-            </label>
           </div>
 
           {vista === "mappa" ? (
