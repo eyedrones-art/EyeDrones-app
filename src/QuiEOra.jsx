@@ -5,6 +5,8 @@ import { leggiZoneSalvate, controllaPunto, altezzaSenzaPermessi, postiLiberiVici
 import { cercaAreeProtette } from "./areeProtette";
 import { statoZona, cercaPostiOsm } from "./Posti.jsx";
 import { matriceTempi } from "./GiroGiornata.jsx";
+import { MapPin } from "lucide-react";
+import { TestataPagina } from "./VoloHero.jsx";
 
 // «Qui e ora»: sei sul posto (anche a piedi, in montagna) e vuoi sapere subito se e dove puoi volare, senza preparare un piano.
 // 1) Posso volare qui? (zona D-Flight salvata nel telefono: funziona anche senza rete; parchi e meteo solo con la rete)
@@ -129,9 +131,8 @@ export default function QuiEOra({ supabase, onPianifica, onAlGiro, onCaricaZone,
   const bottone = { background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center" };
 
   return (
-    <div style={{ padding: "24px 20px", maxWidth: 680 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>Qui e ora</h1>
-      <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 14px 0" }}>Sei sul posto? Ti dico subito se puoi volare, dove andare a piedi se qui non si può, e i posti belli qui vicino. Senza preparare niente.</p>
+    <div style={{ padding: "28px 32px", maxWidth: 680 }}>
+      <TestataPagina titolo="Qui e ora" sigla="GPS · SEI SUL POSTO?" icona={MapPin} info="Ti dico subito se puoi volare, dove andare a piedi se qui non si può, e i posti belli qui vicino. Senza preparare niente." />
 
       {errorePos && <div style={{ ...scheda, borderColor: "#ff6b6b66", color: "#ff9c9c", fontSize: 13 }}>{errorePos} <button type="button" onClick={prendiPosizione} style={{ ...bottone, marginLeft: 6, padding: "4px 10px" }}>Riprova</button></div>}
       {!punto && !errorePos && <div style={{ ...scheda, color: "#8b95a3", fontSize: 13 }}>📡 Cerco dove sei…</div>}

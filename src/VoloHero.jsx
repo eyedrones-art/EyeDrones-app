@@ -140,7 +140,10 @@ export const STILE_VOLO = `
 
 // la testata delle pagine principali: foto sottile con il titolo grande, nello stile della Home.
 // Scorrendo, la foto scende più piano del testo (profondità) e si avvicina un poco.
-export function TestataPagina({ titolo, sigla, foto, sotto, children }) {
+// foto: con la foto (pagine principali); senza: testata più bassa, blu notte con griglia e un'icona grande.
+// info: la spiegazione lunga, dietro un piccolo «ⓘ»; etichetta: un bollino accanto al titolo (es. PROVA)
+export function TestataPagina({ titolo, sigla, foto, sotto, icona: Icona, info, etichetta, children }) {
+  const [aperta, setAperta] = useState(false);
   const radice = useRef(null), img = useRef(null), testo = useRef(null);
   useEffect(() => {
     if (fermo()) return undefined;
@@ -159,16 +162,22 @@ export function TestataPagina({ titolo, sigla, foto, sotto, children }) {
     return () => { document.removeEventListener("scroll", chiama, { capture: true }); if (giro) cancelAnimationFrame(giro); };
   }, []);
   return (
-    <section ref={radice} className="testata-pagina">
-      <img ref={img} src={foto} alt="" className="testata-foto" />
-      <div aria-hidden="true" className="testata-velo" />
-      <div ref={testo} className="testata-testo">
-        {sigla && <div className="mono testata-sigla">{sigla}</div>}
-        <h1 className="volo-titolo testata-titolo">{titolo}</h1>
-        {sotto && <div className="mono testata-sotto">{sotto}</div>}
-      </div>
-      {children && <div className="testata-azioni">{children}</div>}
-    </section>
+    <>
+      <section ref={radice} className={`testata-pagina${foto ? "" : " senza-foto"}`}>
+        {foto
+          ? <img ref={img} src={foto} alt="" className="testata-foto" />
+          : <div ref={img} aria-hidden="true" className="testata-griglia">{Icona && <Icona className="testata-icona" size={150} strokeWidth={0.9} />}</div>}
+        <div aria-hidden="true" className="testata-velo" />
+        {info && <button type="button" className="testata-info" aria-expanded={aperta} aria-label={aperta ? "Chiudi la spiegazione" : "Cosa trovi in questa pagina"} onClick={() => setAperta(!aperta)}>{aperta ? "×" : "i"}</button>}
+        <div ref={testo} className="testata-testo">
+          {sigla && <div className="mono testata-sigla">{sigla}</div>}
+          <h1 className="volo-titolo testata-titolo">{titolo}{etichetta && <span className="testata-etichetta">{etichetta}</span>}</h1>
+          {sotto && <div className="mono testata-sotto">{sotto}</div>}
+        </div>
+        {children && <div className="testata-azioni">{children}</div>}
+      </section>
+      {info && aperta && <div className="testata-spiega">{info}</div>}
+    </>
   );
 }
 
@@ -181,8 +190,16 @@ export const STILE_TESTATA = `
   .testata-titolo { font-size: 32px !important; margin-top: 4px !important; animation: testata-sale .8s .25s cubic-bezier(.2,.8,.2,1) both; }
   .testata-sotto { font-size: 11.5px; letter-spacing: .12em; color: #d9d2c7; margin-top: 8px; animation: testata-sale .7s .4s ease-out both; }
   .testata-azioni { position: relative; display: flex; gap: 8px; flex-wrap: wrap; padding: 0 20px 18px; animation: testata-sale .7s .5s ease-out both; }
+  .testata-pagina.senza-foto { min-height: 150px; background: radial-gradient(120% 140% at 100% 0%, rgba(255,140,66,.2) 0%, rgba(255,140,66,0) 45%), linear-gradient(160deg, #18203a 0%, #0d111c 75%); }
+  .testata-griglia { position: absolute; inset: -20% 0 0 0; background-image: linear-gradient(rgba(159,180,217,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(159,180,217,.07) 1px, transparent 1px); background-size: 26px 26px; -webkit-mask-image: linear-gradient(200deg, #000 10%, transparent 80%); mask-image: linear-gradient(200deg, #000 10%, transparent 80%); will-change: transform; }
+  .testata-icona { position: absolute; right: -18px; top: 30%; color: #ff8c42; opacity: .13; animation: testata-entra 1.4s cubic-bezier(.2,.8,.2,1) both; }
+  .senza-foto .testata-velo { background: linear-gradient(180deg, rgba(6,8,16,0) 40%, rgba(6,8,16,.5) 100%); }
+  .testata-info { position: absolute; top: 12px; right: 12px; z-index: 2; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(243,240,234,.35); background: rgba(10,13,22,.55); color: #f3f0ea; font: 700 15px/1 Georgia, serif; font-style: italic; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .testata-info[aria-expanded="true"] { font-style: normal; font-family: inherit; font-size: 20px; }
+  .testata-spiega { margin: -6px 0 16px; padding: 10px 14px; border-left: 3px solid #ff8c42; background: #151b2b; border-radius: 0 10px 10px 0; font-size: 13px; line-height: 1.5; color: #c3cad4; animation: testata-sale .35s ease-out both; }
+  .testata-etichetta { display: inline-block; margin-left: 10px; vertical-align: middle; font-size: 11px; font-weight: 700; line-height: 1; font-stretch: 100%; white-space: nowrap; letter-spacing: .08em; color: #c4b5fd; border: 1px solid #a78bfa66; border-radius: 4px; padding: 3px 6px; }
   @keyframes testata-entra { from { opacity: 0; transform: scale(1.18); } to { opacity: 1; } }
   @keyframes testata-sale { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-  @media (max-width: 680px) { .testata-pagina { margin: -18px -16px 16px; border-radius: 0 0 22px 22px; min-height: 200px; } .testata-titolo { font-size: 30px !important; } }
-  @media (prefers-reduced-motion: reduce) { .testata-foto, .testata-sigla, .testata-titolo, .testata-sotto, .testata-azioni { animation: none; } }
+  @media (max-width: 680px) { .testata-pagina { margin: -18px -16px 16px; border-radius: 0 0 22px 22px; min-height: 200px; } .testata-pagina.senza-foto { min-height: 150px; } .testata-titolo { font-size: 30px !important; } .testata-spiega { margin-top: -4px; } }
+  @media (prefers-reduced-motion: reduce) { .testata-foto, .testata-icona, .testata-spiega, .testata-sigla, .testata-titolo, .testata-sotto, .testata-azioni { animation: none; } }
 `;

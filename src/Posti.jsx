@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import L from "./leafletSicuro";
 import "leaflet/dist/leaflet.css";
 import { leggiZoneSalvate, controllaPunto, altezzaLibera } from "./zoneUAS";
+import { Compass } from "lucide-react";
+import { TestataPagina } from "./VoloHero.jsx";
 
 // Posti belli dove volare: punti panoramici dalle mappe pubbliche (OpenStreetMap) + consigli dei piloti EyeDrones.
 // Ogni posto mostra la verifica della zona (se il file D-Flight è caricato): l'app non deve mandare nessuno dove non si può.
@@ -271,11 +273,9 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 780 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Posti</h1>
+      <TestataPagina titolo="Posti" sigla="MAP · POSTI DA RIPRENDERE" icona={Compass} info="Posti belli da riprendere vicino a te: quelli consigliati dagli altri piloti e i punti panoramici delle mappe, con la zona di volo già controllata.">
         <button type="button" onClick={() => setNuovo(nuovo ? null : { nome: "", tipo: "", nota: "", voto: 5 })} style={{ background: nuovo ? "transparent" : "#ff8c42", color: nuovo ? "#8b95a3" : "#10141f", border: nuovo ? "1px solid #343e57" : "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>{nuovo ? "Annulla" : "⭐ Consiglia un posto"}</button>
-      </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "4px 0 14px 0" }}>Posti belli da riprendere vicino a te: quelli consigliati dagli altri piloti e i punti panoramici delle mappe, con la zona di volo già controllata.</p>
+      </TestataPagina>
 
       {nuovo && (
         <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 14, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>

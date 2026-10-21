@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { Handshake } from "lucide-react";
+import { TestataPagina } from "./VoloHero.jsx";
 
 // «Collaboratori»: la rubrica privata dei piloti con cui lavori (secondo operatore, sostituti, chi copre altre zone).
 // Ognuno vede solo i suoi: dove lavorano, fin dove si spostano, cosa fanno e con quali attestati.
@@ -90,11 +92,9 @@ export default function Collaboratori({ supabase, inputStyle, servizi = [] }) {
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 860 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Collaboratori</h1>
+      <TestataPagina titolo="Collaboratori" sigla="TEAM · PILOTI CON CUI LAVORI" icona={Handshake} info="I piloti con cui lavori o vorresti lavorare: dove sono, fin dove si spostano, cosa fanno e con quali attestati. Li vedi solo tu.">
         <button type="button" onClick={() => { setForm(form ? null : { ...VUOTO }); setEditingId(null); }} style={{ background: form ? "transparent" : "#ff8c42", color: form ? "#8b95a3" : "#10141f", border: form ? "1px solid #343e57" : "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>{form ? "Annulla" : "+ Nuovo collaboratore"}</button>
-      </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "4px 0 14px 0" }}>I piloti con cui lavori o vorresti lavorare: dove sono, fin dove si spostano, cosa fanno e con quali attestati. Li vedi solo tu.</p>
+      </TestataPagina>
       {errore && <div style={{ ...stCard, color: "#f5b942", fontSize: 12.5, marginBottom: 12 }}>{errore}</div>}
 
       {form && (

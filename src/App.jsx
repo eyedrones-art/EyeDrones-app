@@ -606,8 +606,7 @@ function Suggerimenti({ session, paginaPrecedente }) {
   };
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Suggerimenti</h1>
-      <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 18px 0", maxWidth: 560 }}>EyeDrones è appena nata e cresce con i consigli dei piloti. Scrivi cosa ti manca, cosa miglioreresti o cosa non funziona: leggiamo tutto.</p>
+      <TestataPagina titolo="Suggerimenti" sigla="MSG · SCRIVICI, LEGGIAMO TUTTO" icona={MessageSquare} info="EyeDrones è appena nata e cresce con i consigli dei piloti. Scrivi cosa ti manca, cosa miglioreresti o cosa non funziona." />
       <form onSubmit={invia} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 18, maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {TIPI_SUGGERIMENTO.map((t) => (
@@ -4148,8 +4147,7 @@ function PaginaRilievi({ voli, droni = [], azienda, piano, onNav, onNuovo, onCam
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 820 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>Rilievi</h1>
-        <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 14px 0" }}>Tutto il lavoro di fotogrammetria in un posto: calcolo della missione, lista sul campo, a che punto è ogni rilievo e il report di consegna per il cliente.</p>
+        <TestataPagina titolo="Rilievi" sigla="GIS · FOTOGRAMMETRIA" icona={Ruler} info="Tutto il lavoro di fotogrammetria in un posto: calcolo della missione, lista sul campo, a che punto è ogni rilievo e il report di consegna per il cliente." />
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
           {scheda("rilievi", "📋 I rilievi")}
           {scheda("calcolo", "📐 Calcolatore")}
@@ -4347,12 +4345,11 @@ function ListaImpianti({ impianti, loading, onReload, onOpenImpianto, ispezioni,
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Impianti</h1>
-        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+      <TestataPagina titolo="Impianti" sigla="PV · IMPIANTI E ISPEZIONI" foto="/trova-pilota/aziende.webp">
+        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "rgba(10,13,22,.6)" : "#ff8c42", color: showForm ? "#c3cad4" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo impianto</>}
         </button>
-      </div>
+      </TestataPagina>
 
       {showForm && (
         <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -5092,7 +5089,7 @@ function Abbonamento({ piano }) {
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Abbonamento</h1>
+      <TestataPagina titolo="Abbonamento" sigla="PRO · PIANO E PAGAMENTI" icona={Zap} />
       {lancio ? (
         <div style={{ background: "linear-gradient(135deg, rgba(255,140,66,0.14), rgba(126,58,242,0.12)), #151b2b", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, margin: "0 0 22px 0", maxWidth: 820 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>🚀 Sei un fondatore di EyeDrones</div>
@@ -5367,13 +5364,11 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 820 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Clienti</h1>
-        <button onClick={() => { setForm(vuoto); setEditingId(null); setAperto(!aperto); }} style={{ display: "flex", alignItems: "center", gap: 6, background: aperto ? "transparent" : "#ff8c42", color: aperto ? "#8b95a3" : "#10141f", border: aperto ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+      <TestataPagina titolo="Clienti" sigla="CRM · LA TUA RUBRICA" foto="/trova-pilota/pilota-cliente.webp" info="La ritrovi già pronta quando scrivi il cliente in preventivi e voli. I clienti nuovi dei preventivi si aggiungono da soli.">
+        <button onClick={() => { setForm(vuoto); setEditingId(null); setAperto(!aperto); }} style={{ display: "flex", alignItems: "center", gap: 6, background: aperto ? "rgba(10,13,22,.6)" : "#ff8c42", color: aperto ? "#c3cad4" : "#10141f", border: aperto ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {aperto ? "Annulla" : <><Plus size={14} /> Nuovo cliente</>}
         </button>
-      </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0" }}>La tua rubrica: la ritrovi già pronta quando scrivi il cliente in preventivi e voli. I clienti nuovi dei preventivi si aggiungono da soli.</p>
+      </TestataPagina>
 
       {aperto && (
         <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 16, marginBottom: 18, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -6567,13 +6562,11 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Attestati</h1>
-        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+      <TestataPagina titolo="Attestati" sigla="ENAC · ATTESTATI E SCADENZE" icona={Award} info="Tieni traccia di patentini, attestati e scadenze. Per le operazioni in categoria Specific (scenari standard STS) controlla sempre i requisiti aggiornati sul sito ENAC.">
+        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "rgba(10,13,22,.6)" : "#ff8c42", color: showForm ? "#c3cad4" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo attestato</>}
         </button>
-      </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0" }}>Tieni traccia di patentini, attestati e scadenze. Per le operazioni in categoria Specific (scenari standard STS) controlla sempre i requisiti aggiornati sul sito ENAC.</p>
+      </TestataPagina>
 
       <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 14, marginBottom: 20, maxWidth: 460 }}>
         <label style={{ fontSize: 11.5, fontWeight: 600, color: "#c3cad4", display: "block", marginBottom: 6 }}>Il tuo prossimo obiettivo formativo</label>
@@ -6989,13 +6982,11 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>I miei droni</h1>
-        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+      <TestataPagina titolo="I miei droni" sigla="UAS · FLOTTA E MANUTENZIONE" icona={Plane} info="Modelli, matricole, registrazione D-Flight e scadenze di manutenzione della tua flotta.">
+        <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "rgba(10,13,22,.6)" : "#ff8c42", color: showForm ? "#c3cad4" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo drone</>}
         </button>
-      </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0" }}>Tieni traccia di modelli, matricole, registrazione D-Flight e scadenze di manutenzione della tua flotta.</p>
+      </TestataPagina>
 
       {dflightScadenza !== undefined && (
         <div style={{ background: "#151b2b", border: `1px solid ${statoDflight && statoDflight.livello !== "ok" ? statoDflight.colore + "88" : "#2a3349"}`, borderRadius: 10, padding: 16, marginBottom: 20, maxWidth: 620 }}>
@@ -12531,8 +12522,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
 
   return (
     <div className="main-content" style={{ overflow: "auto", maxWidth: 820 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>La mia pagina</h1>
-      <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 16px 0", maxWidth: 600 }}>La tua vetrina online: servizi, lavori e un modulo con cui i clienti ti chiedono un preventivo. Mettila nella bio di Instagram, su WhatsApp e nella firma delle email.</p>
+      <TestataPagina titolo="La mia pagina" sigla="WEB · LA TUA VETRINA ONLINE" foto="/trova-pilota/matrimoni.webp" info="Servizi, lavori e un modulo con cui i clienti ti chiedono un preventivo. Mettila nella bio di Instagram, su WhatsApp e nella firma delle email." />
 
       {stato === "manca-script" && (
         <div style={{ marginBottom: 16, padding: "12px 14px", background: "#2a2416", border: "1px solid #5a4a20", borderRadius: 8, color: "#f5d78e", fontSize: 13 }}>
@@ -14046,18 +14036,11 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Batterie</h1>
-        <button onClick={apriNuova} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm && !editingId ? "transparent" : "#ff8c42", color: showForm && !editingId ? "#8b95a3" : "#10141f", border: showForm && !editingId ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+      <TestataPagina titolo="Batterie" sigla="BAT · CICLI E STOCCAGGIO" icona={BatteryCharging} info={<>Conta i cicli di ogni batteria e ricordati di non lasciarla carica o scarica per giorni: le LiPo si rovinano. Nel registro voli scegli le batterie usate e il ciclo si aggiunge da solo.<br />Regola pratica: per lo stoccaggio circa 3,8 V per cella. La soglia dei cicli è indicativa: impostala in base alla tua batteria e a come la usi.</>}>
+        <button onClick={apriNuova} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm && !editingId ? "rgba(10,13,22,.6)" : "#ff8c42", color: showForm && !editingId ? "#c3cad4" : "#10141f", border: showForm && !editingId ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm && !editingId ? "Annulla" : <><Plus size={14} /> Nuova batteria</>}
         </button>
-      </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 6px 0", maxWidth: 600 }}>
-        Conta i cicli di ogni batteria e ricordati di non lasciarla carica o scarica per giorni: le LiPo si rovinano. Nel registro voli scegli le batterie usate e il ciclo si aggiunge da solo.
-      </p>
-      <p style={{ color: "#6b7480", fontSize: 11.5, margin: "0 0 18px 0", maxWidth: 600 }}>
-        Regola pratica per le LiPo: per lo stoccaggio circa 3,8 V per cella. La soglia dei cicli è indicativa: impostala in base alla tua batteria e a come la usi.
-      </p>
+      </TestataPagina>
       {piano === "free" && (
         <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "-8px 0 14px 0" }}>
           Piano Free: {attive.length}/{LIMITI_FREE.batterie} batterie.{" "}
@@ -15952,8 +15935,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Impostazioni azienda</h1>
-      <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 24px 0" }}>Personalizza i report con il tuo brand — verranno usati in tutti i PDF generati.</p>
+      <TestataPagina titolo="Impostazioni" sigla="SET · AZIENDA, LOGO E REPORT" icona={Settings} info="Come usi l'app, unità del vento, nome e logo per i report e i preventivi in PDF, account e privacy." />
 
       <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 24, maxWidth: 560 }}>
         <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Come usi l'app</h3>

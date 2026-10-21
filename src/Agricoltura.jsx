@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import MappaCampi from "./MappaCampi.jsx";
+import { TestataPagina } from "./VoloHero.jsx";
 import { pdfConsegnaAgricoltura } from "./reportConsegna.js";
 import FascicoloScia, { controlliScia, unisci } from "./FascicoloScia.jsx";
 import { leggiFileConfini, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
@@ -95,8 +96,7 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>Campi e trattamenti</h1>
-        <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 16px 0" }}>Appezzamenti dei tuoi clienti con i confini sulla mappa, registro dei lavori con PDF e meteo per irrorare.</p>
+        <TestataPagina titolo="Campi e trattamenti" sigla="AGR · CONFINI, REGISTRO E METEO" foto="/trova-pilota/agricoltura.webp" info="Appezzamenti dei tuoi clienti con i confini sulla mappa, registro dei lavori con PDF e meteo per irrorare." />
 
         {mancaTabella && (
           <div style={{ ...scheda, border: "1px solid #f5b94266", background: "#211a0c", marginBottom: 16, fontSize: 13, color: "#ffe2a8" }}>

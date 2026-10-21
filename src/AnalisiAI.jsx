@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ElioDice, useElio } from "./Elio.jsx";
+import { Sparkles } from "lucide-react";
+import { TestataPagina } from "./VoloHero.jsx";
 
 // Analisi di una foto con l'AI: difetti di foto/video, foto termiche, colore.
 // La foto viene rimpicciolita nel telefono e mandata alla funzione analisi-foto (la chiave dell'AI resta sul server)
@@ -208,8 +210,7 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio, admin }
 
   return (
     <div style={{ maxWidth: 720, padding: "28px 32px" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>{titolo} <span style={{ fontSize: 11, fontWeight: 700, color: "#c4b5fd", border: "1px solid #a78bfa66", borderRadius: 4, padding: "1px 6px", verticalAlign: "middle" }}>PROVA</span></h1>
-      <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 14px 0" }}>{sottotitolo}</p>
+      <TestataPagina titolo={titolo} sigla="AI · L'ESPERTO DI FOTO E VIDEO" icona={Sparkles} etichetta="PROVA" info={sottotitolo} />
       {conElio && !esito && stato !== "invio" && <ElioDice espr={elio[0]} style={{ marginBottom: 14 }}>{elio[1]}</ElioDice>}
       {grazie && (
         <div style={{ marginBottom: 12, background: "#1f8a4c22", border: "1px solid #4ade8066", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#bbf7d0" }}>
