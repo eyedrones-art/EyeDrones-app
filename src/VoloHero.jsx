@@ -186,9 +186,9 @@ export const STILE_TESTATA = `
   .testata-foto { position: absolute; left: 0; top: -12%; width: 100%; height: 124%; object-fit: cover; transform: scale(1.06); will-change: transform; animation: testata-entra 1.4s cubic-bezier(.2,.8,.2,1) both; }
   .testata-velo { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(6,8,16,.3) 0%, rgba(6,8,16,.3) 30%, rgba(6,8,16,.93) 100%), linear-gradient(90deg, rgba(6,8,16,.55) 0%, rgba(6,8,16,0) 70%); }
   .testata-testo { position: relative; padding: 18px 20px 14px; }
-  .testata-sigla { font-size: 11px; letter-spacing: .16em; color: #ffc4a6; text-shadow: 0 1px 6px rgba(0,0,0,.8); animation: testata-sale .7s .15s ease-out both; }
+  .testata-sigla { font-size: 12px; letter-spacing: .16em; color: #ffc4a6; text-shadow: 0 1px 6px rgba(0,0,0,.8); animation: testata-sale .7s .15s ease-out both; }
   .testata-titolo { font-size: 32px !important; margin-top: 4px !important; animation: testata-sale .8s .25s cubic-bezier(.2,.8,.2,1) both; }
-  .testata-sotto { font-size: 11.5px; letter-spacing: .12em; color: #d9d2c7; margin-top: 8px; animation: testata-sale .7s .4s ease-out both; }
+  .testata-sotto { font-size: 12.5px; letter-spacing: .12em; color: #d9d2c7; margin-top: 8px; animation: testata-sale .7s .4s ease-out both; }
   .testata-azioni { position: relative; display: flex; gap: 8px; flex-wrap: wrap; padding: 0 20px 18px; animation: testata-sale .7s .5s ease-out both; }
   .testata-pagina.senza-foto { min-height: 150px; background: radial-gradient(120% 140% at 100% 0%, rgba(255,140,66,.2) 0%, rgba(255,140,66,0) 45%), linear-gradient(160deg, #18203a 0%, #0d111c 75%); }
   .testata-griglia { position: absolute; inset: -20% 0 0 0; background-image: linear-gradient(rgba(159,180,217,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(159,180,217,.07) 1px, transparent 1px); background-size: 26px 26px; -webkit-mask-image: linear-gradient(200deg, #000 10%, transparent 80%); mask-image: linear-gradient(200deg, #000 10%, transparent 80%); will-change: transform; }

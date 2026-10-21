@@ -2228,6 +2228,8 @@ function AppShell({ session }) {
         ${STILE_VOLO}
         ${STILE_MENU_ROTONDO}
         ${STILE_ELIO}
+        /* sul telefono la barra dei primi passi galleggia sopra il menu in basso, così la testata resta in cima */
+        @media (max-width: 680px) { .app-shell:has(.barra-primi) { padding-bottom: 170px !important; } .barra-primi { position: fixed; left: 10px; right: 10px; bottom: calc(74px + env(safe-area-inset-bottom)); margin: 0 !important; z-index: 60; box-shadow: 0 14px 34px rgba(0,0,0,.55); animation: testata-sale .4s ease-out both; } }
         ${STILE_TESTATA}
         .impara-simulatore { display: block; position: relative; overflow: hidden; text-decoration: none; color: #eef1f6; border-radius: 18px; padding: 16px 18px; margin: 0 0 14px; background: linear-gradient(110deg, rgba(10,13,24,.94) 30%, rgba(10,13,24,.45)), url(/volo/sfondo.webp) center 40% / cover; border: 1px solid rgba(255,140,66,.45); transition: transform .2s, border-color .2s; }
         .impara-simulatore:hover { transform: translateY(-2px); border-color: #ff8c42; }
@@ -2544,7 +2546,7 @@ function BarraPrimiPassi({ pagina, droni, attestati, voli, preventivi, onNav }) 
   const vaiDopo = () => { if (!dopo) { chiudi(); onNav("dashboard"); return; } try { sessionStorage.setItem(CHIAVE_GUIDA, dopo.chiave); } catch { /* niente */ } setPasso(dopo.chiave); onNav(dopo.pagina); };
   const n = passi.filter((x) => x.regola).indexOf(qui) + 1;
   return (
-    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "12px 16px 0", padding: "10px 12px", borderRadius: 10, background: qui.fatto ? "#4ade8018" : "#3d8bfd14", border: `1px solid ${qui.fatto ? "#4ade8066" : "#3d8bfd55"}`, maxWidth: 720 }}>
+    <div className="barra-primi" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "12px 16px 0", padding: "10px 12px", borderRadius: 10, background: qui.fatto ? "#12261b" : "#121d33", border: `1px solid ${qui.fatto ? "#4ade8066" : "#3d8bfd55"}`, maxWidth: 720 }}>
       <div style={{ flex: "1 1 220px", fontSize: 12.5, color: "#c3cad4", lineHeight: 1.45 }}>
         {qui.fatto
           ? <><strong style={{ color: "#4ade80" }}>✅ Fatto!</strong> {dopo ? `Prossimo passo: ${dopo.titolo.charAt(0).toLowerCase() + dopo.titolo.slice(1)}.` : "Sei in regola: se arriva un controllo hai tutto sul telefono."}</>
@@ -6597,44 +6599,6 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
         </button>
       </TestataPagina>
 
-      <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 14, marginBottom: 20, maxWidth: 460 }}>
-        <label style={{ fontSize: 11.5, fontWeight: 600, color: "#c3cad4", display: "block", marginBottom: 6 }}>Il tuo prossimo obiettivo formativo</label>
-        <select value={obiettivoSel} onChange={(e) => salvaObiettivo(e.target.value)} disabled={salvandoObiettivo} style={inputStyle}>
-          {OBIETTIVI_FORMATIVI.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-        </select>
-        {obiettivoSalvatoOk && <p style={{ fontSize: 11, color: "#4ade80", margin: "6px 0 0 0" }}>✓ Salvato</p>}
-      </div>
-
-      <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
-        <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Corsi consigliati</p>
-        {CORSI_CONSIGLIATI.length === 0 ? (
-          <p style={{ fontSize: 11.5, color: "#6b7480", margin: 0, lineHeight: 1.5 }}>Nessun corso ancora aggiunto — qui compariranno, ad esempio, corsi di fotogrammetria o FPV.</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {CORSI_CONSIGLIATI.map((c) => (
-              <a key={c.nome} href={c.url} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none" }}>
-                <div style={{ fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{c.nome} ↗</div>
-                {c.descrizione && <div style={{ fontSize: 11.5, color: "#6b7480" }}>{c.descrizione}</div>}
-              </a>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {RISORSE_CONSIGLIATE.length > 0 && (
-        <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
-          <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Servizi consigliati</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {RISORSE_CONSIGLIATE.map((r) => (
-              <a key={r.nome} href={r.url} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none" }}>
-                <div style={{ fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{r.nome} ↗</div>
-                {r.descrizione && <div style={{ fontSize: 11.5, color: "#6b7480" }}>{r.descrizione}</div>}
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
       {showForm && (
         <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 20, maxWidth: 460, display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
@@ -6731,6 +6695,46 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
               </div>
             );
           })}
+        </div>
+      )}
+      {/* in fondo, dopo gli attestati: obiettivo e consigli */}
+      <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 14, margin: "8px 0 20px", maxWidth: 460 }}>
+        <label style={{ fontSize: 11.5, fontWeight: 600, color: "#c3cad4", display: "block", marginBottom: 6 }}>Il tuo prossimo obiettivo formativo</label>
+        <select value={obiettivoSel} onChange={(e) => salvaObiettivo(e.target.value)} disabled={salvandoObiettivo} style={inputStyle}>
+          {OBIETTIVI_FORMATIVI.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+        {obiettivoSalvatoOk && <p style={{ fontSize: 11, color: "#4ade80", margin: "6px 0 0 0" }}>✓ Salvato</p>}
+      </div>
+
+      {CORSI_CONSIGLIATI.length > 0 && (
+      <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
+        <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Corsi consigliati</p>
+        {CORSI_CONSIGLIATI.length === 0 ? (
+          <p style={{ fontSize: 11.5, color: "#6b7480", margin: 0, lineHeight: 1.5 }}>Nessun corso ancora aggiunto — qui compariranno, ad esempio, corsi di fotogrammetria o FPV.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {CORSI_CONSIGLIATI.map((c) => (
+              <a key={c.nome} href={c.url} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none" }}>
+                <div style={{ fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{c.nome} ↗</div>
+                {c.descrizione && <div style={{ fontSize: 11.5, color: "#6b7480" }}>{c.descrizione}</div>}
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+      )}
+
+      {RISORSE_CONSIGLIATE.length > 0 && (
+        <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 20, maxWidth: 460 }}>
+          <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Servizi consigliati</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {RISORSE_CONSIGLIATE.map((r) => (
+              <a key={r.nome} href={r.url} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none" }}>
+                <div style={{ fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{r.nome} ↗</div>
+                {r.descrizione && <div style={{ fontSize: 11.5, color: "#6b7480" }}>{r.descrizione}</div>}
+              </a>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -7032,9 +7036,12 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
             <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: "#3d8bfd" }}>Apri D-Flight ↗</a>
           </div>
           {droni.some((d) => d.qr_dflight_nuovo !== undefined) && (
-            <p style={{ fontSize: 11.5, color: "#aab3bf", margin: "12px 0 0 0", lineHeight: 1.5 }}>
-              📌 Da ottobre 2025 D-Flight ha generato un <strong>nuovo QR code</strong>, più sicuro: va scaricato, stampato e attaccato di nuovo su ogni drone. Spunta qui sotto i droni su cui l'hai già fatto.
-            </p>
+            <details style={{ margin: "12px 0 0 0" }}>
+              <summary style={{ fontSize: 13, color: "#ffb877", cursor: "pointer", minHeight: 32, display: "flex", alignItems: "center" }}>Nuovo QR code D-Flight: cosa fare ›</summary>
+              <p style={{ fontSize: 13, color: "#aab3bf", margin: "6px 0 0 0", lineHeight: 1.5 }}>
+                Da ottobre 2025 D-Flight ha generato un <strong>nuovo QR code</strong>, più sicuro: va scaricato, stampato e attaccato di nuovo su ogni drone. Spunta qui sotto i droni su cui l'hai già fatto.
+              </p>
+            </details>
           )}
         </div>
       )}
@@ -10319,8 +10326,8 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <TestataPagina titolo="Controllo" sigla="CTR · DA MOSTRARE, ANCHE SENZA CAMPO" foto="/trova-pilota/ispezioni.webp" />
       {daCopia === null && (
-        <div style={{ background: "#14251b", border: "1px solid #2c5a3a", borderRadius: 8, padding: "8px 12px", marginBottom: 16, maxWidth: 560, fontSize: 12.5, color: "#bfe8cc" }}>
-          📶 <strong>Funziona anche senza campo.</strong> Una copia di questi dati resta sul telefono e si aggiorna ogni volta che apri l'app con la rete: se ti fermano dove non prende, apri comunque 👮 Controllo.
+        <div style={{ background: "#14251b", border: "1px solid #2c5a3a", borderRadius: 10, padding: "10px 14px", marginBottom: 16, maxWidth: 560, fontSize: 13.5, lineHeight: 1.45, color: "#bfe8cc" }}>
+          📶 <strong>Funziona anche senza campo.</strong> Se ti fermano dove non prende, apri comunque Controllo: una copia resta sul telefono.
         </div>
       )}
       {daCopia !== null && (
@@ -10331,7 +10338,7 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
       )}
 
       <div style={{ marginBottom: 16, maxWidth: 320 }}>
-        <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Dove stai volando (opzionale)</label>
+        <label style={{ fontSize: 13, color: "#aab3bf", display: "block", marginBottom: 6 }}>Dove stai volando <span style={{ color: "#6b7480" }}>(facoltativo)</span></label>
         <select value={scelta} onChange={(e) => scegli(e.target.value)} style={inputStyle}>
           <option value="">— Nessuno / vedi tutto —</option>
           {pianiOrdinati.length > 0 && (
@@ -10350,67 +10357,40 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
 
       <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, maxWidth: 560 }}>
         <div style={{ marginBottom: 10 }}>
-          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Drone che stai usando</label>
-          <select value={droneSelId} onChange={(e) => setDroneSelId(e.target.value)} style={{ ...inputStyle, fontSize: 12.5 }}>
+          <label style={{ fontSize: 13, color: "#aab3bf", display: "block", marginBottom: 6 }}>Drone che stai usando</label>
+          <select value={droneSelId} onChange={(e) => setDroneSelId(e.target.value)} style={inputStyle}>
             <option value="">— Nessuno selezionato —</option>
             {droniUtente.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
           </select>
         </div>
 
-        <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 6 }}>
-          <strong style={{ display: "block", marginBottom: 4 }}>Attestati:</strong>
-          {attestatiUtente.length === 0 ? "nessuno registrato" : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              {attestatiUtente.map((a) => {
-                const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
-                return (
-                  <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ color: scaduto ? "#ff9c9c" : "#4ade80" }}>{a.tipo}{scaduto ? " (scaduto!)" : " ✓"}</span>
-                    {a.documento_url && (
-                      <LinkFile url={a.documento_url} style={{ color: "#3d8bfd", fontSize: 11, textDecoration: "none" }}>📄 apri documento</LinkFile>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-        <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 6 }}>
-          <strong>Assicurazione:</strong>{" "}
+        {/* una riga per documento: nome grande, stato colorato, «Apri» a destra (è la pagina da mostrare agli agenti) */}
+        <div className="ctr-documenti">
+          {attestatiUtente.length === 0 && <RigaDocumento nome="Attestati" stato="nessuno registrato" colore="#ff9c9c" />}
+          {attestatiUtente.map((a) => {
+            const scaduto = a.data_scadenza && new Date(a.data_scadenza) < new Date();
+            return <RigaDocumento key={a.id} nome={a.tipo} stato={scaduto ? "Scaduto!" : a.data_scadenza ? `Valido fino al ${formatData(a.data_scadenza)}` : "Valido"} colore={scaduto ? "#ff9c9c" : "#4ade80"} url={a.documento_url} />;
+          })}
           {assicurazione
             ? (() => {
                 const scaduta = assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date();
-                return (
-                  <>
-                    <span style={{ color: scaduta ? "#ff9c9c" : "#4ade80" }}>{scaduta ? "SCADUTA il " : "valida fino al "}{assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}</span>
-                    {assicurazione.documento_url && <LinkFile url={assicurazione.documento_url} style={{ color: "#3d8bfd", fontSize: 11, marginLeft: 8, textDecoration: "none" }}>📄 apri documento</LinkFile>}
-                  </>
-                );
+                return <RigaDocumento nome="Assicurazione" stato={`${scaduta ? "Scaduta il " : "Valida fino al "}${assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}`} colore={scaduta ? "#ff9c9c" : "#4ade80"} url={assicurazione.documento_url} />;
               })()
-            : <span style={{ color: "#ff9c9c" }}>non registrata — aggiungila in "Attestati"</span>}
+            : <RigaDocumento nome="Assicurazione" stato="Non registrata: aggiungila in «Attestati»" colore="#ff9c9c" />}
+          {droneSelezionato && <RigaDocumento nome={`Documento del drone · ${droneSelezionato.nome}`} stato={droneSelezionato.documento_url ? "Caricato" : "Nessuno caricato"} colore={droneSelezionato.documento_url ? "#4ade80" : "#8b95a3"} url={droneSelezionato.documento_url} />}
+          <RigaDocumento nome={`Permessi${impiantoSel ? " per questo luogo" : ""}`} stato={permessiFiltrati.length === 0 ? "Nessuno" : permessiFiltrati.length === 1 ? "1 permesso" : `${permessiFiltrati.length} permessi`} colore={permessiFiltrati.length ? "#4ade80" : "#8b95a3"} />
+          {zonaPiano && (() => {
+            const libera = zonaPiano.altezzaLibera;
+            const nessuna = !zonaPiano.zone || zonaPiano.zone.length === 0;
+            const [col, txt] = nessuna ? ["#4ade80", "Nessuna zona geografica UAS sul punto"]
+              : libera >= 120 ? ["#4ade80", "Volo consentito con le condizioni della zona"]
+              : libera > 0 ? ["#f5b942", `Senza autorizzazione fino a ${libera} m dal suolo`] : ["#ff8c42", "Serve autorizzazione già da terra"];
+            return <RigaDocumento nome="Zona di volo" stato={txt} colore={col} nota={`controllata il ${formatData(String(zonaPiano.verificata).slice(0, 10))}`} />;
+          })()}
         </div>
-        {droneSelezionato && (
-          <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 6 }}>
-            <strong>Documento del drone:</strong>{" "}
-            {droneSelezionato.documento_url ? (
-              <LinkFile url={droneSelezionato.documento_url} style={{ color: "#3d8bfd", fontSize: 11.5, textDecoration: "none" }}>📄 apri documento</LinkFile>
-            ) : <span style={{ color: "#8b95a3" }}>nessuno caricato</span>}
-          </div>
-        )}
-        <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}>
-          <strong>Permessi{impiantoSel ? " per questo luogo" : ""}:</strong> {permessiFiltrati.length === 0 ? "nessuno" : `${permessiFiltrati.length}`}
-        </div>
-        {zonaPiano && (() => {
-          const libera = zonaPiano.altezzaLibera;
-          const nessuna = !zonaPiano.zone || zonaPiano.zone.length === 0;
-          const [col, txt] = nessuna ? ["#4ade80", "nessuna zona geografica UAS sul punto"]
-            : libera >= 120 ? ["#4ade80", "volo consentito con le condizioni della zona"]
-            : libera > 0 ? ["#f5b942", `senza autorizzazione fino a ${libera} m dal suolo`] : ["#ff8c42", "serve autorizzazione già da terra"];
-          return <div style={{ fontSize: 12, color: "#c3cad4", marginBottom: 4 }}><strong>Zona di volo:</strong> <span style={{ color: col }}>{txt}</span> <span style={{ color: "#6b7480" }}>(controllata il {formatData(String(zonaPiano.verificata).slice(0, 10))})</span></div>;
-        })()}
 
         <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 }}>Screenshot D-Flight {pianoSel ? "del piano di volo" : impiantoSel ? "di questo impianto" : "di oggi"} (facoltativo)</label>
+          <label style={{ fontSize: 13, color: "#aab3bf", display: "block", marginBottom: 6 }}>Screenshot D-Flight {pianoSel ? "del piano di volo" : impiantoSel ? "di questo impianto" : "di oggi"} (facoltativo)</label>
           {dflightShot ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <ImmagineFile src={dflightShot.dataUrl} alt="D-Flight" style={{ width: 90, borderRadius: 6, border: "1px solid #343e57" }} />
@@ -15909,6 +15889,20 @@ function SceltaUnitaVento() {
         ))}
       </div>
       <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "8px 0 0 0" }}>Esempio: {ms ? "10,7 m/s (39 km/h)" : "39 km/h (10,7 m/s)"}</p>
+    </div>
+  );
+}
+
+// riga di Controllo: un documento, il suo stato e il tasto per aprirlo
+function RigaDocumento({ nome, stato, colore, url, nota }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: "1px solid #232b3f" }}>
+      <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: "50%", background: colore, flex: "none", boxShadow: `0 0 10px ${colore}66` }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#f3f0ea" }}>{nome}</div>
+        <div style={{ fontSize: 13.5, color: colore, marginTop: 1 }}>{stato}{nota && <span style={{ color: "#6b7480" }}> · {nota}</span>}</div>
+      </div>
+      {url && <LinkFile url={url} style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 6, minHeight: 40, padding: "0 14px", borderRadius: 8, border: "1px solid #3d8bfd66", background: "#3d8bfd18", color: "#9cc3ff", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}><FileText size={15} /> Apri</LinkFile>}
     </div>
   );
 }
