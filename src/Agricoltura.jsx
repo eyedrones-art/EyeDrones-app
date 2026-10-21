@@ -95,7 +95,7 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>🌾 Campi e trattamenti</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>Campi e trattamenti</h1>
         <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 16px 0" }}>Appezzamenti dei tuoi clienti con i confini sulla mappa, registro dei lavori con PDF e meteo per irrorare.</p>
 
         {mancaTabella && (

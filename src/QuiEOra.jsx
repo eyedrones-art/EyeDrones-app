@@ -130,7 +130,7 @@ export default function QuiEOra({ supabase, onPianifica, onAlGiro, onCaricaZone,
 
   return (
     <div style={{ padding: "24px 20px", maxWidth: 680 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>📍 Qui e ora</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>Qui e ora</h1>
       <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 14px 0" }}>Sei sul posto? Ti dico subito se puoi volare, dove andare a piedi se qui non si può, e i posti belli qui vicino. Senza preparare niente.</p>
 
       {errorePos && <div style={{ ...scheda, borderColor: "#ff6b6b66", color: "#ff9c9c", fontSize: 13 }}>{errorePos} <button type="button" onClick={prendiPosizione} style={{ ...bottone, marginLeft: 6, padding: "4px 10px" }}>Riprova</button></div>}

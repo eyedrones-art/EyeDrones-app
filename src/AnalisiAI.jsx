@@ -207,7 +207,7 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio, admin }
   );
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div style={{ maxWidth: 720, padding: "28px 32px" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>{titolo} <span style={{ fontSize: 11, fontWeight: 700, color: "#c4b5fd", border: "1px solid #a78bfa66", borderRadius: 4, padding: "1px 6px", verticalAlign: "middle" }}>PROVA</span></h1>
       <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 14px 0" }}>{sottotitolo}</p>
       {conElio && !esito && stato !== "invio" && <ElioDice espr={elio[0]} style={{ marginBottom: 14 }}>{elio[1]}</ElioDice>}

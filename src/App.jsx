@@ -606,7 +606,7 @@ function Suggerimenti({ session, paginaPrecedente }) {
   };
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>💬 Suggerimenti</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Suggerimenti</h1>
       <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 18px 0", maxWidth: 560 }}>EyeDrones è appena nata e cresce con i consigli dei piloti. Scrivi cosa ti manca, cosa miglioreresti o cosa non funziona: leggiamo tutto.</p>
       <form onSubmit={invia} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 18, maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -2548,7 +2548,7 @@ function BarraPrimiPassi({ pagina, droni, attestati, voli, preventivi, onNav }) 
     <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "12px 16px 0", padding: "10px 12px", borderRadius: 10, background: qui.fatto ? "#4ade8018" : "#3d8bfd14", border: `1px solid ${qui.fatto ? "#4ade8066" : "#3d8bfd55"}`, maxWidth: 720 }}>
       <div style={{ flex: "1 1 220px", fontSize: 12.5, color: "#c3cad4", lineHeight: 1.45 }}>
         {qui.fatto
-          ? <><strong style={{ color: "#4ade80" }}>✅ Fatto!</strong> {dopo ? `Prossimo passo: ${dopo.titolo.toLowerCase()}.` : "Sei in regola: se arriva un controllo hai tutto sul telefono."}</>
+          ? <><strong style={{ color: "#4ade80" }}>✅ Fatto!</strong> {dopo ? `Prossimo passo: ${dopo.titolo.charAt(0).toLowerCase() + dopo.titolo.slice(1)}.` : "Sei in regola: se arriva un controllo hai tutto sul telefono."}</>
           : <><strong style={{ color: "#7fb0ff" }}>🚀 Passo {n} di 4 · {qui.titolo}</strong><br />{qui.aiuto}</>}
       </div>
       {qui.fatto
@@ -4148,7 +4148,7 @@ function PaginaRilievi({ voli, droni = [], azienda, piano, onNav, onNuovo, onCam
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 820 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>📐 Rilievi</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>Rilievi</h1>
         <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 14px 0" }}>Tutto il lavoro di fotogrammetria in un posto: calcolo della missione, lista sul campo, a che punto è ogni rilievo e il report di consegna per il cliente.</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
           {scheda("rilievi", "📋 I rilievi")}
@@ -12531,7 +12531,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
 
   return (
     <div className="main-content" style={{ overflow: "auto", maxWidth: 820 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>🌐 La mia pagina</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>La mia pagina</h1>
       <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 16px 0", maxWidth: 600 }}>La tua vetrina online: servizi, lavori e un modulo con cui i clienti ti chiedono un preventivo. Mettila nella bio di Instagram, su WhatsApp e nella firma delle email.</p>
 
       {stato === "manca-script" && (
