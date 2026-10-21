@@ -18,6 +18,7 @@ import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./cam
 import { rinnovoPer } from "./rinnovi.js";
 import VoloHero, { STILE_VOLO, TestataPagina, STILE_TESTATA } from "./VoloHero.jsx";
 import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
+import Elio, { ElioDice, STILE_ELIO, useElio, accendiElio } from "./Elio.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
@@ -2227,6 +2228,7 @@ function AppShell({ session }) {
         .mono { font-family: 'IBM Plex Mono', monospace; }
         ${STILE_VOLO}
         ${STILE_MENU_ROTONDO}
+        ${STILE_ELIO}
         ${STILE_TESTATA}
         .impara-simulatore { display: block; position: relative; overflow: hidden; text-decoration: none; color: #eef1f6; border-radius: 18px; padding: 16px 18px; margin: 0 0 14px; background: linear-gradient(110deg, rgba(10,13,24,.94) 30%, rgba(10,13,24,.45)), url(/volo/sfondo.webp) center 40% / cover; border: 1px solid rgba(255,140,66,.45); transition: transform .2s, border-color .2s; }
         .impara-simulatore:hover { transform: translateY(-2px); border-color: #ff8c42; }
@@ -2446,6 +2448,7 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
   const nascosto = () => leggiLocale(CHIAVE_PRIMI_PASSI) === "si" || (leggiLocale(CHIAVE_PRIMI_PASSI_RIMANDA) || "") > dataLocale();
   const [chiuso, setChiuso] = useState(nascosto);
   const [haPiano, setHaPiano] = useState(null);
+  const conElio = useElio();
   useEffect(() => {
     if (chiuso) return undefined;
     let annullato = false;
@@ -2475,13 +2478,25 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
       <button type="button" onClick={rimanda} aria-label="Nascondi per qualche giorno" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
       {tutti ? (
         <div style={{ fontSize: 13, color: "#c3cad4" }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80", marginBottom: 4 }}>🎉 Tutto pronto!</div>
-          Hai fatto tutto: l'app è pronta per i tuoi voli. Se ti serve una mano, in <strong>Impara</strong> trovi regole, manovre e consigli.
+          {conElio ? (
+            <ElioDice espr="festa" size={56} style={{ paddingRight: 30 }}><strong>🎉 Tutto pronto!</strong> Hai fatto tutto: l'app è pronta per i tuoi voli. Se ti serve una mano, in <strong>Impara</strong> trovi regole, manovre e consigli.</ElioDice>
+          ) : (
+            <>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80", marginBottom: 4 }}>🎉 Tutto pronto!</div>
+              Hai fatto tutto: l'app è pronta per i tuoi voli. Se ti serve una mano, in <strong>Impara</strong> trovi regole, manovre e consigli.
+            </>
+          )}
           <div><button type="button" onClick={chiudi} style={{ marginTop: 10, background: "#4ade80", color: "#0d111c", border: "none", borderRadius: 6, padding: "8px 16px", minHeight: 40, fontSize: 13, fontWeight: 700 }}>Perfetto, chiudi</button></div>
         </div>
       ) : (
         <>
-          {inRegola ? (
+          {conElio ? (
+            <ElioDice espr={inRegola ? "contento" : "felice"} size={56} style={{ paddingRight: 30 }}>
+              {inRegola
+                ? <><strong>✅ Sei in regola!</strong> Adesso, se vuoi, ti mostro le altre cose utili.</>
+                : <><strong>Ciao, sono Elio!</strong> Ti metto in regola in 3 minuti: così, se arriva un controllo, hai tutto sul telefono. Passo {Math.min(fattiRegole + 1, regole.length)} di {regole.length}.</>}
+            </ElioDice>
+          ) : inRegola ? (
             <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80", paddingRight: 32 }}>✅ Sei in regola!</div>
           ) : (
             <div style={{ paddingRight: 32 }}>
@@ -15886,6 +15901,24 @@ function SceltaUnitaVento() {
   );
 }
 
+function SceltaElio() {
+  const acceso = useElio();
+  return (
+    <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 24, maxWidth: 560, display: "flex", gap: 14, alignItems: "center" }}>
+      <Elio espr={acceso ? "felice" : "neutro"} size={52} />
+      <div style={{ flex: 1 }}>
+        <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Elio, il pilota che ti aiuta</h3>
+        <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 10px 0" }}>Compare nei primi passi e nell'esperto. Se preferisci l'app più seria, spegnilo.</p>
+        <div role="group" aria-label="Elio" style={{ display: "inline-flex", border: "1px solid #343e57", borderRadius: 8, overflow: "hidden" }}>
+          {[["Acceso", true], ["Spento", false]].map(([etichetta, v]) => (
+            <button key={etichetta} type="button" aria-pressed={acceso === v} onClick={() => accendiElio(v)} style={{ background: acceso === v ? "#ff8c42" : "#1a2133", color: acceso === v ? "#10141f" : "#c3cad4", border: "none", padding: "8px 18px", fontSize: 13, fontWeight: 700, minHeight: 40 }}>{etichetta}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userEmail }) {
   const [confermaEliminazione, setConfermaEliminazione] = useState("");
   const [spostamento, setSpostamento] = useState(null); // null | "in corso: ..." | risultato
@@ -15929,6 +15962,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
       </div>
 
       <SceltaUnitaVento />
+      <SceltaElio />
 
       {!proAttivo && (
         <div style={{ maxWidth: 420, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 12.5, color: "#ffb877" }}>

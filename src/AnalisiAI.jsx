@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { ElioDice, useElio } from "./Elio.jsx";
 
 // Analisi di una foto con l'AI: difetti di foto/video, foto termiche, colore.
 // La foto viene rimpicciolita nel telefono e mandata alla funzione analisi-foto (la chiave dell'AI resta sul server)
@@ -178,6 +179,14 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio, admin }
 
   const bottone = (attivo) => ({ background: attivo ? "#a78bfa22" : "#232b3f", border: `1px solid ${attivo ? "#a78bfa" : "#343e57"}`, color: attivo ? "#c4b5fd" : "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 });
   const esito = stato && stato.esito;
+  const conElio = useElio();
+  // Elio fa l'esperto: cosa dice cambia con quello che sta succedendo
+  const elio = esito
+    ? (esito.si_puo_volare === "no" ? ["preoccupato", <><strong>Attenzione:</strong> prima di volare leggi qui sotto. 👇</>] : ["contento", <>Ecco cosa ho visto e <strong>cosa fare</strong>, dal più facile. 👇</>])
+    : stato === "invio" ? ["pensieroso", "Fammi guardare bene… ci metto qualche secondo."]
+      : stato && stato.errore ? ["imbarazzato", "Ops, stavolta non ci sono riuscito. Riprova tra poco."]
+        : foto ? ["contento", <>Ricevuta! Rispondi alle domande qui sotto, così capisco meglio. Poi tocca <strong>Analizza</strong>.</>]
+          : ["felice", <><strong>Ciao, sono Elio.</strong> Scegli cosa ti serve e mandami una foto o un video: ti dico cosa vedo e come sistemarlo.</>];
   const finite = !admin && crediti === 0;
   const pacchetti = (
     <div style={{ marginTop: 12, background: "#10141f", border: "1px solid #a78bfa55", borderRadius: 8, padding: 12 }}>
@@ -201,6 +210,7 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio, admin }
     <div style={{ maxWidth: 720 }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px 0" }}>{titolo} <span style={{ fontSize: 11, fontWeight: 700, color: "#c4b5fd", border: "1px solid #a78bfa66", borderRadius: 4, padding: "1px 6px", verticalAlign: "middle" }}>PROVA</span></h1>
       <p style={{ fontSize: 13, color: "#8b95a3", margin: "0 0 14px 0" }}>{sottotitolo}</p>
+      {conElio && !esito && stato !== "invio" && <ElioDice espr={elio[0]} style={{ marginBottom: 14 }}>{elio[1]}</ElioDice>}
       {grazie && (
         <div style={{ marginBottom: 12, background: "#1f8a4c22", border: "1px solid #4ade8066", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#bbf7d0" }}>
           ✅ Grazie! Il pagamento è andato a buon fine: le analisi arrivano entro qualche secondo.
@@ -266,6 +276,7 @@ export default function AnalisiAI({ supabase, droni, inputStyle, spazio, admin }
 
       {stato && stato.errore && <p style={{ marginTop: 10, fontSize: 13, color: "#ff9c9c" }}>{stato.errore}</p>}
 
+      {conElio && (esito || stato === "invio") && <ElioDice espr={elio[0]} style={{ marginTop: 14 }}>{elio[1]}</ElioDice>}
       {esito && (
         <div style={{ marginTop: 12, background: "#10141f", border: "1px solid #a78bfa55", borderRadius: 8, padding: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4 }}>{esito.cosa_sembra}</div>
