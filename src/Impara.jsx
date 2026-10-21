@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { ESAMI, COME_SI_PRENDE, LEZIONI, GUIDA_ZONA_ROSSA, DOMANDE, SIGLE_ZONE, CONTATTI_ZONE } from "./impara";
 import Notizie from "./Notizie.jsx";
 import Manuale from "./Manuale.jsx";
+import { TestataPagina } from "./VoloHero.jsx";
 
 // Sezione «Impara»: lezioni A1/A3 e A2, quiz con spiegazioni e simulazione d'esame, guida zona rossa, consigli di volo.
 const SCHEDE = [
@@ -358,8 +359,14 @@ export default function Impara({ schedaIniziale = "a1a3", consigli, colore }) {
   const corpo = scheda;
   return (
     <div style={{ padding: "28px 32px", maxWidth: 780 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Impara</h1>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "4px 0 14px 0" }}>Le regole spiegate semplici, i quiz per l'attestato, come muoverti in zona rossa e i consigli per volare meglio.</p>
+      <TestataPagina titolo="Impara" sigla="EDU · REGOLE, QUIZ E SIMULATORE" foto="/benvenuto/pilota.webp" />
+      {/* il simulatore: si apre a tutto schermo, con le missioni e la prova d'esame */}
+      <a href="/simulatore/" className="impara-simulatore">
+        <span className="mono" style={{ fontSize: 10.5, letterSpacing: ".18em", color: "#ffb48f" }}>NUOVO · SIMULATORE</span>
+        <span style={{ display: "block", fontFamily: "'Archivo', sans-serif", fontStretch: "118%", fontWeight: 850, fontSize: 20, textTransform: "uppercase", marginTop: 4 }}>Vola in regola</span>
+        <span style={{ display: "block", fontSize: 13, color: "#d9d2c7", marginTop: 4 }}>Stick come sul radiocomando, missioni con i clienti, FPV, lavori pro e prova d'esame A1/A3</span>
+        <span className="impara-simulatore-vai">Gioca →</span>
+      </a>
       <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 12 }}>
         {SCHEDE.map((s) => <button key={s.key} type="button" onClick={() => setScheda(s.key)} style={stBtn(scheda === s.key)}>{s.label}</button>)}
       </div>

@@ -131,3 +131,52 @@ export const STILE_VOLO = `
   }
   @media (prefers-reduced-motion: reduce) { .volo-hud { display: none; } }
 `;
+
+// la testata delle pagine principali: foto sottile con il titolo grande, nello stile della Home.
+// Scorrendo, la foto scende più piano del testo (profondità) e si avvicina un poco.
+export function TestataPagina({ titolo, sigla, foto, sotto, children }) {
+  const radice = useRef(null), img = useRef(null), testo = useRef(null);
+  useEffect(() => {
+    if (fermo()) return undefined;
+    let giro = 0;
+    const disegna = () => {
+      giro = 0;
+      const r = radice.current && radice.current.getBoundingClientRect();
+      if (!r || !img.current) return;
+      const p = Math.max(0, Math.min(1, -r.top / r.height));
+      img.current.style.transform = `translate3d(0, ${(p * r.height * 0.45).toFixed(1)}px, 0) scale(${(1.06 + p * 0.12).toFixed(3)})`;
+      if (testo.current) testo.current.style.opacity = String(1 - p * 1.2);
+    };
+    const chiama = () => { if (!giro) giro = requestAnimationFrame(disegna); };
+    document.addEventListener("scroll", chiama, { capture: true, passive: true });
+    chiama();
+    return () => { document.removeEventListener("scroll", chiama, { capture: true }); if (giro) cancelAnimationFrame(giro); };
+  }, []);
+  return (
+    <section ref={radice} className="testata-pagina">
+      <img ref={img} src={foto} alt="" className="testata-foto" />
+      <div aria-hidden="true" className="testata-velo" />
+      <div ref={testo} className="testata-testo">
+        {sigla && <div className="mono testata-sigla">{sigla}</div>}
+        <h1 className="volo-titolo testata-titolo">{titolo}</h1>
+        {sotto && <div className="mono testata-sotto">{sotto}</div>}
+      </div>
+      {children && <div className="testata-azioni">{children}</div>}
+    </section>
+  );
+}
+
+export const STILE_TESTATA = `
+  .testata-pagina { position: relative; overflow: hidden; border-radius: 20px; min-height: 190px; margin-bottom: 16px; background: #0a0d18; display: flex; flex-direction: column; justify-content: flex-end; isolation: isolate; }
+  .testata-foto { position: absolute; left: 0; top: -12%; width: 100%; height: 124%; object-fit: cover; transform: scale(1.06); will-change: transform; animation: testata-entra 1.4s cubic-bezier(.2,.8,.2,1) both; }
+  .testata-velo { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(6,8,16,.3) 0%, rgba(6,8,16,.3) 30%, rgba(6,8,16,.93) 100%), linear-gradient(90deg, rgba(6,8,16,.55) 0%, rgba(6,8,16,0) 70%); }
+  .testata-testo { position: relative; padding: 18px 20px 14px; }
+  .testata-sigla { font-size: 11px; letter-spacing: .16em; color: #ffc4a6; text-shadow: 0 1px 6px rgba(0,0,0,.8); animation: testata-sale .7s .15s ease-out both; }
+  .testata-titolo { font-size: 32px !important; margin-top: 4px !important; animation: testata-sale .8s .25s cubic-bezier(.2,.8,.2,1) both; }
+  .testata-sotto { font-size: 11.5px; letter-spacing: .12em; color: #d9d2c7; margin-top: 8px; animation: testata-sale .7s .4s ease-out both; }
+  .testata-azioni { position: relative; display: flex; gap: 8px; flex-wrap: wrap; padding: 0 20px 18px; animation: testata-sale .7s .5s ease-out both; }
+  @keyframes testata-entra { from { opacity: 0; transform: scale(1.18); } to { opacity: 1; } }
+  @keyframes testata-sale { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 680px) { .testata-pagina { margin: -18px -16px 16px; border-radius: 0 0 22px 22px; min-height: 200px; } .testata-titolo { font-size: 30px !important; } }
+  @media (prefers-reduced-motion: reduce) { .testata-foto, .testata-sigla, .testata-titolo, .testata-sotto, .testata-azioni { animation: none; } }
+`;

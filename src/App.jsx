@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -16,7 +16,7 @@ import { GIRO_VUOTO, giroUsato, aggiungiAllaCoda, prendiCoda, tappaDa, MAX_TAPPE
 import { SPAZI, spaziAttivi, moduliDa, leggiSpazio, scriviSpazio, spazioDalLink, linkUsato } from "./spazi.js";
 import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
-import VoloHero, { STILE_VOLO } from "./VoloHero.jsx";
+import VoloHero, { STILE_VOLO, TestataPagina, STILE_TESTATA } from "./VoloHero.jsx";
 import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
@@ -2227,6 +2227,12 @@ function AppShell({ session }) {
         .mono { font-family: 'IBM Plex Mono', monospace; }
         ${STILE_VOLO}
         ${STILE_MENU_ROTONDO}
+        ${STILE_TESTATA}
+        .impara-simulatore { display: block; position: relative; overflow: hidden; text-decoration: none; color: #eef1f6; border-radius: 18px; padding: 16px 18px; margin: 0 0 14px; background: linear-gradient(110deg, rgba(10,13,24,.94) 30%, rgba(10,13,24,.45)), url(/volo/sfondo.webp) center 40% / cover; border: 1px solid rgba(255,140,66,.45); transition: transform .2s, border-color .2s; }
+        .impara-simulatore:hover { transform: translateY(-2px); border-color: #ff8c42; }
+        .impara-simulatore-vai { display: inline-block; margin-top: 12px; background: #ff8c42; color: #140b06; font-weight: 800; border-radius: 12px; padding: 9px 16px; font-size: 13.5px; }
+        /* sul telefono le pagine respirano meno ai lati: più spazio al contenuto */
+        @media (max-width: 680px) { .app-shell div[style*="padding: 28px 32px"] { padding: 16px 14px !important; } }
         /* i titoli delle pagine: grandi, larghi, in maiuscolo, come nella Home */
         .app-shell h1 { font-family: 'Archivo', 'IBM Plex Sans', sans-serif; font-stretch: 115%; font-weight: 850; text-transform: uppercase; letter-spacing: 0; }
         .app-shell h1::after { content: ""; display: block; width: 38px; height: 2px; margin-top: 8px; background: #ff8c42; border-radius: 2px; }
@@ -3297,8 +3303,10 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
           {/* il cerchio con le funzioni principali: gira e si apre verso quella che tocchi */}
           <MenuRotondo voci={[
             { key: "qui", label: "Sono sul posto", corto: "Sul posto", sigla: "GPS", icon: MapPin, vai: () => { setAltroAperto(false); vaiA({ pagina: "qui" }); } },
-            ...[["pianificazione", "Pianifica", "PLN", CalendarDays], ["registro-voli", "Registro", "LOG", BookOpen], ["documenti-controllo", "Controllo", "CTR", ShieldCheck], ["preventivi", "Preventivi", "EUR", FileText], ["impara", "Impara", "EDU", GraduationCap], ["galleria", "Foto e video", "IMG", Camera], ["permessi", "Permessi", "PRM", ClipboardCheck]]
+            ...[["pianificazione", "Pianifica", "PLN", CalendarDays], ["registro-voli", "Registro", "LOG", BookOpen], ["documenti-controllo", "Controllo", "CTR", ShieldCheck], ["permessi", "Permessi", "PRM", ClipboardCheck], ["preventivi", "Preventivi", "EUR", FileText], ["impara", "Impara", "EDU", GraduationCap]]
               .filter(([k]) => items.some((it) => it.key === k)).map(([k, l, sg, ic]) => ({ key: k, label: l, sigla: sg, icon: ic })),
+            // il simulatore è una pagina a parte, a tutto schermo
+            { key: "simulatore", label: "Simulatore", sigla: "SIM", icon: Gamepad2, nuovo: true, vai: () => { window.location.href = "/simulatore/"; } },
           ]} onScegli={(v) => (v.vai ? v.vai() : scegli(v.key))} />
           <div>
             {items.filter((it) => it.intestazione || !chiaviPrincipali.includes(it.key)).map((it, idx, arr) => {
@@ -5809,12 +5817,11 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Preventivi</h1>
+      <TestataPagina titolo="Preventivi" sigla="EUR · PREVENTIVI E PAGAMENTI" foto="/trova-pilota/case.webp">
         <button onClick={() => { if (showForm) { resetForm(); setShowForm(false); } else { resetForm(); setShowForm(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo preventivo</>}
         </button>
-      </div>
+      </TestataPagina>
 
       {showForm && (
         <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 540, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -6124,12 +6131,11 @@ function Permessi({ permessi, impianti, azienda, piano, onReload, droni = [], em
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Permessi</h1>
+      <TestataPagina titolo="Permessi" sigla="PRM · ENAC, COMUNE, PREFETTURA" foto="/trova-pilota/aziende.webp">
         <button onClick={() => setShowForm(!showForm)} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
           {showForm ? "Annulla" : <><Plus size={14} /> Nuova richiesta</>}
         </button>
-      </div>
+      </TestataPagina>
       <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 14px 0" }}>Richiedi e traccia i permessi di volo per zone soggette a restrizioni, prima ancora di fare il rilievo.</p>
       {!assistente ? (
         <button type="button" onClick={() => apriAssistente(true)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 760, textAlign: "left", background: "linear-gradient(135deg, #1d2633, #151b2b)", border: "1px solid #3d8bfd66", borderRadius: 12, padding: "14px 16px", marginBottom: 20, color: "#e7eaee" }}>
@@ -9616,10 +9622,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
           <button type="button" onClick={() => { if (window.confirm("Ricomincio da capo? Quello che avevi scritto in questo piano si cancella.")) annullaModifica(); }} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Ricomincia da capo</button>
         </div>
       )}
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>Pianificazione volo</h1>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 20px 0", maxWidth: 560 }}>
-        Prepara un volo con giorni di anticipo: scegli dove (un tuo impianto oppure un posto qualsiasi), il drone e la data; controlla meteo e attività solare e spunta la checklist. Vale per ispezioni, video, foto e FPV.
-      </p>
+      <TestataPagina titolo="Pianifica" sigla="PLN · METEO, ZONA, PERMESSI E SCENE" foto="/trova-pilota/agricoltura.webp" />
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: modoLibero ? 8 : 16 }}>
         <div style={{ minWidth: 220 }}>
@@ -10279,10 +10282,7 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
 
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px 0" }}>🚔 Documenti controllo</h1>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 16px 0", maxWidth: 560 }}>
-        Se ti fermano per un controllo, qui trovi tutto da mostrare: attestati, assicurazione, drone e permessi. Funziona anche se non hai preparato un piano di volo.
-      </p>
+      <TestataPagina titolo="Controllo" sigla="CTR · DA MOSTRARE, ANCHE SENZA CAMPO" foto="/trova-pilota/ispezioni.webp" />
       {daCopia === null && (
         <div style={{ background: "#14251b", border: "1px solid #2c5a3a", borderRadius: 8, padding: "8px 12px", marginBottom: 16, maxWidth: 560, fontSize: 12.5, color: "#bfe8cc" }}>
           📶 <strong>Funziona anche senza campo.</strong> Una copia di questi dati resta sul telefono e si aggiorna ogni volta che apri l'app con la rete: se ti fermano dove non prende, apri comunque 👮 Controllo.
@@ -14970,10 +14970,6 @@ function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo
   const minutiTotali = visibili.reduce((s, v) => s + (Number(v.durata_minuti) || 0), 0);
   const annoCorrente = String(new Date().getFullYear());
   const voliQuestAnno = tutti.filter((v) => (v.data || "").startsWith(annoCorrente)).length;
-  const perDrone = {};
-  visibili.forEach((v) => {
-    if (v.drone_nome && v.durata_minuti) perDrone[v.drone_nome] = (perDrone[v.drone_nome] || 0) + Number(v.durata_minuti);
-  });
 
   const azzeraAllegati = () => {
     fileInAttesa.forEach((x) => { if (x.anteprima) URL.revokeObjectURL(x.anteprima); });
@@ -15334,8 +15330,7 @@ function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo
           {statoCaricamento.stato !== "in_corso" && <button onClick={() => setStatoCaricamento(null)} style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={15} /></button>}
         </div>
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Registro voli</h1>
+      <TestataPagina titolo="Registro voli" sigla="LOG · IL TUO DIARIO DI VOLO" foto="/volo/sfondo.webp" sotto={caricando ? null : `${visibili.length} ${visibili.length === 1 ? "VOLO" : "VOLI"}${tipiCartella ? ` IN ${spazio.nome.toUpperCase()}` : ""} · ${formattaDurata(minutiTotali).toUpperCase()} IN VOLO`}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={() => (showForm ? chiudiForm() : apriNuovo())} style={{ display: "flex", alignItems: "center", gap: 6, background: showForm ? "transparent" : "#ff8c42", color: showForm ? "#8b95a3" : "#10141f", border: showForm ? "1px solid #343e57" : "none", padding: "8px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
             {showForm ? "Annulla" : <><Plus size={14} /> Nuovo volo</>}
@@ -15358,10 +15353,7 @@ function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo
             </div>
           </details>
         </div>
-      </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "0 0 18px 0", maxWidth: 600 }}>
-        Il tuo diario di volo: video, foto, FPV o ispezioni. Per ogni volo salvi dove, quando e con quale drone, e alleghi le foto e i video di quel giorno.
-      </p>
+      </TestataPagina>
       {piano === "free" && (
         <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "-8px 0 16px 0" }}>
           Piano Free: {voli.length}/{LIMITI_FREE.voli} voli. Foto, video e link non hanno un limite di numero.{" "}
@@ -15567,23 +15559,6 @@ function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo
 
       {caricando ? <LoadingBlock /> : (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 16, maxWidth: 620 }}>
-            <StatCard label="Voli mostrati" value={visibili.length} sub={filtroAnno === "tutti" && !q ? (tipiCartella ? `in «${spazio.nome}»` : "in totale") : "con i filtri attivi"} />
-            <StatCard label="Tempo di volo" value={formattaDurata(minutiTotali)} sub="dove la durata è indicata" accent="#ff8c42" />
-            {voliQuestAnno !== visibili.length && <StatCard label={`Voli nel ${annoCorrente}`} value={voliQuestAnno} sub="da inizio anno" />}
-          </div>
-
-          {Object.keys(perDrone).length > 0 && (
-            <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: "10px 14px", marginBottom: 16, maxWidth: 620 }}>
-              <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 6px 0" }}>Tempo di volo per drone</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 18px" }}>
-                {Object.entries(perDrone).map(([nome, min]) => (
-                  <span key={nome} style={{ fontSize: 12.5, color: "#c3cad4" }}>{nome}: <strong style={{ color: "#fff" }}>{formattaDurata(min)}</strong></span>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
             <button onClick={() => setVista("voli")} style={chip(vista === "voli", "#ff8c42")}>📋 Voli</button>
             <button onClick={() => setVista("galleria")} style={chip(vista === "galleria", "#ff8c42")}>🖼️ Galleria ({media.length})</button>
