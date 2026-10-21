@@ -27,8 +27,12 @@ export default function VoloHero({ data, titolo, sottotitolo, children }) {
       s.giro = 0;
       // movimento morbido verso la posizione del telefono
       s.x += (s.tx - s.x) * 0.12; s.y += (s.ty - s.y) * 0.12;
-      const { x, y, p } = s;
-      const strato = (el, d, zoom, extra = "") => { if (el) el.style.transform = `translate3d(${(-x * 34 * d).toFixed(1)}px, ${(-y * 20 * d + p * 110 * d).toFixed(1)}px, 0) scale(${(1 + p * zoom).toFixed(3)})${extra}`; };
+      // telefono fermo: il drone «galleggia» da solo, piano (solo finché la testata si vede)
+      const { p } = s;
+      const t = performance.now() / 1000, fermoDa = t - (s.ultimo || 0);
+      const galleggia = fermoDa > 2 && p < 1 ? Math.min(1, (fermoDa - 2) / 2) : 0;
+      const x = s.x + galleggia * Math.sin(t * 0.55) * 0.35, y = s.y + galleggia * Math.sin(t * 0.8 + 1) * 0.4;
+      const strato = (el, d, zoom, extra = "") => { if (el) el.style.transform = `translate3d(${(-x * 46 * d).toFixed(1)}px, ${(-y * 42 * d + p * 110 * d).toFixed(1)}px, 0) scale(${(1 + p * zoom).toFixed(3)})${extra}`; };
       strato(sfondo.current, 0.3, 0.2);
       strato(nebbia.current, 0.55, 0.7);
       strato(primo.current, 1, 1.7);
@@ -37,12 +41,12 @@ export default function VoloHero({ data, titolo, sottotitolo, children }) {
         nebbia2.current.style.transform = `translate3d(${(-x * 60).toFixed(1)}px, ${(-y * 36).toFixed(1)}px, 0) scale(${(1.6 + p * 3.5).toFixed(2)}) scaleX(-1)`;
         nebbia2.current.style.opacity = String(Math.max(0, Math.sin(p * Math.PI) * 0.8));
       }
-      if (drone.current) drone.current.style.transform = `translate3d(${(x * 24).toFixed(1)}px, ${(-p * 260 + y * 12).toFixed(1)}px, 0) rotate(${(x * 9).toFixed(1)}deg) scale(${(1 - p * 0.5).toFixed(2)})`;
+      if (drone.current) drone.current.style.transform = `translate3d(${(x * 30).toFixed(1)}px, ${(-p * 260 + y * 26).toFixed(1)}px, 0) rotate(${(x * 9).toFixed(1)}deg) scale(${(1 - p * 0.5).toFixed(2)})`;
       if (hud.current) hud.current.style.opacity = String(Math.min(1, p * 2.4));
       if (alt.current) alt.current.textContent = String(Math.round(2 + p * 118));
       if (orizzonte.current) orizzonte.current.style.transform = `rotate(${(x * 14).toFixed(1)}deg)`;
       if (testo.current) { testo.current.style.opacity = String(Math.max(0, 1 - p * 1.5)); testo.current.style.transform = `translateY(${(-p * 60).toFixed(0)}px)`; }
-      if (Math.abs(s.tx - s.x) > 0.002 || Math.abs(s.ty - s.y) > 0.002) chiama();
+      if (Math.abs(s.tx - s.x) > 0.002 || Math.abs(s.ty - s.y) > 0.002 || (p < 1 && !document.hidden)) chiama();
     };
     const chiama = () => { if (!s.giro) s.giro = requestAnimationFrame(disegna); };
     // scorrere: vale sia per la finestra sia per un contenitore che scorre
@@ -54,12 +58,14 @@ export default function VoloHero({ data, titolo, sottotitolo, children }) {
     };
     const suInclina = (e) => {
       if (e.gamma == null) return;
-      s.tx = Math.max(-1, Math.min(1, e.gamma / 25)); s.ty = Math.max(-1, Math.min(1, (e.beta - 45) / 25));
+      s.tx = Math.max(-1, Math.min(1, e.gamma / 25)); s.ty = Math.max(-1, Math.min(1, (e.beta - 45) / 22));
+      if (Math.abs(e.gamma) > 1.5 || Math.abs(e.beta - 45) > 1.5) s.ultimo = performance.now() / 1000;
       chiama();
     };
     const suMouse = (e) => {
       if (e.pointerType === "touch") return;
       s.tx = (e.clientX / window.innerWidth - 0.5) * 2; s.ty = (e.clientY / window.innerHeight - 0.5) * 2;
+      s.ultimo = performance.now() / 1000;
       chiama();
     };
     document.addEventListener("scroll", suScorri, { capture: true, passive: true });
@@ -86,7 +92,7 @@ export default function VoloHero({ data, titolo, sottotitolo, children }) {
     } catch { setChiedi(false); }
   };
 
-  const strato = { position: "absolute", left: "-6%", top: "-6%", width: "112%", height: "112%", objectFit: "cover", willChange: "transform", pointerEvents: "none" };
+  const strato = { position: "absolute", left: "-14%", top: "-9%", width: "128%", height: "118%", objectFit: "cover", willChange: "transform", pointerEvents: "none" };
   return (
     <section ref={radice} className="volo-hero" aria-label="Benvenuto">
       <img ref={sfondo} src={STRATI.sfondo} alt="" style={strato} />
