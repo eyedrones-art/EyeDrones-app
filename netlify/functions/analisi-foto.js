@@ -2,7 +2,8 @@
 // lettura di una foto termica, consigli sul colore. La chiave resta qui sul server, mai nel telefono.
 // Variabili su Netlify (Site configuration → Environment variables):
 //   ANTHROPIC_API_KEY  la chiave creata su console.anthropic.com
-//   AI_UTENTI          le email che possono usarla, separate da virgola (all'inizio solo la tua)
+//   AI_UTENTI          le email degli amministratori: la usano sempre, senza crediti (all'inizio solo la tua)
+//   ESPERTO_PER_TUTTI  "si" per aprirla a tutti gli iscritti a pacchetti (3 analisi gratis, poi i crediti); senza, resta spenta
 const Anthropic = require("@anthropic-ai/sdk");
 
 const SUPABASE_URL = "https://kywmesdqemxqjasixpzq.supabase.co";
@@ -18,6 +19,14 @@ async function utenteDa(token) {
   if (!r.ok) return null;
   return r.json();
 }
+
+// chiama una funzione del database come l'utente (così vale solo per i suoi crediti)
+async function rpc(nome, token, corpo = {}) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${nome}`, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
+  if (!r.ok) throw new Error(`rpc ${nome}: ${r.status}`);
+  return r.json();
+}
+const aperto = () => String(process.env.ESPERTO_PER_TUTTI || "").trim().toLowerCase() === "si";
 
 const ISTRUZIONI = `Sei l'assistente di EyeDrones, un'app italiana per piloti di droni (hobbisti e professionisti).
 Ricevi una foto o un fotogramma (a volte uno screenshot del radiocomando) e le risposte del pilota a qualche domanda.
@@ -64,6 +73,8 @@ const SCHEMA = {
 };
 
 exports.handler = async (event) => {
+  // l'app chiede solo se l'Esperto è aperto a tutti (per mostrarlo nel menu)
+  if (event.httpMethod === "GET") return json(200, { aperto: aperto() });
   if (event.httpMethod !== "POST") return json(405, { errore: "Usa POST." });
   if (!process.env.ANTHROPIC_API_KEY) return json(503, { errore: "L'analisi con l'AI non è ancora attiva (manca la chiave sul server)." });
 
@@ -71,7 +82,14 @@ exports.handler = async (event) => {
   const utente = await utenteDa(token).catch(() => null);
   if (!utente || !utente.email) return json(401, { errore: "Accedi a EyeDrones per usare l'analisi." });
   const ammessi = String(process.env.AI_UTENTI || "").toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
-  if (!ammessi.includes(String(utente.email).toLowerCase())) return json(403, { errore: "L'analisi con l'AI per ora è in prova solo su alcuni account." });
+  const admin = ammessi.includes(String(utente.email).toLowerCase());
+  if (!admin && !aperto()) return json(403, { errore: "L'analisi con l'AI per ora è in prova solo su alcuni account." });
+  // gli altri: servono crediti (le prime 3 analisi sono in regalo)
+  if (!admin) {
+    const crediti = await rpc("crediti_esperto", token).catch(() => null);
+    if (crediti == null) return json(503, { errore: "Non riesco a leggere le tue analisi rimaste, riprova tra poco." });
+    if (crediti <= 0) return json(402, { errore: "Hai finito le analisi: scegli un pacchetto per continuare.", servePacchetto: true, crediti: 0 });
+  }
 
   let dati;
   try { dati = JSON.parse(event.body || "{}"); } catch { return json(400, { errore: "Richiesta non leggibile." }); }
@@ -118,7 +136,9 @@ exports.handler = async (event) => {
     const u = risposta.usage || {};
     // costo indicativo in centesimi di dollaro (4 $ e 20 $ per milione di token)
     const centesimi = Math.round((((u.input_tokens || 0) * 4 + (u.output_tokens || 0) * 20) / 1e6) * 1000) / 10;
-    return json(200, { esito, costo_centesimi: centesimi });
+    // un credito in meno solo se l'analisi è riuscita
+    const crediti = admin ? null : await rpc("usa_credito_esperto", token, { p_tipo: tipo, p_costo: centesimi }).catch(() => null);
+    return json(200, { esito, costo_centesimi: centesimi, crediti });
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) return json(429, { errore: "Troppe richieste in questo momento: riprova tra un minuto." });
     if (e instanceof Anthropic.AuthenticationError) return json(503, { errore: "La chiave dell'AI sul server non è valida." });

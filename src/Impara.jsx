@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { ESAMI, COME_SI_PRENDE, LEZIONI, GUIDA_ZONA_ROSSA, DOMANDE, SIGLE_ZONE, CONTATTI_ZONE } from "./impara";
 import Notizie from "./Notizie.jsx";
 import Manuale from "./Manuale.jsx";
+import { TestataPagina } from "./VoloHero.jsx";
 
 // Sezione «Impara»: lezioni A1/A3 e A2, quiz con spiegazioni e simulazione d'esame, guida zona rossa, consigli di volo.
 const SCHEDE = [
@@ -22,10 +23,10 @@ const mescolaRisposte = (banca) => banca.map((q) => { const p = mescola(q.r.map(
 const mescola = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 const AVVISO = "Domande di allenamento scritte sugli argomenti d'esame: non sono quelle ufficiali e non sostituiscono il corso ENAC o una scuola.";
 
-const stCard = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "14px 16px" };
-const stBtn = (attivo) => ({ background: attivo ? "#ff8c42" : "#1f2530", color: attivo ? "#161a1f" : "#e7eaee", border: attivo ? "none" : "1px solid #333a45", borderRadius: 18, padding: "6px 12px", fontSize: 12.5, fontWeight: attivo ? 700 : 500, whiteSpace: "nowrap" });
-const stAzione = { background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 700 };
-const stSecondario = { background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "9px 14px", fontSize: 13 };
+const stCard = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "14px 16px" };
+const stBtn = (attivo) => ({ background: attivo ? "#ff8c42" : "#1a2133", color: attivo ? "#10141f" : "#e7eaee", border: attivo ? "none" : "1px solid #343e57", borderRadius: 18, padding: "6px 12px", fontSize: 12.5, fontWeight: attivo ? 700 : 500, whiteSpace: "nowrap" });
+const stAzione = { background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 13, fontWeight: 700 };
+const stSecondario = { background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "9px 14px", fontSize: 13 };
 
 // passi e link ufficiali per prendere l'attestato
 function ComeSiPrende({ esame }) {
@@ -56,7 +57,7 @@ function ComeSiPrende({ esame }) {
         </div>
       )}
       {c.estero && (
-        <details style={{ marginTop: 10, background: "#161a1f", border: "1px solid #2b313d", borderRadius: 8, padding: "8px 12px" }}>
+        <details style={{ marginTop: 10, background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: "8px 12px" }}>
           <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 700 }}>🌍 Si può fare anche all'estero{esame === "a1a3" ? " (anche gratis)" : ""}</summary>
           <ul style={{ margin: "8px 0 0 0", paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: "#c3cad4" }}>
             {c.estero.testo.map((t) => <li key={t} style={{ marginBottom: 4 }}>{t}</li>)}
@@ -103,13 +104,13 @@ function Domanda({ q, scelta, onScegli, mostraEsito }) {
           const giusta = mostraEsito && i === q.ok;
           const sbagliata = mostraEsito && i === scelta && i !== q.ok;
           return (
-            <button key={i} type="button" disabled={mostraEsito} onClick={() => onScegli(i)} style={{ textAlign: "left", background: giusta ? "#1d3a2a" : sbagliata ? "#3a1d1d" : scelta === i ? "#2a3446" : "#161a1f", border: `1px solid ${giusta ? "#4ade80" : sbagliata ? "#ff6b6b" : scelta === i ? "#7fb0ff" : "#333a45"}`, color: "#e7eaee", borderRadius: 8, padding: "10px 12px", fontSize: 13.5 }}>
+            <button key={i} type="button" disabled={mostraEsito} onClick={() => onScegli(i)} style={{ textAlign: "left", background: giusta ? "#1d3a2a" : sbagliata ? "#3a1d1d" : scelta === i ? "#2a3446" : "#10141f", border: `1px solid ${giusta ? "#4ade80" : sbagliata ? "#ff6b6b" : scelta === i ? "#7fb0ff" : "#343e57"}`, color: "#e7eaee", borderRadius: 8, padding: "10px 12px", fontSize: 13.5 }}>
               {String.fromCharCode(65 + i)}. {r} {giusta ? "✓" : sbagliata ? "✗" : ""}
             </button>
           );
         })}
       </div>
-      {mostraEsito && <div style={{ marginTop: 10, fontSize: 12.5, color: "#c3cad4", background: "#161a1f", borderRadius: 8, padding: "8px 10px" }}>💡 {q.perche}</div>}
+      {mostraEsito && <div style={{ marginTop: 10, fontSize: 12.5, color: "#c3cad4", background: "#10141f", borderRadius: 8, padding: "8px 10px" }}>💡 {q.perche}</div>}
     </div>
   );
 }
@@ -128,21 +129,23 @@ function Quiz({ esameIniziale = "a1a3" }) {
   const [giro, setGiro] = useState(0);
   const banca = useMemo(() => mescolaRisposte(DOMANDE[esame]), [esame, giro]); // eslint-disable-line react-hooks/exhaustive-deps
   const conf = ESAMI[esame];
-  const erroriEsame = errori.filter((k) => k.startsWith(esame + "-"));
+  // solo gli errori che corrispondono ancora a una domanda (se l'elenco delle domande cambia, quelli vecchi si ignorano)
+  const erroriEsame = errori.filter((k) => k.startsWith(esame + "-") && banca[Number(k.split("-")[1])]);
 
   useEffect(() => { if (modo !== "simulazione" || fine) return; const t = setInterval(() => setAdesso(Date.now()), 1000); return () => clearInterval(t); }, [modo, fine]);
   useEffect(() => { if (modo === "simulazione" && scadenza && adesso >= scadenza && !fine) setFine(true); }, [adesso, scadenza, modo, fine]);
   // a fine simulazione aggiorno l'elenco degli errori da ripassare (una volta sola)
   useEffect(() => {
     if (!fine || modo !== "simulazione") return;
-    const sbagliate = new Set(ordine.filter((i) => scelte[i] != null && scelte[i] !== banca[i].ok).map((i) => `${esame}-${i}`));
-    const giuste = new Set(ordine.filter((i) => scelte[i] === banca[i].ok).map((i) => `${esame}-${i}`));
+    const sbagliate = new Set(ordine.filter((i) => banca[i] && scelte[i] != null && scelte[i] !== banca[i].ok).map((i) => `${esame}-${i}`));
+    const giuste = new Set(ordine.filter((i) => banca[i] && scelte[i] === banca[i].ok).map((i) => `${esame}-${i}`));
     const nuovi = [...new Set([...errori.filter((k) => !giuste.has(k)), ...sbagliate])];
     setErrori(nuovi); scriviErrori(nuovi);
   }, [fine]);
 
   const avvia = (m) => {
     const indici = m === "errori" ? erroriEsame.map((k) => Number(k.split("-")[1])).filter((i) => banca[i]) : banca.map((_, i) => i);
+    if (!indici.length) { setModo(null); return; }
     setOrdine(m === "simulazione" ? mescola(indici).slice(0, conf.domande) : mescola(indici));
     setGiro((g) => g + 1); setPos(0); setScelte({}); setMostra(false); setFine(false); setModo(m);
     if (m === "simulazione") { setScadenza(Date.now() + conf.minuti * 60000); setAdesso(Date.now()); }
@@ -155,7 +158,7 @@ function Quiz({ esameIniziale = "a1a3" }) {
   const scegli = (r) => {
     const i = ordine[pos];
     setScelte({ ...scelte, [i]: r });
-    if (modo !== "simulazione") { setMostra(true); segnaErrore(i, r !== banca[i].ok); }
+    if (modo !== "simulazione" && banca[i]) { setMostra(true); segnaErrore(i, r !== banca[i].ok); }
   };
   const avanti = () => { if (pos + 1 >= ordine.length) setFine(true); else { setPos(pos + 1); setMostra(false); } };
 
@@ -188,7 +191,7 @@ function Quiz({ esameIniziale = "a1a3" }) {
   }
 
   if (fine) {
-    const date = ordine.map((i) => ({ i, q: banca[i], s: scelte[i] }));
+    const date = ordine.filter((i) => banca[i]).map((i) => ({ i, q: banca[i], s: scelte[i] }));
     const giuste = date.filter((x) => x.s === x.q.ok).length;
     const sbagliate = date.filter((x) => x.s != null && x.s !== x.q.ok).length;
     const punti = giuste * conf.punti.giusta + sbagliate * conf.punti.sbagliata;
@@ -196,7 +199,7 @@ function Quiz({ esameIniziale = "a1a3" }) {
     const soglia = Math.ceil(massimo * 0.75);
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ ...stCard, borderColor: modo !== "simulazione" ? "#2b313d" : punti >= soglia ? "#4ade80" : "#ff6b6b" }}>
+        <div style={{ ...stCard, borderColor: modo !== "simulazione" ? "#2a3349" : punti >= soglia ? "#4ade80" : "#ff6b6b" }}>
           <div style={{ fontSize: 18, fontWeight: 800 }}>{modo !== "simulazione" ? `Fatto! ${giuste} giuste su ${date.length}` : punti >= soglia ? "✅ Superato!" : "❌ Non ancora"}</div>
           {modo === "simulazione" && <div style={{ fontSize: 13, color: "#c3cad4", marginTop: 4 }}>{punti} punti su {massimo} (serve {soglia}) · {giuste} giuste, {sbagliate} sbagliate, {date.length - giuste - sbagliate} non date</div>}
         </div>
@@ -213,6 +216,15 @@ function Quiz({ esameIniziale = "a1a3" }) {
 
   const i = ordine[pos];
   const q = banca[i];
+  // domanda non trovata (elenco vuoto o cambiato): si torna alla scelta del quiz invece di bloccare la pagina
+  if (!q) {
+    return (
+      <div style={stCard}>
+        <p style={{ fontSize: 13, color: "#c3cad4", margin: "0 0 10px 0" }}>Questa domanda non c'è più. Riparti dal menu dei quiz.</p>
+        <button type="button" onClick={() => setModo(null)} style={stSecondario}>Torna ai quiz</button>
+      </div>
+    );
+  }
   const restano = scadenza ? Math.max(0, Math.round((scadenza - adesso) / 1000)) : 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -221,7 +233,7 @@ function Quiz({ esameIniziale = "a1a3" }) {
         {modo === "simulazione" && <span style={{ color: restano < 300 ? "#ff8c42" : "#8b95a3" }}>⏱️ {Math.floor(restano / 60)}:{String(restano % 60).padStart(2, "0")}</span>}
         <button type="button" onClick={() => (modo === "simulazione" ? setFine(true) : setModo(null))} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12, padding: 0 }}>{modo === "simulazione" ? "Consegna" : "Esci"}</button>
       </div>
-      <div style={{ height: 4, background: "#262b33", borderRadius: 2 }}><div style={{ height: 4, width: `${((pos + 1) / ordine.length) * 100}%`, background: "#ff8c42", borderRadius: 2 }} /></div>
+      <div style={{ height: 4, background: "#232b3f", borderRadius: 2 }}><div style={{ height: 4, width: `${((pos + 1) / ordine.length) * 100}%`, background: "#ff8c42", borderRadius: 2 }} /></div>
       <div style={stCard}><Domanda q={q} scelta={scelte[i]} onScegli={scegli} mostraEsito={mostra} /></div>
       {(mostra || modo === "simulazione") && (
         <button type="button" onClick={avanti} style={{ ...stAzione, alignSelf: "flex-end" }}>{pos + 1 >= ordine.length ? (modo === "simulazione" ? "Consegna" : "Fine") : modo === "simulazione" && scelte[i] == null ? "Salta →" : "Avanti →"}</button>
@@ -237,10 +249,10 @@ function SigleZone() {
     <details style={stCard}>
       <summary style={{ cursor: "pointer", fontSize: 14.5, fontWeight: 700 }}>🔤 Le sigle spiegate</summary>
       <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "8px 0" }}>Su D-Flight trovi tante sigle: ecco cosa vogliono dire e cosa fare, senza giri di parole.</p>
-      <input placeholder="🔍 Cerca una sigla (es. CTR, NOTAM, AMSL)" value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ width: "100%", background: "#161a1f", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 8, padding: "8px 10px", fontSize: 13, marginBottom: 8 }} />
+      <input placeholder="🔍 Cerca una sigla (es. CTR, NOTAM, AMSL)" value={cerca} onChange={(e) => setCerca(e.target.value)} style={{ width: "100%", background: "#10141f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 8, padding: "8px 10px", fontSize: 13, marginBottom: 8 }} />
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {elenco.map((x) => (
-          <div key={x.sigla} style={{ background: "#161a1f", borderRadius: 8, padding: "8px 10px" }}>
+          <div key={x.sigla} style={{ background: "#10141f", borderRadius: 8, padding: "8px 10px" }}>
             <div style={{ fontSize: 13, fontWeight: 700 }}><span style={{ color: "#ff8c42" }}>{x.sigla}</span> · {x.nome}</div>
             <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{x.cosa}</div>
             <div style={{ fontSize: 12.5, color: "#4ade80", marginTop: 2 }}>✅ {x.fare}</div>
@@ -271,9 +283,9 @@ function CheZonaRossa() {
   const [motivo, setMotivo] = useState(null);
   const [cat, setCat] = useState("open");
   const r = motivo && RISPOSTE_ZONA[motivo][cat];
-  const bottone = (attivo) => ({ background: attivo ? "#2b3a52" : "#161a1f", border: `1px solid ${attivo ? "#3d8bfd" : "#333a45"}`, color: "#e7eaee", borderRadius: 8, padding: "8px 12px", fontSize: 13, textAlign: "left", minHeight: 44 });
+  const bottone = (attivo) => ({ background: attivo ? "#2b3a52" : "#10141f", border: `1px solid ${attivo ? "#3d8bfd" : "#343e57"}`, color: "#e7eaee", borderRadius: 8, padding: "8px 12px", fontSize: 13, textAlign: "left", minHeight: 44 });
   return (
-    <div style={{ ...stCard, borderColor: "#3d8bfd66", background: "linear-gradient(135deg, #1d2633, #1b2028)" }}>
+    <div style={{ ...stCard, borderColor: "#3d8bfd66", background: "linear-gradient(135deg, #1d2633, #151b2b)" }}>
       <div style={{ fontSize: 15, fontWeight: 800 }}>🤔 Che zona rossa è? Scoprilo in 2 tocchi</div>
       <div style={{ fontSize: 12.5, color: "#c3cad4", margin: "4px 0 10px 0" }}>Su D-Flight tocca la zona e guarda «Motivo» o il nome.</div>
       <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 4 }}>1. Di cosa è la zona?</div>
@@ -293,7 +305,7 @@ function CheZonaRossa() {
           <div style={{ fontSize: 13, color: "#e7eaee", marginTop: 4, lineHeight: 1.5 }}>{r.testo}</div>
           {r.azione && (
             <button type="button" onClick={() => { try { sessionStorage.setItem("eyedrones_assistente_permessi", "si"); } catch { /* niente */ } window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail: { pagina: "permessi" } })); }}
-              style={{ marginTop: 10, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 14, fontWeight: 700, minHeight: 44 }}>🧭 Preparami la richiesta</button>
+              style={{ marginTop: 10, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 14, fontWeight: 700, minHeight: 44 }}>🧭 Preparami la richiesta</button>
           )}
         </div>
       )}
@@ -321,7 +333,7 @@ export function ZonaRossa() {
         <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "8px 0" }}>Il contatto giusto è quasi sempre scritto nella scheda della zona su D-Flight (e nella verifica zona di EyeDrones). Ecco chi è, caso per caso:</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {CONTATTI_ZONE.map((c) => (
-            <div key={c.dove} style={{ background: "#161a1f", borderRadius: 8, padding: "8px 10px" }}>
+            <div key={c.dove} style={{ background: "#10141f", borderRadius: 8, padding: "8px 10px" }}>
               <div style={{ fontSize: 13, fontWeight: 700 }}>{c.emoji} {c.dove}</div>
               <div style={{ fontSize: 12.5, color: "#ffb877", marginTop: 2 }}>👉 {c.chi}</div>
               <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{c.come}</div>
@@ -347,8 +359,14 @@ export default function Impara({ schedaIniziale = "a1a3", consigli, colore }) {
   const corpo = scheda;
   return (
     <div style={{ padding: "28px 32px", maxWidth: 780 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Impara</h1>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "4px 0 14px 0" }}>Le regole spiegate semplici, i quiz per l'attestato, come muoverti in zona rossa e i consigli per volare meglio.</p>
+      <TestataPagina titolo="Impara" sigla="EDU · REGOLE, QUIZ E SIMULATORE" foto="/benvenuto/pilota.webp" />
+      {/* il simulatore: si apre a tutto schermo, con le missioni e la prova d'esame */}
+      <a href="/simulatore/" className="impara-simulatore">
+        <span className="mono" style={{ fontSize: 10.5, letterSpacing: ".18em", color: "#ffb48f" }}>NUOVO · SIMULATORE</span>
+        <span style={{ display: "block", fontFamily: "'Archivo', sans-serif", fontStretch: "118%", fontWeight: 850, fontSize: 20, textTransform: "uppercase", marginTop: 4 }}>Vola in regola</span>
+        <span style={{ display: "block", fontSize: 13, color: "#d9d2c7", marginTop: 4 }}>Stick come sul radiocomando, missioni con i clienti, FPV, lavori pro e prova d'esame A1/A3</span>
+        <span className="impara-simulatore-vai">Gioca →</span>
+      </a>
       <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 12 }}>
         {SCHEDE.map((s) => <button key={s.key} type="button" onClick={() => setScheda(s.key)} style={stBtn(scheda === s.key)}>{s.label}</button>)}
       </div>

@@ -18,6 +18,12 @@
     Content-Type = "application/manifest+json"
     Cache-Control = "no-cache"
 
+[[headers]]
+  for = "/manifest-clienti.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+    Cache-Control = "no-cache"
+
 # pagine partner: raggiungibili solo con il link, mai nei motori di ricerca
 [[headers]]
   for = "/partner-*"
@@ -26,6 +32,12 @@
 
 # pagina pubblica del pilota: app.eyedrones.it/p/<nome> apre l'app, che mostra la pagina senza login
 # link diretti agli spazi: app.eyedrones.it/agri, /ispezioni, /video, /rilievi aprono l'app in quello spazio
+# la pagina iniziale per i piloti, senza la scelta «pilota o cliente» (per le pubblicità ai piloti)
+[[redirects]]
+  from = "/piloti"
+  to = "/index.html"
+  status = 200
+
 [[redirects]]
   from = "/agri"
   to = "/index.html"
@@ -60,3 +72,42 @@
   from = "/p/*"
   to = "/index.html"
   status = 200
+
+# «Trova un pilota»: app.eyedrones.it/trova-pilota (e /trova-pilota/fr per una provincia) apre la pagina per i clienti
+[[redirects]]
+  from = "/trova-pilota"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/trova-pilota/*"
+  to = "/index.html"
+  status = 200
+
+# il link privato del cliente alle offerte: app.eyedrones.it/offerte/<codice>
+[[redirects]]
+  from = "/offerte/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/offerte/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+# «I miei lavori» del cliente (link personale mandato per email)
+[[redirects]]
+  from = "/miei-lavori"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/miei-lavori/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/miei-lavori*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    Referrer-Policy = "no-referrer"

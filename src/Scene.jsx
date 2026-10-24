@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra.jsx";
 import { copiaTesto } from "./Ispezioni.jsx";
 
@@ -159,11 +160,11 @@ export function EditorSegni({ href, segniIniziali, onSalva, onChiudi }) {
     setSegni([...segni, { t: strumento, x, y, ...(n ? { n } : {}) }]);
   };
   const tutti = traccia ? [...segni, { t: "freccia", p: traccia }] : segni;
-  const bottone = (attivo) => ({ background: attivo ? "#7c5cd6" : "#1b2028", color: "#fff", border: `1px solid ${attivo ? "#a78bfa" : "#333a45"}`, borderRadius: 10, padding: "6px 10px", minWidth: 56, minHeight: 48, fontSize: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 });
+  const bottone = (attivo) => ({ background: attivo ? "#7c5cd6" : "#151b2b", color: "#fff", border: `1px solid ${attivo ? "#a78bfa" : "#343e57"}`, borderRadius: 10, padding: "6px 10px", minWidth: 56, minHeight: 48, fontSize: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 });
   return (
     <div role="dialog" aria-label="Disegna sulla foto" style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#0b0d11", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #262b33" }}>
-        <button type="button" onClick={onChiudi} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 8, padding: "8px 12px", fontSize: 13, minHeight: 40 }}>Annulla</button>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #232b3f" }}>
+        <button type="button" onClick={onChiudi} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 8, padding: "8px 12px", fontSize: 13, minHeight: 40 }}>Annulla</button>
         <span style={{ flex: 1, textAlign: "center", fontSize: 13.5, fontWeight: 700, color: "#e7eaee" }}>✏️ Disegna la ripresa</span>
         <button type="button" onClick={() => onSalva(segni)} style={{ background: "#4ade80", border: "none", color: "#0a1a0f", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 800, minHeight: 40 }}>✓ Salva</button>
       </div>
@@ -173,7 +174,7 @@ export function EditorSegni({ href, segniIniziali, onSalva, onChiudi }) {
           <SegniSvg segni={tutti} aspetto={aspetto} />
         </div>
       </div>
-      <div style={{ padding: "8px 10px 14px", borderTop: "1px solid #262b33" }}>
+      <div style={{ padding: "8px 10px 14px", borderTop: "1px solid #232b3f" }}>
         <div style={{ fontSize: 11.5, color: "#8b95a3", textAlign: "center", marginBottom: 8 }}>
           {strumento === "freccia" ? "Trascina il dito per disegnare il percorso del drone" : strumento === "testo" ? "Tocca dove mettere la scritta" : `Tocca la foto per mettere: ${STRUMENTI_SEGNI[strumento].nome.toLowerCase()}`}
         </div>
@@ -231,7 +232,7 @@ export function FotoGrande({ foto, indice = 0, visibile, onChiudi }) {
     <div role="dialog" aria-label="Foto a tutto schermo" style={{ position: "fixed", inset: 0, zIndex: 3100, background: "#000", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
         <span style={{ flex: 1, color: "#c3cad4", fontSize: 13 }}>{foto.length > 1 ? `Foto ${i + 1} di ${foto.length}` : "Foto della scena"}</span>
-        <button type="button" onClick={onChiudi} style={{ background: "#1b2028", color: "#fff", border: "1px solid #333a45", borderRadius: 8, padding: "8px 14px", fontSize: 14, fontWeight: 700, minHeight: 44 }}>✕ Chiudi</button>
+        <button type="button" onClick={onChiudi} style={{ background: "#151b2b", color: "#fff", border: "1px solid #343e57", borderRadius: 8, padding: "8px 14px", fontSize: 14, fontWeight: 700, minHeight: 44 }}>✕ Chiudi</button>
       </div>
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 6, minHeight: 0 }}>
         {href && aspetto ? (
@@ -269,7 +270,7 @@ export function FotoScena({ foto, visibile, alta = 120, onApri, onDisegna, onTog
       ) : <div style={{ height: 60, borderRadius: 6, background: "#251e33", color: "#a8a2bd", fontSize: 11.5, display: "flex", alignItems: "center", justifyContent: "center" }}>Carico la foto…</div>}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
         {href && <button type="button" onClick={onApri || (() => setGrande(true))} style={{ background: "#251e33", color: "#c4b5fd", border: "1px solid #3d2f5a", borderRadius: 6, padding: "6px 10px", fontSize: 12, fontWeight: 600, minHeight: 36 }}>🔍 Guarda grande{elenco.length > 1 ? ` (${elenco.length} foto)` : ""}</button>}
-        {onDisegna && href && <button type="button" onClick={() => setEditor(true)} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 12, fontWeight: 700, minHeight: 36 }}>✏️ {segni.length ? "Modifica il disegno" : "Disegna la ripresa sulla foto"}</button>}
+        {onDisegna && href && <button type="button" onClick={() => setEditor(true)} style={{ background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 12, fontWeight: 700, minHeight: 36 }}>✏️ {segni.length ? "Modifica il disegno" : "Disegna la ripresa sulla foto"}</button>}
         {onTogli && <button type="button" onClick={() => { if (window.confirm("Tolgo questa foto?")) onTogli(); }} style={{ background: "none", color: "#a8a2bd", border: "1px solid #3d2f5a", borderRadius: 6, padding: "6px 10px", fontSize: 12, minHeight: 36 }}>Togli</button>}
         {foto.lat != null && (
           <a href={`https://www.google.com/maps?q=${foto.lat},${foto.lon}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#7fb0ff" }}>📍 Punto della foto ({Number(foto.lat).toFixed(5)}, {Number(foto.lon).toFixed(5)}) ↗</a>
@@ -404,7 +405,7 @@ export default function PianoScene({ tipo, scene, onCambia, libreria, scalette, 
   }).join("\n");
   const copia = async () => { if (await copiaTesto(testoScaletta())) { setCopiato(true); setTimeout(() => setCopiato(false), 2500); } };
 
-  const campo = { background: "#12151a", border: "1px solid #3d2f5a", color: "#e7eaee", borderRadius: 5, padding: "6px 8px", fontSize: 12.5, width: "100%", boxSizing: "border-box", minHeight: 36 };
+  const campo = { background: "#0d111c", border: "1px solid #3d2f5a", color: "#e7eaee", borderRadius: 5, padding: "6px 8px", fontSize: 12.5, width: "100%", boxSizing: "border-box", minHeight: 36 };
   const etich = { fontSize: 10.5, color: "#a8a2bd", display: "block", marginBottom: 2 };
   const piccolo = { background: "#251e33", border: "1px solid #3d2f5a", color: "#c4b5fd", borderRadius: 5, minWidth: 36, minHeight: 36, fontSize: 13 };
 
@@ -558,7 +559,7 @@ export function ModalitaRiprese({ voci, girate, onSegna, onChiudi, visibile, isp
         <div style={{ fontSize: 14, color: "#a8a2bd", marginTop: 4 }}>Tocca ogni voce quando l'hai controllata.</div>
         {lista.map((x) => (
           <button key={x.id} type="button" onClick={() => setPronti({ ...pronti, [x.id]: !pronti[x.id] })} aria-pressed={!!pronti[x.id]}
-            style={{ display: "flex", gap: 12, alignItems: "flex-start", width: "100%", textAlign: "left", marginTop: 10, padding: "12px 14px", borderRadius: 12, background: pronti[x.id] ? "#12301f" : x.id.startsWith("sd") ? "#2a1f0c" : "#1b2028", border: `1px solid ${pronti[x.id] ? "#4ade80" : x.id.startsWith("sd") ? "#f5b942" : "#333a45"}`, color: "#e7eaee" }}>
+            style={{ display: "flex", gap: 12, alignItems: "flex-start", width: "100%", textAlign: "left", marginTop: 10, padding: "12px 14px", borderRadius: 12, background: pronti[x.id] ? "#12301f" : x.id.startsWith("sd") ? "#2a1f0c" : "#151b2b", border: `1px solid ${pronti[x.id] ? "#4ade80" : x.id.startsWith("sd") ? "#f5b942" : "#343e57"}`, color: "#e7eaee" }}>
             <span style={{ fontSize: 24, lineHeight: 1 }}>{pronti[x.id] ? "✅" : x.emoji}</span>
             <span>
               <span style={{ display: "block", fontSize: 16, fontWeight: 700 }}>{x.testo}</span>
@@ -574,7 +575,7 @@ export function ModalitaRiprese({ voci, girate, onSegna, onChiudi, visibile, isp
       <div style={{ padding: "10px 16px 20px" }}>
         <div style={{ fontSize: 24, fontWeight: 800, color: mancano.length ? "#f5b942" : "#4ade80", marginTop: 10 }}>{mancano.length ? `Ne ${mancano.length === 1 ? "manca 1" : `mancano ${mancano.length}`}` : ispezione ? "✅ Tutte le foto fatte!" : "✅ Tutto girato!"}</div>
         {mancano.length > 0 && <div style={{ marginTop: 10 }}>{mancano.map((x) => (
-          <button key={x.id} type="button" onClick={() => vai(voci.indexOf(x))} style={{ display: "block", width: "100%", textAlign: "left", marginTop: 8, padding: "12px 14px", borderRadius: 12, background: "#1b2028", border: "1px solid #333a45", color: "#e7eaee", fontSize: 16, fontWeight: 700 }}>{voci.indexOf(x) + 1}. {x.nome} ›</button>
+          <button key={x.id} type="button" onClick={() => vai(voci.indexOf(x))} style={{ display: "block", width: "100%", textAlign: "left", marginTop: 8, padding: "12px 14px", borderRadius: 12, background: "#151b2b", border: "1px solid #343e57", color: "#e7eaee", fontSize: 16, fontWeight: 700 }}>{voci.indexOf(x) + 1}. {x.nome} ›</button>
         ))}</div>}
         {!ispezione && !mancano.length && <div style={{ fontSize: 15, color: "#c3cad4", marginTop: 10 }}>In montaggio mettile in quest'ordine: {voci.map((x) => x.nome.replace(/ \(.*\)$/, "")).join(" → ")}</div>}
         <div style={{ marginTop: 16, padding: "12px 14px", borderRadius: 12, background: "#2a1f0c", border: "1px solid #f5b942", color: "#ffe2a8", fontSize: 15 }}>💾 A casa: <strong>copia la scheda SD in due posti</strong> (computer e disco o cloud). Formattala solo dopo, dal drone.</div>
@@ -589,7 +590,7 @@ export function ModalitaRiprese({ voci, girate, onSegna, onChiudi, visibile, isp
         {f && <FotoModalita foto={f} visibile={visibile} onApri={() => setGrande(true)} />}
         {foto.length > 1 && (
           <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
-            {foto.map((_, j) => <button key={j} type="button" onClick={() => setFotoN(j)} style={{ background: j === fotoN ? "#7c5cd6" : "#1b2028", color: "#fff", border: "1px solid #3d2f5a", borderRadius: 8, minWidth: 44, minHeight: 40, fontSize: 14, fontWeight: 700 }}>{j + 1}</button>)}
+            {foto.map((_, j) => <button key={j} type="button" onClick={() => setFotoN(j)} style={{ background: j === fotoN ? "#7c5cd6" : "#151b2b", color: "#fff", border: "1px solid #3d2f5a", borderRadius: 8, minWidth: 44, minHeight: 40, fontSize: 14, fontWeight: 700 }}>{j + 1}</button>)}
           </div>
         )}
         <div style={{ padding: "8px 16px 0" }}>
@@ -605,28 +606,30 @@ export function ModalitaRiprese({ voci, girate, onSegna, onChiudi, visibile, isp
     );
   }
 
-  return (
-    <div role="dialog" aria-label="Modalità riprese" style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#0b0d11", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: "1px solid #262b33" }}>
-        <button type="button" onClick={onChiudi} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 8, padding: "8px 12px", fontSize: 14, minHeight: 44 }}>✕ Esci</button>
+  // nel body: dentro la Home un antenato animato la terrebbe sotto la barra in basso del telefono
+  return createPortal(
+    <div role="dialog" aria-label="Modalità riprese" style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#0b0d11", color: "#e7eaee", fontFamily: "'IBM Plex Sans', sans-serif", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: "1px solid #232b3f" }}>
+        <button type="button" onClick={onChiudi} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 8, padding: "8px 12px", fontSize: 14, minHeight: 44 }}>✕ Esci</button>
         <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 800, color: "#e7eaee" }}>{passo < 0 ? "🎬 Modalità riprese" : passo >= voci.length ? "Fine" : `${ispezione ? "Foto" : "Scena"} ${passo + 1} di ${voci.length}`}</span>
         <span style={{ fontSize: 13, color: "#4ade80", fontWeight: 700, minWidth: 54, textAlign: "right" }}>{fatte}/{voci.length} ✓</span>
       </div>
-      <div style={{ height: 4, background: "#1b2028" }}><div style={{ height: 4, width: `${(fatte / Math.max(1, voci.length)) * 100}%`, background: "#4ade80", transition: "width .3s" }} /></div>
+      <div style={{ height: 4, background: "#151b2b" }}><div style={{ height: 4, width: `${(fatte / Math.max(1, voci.length)) * 100}%`, background: "#4ade80", transition: "width .3s" }} /></div>
       <div style={{ flex: 1, overflowY: "auto" }}>{corpo}</div>
-      <div style={{ display: "flex", gap: 8, padding: "10px 12px 16px", borderTop: "1px solid #262b33" }}>
+      <div style={{ display: "flex", gap: 8, padding: "10px 12px 16px", borderTop: "1px solid #232b3f" }}>
         {passo < 0 && <button type="button" onClick={parti} style={{ ...grosso, flex: 1, background: "#7c5cd6", color: "#fff" }}>Iniziamo ▶</button>}
         {passo >= 0 && passo < voci.length && <>
-          <button type="button" aria-label="Scena prima" onClick={() => vai(passo - 1)} style={{ ...grosso, background: "#1b2028", color: "#c3cad4", border: "1px solid #333a45", minWidth: 58 }}>‹</button>
-          <button type="button" onClick={() => vai(passo + 1)} style={{ ...grosso, background: "#1b2028", color: "#c3cad4", border: "1px solid #333a45" }}>{girate.includes(v.id) ? "Avanti" : "Salta"}</button>
+          <button type="button" aria-label="Scena prima" onClick={() => vai(passo - 1)} style={{ ...grosso, background: "#151b2b", color: "#c3cad4", border: "1px solid #343e57", minWidth: 58 }}>‹</button>
+          <button type="button" onClick={() => vai(passo + 1)} style={{ ...grosso, background: "#151b2b", color: "#c3cad4", border: "1px solid #343e57" }}>{girate.includes(v.id) ? "Avanti" : "Salta"}</button>
           <button type="button" onClick={() => { if (!girate.includes(v.id)) onSegna(v.id); vai(prossima(passo)); }} style={{ ...grosso, flex: 1, background: "#4ade80", color: "#0a1a0f" }}>{girate.includes(v.id) ? "✓ Già fatta" : ispezione ? "✓ Fatta" : "✓ Girata"}</button>
         </>}
         {passo >= voci.length && <>
-          <button type="button" onClick={() => vai(voci.length - 1)} style={{ ...grosso, background: "#1b2028", color: "#c3cad4", border: "1px solid #333a45", minWidth: 58 }}>‹</button>
+          <button type="button" onClick={() => vai(voci.length - 1)} style={{ ...grosso, background: "#151b2b", color: "#c3cad4", border: "1px solid #343e57", minWidth: 58 }}>‹</button>
           <button type="button" onClick={onChiudi} style={{ ...grosso, flex: 1, background: "#7c5cd6", color: "#fff" }}>Chiudi</button>
         </>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
