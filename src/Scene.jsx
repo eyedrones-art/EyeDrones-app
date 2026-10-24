@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import AnimazioneManovra, { haAnimazione } from "./AnimazioneManovra.jsx";
 import { copiaTesto } from "./Ispezioni.jsx";
 
@@ -605,8 +606,9 @@ export function ModalitaRiprese({ voci, girate, onSegna, onChiudi, visibile, isp
     );
   }
 
-  return (
-    <div role="dialog" aria-label="Modalità riprese" style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#0b0d11", display: "flex", flexDirection: "column" }}>
+  // nel body: dentro la Home un antenato animato la terrebbe sotto la barra in basso del telefono
+  return createPortal(
+    <div role="dialog" aria-label="Modalità riprese" style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#0b0d11", color: "#e7eaee", fontFamily: "'IBM Plex Sans', sans-serif", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: "1px solid #232b3f" }}>
         <button type="button" onClick={onChiudi} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 8, padding: "8px 12px", fontSize: 14, minHeight: 44 }}>✕ Esci</button>
         <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 800, color: "#e7eaee" }}>{passo < 0 ? "🎬 Modalità riprese" : passo >= voci.length ? "Fine" : `${ispezione ? "Foto" : "Scena"} ${passo + 1} di ${voci.length}`}</span>
@@ -626,7 +628,8 @@ export function ModalitaRiprese({ voci, girate, onSegna, onChiudi, visibile, isp
           <button type="button" onClick={onChiudi} style={{ ...grosso, flex: 1, background: "#7c5cd6", color: "#fff" }}>Chiudi</button>
         </>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
