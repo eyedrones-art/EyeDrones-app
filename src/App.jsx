@@ -2565,6 +2565,8 @@ function BarraPrimiPassi({ pagina, droni, attestati, voli, preventivi, onNav }) 
 const VERSIONE_NOVITA = "2026-11a";
 const NOVITA = [
   { emoji: "⚡", testo: "Registro automatico: scegli le foto e i video del drone (dalla scheda SD o scaricati con DJI Fly) e i voli si creano da soli, con data, ora, durata e luogo", pagina: "registro-voli" },
+  { emoji: "🌤️", testo: "Il weekend giusto per volare: scegli il tuo comune e il giovedì ti scrivo le ore migliori di sabato e domenica vicino a te (luce, vento, pioggia) e i posti consigliati dagli altri piloti", pagina: "impostazioni" },
+  { emoji: "👍", testo: "Posti: metti «Utile» ai posti consigliati dagli altri piloti, e in Home vedi quanti hanno trovato utili i tuoi", pagina: "posti" },
   { emoji: "🌳", testo: "Zona di volo: ora ti dice anche se sei in un parco, in una riserva o in un sito Natura 2000 (D-Flight non li mette nel file zone)", pagina: "pianificazione" },
   { emoji: "🪖", testo: "Zona di volo: aggiunte le aree militari a bassa quota (massimo 45 m quando sono attive), con il giorno e l'ora del tuo volo", pagina: "pianificazione" },
   { emoji: "✏️", testo: "STS-01: disegni l'area di volo con il dito o la importi da DJI Pilot 2, e controlla le zone su tutta l'area", pagina: "pianificazione" },
