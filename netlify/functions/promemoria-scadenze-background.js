@@ -65,8 +65,8 @@ function emailPrimiPassi(u) {
     "Con EyeDrones li hai tutti in una schermata, anche senza campo.", "",
     "Per prepararla bastano 3 minuti:",
     "1. aggiungi il tuo drone",
-    "2. carica attestato e assicurazione",
-    "3. carica il file zone di D-Flight (così sai subito dove puoi volare)", "",
+    "2. registra il primo volo: scegli foto e video del drone e i voli si creano da soli",
+    "3. carica attestato e assicurazione", "",
     `L'app ti guida passo passo. Comincia da qui: ${link}`, "",
     "È tutto gratis fino al 31 gennaio 2027.",
     "Se qualcosa non è chiaro, o manca qualcosa che ti servirebbe, scrivi a info@eyedrones.it: leggo tutto io.", "",
@@ -79,10 +79,42 @@ function emailPrimiPassi(u) {
     <p style="font-size:15px">${html(ciao)} Ti sei iscritto a EyeDrones: grazie!</p>
     <p style="font-size:15px">Se ti fermano per un controllo mentre voli, devi mostrare <b>attestato, assicurazione e dati del drone</b>. Con EyeDrones li hai tutti in una schermata, <b>anche senza campo</b>.</p>
     <p style="font-size:15px;margin-bottom:4px">Per prepararla bastano 3 minuti:</p>
-    <table style="border-collapse:collapse">${passo(1, "Aggiungi il tuo drone")}${passo(2, "Carica attestato e assicurazione")}${passo(3, "Carica il file zone di D-Flight, così sai subito dove puoi volare")}</table>
+    <table style="border-collapse:collapse">${passo(1, "Aggiungi il tuo drone")}${passo(2, "Registra il primo volo: scegli foto e video del drone e i voli si creano da soli")}${passo(3, "Carica attestato e assicurazione")}</table>
     <p style="font-size:15px">L'app ti guida passo passo.</p>
     <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Comincia da qui ›</a></p>
     <p style="font-size:14px;color:#444">È tutto gratis fino al 31 gennaio 2027. Se qualcosa non è chiaro, o manca qualcosa che ti servirebbe, scrivi a <a href="mailto:info@eyedrones.it">info@eyedrones.it</a>: leggo tutto io.</p>
+    <p style="font-size:15px">Buoni voli!<br>Ivan · EyeDrones</p>
+    <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
+  </div>`;
+  return { oggetto, testo, corpo };
+}
+
+// chi ha messo il drone ma dopo 3 giorni non ha ancora un volo nel registro: una sola volta, «registro automatico»
+function emailPrimoVolo(u) {
+  const link = `${APP_URL}/?vai=importa`;
+  const ciao = `Ciao${u.nome ? ` ${u.nome}` : ""}!`;
+  const oggetto = "Il tuo primo volo nel registro, senza scrivere niente ✈️";
+  const testo = [
+    ciao, "",
+    "hai già messo il tuo drone in EyeDrones: ottimo!", "",
+    "Ora manca il registro dei voli. Non devi scriverlo a mano:",
+    "1. apri il registro automatico",
+    "2. scegli le foto e i video del drone (dalla scheda SD o quelli scaricati con DJI Fly)",
+    "3. l'app crea da sola i voli, con data, ora, durata e luogo", "",
+    `Comincia da qui: ${link}`, "",
+    "I file restano sul tuo telefono: l'app legge solo data, ora, posizione e altezza.",
+    "Se qualcosa non va, scrivi a info@eyedrones.it: leggo tutto io.", "",
+    "Buoni voli!", "Ivan · EyeDrones", "",
+    "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
+  ].join("\n");
+  const passo = (n, t) => `<tr><td style="width:34px;padding:6px 0;vertical-align:top"><span style="display:inline-block;width:26px;height:26px;line-height:26px;border-radius:50%;background:#e0552f;color:#fff;text-align:center;font-weight:bold;font-size:14px">${n}</span></td><td style="padding:8px 0;font-size:15px">${t}</td></tr>`;
+  const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
+    <h2 style="color:#e0552f;margin:0 0 12px">⚡ Il registro si scrive da solo</h2>
+    <p style="font-size:15px">${html(ciao)} Hai già messo il tuo drone in EyeDrones: ottimo!</p>
+    <p style="font-size:15px">Ora manca il registro dei voli. <b>Non devi scriverlo a mano:</b></p>
+    <table style="border-collapse:collapse">${passo(1, "Apri il <b>registro automatico</b>")}${passo(2, "Scegli le foto e i video del drone, dalla scheda SD o scaricati con DJI Fly")}${passo(3, "L'app crea da sola i voli, con data, ora, durata e luogo")}</table>
+    <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Registra i tuoi voli ›</a></p>
+    <p style="font-size:14px;color:#444">I file restano sul tuo telefono: l'app legge solo data, ora, posizione e altezza. Se qualcosa non va, scrivi a <a href="mailto:info@eyedrones.it">info@eyedrones.it</a>: leggo tutto io.</p>
     <p style="font-size:15px">Buoni voli!<br>Ivan · EyeDrones</p>
     <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
   </div>`;
@@ -211,6 +243,12 @@ exports.handler = async (event) => {
     restano -= 1;
     await pausa(600);
   }
+  for (const u of (dati.primo_volo || []).slice(0, Math.max(0, restano))) {
+    if (!emailValida(u.email)) continue;
+    await invia(chiave, mittente, u.email, emailPrimoVolo(u));
+    restano -= 1;
+    await pausa(600);
+  }
   for (const u of (dati.community || []).slice(0, Math.max(0, restano))) {
     if (!emailValida(u.email)) continue;
     await invia(chiave, mittente, u.email, emailCommunity(u));
@@ -231,4 +269,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailCommunity, emailLavori };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori };

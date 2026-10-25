@@ -20,7 +20,7 @@ import VoloHero, { STILE_VOLO, TestataPagina, STILE_TESTATA } from "./VoloHero.j
 import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
 import Elio, { ElioDice, STILE_ELIO, useElio, accendiElio } from "./Elio.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
-import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese } from "./Scene.jsx";
+import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese, leggiGpsFoto } from "./Scene.jsx";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente, altezzaSenzaPermessi } from "./zoneUAS";
@@ -1875,7 +1875,8 @@ function AppShell({ session }) {
   // link dalle email: ?vai=droni, ?vai=attestati… apre quella pagina (con la barra della guida); ?vai=primi la Home con i primi passi
   const [vaiAltro] = useState(() => {
     const v = new URLSearchParams(window.location.search).get("vai");
-    const passo = { droni: "drone", attestati: "attestato" }[v];
+    const passo = { droni: "drone", attestati: "attestato", "registro-voli": "primovolo" }[v];
+    if (v === "importa") { try { sessionStorage.setItem("eyedrones_guida_passo", "primovolo"); } catch { /* niente */ } return "registro-voli"; }
     // ritorno dal pagamento di un pacchetto dell'Esperto: la pagina mostra il grazie
     if (v === "analisi-ai" && new URLSearchParams(window.location.search).get("esperto") === "grazie") { try { sessionStorage.setItem("eyedrones_esperto_grazie", "1"); } catch { /* niente */ } }
     if (v === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", "{}"); } catch { /* niente */ } return "posti"; }
@@ -2437,10 +2438,11 @@ function passiPrimi({ droni, attestati, voli, preventivi, haPiano }) {
   return [
     { chiave: "account", fatto: true, titolo: "Crea il tuo account" },
     { chiave: "drone", regola: true, fatto: (droni || []).length > 0, titolo: "Aggiungi il tuo drone", bottone: "Aggiungi il drone", perche: "così l'app sa le regole della sua classe e fin dove puoi volare", pagina: "droni", aiuto: "Tocca «+ Nuovo drone», scegli il modello e salva. Bastano marca e modello; il codice operatore D-Flight se ce l'hai." },
+    { chiave: "primovolo", regola: true, fatto: (voli || []).length > 0, titolo: "Registra il tuo primo volo", bottone: "Registra i voli", perche: "scegli foto e video della scheda SD: i voli si creano da soli, con data, ora, durata e luogo", pagina: "registro-voli", aiuto: "Tocca «⚡ Registro automatico» e scegli le foto e i video del drone (dalla scheda SD o scaricati con DJI Fly): creo io i voli. Oppure «+ Nuovo volo» per scriverlo a mano." },
     { chiave: "attestato", regola: true, fatto: haAttestato && haAssicurazione, titolo: "Carica attestato e assicurazione", bottone: "Carica i documenti", perche: haAttestato && !haAssicurazione ? "manca l'assicurazione: in Italia è obbligatoria" : !haAttestato && haAssicurazione ? "manca l'attestato del pilota" : "se ti fermano per un controllo li mostri con un tocco, anche senza campo", pagina: "attestati", aiuto: "Tocca «+ Nuovo attestato»: aggiungi l'attestato (A1/A3 o A2) e poi l'assicurazione, con la data di scadenza. Puoi allegare la foto o il PDF." },
-    { chiave: "zone", regola: true, fatto: !!leggiLocale("eyedrones_zone_caricate"), titolo: "Carica il file zone di D-Flight", bottone: "Carica il file zone", perche: "si fa una volta sola: poi scrivi la via e sai subito dove puoi volare", pagina: "pianificazione", aiuto: "Nel riquadro «🛡️ Zona di volo» trovi i passi per scaricarlo da D-Flight e il pulsante per caricarlo." },
-    { chiave: "controllo", regola: true, fatto: !!leggiLocale(CHIAVE_CONTROLLO_PROVATO), titolo: "Prova il tasto 👮 Controllo", bottone: "Prova il Controllo", perche: "è quello che mostri se ti fermano: documenti, drone e zona a schermo pieno", pagina: "documenti-controllo", aiuto: "Questa è la schermata da mostrare in caso di controllo. Una copia resta sul telefono, anche senza campo." },
-    { chiave: "volo", fatto: !!haPiano || (voli || []).length > 0, titolo: "Prepara il tuo primo volo", bottone: "Prepara un volo", perche: "meteo, luce, zona, regole e le riprese da fare, tutto in una pagina", pagina: "pianificazione" },
+    { chiave: "zone", fatto: !!leggiLocale("eyedrones_zone_caricate"), titolo: "Carica il file zone di D-Flight", bottone: "Carica il file zone", perche: "si fa una volta sola: poi scrivi la via e sai subito dove puoi volare", pagina: "pianificazione", aiuto: "Nel riquadro «🛡️ Zona di volo» trovi i passi per scaricarlo da D-Flight e il pulsante per caricarlo." },
+    { chiave: "controllo", fatto: !!leggiLocale(CHIAVE_CONTROLLO_PROVATO), titolo: "Prova il tasto 👮 Controllo", bottone: "Prova il Controllo", perche: "è quello che mostri se ti fermano: documenti, drone e zona a schermo pieno", pagina: "documenti-controllo", aiuto: "Questa è la schermata da mostrare in caso di controllo. Una copia resta sul telefono, anche senza campo." },
+    { chiave: "piano", fatto: !!haPiano, titolo: "Prepara il prossimo volo", bottone: "Prepara un volo", perche: "meteo, luce, zona, regole e le riprese da fare, tutto in una pagina", pagina: "pianificazione" },
     { chiave: "preventivo", fatto: (preventivi || []).length > 0, titolo: "Fai il tuo primo preventivo", bottone: "Fai un preventivo", perche: "in PDF, con i pacchetti pronti e il prezzo consigliato", pagina: "preventivi" },
   ];
 }
@@ -2494,15 +2496,15 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
           {conElio ? (
             <ElioDice espr={inRegola ? "contento" : "felice"} size={56} style={{ paddingRight: 30 }}>
               {inRegola
-                ? <><strong>✅ Sei in regola!</strong> Adesso, se vuoi, ti mostro le altre cose utili.</>
-                : <><strong>Ciao, sono Elio!</strong> Ti metto in regola in 3 minuti: così, se arriva un controllo, hai tutto sul telefono. Passo {Math.min(fattiRegole + 1, regole.length)} di {regole.length}.</>}
+                ? <><strong>✅ Tutto pronto!</strong> Adesso, se vuoi, ti mostro le altre cose utili.</>
+                : <><strong>Ciao, sono Elio!</strong> Tre passi e l'app è pronta: il drone, il primo volo e i documenti per i controlli. Passo {Math.min(fattiRegole + 1, regole.length)} di {regole.length}.</>}
             </ElioDice>
           ) : inRegola ? (
-            <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80", paddingRight: 32 }}>✅ Sei in regola!</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80", paddingRight: 32 }}>✅ Tutto pronto!</div>
           ) : (
             <div style={{ paddingRight: 32 }}>
-              <div style={{ fontSize: 15.5, fontWeight: 800, color: "#e7eaee" }}>🚀 In regola in 3 minuti</div>
-              <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>Così, se arriva un controllo, hai tutto sul telefono. Passo {Math.min(fattiRegole + 1, regole.length)} di {regole.length}.</div>
+              <div style={{ fontSize: 15.5, fontWeight: 800, color: "#e7eaee" }}>🚀 Pronto in tre passi</div>
+              <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>Il drone, il primo volo e i documenti per i controlli. Passo {Math.min(fattiRegole + 1, regole.length)} di {regole.length}.</div>
             </div>
           )}
           <div style={{ height: 6, background: "#232b3f", borderRadius: 3, margin: "10px 0", overflow: "hidden" }}>
@@ -2549,8 +2551,8 @@ function BarraPrimiPassi({ pagina, droni, attestati, voli, preventivi, onNav }) 
     <div className="barra-primi" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "12px 16px 0", padding: "10px 12px", borderRadius: 10, background: qui.fatto ? "#12261b" : "#121d33", border: `1px solid ${qui.fatto ? "#4ade8066" : "#3d8bfd55"}`, maxWidth: 720 }}>
       <div style={{ flex: "1 1 220px", fontSize: 12.5, color: "#c3cad4", lineHeight: 1.45 }}>
         {qui.fatto
-          ? <><strong style={{ color: "#4ade80" }}>✅ Fatto!</strong> {dopo ? `Prossimo passo: ${dopo.titolo.charAt(0).toLowerCase() + dopo.titolo.slice(1)}.` : "Sei in regola: se arriva un controllo hai tutto sul telefono."}</>
-          : <><strong style={{ color: "#7fb0ff" }}>🚀 Passo {n} di 4 · {qui.titolo}</strong><br />{qui.aiuto}</>}
+          ? <><strong style={{ color: "#4ade80" }}>✅ Fatto!</strong> {dopo ? `Prossimo passo: ${dopo.titolo.charAt(0).toLowerCase() + dopo.titolo.slice(1)}.` : "Tutto pronto: se arriva un controllo hai tutto sul telefono."}</>
+          : <><strong style={{ color: "#7fb0ff" }}>🚀 Passo {n} di {passi.filter((x) => x.regola).length} · {qui.titolo}</strong><br />{qui.aiuto}</>}
       </div>
       {qui.fatto
         ? <button type="button" onClick={vaiDopo} style={{ background: "#4ade80", color: "#0d111c", border: "none", borderRadius: 8, padding: "9px 14px", minHeight: 42, fontSize: 13.5, fontWeight: 800 }}>{dopo ? `${dopo.bottone} ›` : "Torna alla Home"}</button>
@@ -2560,8 +2562,9 @@ function BarraPrimiPassi({ pagina, droni, attestati, voli, preventivi, onNav }) 
 }
 
 // riquadro «Novità» in Home: cambia VERSIONE_NOVITA quando ci sono novità nuove, così ricompare a tutti
-const VERSIONE_NOVITA = "2026-10m";
+const VERSIONE_NOVITA = "2026-11a";
 const NOVITA = [
+  { emoji: "⚡", testo: "Registro automatico: scegli le foto e i video del drone (dalla scheda SD o scaricati con DJI Fly) e i voli si creano da soli, con data, ora, durata e luogo", pagina: "registro-voli" },
   { emoji: "🌳", testo: "Zona di volo: ora ti dice anche se sei in un parco, in una riserva o in un sito Natura 2000 (D-Flight non li mette nel file zone)", pagina: "pianificazione" },
   { emoji: "🪖", testo: "Zona di volo: aggiunte le aree militari a bassa quota (massimo 45 m quando sono attive), con il giorno e l'ora del tuo volo", pagina: "pianificazione" },
   { emoji: "✏️", testo: "STS-01: disegni l'area di volo con il dito o la importi da DJI Pilot 2, e controlla le zone su tutta l'area", pagina: "pianificazione" },
@@ -2615,7 +2618,7 @@ const FUNZIONI_PRESENTAZIONE = [
   { emoji: "🎓", titolo: "Lezioni e quiz A1/A3 e A2", testo: "Le regole spiegate semplici, quiz con la spiegazione di ogni risposta e la simulazione d'esame con tempo e punteggio come all'ENAC. Più la guida per volare in zona rossa." },
   { emoji: "📍", titolo: "Posti belli vicino a te", testo: "Scrivi dove sei o usa la posizione: punti panoramici, castelli, laghi e i posti consigliati dagli altri piloti, con la zona di volo già controllata." },
   { emoji: "🎬", titolo: "Consigli, manovre e camera", testo: "Per ogni tipo di volo e per il tuo drone: le manovre per video belli con gli stick, le scalette per lavoro e come impostare ISO, tempo e filtri ND in base alla luce." },
-  { emoji: "📒", titolo: "Registro voli", testo: "Data, luogo, drone, batterie, durata, foto e video. Importa i voli dai file .SRT dei DJI, ritrovali su mappa o cercando la data." },
+  { emoji: "📒", titolo: "Registro voli", testo: "Data, luogo, drone, batterie, durata, foto e video. Con il registro automatico i voli si creano da soli dalle foto e dai video della scheda SD." },
   { emoji: "🚔", titolo: "Pronto per i controlli", testo: "Attestati, assicurazione, drone, permessi e zona a schermo pieno con un tocco, anche senza campo: una copia resta sul telefono. Più PDF e avvisi prima delle scadenze." },
   { emoji: "📁", titolo: "Fascicolo del volo", testo: "Se dopo un volo ti chiedono spiegazioni (forze dell'ordine, ENAC, assicurazione o un cliente), in un solo PDF hai tutto: documenti validi quel giorno, piano, zona, checklist, manutenzione, liberatorie." },
   { emoji: "📐", titolo: "Volumi STS-01", testo: "Disegni l'area con il dito o la importi da DJI Pilot 2: contingenza e buffer calcolati e disegnati sulla mappa, zone controllate su tutta l'area, pronti per il manuale operativo e per il fascicolo." },
@@ -5081,7 +5084,7 @@ function Abbonamento({ piano }) {
     {
       chiave: "free", nome: "Free", grande: "Gratis", sotto: "Per provare e volare per te",
       caratteristiche: [
-        { testo: `Fino a ${LIMITI_FREE.voli} voli nel registro (anche importati dai file .SRT)`, incluso: true },
+        { testo: `Fino a ${LIMITI_FREE.voli} voli nel registro (anche creati dal registro automatico)`, incluso: true },
         { testo: `Fino a ${LIMITI_FREE.batterie} batterie con conteggio dei cicli`, incluso: true },
         { testo: "Pianificazione: meteo ora per ora, ora d'oro, sole e luna, Kp, filtri ND", incluso: true },
         { testo: "Checklist (anche FPV), attestati, droni, documenti per i controlli", incluso: true },
@@ -14187,6 +14190,84 @@ function leggiSRT(testo, nomeFile) {
   };
 }
 
+// --- Registro automatico: i voli dai file della scheda SD (foto, video e .SRT dei droni DJI) --------------
+// Dai file si leggono solo data, ora, durata, posizione e altezza: niente viene caricato finché non crei i voli
+
+// i DJI recenti scrivono data e ora (del telefono, cioè l'ora locale) nel nome: DJI_20261025143012_0001_D.MP4
+function dataDaNomeDji(nome) {
+  const m = /DJI_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/i.exec(nome || "");
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6]));
+  return Number.isNaN(d.getTime()) || d.getFullYear() < 2010 ? null : d;
+}
+const testoGrezzo = (buf) => new TextDecoder("iso-8859-1").decode(buf);
+const radice = (nome) => String(nome || "").replace(/\.[^.]+$/, "").toLowerCase();
+
+// foto: data dall'EXIF (scritta come testo «2026:10:25 14:30:12»), GPS dall'EXIF, altezza dall'XMP dei DJI
+async function leggiFotoDrone(file) {
+  const buf = await file.slice(0, 256 * 1024).arrayBuffer();
+  const t = testoGrezzo(buf);
+  const m = /(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/.exec(t);
+  let inizio = dataDaNomeDji(file.name);
+  if (!inizio && m) inizio = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6]));
+  if (!inizio || Number.isNaN(inizio.getTime())) return null;
+  const gps = await leggiGpsFoto(file);
+  const alt = /RelativeAltitude(?:="|>)\s*([+-]?\d+(?:\.\d+)?)/.exec(t);
+  return { nomeFile: file.name, inizio, fine: inizio, lat: gps ? gps.lat : null, lon: gps ? gps.lon : null, altezzaMax: alt ? Math.abs(Number(alt[1])) : null, tipo: "foto" };
+}
+
+// video MP4/MOV: data e durata dal riquadro «mvhd», posizione dal riquadro «©xyz» se il drone la scrive
+async function leggiVideoDrone(file) {
+  const leggi = async (da, n) => new DataView(await file.slice(da, Math.min(file.size, da + n)).arrayBuffer());
+  let moov = null;
+  for (let o = 0, giri = 0; o + 8 <= file.size && giri < 64; giri++) {
+    const h = await leggi(o, 16);
+    let lung = h.getUint32(0);
+    const tipo = String.fromCharCode(h.getUint8(4), h.getUint8(5), h.getUint8(6), h.getUint8(7));
+    if (lung === 1 && h.byteLength >= 16) lung = Number(h.getBigUint64(8));
+    else if (lung === 0) lung = file.size - o;
+    if (lung < 8) break;
+    if (tipo === "moov") { moov = await leggi(o, Math.min(lung, 8 * 1024 * 1024)); break; }
+    o += lung;
+  }
+  let inizio = dataDaNomeDji(file.name), durataSec = 0, lat = null, lon = null;
+  if (moov) {
+    const t = testoGrezzo(moov.buffer);
+    const i = t.indexOf("mvhd");
+    if (i >= 0) {
+      const v = moov.getUint8(i + 4), base = i + 8;
+      const creato = v === 1 ? Number(moov.getBigUint64(base)) : moov.getUint32(base);
+      const scala = v === 1 ? moov.getUint32(base + 16) : moov.getUint32(base + 8);
+      const durata = v === 1 ? Number(moov.getBigUint64(base + 20)) : moov.getUint32(base + 12);
+      if (scala > 0) durataSec = durata / scala;
+      if (!inizio && creato > 2082844800 + 1262304000) inizio = new Date((creato - 2082844800) * 1000);
+    }
+    const j = t.indexOf("\xa9xyz");
+    const g = j >= 0 ? /([+-]\d{1,2}\.\d+)([+-]\d{1,3}\.\d+)/.exec(t.slice(j, j + 80)) : null;
+    if (g && !(Number(g[1]) === 0 && Number(g[2]) === 0)) { lat = Number(g[1]); lon = Number(g[2]); }
+  }
+  if (!inizio && file.lastModified) inizio = new Date(file.lastModified - durataSec * 1000);
+  if (!inizio || Number.isNaN(inizio.getTime())) return null;
+  return { nomeFile: file.name, inizio, fine: new Date(inizio.getTime() + durataSec * 1000), lat, lon, altezzaMax: null, tipo: "video" };
+}
+
+// legge tutti i file scelti: il .SRT di un video vale più del video stesso (ha GPS e altezza fotogramma per fotogramma)
+async function leggiFileDrone(files, avanzamento) {
+  const clip = [], conSrt = new Set();
+  const srt = files.filter((f) => /\.srt$/i.test(f.name));
+  for (const f of srt) { const c = leggiSRT(await f.text(), f.name); if (c) { clip.push({ ...c, tipo: "video" }); conSrt.add(radice(f.name)); } }
+  const altri = files.filter((f) => !/\.srt$/i.test(f.name));
+  for (let k = 0; k < altri.length; k++) {
+    const f = altri[k];
+    if (k % 10 === 0 && avanzamento) avanzamento(k, altri.length);
+    try {
+      if (/\.(jpe?g|dng)$/i.test(f.name) || /^image\/jpe?g$/.test(f.type)) { const c = await leggiFotoDrone(f); if (c) clip.push(c); }
+      else if (/\.(mp4|mov)$/i.test(f.name) || /^video\//.test(f.type)) { if (!conSrt.has(radice(f.name))) { const c = await leggiVideoDrone(f); if (c) clip.push(c); } }
+    } catch { /* file non leggibile: lo salto */ }
+  }
+  return clip;
+}
+
 // clip a meno di 15 minuti l'una dall'altra = stesso volo
 function raggruppaInVoli(clip) {
   const ordinate = [...clip].sort((a, b) => a.inizio - b.inizio);
@@ -14220,34 +14301,41 @@ async function luogoDaCoordinate(lat, lon) {
 const due = (n) => String(n).padStart(2, "0");
 const dataLocaleIso = (d) => `${d.getFullYear()}-${due(d.getMonth() + 1)}-${due(d.getDate())}`;
 
-function ImportaSRT({ droni, numeroVoli, piano, onImportati, onVaiAbbonamento }) {
+// volo già nel registro: stesso giorno e partenza a meno di 20 minuti
+const giaNelRegistro = (v, voli) => (voli || []).some((x) => {
+  if (x.data !== dataLocaleIso(v.inizio)) return false;
+  const m = minutiDaOra(x.ora);
+  return m != null && Math.abs(m - (v.inizio.getHours() * 60 + v.inizio.getMinutes())) <= 20;
+});
+const minutiDaOra = (h) => { const m = /^(\d{1,2}):(\d{2})/.exec(h || ""); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+
+function ImportaVoli({ droni, voli, numeroVoli, piano, onImportati, onVaiAbbonamento, grande }) {
   const [proposte, setProposte] = useState(null);
   const [scelte, setScelte] = useState({});
-  const [droneId, setDroneId] = useState("");
+  const [droneId, setDroneId] = useState(() => ((droni || []).length === 1 ? droni[0].id : ""));
   const [tipo, setTipo] = useState("video");
   const [lavoro, setLavoro] = useState(null);
   const [errore, setErrore] = useState(null);
+  useEffect(() => { if (!droneId && (droni || []).length === 1) setDroneId(droni[0].id); }, [droni, droneId]);
 
   const scegliFile = async (e) => {
     const files = Array.from(e.target.files || []);
     e.target.value = "";
     if (files.length === 0) return;
-    setErrore(null);
-    setLavoro("Leggo i file...");
-    const clip = [];
-    for (const f of files) {
-      const c = leggiSRT(await f.text(), f.name);
-      if (c) clip.push(c);
-    }
-    if (clip.length === 0) { setLavoro(null); setErrore("Non ho trovato data e ora in questi file. Servono i file .SRT che i droni DJI salvano accanto ai video (attiva «Sottotitoli video» nelle impostazioni della fotocamera)."); return; }
-    const voli = raggruppaInVoli(clip);
+    setErrore(null); setProposte(null);
+    setLavoro(`Leggo ${files.length} ${files.length === 1 ? "file" : "file"}...`);
+    const clip = await leggiFileDrone(files, (k, n) => setLavoro(`Leggo i file... ${k} di ${n}`));
+    if (clip.length === 0) { setLavoro(null); setErrore("Non ho trovato data e ora in questi file. Scegli le foto (.JPG), i video (.MP4) o i file .SRT della scheda SD del drone, oppure quelli scaricati sul telefono con DJI Fly."); return; }
+    const trovati = raggruppaInVoli(clip);
+    trovati.forEach((v) => { v.foto = v.clip.filter((c) => c.tipo === "foto").length; v.video = v.clip.length - v.foto; v.doppione = giaNelRegistro(v, voli); });
+    setTipo(trovati.some((v) => v.video > 0) ? "video" : "foto");
     setLavoro("Cerco i nomi dei luoghi...");
-    for (const v of voli) {
+    for (const v of trovati) {
       if (v.lat != null) { v.luogo = await luogoDaCoordinate(v.lat, v.lon); await new Promise((r) => setTimeout(r, 1100)); }
     }
     setLavoro(null);
-    setProposte(voli);
-    setScelte(Object.fromEntries(voli.map((_, i) => [i, true])));
+    setProposte(trovati);
+    setScelte(Object.fromEntries(trovati.map((v, i) => [i, !v.doppione])));
   };
 
   const scelti = (proposte || []).filter((_, i) => scelte[i]);
@@ -14260,19 +14348,22 @@ function ImportaSRT({ droni, numeroVoli, piano, onImportati, onVaiAbbonamento })
     }
     setLavoro("Creo i voli...");
     const drone = (droni || []).find((d) => d.id === droneId);
-    const righe = scelti.map((v) => ({
-      data: dataLocaleIso(v.inizio),
-      ora: `${due(v.inizio.getHours())}:${due(v.inizio.getMinutes())}`,
-      durata_minuti: Math.max(1, Math.ceil((v.fine - v.inizio) / 60000)),
-      drone_id: drone ? drone.id : null,
-      drone_nome: drone ? drone.nome : null,
-      luogo: v.luogo || null,
-      coordinate_gps: v.lat != null ? `${v.lat.toFixed(6)}, ${v.lon.toFixed(6)}` : null,
-      tipo_attivita: tipo,
-      categoria_operativa: "aperta_a1",
-      altezza_max: v.altezzaMax != null ? Math.round(v.altezzaMax) : null,
-      note: `Importato da ${v.clip.map((c) => c.nomeFile).join(", ")}. La durata è quella registrata nei video: correggila se il volo è stato più lungo.`,
-    }));
+    const righe = scelti.map((v) => {
+      const nomi = v.clip.map((c) => c.nomeFile);
+      return {
+        data: dataLocaleIso(v.inizio),
+        ora: `${due(v.inizio.getHours())}:${due(v.inizio.getMinutes())}`,
+        durata_minuti: Math.max(1, Math.ceil((v.fine - v.inizio) / 60000)),
+        drone_id: drone ? drone.id : null,
+        drone_nome: drone ? drone.nome : null,
+        luogo: v.luogo || null,
+        coordinate_gps: v.lat != null ? `${v.lat.toFixed(6)}, ${v.lon.toFixed(6)}` : null,
+        tipo_attivita: tipo,
+        categoria_operativa: "aperta_a1",
+        altezza_max: v.altezzaMax != null ? Math.round(v.altezzaMax) : null,
+        note: `Creato dal registro automatico con ${nomi.length} ${nomi.length === 1 ? "file" : "file"} (${nomi.slice(0, 3).join(", ")}${nomi.length > 3 ? "…" : ""}). La durata va dal primo all'ultimo file: correggila se il volo è stato più lungo.`,
+      };
+    });
     const { error } = await supabase.from("voli").insert(righe);
     setLavoro(null);
     if (error) { setErrore("Non sono riuscito a creare i voli: " + error.message); return; }
@@ -14281,30 +14372,34 @@ function ImportaSRT({ droni, numeroVoli, piano, onImportati, onVaiAbbonamento })
   };
 
   const lbl = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
+  const ACCETTA = ".jpg,.jpeg,.JPG,.JPEG,.dng,.DNG,.mp4,.MP4,.mov,.MOV,.srt,.SRT,image/jpeg,video/mp4,video/quicktime";
   return (
     <>
-      <label title="Crea i voli dai file .SRT che i droni DJI salvano accanto ai video" style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 13, cursor: "pointer" }}>
-        <Upload size={14} /> Importa da .SRT
-        <input type="file" accept=".srt,.SRT" multiple onChange={scegliFile} style={{ display: "none" }} />
+      <label title="Scegli foto, video e file .SRT della scheda SD: creo io i voli con data, ora, durata e luogo" style={grande
+        ? { display: "flex", alignItems: "center", gap: 6, background: "#241d16", color: "#ffb877", border: "1px solid #ff8c42", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: "pointer" }
+        : { display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 13, cursor: "pointer" }}>
+        <Upload size={14} /> ⚡ Registro automatico
+        <input type="file" accept={ACCETTA} multiple onChange={scegliFile} style={{ display: "none" }} />
       </label>
       {(proposte || lavoro || errore) && (
         <div style={{ width: "100%", order: 99, background: "#151b2b", border: "1px solid #ff8c4255", borderRadius: 10, padding: 16, marginTop: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>📥 Voli trovati nei file</h3>
-            <button onClick={() => { setProposte(null); setErrore(null); setLavoro(null); }} style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={16} /></button>
+            <button onClick={() => { setProposte(null); setErrore(null); setLavoro(null); }} aria-label="Chiudi" style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={16} /></button>
           </div>
           {lavoro && <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "8px 0 0 0" }}>{lavoro}</p>}
           {errore && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore}</p>}
           {proposte && !lavoro && (
             <>
-              <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 10px 0" }}>Video a meno di 15 minuti l'uno dall'altro sono messi nello stesso volo. Togli la spunta a quelli che non vuoi creare.</p>
+              <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 10px 0" }}>Foto e video a meno di 15 minuti l'uno dall'altro sono lo stesso volo. Togli la spunta a quelli che non vuoi creare.</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {proposte.map((v, i) => (
                   <label key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: "8px 10px", fontSize: 12.5, cursor: "pointer" }}>
                     <input type="checkbox" checked={!!scelte[i]} onChange={() => setScelte({ ...scelte, [i]: !scelte[i] })} />
                     <span style={{ flex: 1 }}>
                       <strong>{formatData(dataLocaleIso(v.inizio))} · {due(v.inizio.getHours())}:{due(v.inizio.getMinutes())}</strong>
-                      <span style={{ color: "#8b95a3" }}> · {v.luogo || (v.lat != null ? `${v.lat.toFixed(4)}, ${v.lon.toFixed(4)}` : "luogo non disponibile")} · {Math.max(1, Math.ceil((v.fine - v.inizio) / 60000))} min{v.altezzaMax != null ? ` · max ${Math.round(v.altezzaMax)} m` : ""} · {v.clip.length} {v.clip.length === 1 ? "video" : "video"}</span>
+                      <span style={{ color: "#8b95a3" }}> · {v.luogo || (v.lat != null ? `${v.lat.toFixed(4)}, ${v.lon.toFixed(4)}` : "luogo non disponibile")} · {Math.max(1, Math.ceil((v.fine - v.inizio) / 60000))} min{v.altezzaMax != null ? ` · max ${Math.round(v.altezzaMax)} m` : ""}</span>
+                      <span style={{ display: "block", fontSize: 11.5, color: "#6b7480" }}>{[v.video ? `${v.video} ${v.video === 1 ? "video" : "video"}` : null, v.foto ? `${v.foto} ${v.foto === 1 ? "foto" : "foto"}` : null].filter(Boolean).join(" · ")}{v.doppione ? " · già nel registro" : ""}</span>
                     </span>
                   </label>
                 ))}
@@ -14323,11 +14418,11 @@ function ImportaSRT({ droni, numeroVoli, piano, onImportati, onVaiAbbonamento })
                     {TIPI_ATTIVITA_VOLO.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
                   </select>
                 </div>
-                <button onClick={crea} disabled={scelti.length === 0} style={{ background: scelti.length ? "#ff8c42" : "#343e57", color: scelti.length ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13, fontWeight: 700 }}>
+                <button onClick={crea} disabled={scelti.length === 0} style={{ background: scelti.length ? "#ff8c42" : "#343e57", color: scelti.length ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 16px", fontSize: 13, fontWeight: 700, minHeight: 40 }}>
                   Crea {scelti.length} {scelti.length === 1 ? "volo" : "voli"}
                 </button>
               </div>
-              <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Categoria impostata su Aperta A1: se serve la cambi aprendo il volo. I nomi dei luoghi arrivano da OpenStreetMap.</p>
+              <p style={{ fontSize: 10.5, color: "#6b7480", margin: "8px 0 0 0" }}>Categoria impostata su Aperta A1: se serve la cambi aprendo il volo. I file restano sul telefono: leggo solo data, ora, posizione e altezza. I nomi dei luoghi arrivano da OpenStreetMap.</p>
             </>
           )}
         </div>
@@ -15347,11 +15442,11 @@ function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo
             <Camera size={14} /> Aggiungi foto / video
             <input type="file" accept="image/*,video/*,.heic,.heif,.mov,.mp4" multiple onChange={scegliFileRapido} style={{ display: "none" }} />
           </label>
+          <ImportaVoli grande droni={droni} voli={tutti} numeroVoli={voli.length} piano={piano} onVaiAbbonamento={onVaiAbbonamento} onImportati={(n) => { carica(); onCambiato && onCambiato(); window.alert(`Creati ${n} ${n === 1 ? "volo" : "voli"} dal registro automatico.`); }} />
           <details className="menu-strumenti" style={{ position: "relative" }}>
             <summary style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 13 }}>⋯ Altro</summary>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
               <StatisticheAnno voli={tutti} azienda={azienda} />
-              <ImportaSRT droni={droni} numeroVoli={voli.length} piano={piano} onVaiAbbonamento={onVaiAbbonamento} onImportati={(n) => { carica(); window.alert(`Creati ${n} ${n === 1 ? "volo" : "voli"} dai file .SRT.`); }} />
               <button onClick={scaricaPdf} disabled={generandoPdf || visibili.length === 0} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
                 <FileDown size={14} /> {generandoPdf ? "Preparazione..." : "PDF"}
               </button>
@@ -15606,7 +15701,7 @@ function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo
               })()}
             </Suspense>
           ) : vista === "galleria" ? galleriaJsx : tutti.length === 0 ? (
-            <EmptyState text="Nessun volo registrato. Premi «Nuovo volo» per aggiungere il primo." />
+            <EmptyState text="Nessun volo registrato. Tocca «⚡ Registro automatico» e scegli le foto e i video del drone: i voli si creano da soli. Oppure «Nuovo volo» per scriverlo a mano." />
           ) : visibili.length === 0 ? (
             <EmptyState text="Nessun volo corrisponde ai filtri scelti." />
           ) : (
