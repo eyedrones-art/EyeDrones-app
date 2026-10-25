@@ -2072,6 +2072,7 @@ function AppShell({ session }) {
       else if (d.pagina === "permessi" || d.pagina === "nuova" || d.pagina === "attestati") { setGuidaSopra(null); setPage(d.pagina); window.scrollTo(0, 0); }
       else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
       else if (d.pagina === "qui") { setPage("qui"); window.scrollTo(0, 0); }
+      else if (d.pagina === "numeri") { setPage("numeri"); window.scrollTo(0, 0); }
       else if (d.pagina === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", JSON.stringify(d.posto || {})); } catch { /* niente */ } setPage("posti"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
@@ -2362,6 +2363,7 @@ function AppShell({ session }) {
         {page === "pianificazione" && <PianificazioneVolo tipoPredefinito={spazioAperto ? spazioAperto.tipoPiano : null} azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} luogoIniziale={luogoDaPianificare} onLuogoUsato={() => setLuogoDaPianificare(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "registro-voli" && <RegistroVoli spazio={spazioAperto} azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} schermoPienoSubito={controlloSubito} onSchermoPienoAperto={() => setControlloSubito(false)} />}
+        {page === "numeri" && adminAI && <NumeriStartup onIndietro={() => setPage("impostazioni")} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={pianoReale} />}
         {page === "suggerimenti" && <Suggerimenti session={session} paginaPrecedente={paginaPrecedente} />}
@@ -15943,6 +15945,105 @@ function AccessoImpronta() {
 
 // «Il weekend giusto per volare»: chi lo attiva riceve il giovedì un'email con il momento migliore del weekend
 // vicino a casa sua e i posti consigliati lì intorno. Salvo solo la zona (il comune, coordinate arrotondate)
+// «📊 I numeri di EyeDrones»: solo per l'amministratore (script supabase/numeri-startup.sql).
+// I numeri da guardare il lunedì e da mostrare a bandi e investitori: nessun nome, solo conteggi.
+const MESI_CORTI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+function NumeriStartup({ onIndietro }) {
+  const [n, setN] = useState(undefined); // undefined = carico, null = script non eseguito
+  const [copiato, setCopiato] = useState(false);
+  useEffect(() => {
+    supabase.rpc("numeri_startup").then(({ data, error }) => setN(error || !data ? null : data), () => setN(null));
+  }, []);
+  const num = (v) => Number(v || 0).toLocaleString("it-IT");
+  const eur = (v) => Number(v || 0).toLocaleString("it-IT", { maximumFractionDigits: 0 }) + " €";
+  const perc = (a, b) => (b ? Math.round((a / b) * 100) + "%" : "–");
+  const nomeMese = (m) => `${MESI_CORTI[Number(m.slice(5, 7)) - 1]} ${m.slice(2, 4)}`;
+  const o = (n && n.oggi) || {}, t = (n && n.trova) || {}, tuttiMesi = (n && n.mesi) || [], primo = tuttiMesi.findIndex((m) => m.totale > 0), mesi = tuttiMesi.slice(Math.max(0, primo)).reverse();
+  const conTrova = n && t.richieste != null;
+  const copia = () => {
+    const righe = [
+      `EyeDrones · numeri al ${new Date().toLocaleDateString("it-IT")}`,
+      `Iscritti: ${num(o.iscritti)} (+${num(o.iscritti_30)} negli ultimi 30 giorni)`,
+      ...(o.attivi_30 != null ? [`Hanno usato l'app negli ultimi 30 giorni: ${num(o.attivi_30)} (${perc(o.attivi_30, o.iscritti)})`] : []),
+      `Con almeno 3 voli registrati: ${num(o.con_3_voli)}`,
+      ...(conTrova ? [`Trova un pilota: ${num(t.piloti)} piloti, ${num(t.richieste)} richieste, ${num(t.confermati)} lavori confermati per ${eur(t.valore)}`] : []),
+      "", "Mese per mese (nuovi iscritti · usano l'app · lavori confermati · valore):",
+      ...mesi.map((m) => `${nomeMese(m.mese)}: ${num(m.nuovi)} · ${m.attivi != null ? num(m.attivi) : "–"} · ${m.confermati != null ? num(m.confermati) : "–"} · ${m.valore != null ? eur(m.valore) : "–"}`),
+    ];
+    navigator.clipboard?.writeText(righe.join("\n")).then(() => { setCopiato(true); setTimeout(() => setCopiato(false), 2500); }, () => {});
+  };
+  const riquadro = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "12px 14px" };
+  const Tessera = ({ titolo, valore, sotto }) => (
+    <div style={{ ...riquadro, flex: "1 1 150px" }}>
+      <div style={{ fontSize: 11.5, color: "#8b95a3" }}>{titolo}</div>
+      <div className="mono" style={{ fontSize: 24, fontWeight: 700, marginTop: 2 }}>{valore}</div>
+      {sotto && <div style={{ fontSize: 11.5, color: "#aab3bf", marginTop: 2 }}>{sotto}</div>}
+    </div>
+  );
+  const passi = conTrova ? [["Richieste dei clienti", t.richieste], ["Con almeno un'offerta", t.con_offerte], ["Il cliente ha scelto", t.scelte], ["Lavori confermati", t.confermati], ["Lavori consegnati", t.consegnati]] : [];
+  return (
+    <div style={{ padding: "28px 32px", maxWidth: 820 }}>
+      <TestataPagina titolo="I numeri" sigla="KPI · SOLO PER TE" icona={TrendingUp} info="Iscritti, chi usa davvero l'app e i lavori passati da Trova un pilota. Sono i numeri da mostrare a bandi e investitori: nessun nome né email.">
+        <button type="button" onClick={onIndietro} style={{ background: "transparent", color: "#c3cad4", border: "1px solid #343e57", borderRadius: 6, padding: "8px 14px", fontSize: 13 }}>‹ Impostazioni</button>
+      </TestataPagina>
+      {n === undefined && <div style={{ fontSize: 13, color: "#8b95a3" }}>Calcolo i numeri…</div>}
+      {n === null && <div style={{ ...riquadro, fontSize: 13, color: "#f5b942" }}>Per vedere i numeri esegui una volta lo script <strong>supabase/numeri-startup.sql</strong> nello SQL Editor di Supabase.</div>}
+      {n && (
+        <>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
+            <Tessera titolo="Iscritti" valore={num(o.iscritti)} sotto={`+${num(o.iscritti_7)} in 7 giorni · +${num(o.iscritti_30)} in 30`} />
+            <Tessera titolo="Usano l'app (30 giorni)" valore={o.attivi_30 != null ? num(o.attivi_30) : "–"} sotto={o.attivi_30 != null ? `${perc(o.attivi_30, o.iscritti)} degli iscritti · ${num(o.attivi_7)} in 7 giorni` : "script uso-giornaliero.sql da eseguire"} />
+            <Tessera titolo="Con almeno 3 voli" valore={num(o.con_3_voli)} sotto={`${perc(o.con_3_voli, o.iscritti)} · di solito sono quelli che restano`} />
+          </div>
+
+          <h3 style={{ fontSize: 15, margin: "0 0 8px 0" }}>Trova un pilota</h3>
+          {!conTrova ? <div style={{ ...riquadro, fontSize: 13, color: "#8b95a3", marginBottom: 18 }}>Si vede dopo aver eseguito trova-pilota.sql.</div> : (
+            <div style={{ ...riquadro, marginBottom: 18 }}>
+              <div style={{ fontSize: 12.5, color: "#aab3bf", marginBottom: 10 }}>{num(t.piloti)} piloti nell'elenco · dall'inizio</div>
+              {passi.map(([nome, v], i) => (
+                <div key={nome} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <div style={{ width: 150, fontSize: 12.5, color: "#c3cad4", flexShrink: 0 }}>{nome}</div>
+                  <div style={{ flex: 1, background: "#1a2133", borderRadius: 4, height: 18, overflow: "hidden" }}><div style={{ width: perc(v, t.richieste) === "–" ? 0 : perc(v, t.richieste), height: "100%", background: "#3d8bfd", opacity: 1 - i * 0.15 }} /></div>
+                  <div className="mono" style={{ width: 80, textAlign: "right", fontSize: 12.5 }}>{num(v)}{i > 0 ? <span style={{ color: "#8b95a3" }}> · {perc(v, t.richieste)}</span> : null}</div>
+                </div>
+              ))}
+              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 10, fontSize: 13 }}>
+                <span>Valore dei lavori: <strong className="mono">{eur(t.valore)}</strong></span>
+                <span>Commissioni: <strong className="mono">{eur(t.commissioni)}</strong></span>
+                {t.recensioni > 0 && <span>Stelle: <strong className="mono">{String(t.stelle).replace(".", ",")}</strong> <span style={{ color: "#8b95a3" }}>({num(t.recensioni)} recensioni)</span></span>}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 8px 0" }}>
+            <h3 style={{ fontSize: 15, margin: 0, flex: 1 }}>Mese per mese</h3>
+            <button type="button" onClick={copia} style={{ background: copiato ? "#4ade80" : "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>{copiato ? "✓ Copiati" : "📋 Copia i numeri"}</button>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead><tr style={{ color: "#8b95a3", textAlign: "right" }}><th style={{ textAlign: "left", padding: "6px 6px" }}>Mese</th><th style={{ padding: "6px 6px" }}>Nuovi</th><th style={{ padding: "6px 6px" }}>Iscritti</th><th style={{ padding: "6px 6px" }}>Usano l'app</th><th style={{ padding: "6px 6px" }}>Richieste</th><th style={{ padding: "6px 6px" }}>Lavori</th><th style={{ padding: "6px 6px" }}>Valore</th></tr></thead>
+              <tbody>
+                {mesi.map((m) => (
+                  <tr key={m.mese} className="mono" style={{ borderTop: "1px solid #232b3f", textAlign: "right" }}>
+                    <td style={{ textAlign: "left", padding: "6px 6px", fontFamily: "inherit", whiteSpace: "nowrap" }}>{nomeMese(m.mese)}</td>
+                    <td style={{ padding: "6px 6px", whiteSpace: "nowrap" }}>{num(m.nuovi)}</td>
+                    <td style={{ padding: "6px 6px", whiteSpace: "nowrap" }}>{num(m.totale)}</td>
+                    <td style={{ padding: "6px 6px", whiteSpace: "nowrap" }}>{m.attivi != null ? num(m.attivi) : "–"}</td>
+                    <td style={{ padding: "6px 6px", whiteSpace: "nowrap" }}>{m.richieste != null ? num(m.richieste) : "–"}</td>
+                    <td style={{ padding: "6px 6px", whiteSpace: "nowrap" }}>{m.confermati != null ? num(m.confermati) : "–"}</td>
+                    <td style={{ padding: "6px 6px", whiteSpace: "nowrap" }}>{m.valore != null ? eur(m.valore) : "–"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ fontSize: 11, color: "#6b7480", marginTop: 10 }}>«Usano l'app» = l'hanno aperta almeno un giorno nel mese. «Lavori» = confermati dal pilota in quel mese. Il mese in corso è in alto.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Home: i posti che ho consigliato e quanti piloti li hanno trovati utili (script community-posti.sql).
 // Chi non ne ha ancora consigliati ma ha voli con la posizione vede l'invito a consigliarne uno.
 const CHIAVE_GRAZIE_VISTI = "eyedrones_grazie_visti";
@@ -16262,6 +16363,13 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
           </p>
           <SpazioEPromemoria />
           <AvvisoWeekend />
+          {AI_IN_PROVA.includes(String(userEmail || "").toLowerCase()) && (
+            <button type="button" onClick={() => vaiA({ pagina: "numeri" })} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12, color: "#e7eaee" }}>
+              <span style={{ fontSize: 20 }}>📊</span>
+              <span style={{ flex: 1 }}><span style={{ display: "block", fontSize: 13, fontWeight: 700 }}>I numeri di EyeDrones</span><span style={{ display: "block", fontSize: 12, color: "#8b95a3", marginTop: 2 }}>Solo per te: iscritti, chi usa l'app e i lavori di Trova un pilota, mese per mese</span></span>
+              <span style={{ color: "#ff8c42" }}>›</span>
+            </button>
+          )}
           <AccessoImpronta />
           <SceltaDflight />
           <details style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12 }}>
