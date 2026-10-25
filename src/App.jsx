@@ -2601,7 +2601,7 @@ function RiquadroNovita({ onVai }) {
   return (
     <div style={{ position: "relative", background: "linear-gradient(135deg, #1c1726, #151b2b)", border: "1px solid #3d2f5a", borderRadius: 12, padding: "14px 16px", marginBottom: 18, maxWidth: 720 }}>
       <button type="button" onClick={chiudi} aria-label="Chiudi le novità" style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
-      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#c4b5fd", marginBottom: 8 }}>✨ Novità di ottobre</div>
+      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#c4b5fd", marginBottom: 8 }}>✨ Novità di novembre</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {NOVITA.map((n) => (
           <button key={n.testo} type="button" onClick={() => { chiudi(); if (n.vai) vaiA(n.vai); else onVai(n.pagina); }} style={{ display: "flex", gap: 8, alignItems: "center", textAlign: "left", background: "none", border: "none", color: "#e7eaee", padding: "4px 0", fontSize: 13 }}>
