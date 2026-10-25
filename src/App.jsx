@@ -3916,6 +3916,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         <div style={{ height: 18 }} />
         {bloccoScadenze}
         <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
+        {(droni || []).length > 0 && <AvvisoWeekend inHome />}
         <ConsiglioDelGiorno />
 
         {cartelle && <Cartelle spazi={cartelle} impianti={impianti} voli={voli} onApri={onEntraSpazio} onAggiungi={() => onNav("impostazioni")} />}
@@ -15937,6 +15938,76 @@ function AccessoImpronta() {
   );
 }
 
+// «Il weekend giusto per volare»: chi lo attiva riceve il giovedì un'email con il momento migliore del weekend
+// vicino a casa sua e i posti consigliati lì intorno. Salvo solo la zona (il comune, coordinate arrotondate)
+const CHIAVE_WEEKEND_CHIUSO = "eyedrones_weekend_chiuso";
+function AvvisoWeekend({ inHome }) {
+  const [stato, setStato] = useState(undefined); // undefined = leggo, null = colonne non create, {attivo, zona}
+  const [testo, setTesto] = useState("");
+  const [lavoro, setLavoro] = useState("");
+  const [cambio, setCambio] = useState(false);
+  const [chiuso, setChiuso] = useState(() => inHome && leggiLocale(CHIAVE_WEEKEND_CHIUSO) === "si");
+  useEffect(() => {
+    supabase.from("profili").select("avviso_weekend, zona_nome").maybeSingle()
+      .then(({ data, error }) => setStato(error ? null : { attivo: !!(data && data.avviso_weekend), zona: (data && data.zona_nome) || "" }), () => setStato(null));
+  }, []);
+  if (stato == null || chiuso || (inHome && stato.attivo)) return null;
+  const salva = async (campi) => {
+    const uid = (await supabase.auth.getUser()).data?.user?.id;
+    const { error } = await supabase.from("profili").update(campi).eq("user_id", uid);
+    if (error) { setLavoro("Non riuscito: riprova tra poco."); return false; }
+    setStato({ attivo: !!campi.avviso_weekend, zona: campi.zona_nome ?? stato.zona }); setCambio(false); setLavoro(""); return true;
+  };
+  const attiva = (lat, lon, nome) => salva({ avviso_weekend: true, zona_nome: nome, zona_lat: Math.round(lat * 100) / 100, zona_lon: Math.round(lon * 100) / 100 });
+  const cerca = async () => {
+    if (!testo.trim()) return;
+    setLavoro("Cerco il comune…");
+    const p = await cercaIndirizzoItalia(testo.trim());
+    if (!p) { setLavoro("Non trovo questo comune: prova a scriverlo con la provincia (es. Avigliana TO)."); return; }
+    await attiva(p.lat, p.lon, testo.trim());
+  };
+  const posizione = () => {
+    if (!navigator.geolocation) { setLavoro("Questo telefono non dà la posizione: scrivi il comune."); return; }
+    setLavoro("Leggo la posizione…");
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      await attiva(lat, lon, (await luogoDaCoordinate(lat, lon)) || "la tua zona");
+    }, () => setLavoro("Non riesco a leggere la posizione: scrivi il comune."), { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 });
+  };
+  const chiudi = () => { scriviLocale(CHIAVE_WEEKEND_CHIUSO, "si"); setChiuso(true); };
+  const scelta = (
+    <>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+        <input value={testo} onChange={(e) => setTesto(e.target.value)} onKeyDown={(e) => e.key === "Enter" && cerca()} placeholder="Il tuo comune (es. Avigliana)" aria-label="Il tuo comune" style={{ ...inputStyle, flex: "1 1 180px", minWidth: 0 }} />
+        <button type="button" onClick={cerca} style={{ background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700, minHeight: 40 }}>Attiva</button>
+        <button type="button" onClick={posizione} style={{ background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "8px 12px", fontSize: 13, minHeight: 40 }}>📍 Usa la mia posizione</button>
+      </div>
+      {lavoro && <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 0 0" }}>{lavoro}</p>}
+      <p style={{ fontSize: 11, color: "#6b7480", margin: "6px 0 0 0" }}>Salvo solo il comune, non la via. Se il weekend è brutto l'email non arriva. La spegni quando vuoi da Impostazioni.</p>
+    </>
+  );
+  return (
+    <div style={{ position: "relative", background: inHome ? "linear-gradient(135deg, #1b2433, #151b2b)" : "#10141f", border: `1px solid ${inHome ? "#3d8bfd55" : "#232b3f"}`, borderRadius: inHome ? 12 : 8, padding: 14, marginBottom: inHome ? 18 : 12, maxWidth: inHome ? 640 : undefined }}>
+      {inHome && <button type="button" onClick={chiudi} aria-label="Non mostrarlo più" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>}
+      <div style={{ fontSize: inHome ? 14.5 : 13, fontWeight: 700, paddingRight: inHome ? 30 : 0 }}>🌤️ Il weekend giusto per volare</div>
+      {stato.attivo && !cambio ? (
+        <>
+          <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4 }}>✅ Attivo per <strong>{stato.zona || "la tua zona"}</strong>: il giovedì ti scrivo quando e dove volare nel weekend, se il tempo è buono.</div>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button type="button" onClick={() => setCambio(true)} style={{ background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Cambia zona</button>
+            <button type="button" onClick={() => salva({ avviso_weekend: false })} style={{ background: "none", color: "#ff9c9c", border: "1px solid #5a2a2a", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Spegni</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 4, lineHeight: 1.45 }}>Il giovedì ti scrivo il momento migliore del weekend vicino a te (luce, vento, pioggia) e i posti consigliati dagli altri piloti lì intorno.</div>
+          {scelta}
+        </>
+      )}
+    </div>
+  );
+}
+
 function SpazioEPromemoria() {
   const [byte, setByte] = useState(undefined);
   const [promemoria, setPromemoria] = useState(undefined); // undefined = sto leggendo, null = colonna non creata
@@ -16143,6 +16214,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
             {(LINK_PRIVACY || LINK_TERMINI) && <> · <LinkLegali stile={{ color: "#3d8bfd" }} /></>}
           </p>
           <SpazioEPromemoria />
+          <AvvisoWeekend />
           <AccessoImpronta />
           <SceltaDflight />
           <details style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12 }}>

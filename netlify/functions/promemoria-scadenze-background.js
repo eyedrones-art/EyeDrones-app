@@ -196,6 +196,120 @@ function emailLavori(u) {
   return { oggetto, testo, corpo };
 }
 
+// --- «Il weekend giusto per volare» (il giovedì, a chi l'ha attivato) -------------------------------------------
+// Ore buone: pioggia ≤ 30% e quasi zero, vento ≤ 20 km/h, raffiche ≤ 32 km/h, tra alba e tramonto.
+// Se né sabato né domenica hanno almeno un'ora buona, l'email non parte
+const GIORNI_IT = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
+const MESI_IT = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
+const minuti = (iso) => Number(iso.slice(11, 13)) * 60 + Number(iso.slice(14, 16));
+const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+async function meteoWeekend(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m,cloud_cover,visibility,temperature_2m&daily=sunrise,sunset&timezone=Europe%2FRome&forecast_days=5`;
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+// le finestre buone di un giorno (ore piene tra alba e tramonto), con la migliore per prima
+function finestreDelGiorno(j, giorno) {
+  const h = j.hourly || {}, d = j.daily || {};
+  const k = (d.time || []).indexOf(giorno);
+  if (k < 0) return null;
+  const alba = minuti(d.sunrise[k]), tramonto = minuti(d.sunset[k]);
+  const ore = [];
+  (h.time || []).forEach((t, i) => {
+    if (t.slice(0, 10) !== giorno) return;
+    const m = minuti(t);
+    if (m < alba - 30 || m > tramonto - 30) return;
+    const buona = (h.precipitation_probability[i] ?? 0) <= 30 && (h.precipitation[i] ?? 0) < 0.2 && (h.wind_speed_10m[i] ?? 99) <= 20 && (h.wind_gusts_10m[i] ?? 99) <= 32;
+    ore.push({ m, buona, vento: h.wind_speed_10m[i], nuvole: h.cloud_cover[i], vis: h.visibility[i], temp: h.temperature_2m[i] });
+  });
+  const finestre = [];
+  let corrente = null;
+  ore.forEach((o) => {
+    if (o.buona) { if (!corrente) { corrente = { da: o.m, a: o.m + 60, ore: [o] }; finestre.push(corrente); } else { corrente.a = o.m + 60; corrente.ore.push(o); } }
+    else corrente = null;
+  });
+  finestre.forEach((f) => {
+    f.a = Math.min(f.a, tramonto);
+    f.oroSera = f.a >= tramonto - 20; f.oroMattina = f.da <= alba + 30;
+    f.vento = Math.round(Math.max(...f.ore.map((o) => o.vento ?? 0)));
+    f.nuvole = Math.round(f.ore.reduce((s, o) => s + (o.nuvole ?? 0), 0) / f.ore.length);
+    f.punti = (f.a - f.da) / 60 + (f.oroSera ? 3 : 0) + (f.oroMattina ? 2 : 0) - f.vento / 10;
+  });
+  finestre.sort((x, y) => y.punti - x.punti);
+  const nebbia = ore.filter((o) => o.m <= alba + 180 && o.vis != null && o.vis < 1000).length > 0;
+  const freddo = Math.min(...ore.map((o) => o.temp ?? 20));
+  return { giorno, alba, tramonto, finestre: finestre.filter((f) => f.a - f.da >= 45), nebbia, freddo };
+}
+
+function consiglioDiStagione(data, giorni) {
+  const m = data.getMonth(), settimana = Math.floor(data.getTime() / (7 * 864e5));
+  const freddo = giorni.some((g) => g && g.freddo < 5), nebbia = giorni.some((g) => g && g.nebbia);
+  if (freddo) return "Sotto i 5 °C le batterie durano meno: tienile al caldo fino al decollo, fai un minuto di hovering e torna con almeno il 30%.";
+  if (nebbia) return "Nebbia al mattino nelle valli: sopra la nebbia vengono foto bellissime, ma il drone deve restare sempre in vista. Se la nebbia lo nasconde, si aspetta.";
+  const inverno = ["La luce d'inverno è bassa tutto il giorno: le ombre lunghe danno profondità anche a mezzogiorno.", "Il tramonto arriva presto: preparati in anticipo, l'ora d'oro dura meno di un'ora.", "Con la neve la camera sbaglia l'esposizione: alza l'esposizione di +0,7 o +1.", "Entrando al caldo dopo il volo la camera si appanna: lascia il drone nella borsa chiusa per mezz'ora."];
+  const resto = ["Fai la foto di riferimento della scena prima di decollare: in montaggio sai già cosa cercare.", "Controlla vento in quota: a 80-120 m spesso è il doppio che a terra.", "Una scheda SD vuota e le batterie cariche la sera prima: la mattina dopo si parte subito."];
+  const lista = m >= 10 || m <= 1 ? inverno : resto;
+  return lista[((settimana % lista.length) + lista.length) % lista.length];
+}
+
+function testoFinestra(g, f) {
+  const d = new Date(`${g.giorno}T12:00:00`);
+  const nome = `${GIORNI_IT[d.getDay()]} ${d.getDate()} ${MESI_IT[d.getMonth()]}`;
+  const luce = f.oroSera ? `luce più bella dalle ${hhmm(g.tramonto - 45)}, tramonto alle ${hhmm(g.tramonto)}` : f.oroMattina ? `luce più bella fino alle ${hhmm(g.alba + 45)}, alba alle ${hhmm(g.alba)}` : `tramonto alle ${hhmm(g.tramonto)}`;
+  const cielo = f.nuvole >= 80 ? "cielo coperto" : f.nuvole >= 40 ? "qualche nuvola" : "cielo quasi sereno";
+  return { nome, orario: `dalle ${hhmm(f.da)} alle ${hhmm(f.a)}`, dettagli: `vento fino a ${f.vento} km/h · ${cielo} · ${luce}` };
+}
+
+function emailWeekend(u, giorni, oggi = new Date()) {
+  const buoni = giorni.filter((g) => g && g.finestre.length);
+  if (!buoni.length) return null;
+  const zona = u.zona || "la tua zona";
+  const migliori = buoni.map((g) => ({ g, f: g.finestre[0], t: testoFinestra(g, g.finestre[0]) }));
+  const primo = migliori[0];
+  const ciao = `Ciao${u.nome ? ` ${u.nome}` : ""}!`;
+  const oggetto = `${primo.t.nome.charAt(0).toUpperCase() + primo.t.nome.slice(1).split(" ")[0]} si vola: ${primo.t.orario.replace("dalle ", "").replace(" alle ", "–")} vicino a ${zona} 🌤️`;
+  const posti = (u.posti || []).filter((p) => p && p.nome);
+  const consiglio = consiglioDiStagione(oggi, giorni);
+  const link = `${APP_URL}/?vai=pianificazione`;
+  const mappa = (p) => `https://www.google.com/maps?q=${Number(p.lat).toFixed(5)},${Number(p.lon).toFixed(5)}`;
+  const testo = [
+    ciao, "",
+    `Il weekend vicino a ${zona}:`,
+    ...migliori.map(({ t }) => `• ${t.nome}, ${t.orario}: ${t.dettagli}`), "",
+    ...(posti.length ? ["Posti consigliati dagli altri piloti qui vicino:", ...posti.map((p) => `• ${p.nome} (${String(p.km).replace(".", ",")} km)${p.nota ? `: ${p.nota}` : ""} · ${mappa(p)}`), ""] : []),
+    `Consiglio della settimana: ${consiglio}`, "",
+    "Prima di volare controlla la zona e i NOTAM su D-Flight.",
+    `Meteo ora per ora, zona e luce del posto: ${link}`, "",
+    "Buoni voli!", "Ivan · EyeDrones", "",
+    "Non vuoi più questa email? Spegnila in EyeDrones → Impostazioni → «Il weekend giusto per volare».",
+  ].join("\n");
+  const riga = ({ t, f }) => `<tr><td style="padding:10px 12px;border-bottom:1px solid #eee;vertical-align:top"><div style="font-size:15px;font-weight:bold;text-transform:capitalize">${html(t.nome)}</div><div style="font-size:15px;color:#e0552f;font-weight:bold">${html(t.orario)}${f.oroSera || f.oroMattina ? " ✨" : ""}</div><div style="font-size:13px;color:#555">${html(t.dettagli)}</div></td></tr>`;
+  const posto = (p) => `<li style="margin-bottom:6px;font-size:14px"><a href="${mappa(p)}" style="color:#e0552f;font-weight:bold">${html(p.nome)}</a> <span style="color:#777">· ${html(String(p.km).replace(".", ","))} km${p.voto ? ` · ${"★".repeat(Math.max(1, Math.min(5, p.voto)))}` : ""}</span>${p.nota ? `<br><span style="color:#555">${html(p.nota)}</span>` : ""}</li>`;
+  const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
+    <h2 style="color:#e0552f;margin:0 0 6px">🌤️ Il weekend giusto per volare</h2>
+    <p style="font-size:15px;margin-top:0">${html(ciao)} Ecco quando conviene volare vicino a <b>${html(zona)}</b>.</p>
+    <table style="border-collapse:collapse;width:100%;background:#fff7f2;border-radius:8px">${migliori.map(riga).join("")}</table>
+    ${posti.length ? `<p style="font-size:15px;margin:18px 0 6px"><b>📍 Posti consigliati qui vicino</b></p><ul style="padding-left:18px;margin:0">${posti.map(posto).join("")}</ul>` : ""}
+    <p style="font-size:14px;background:#f4f6f8;border-radius:8px;padding:10px 12px;margin-top:18px">💡 <b>Consiglio della settimana:</b> ${html(consiglio)}</p>
+    <p style="font-size:13px;color:#a33">Prima di volare controlla la zona e i NOTAM su D-Flight.</p>
+    <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Prepara il volo ›</a></p>
+    <p style="font-size:15px">Buoni voli!<br>Ivan · EyeDrones</p>
+    <p style="font-size:12px;color:#888">Non vuoi più questa email? Spegnila in EyeDrones → Impostazioni → «Il weekend giusto per volare».</p>
+  </div>`;
+  return { oggetto, testo, corpo };
+}
+
+// sabato e domenica che vengono (l'email parte il giovedì)
+function giorniWeekend(oggi = new Date()) {
+  const fmt = (d) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome" }).format(d);
+  const out = [];
+  for (let k = 1; k <= 4 && out.length < 2; k++) { const d = new Date(oggi.getTime() + k * 864e5); const g = fmt(d); const wd = new Date(`${g}T12:00:00`).getDay(); if (wd === 6 || wd === 0) out.push(g); }
+  return out;
+}
+
 function emailAmministratore(a) {
   const e = a.errori || { quanti: 0, esempi: [] };
   const mb = a.spazio_byte != null ? Math.round(a.spazio_byte / 1048576) : null;
@@ -249,6 +363,19 @@ exports.handler = async (event) => {
     restano -= 1;
     await pausa(600);
   }
+  const weekend = giorniWeekend();
+  for (const u of (dati.weekend || [])) {
+    if (restano <= 0) break;
+    if (!emailValida(u.email) || u.lat == null || u.lon == null) continue;
+    let j = null;
+    try { j = await meteoWeekend(u.lat, u.lon); } catch (e) { console.error("meteo non disponibile", e.message); }
+    if (!j) continue;
+    const e = emailWeekend(u, weekend.map((g) => finestreDelGiorno(j, g)));
+    if (!e) continue; // weekend brutto: niente email
+    await invia(chiave, mittente, u.email, e);
+    restano -= 1;
+    await pausa(600);
+  }
   for (const u of (dati.community || []).slice(0, Math.max(0, restano))) {
     if (!emailValida(u.email)) continue;
     await invia(chiave, mittente, u.email, emailCommunity(u));
@@ -269,4 +396,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailWeekend, finestreDelGiorno, giorniWeekend };
