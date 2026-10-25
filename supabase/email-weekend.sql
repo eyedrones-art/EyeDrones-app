@@ -2,7 +2,7 @@
 -- Chi la attiva nell'app (Impostazioni o Home: comune o posizione) riceve ogni giovedì il momento migliore del
 -- weekend vicino a casa e i posti consigliati dagli altri piloti entro 30 km. Se il weekend è brutto non parte.
 -- Il meteo lo calcola la funzione Netlify dei promemoria (promemoria-scadenze-background), con Open-Meteo.
--- Serve aver già eseguito lo script errori-spazio-promemoria.sql (crea le impostazioni e il codice segreto).
+-- Serve aver già eseguito errori-spazio-promemoria.sql (impostazioni e codice segreto) e community-posti.sql (i «👍 Utile»).
 -- Da eseguire una volta: SQL Editor → New query → incolla tutto → Run. Si può rieseguire senza problemi.
 
 create extension if not exists pg_net;
@@ -57,13 +57,17 @@ begin
   )
   select coalesce(jsonb_agg(jsonb_build_object(
     'email', s.email, 'nome', s.nome, 'zona', s.zona_nome, 'lat', s.zona_lat, 'lon', s.zona_lon,
-    -- i due posti consigliati più vicini entro 30 km (quelli con il voto più alto a parità di distanza)
+    -- quanti piloti in questa settimana hanno trovato utile un posto consigliato da lui
+    'grazie', (select count(*) from public.posti_grazie g join public.posti_consigliati c on c.id = g.posto_id
+               where c.user_id = s.id and g.created_at > now() - interval '7 days'),
+    -- i due posti consigliati dagli altri più vicini entro 30 km (quelli con il voto più alto a parità di distanza)
     'posti', (
       select coalesce(jsonb_agg(x order by (x->>'km')::numeric), '[]') from (
         select jsonb_build_object('nome', c.nome, 'tipo', c.tipo, 'nota', left(coalesce(c.nota, ''), 140), 'voto', c.voto, 'lat', c.lat, 'lon', c.lon,
           'km', round((111.2 * sqrt(power(c.lat - s.zona_lat, 2) + power((c.lon - s.zona_lon) * cos(radians(s.zona_lat)), 2)))::numeric, 1)) as x
         from public.posti_consigliati c
         where abs(c.lat - s.zona_lat) < 0.3 and abs(c.lon - s.zona_lon) < 0.42
+          and c.user_id <> s.id
           and 111.2 * sqrt(power(c.lat - s.zona_lat, 2) + power((c.lon - s.zona_lon) * cos(radians(s.zona_lat)), 2)) <= 30
         order by 111.2 * sqrt(power(c.lat - s.zona_lat, 2) + power((c.lon - s.zona_lon) * cos(radians(s.zona_lat)), 2)), c.voto desc nulls last
         limit 2

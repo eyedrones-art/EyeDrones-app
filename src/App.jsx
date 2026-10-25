@@ -3917,6 +3917,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         {bloccoScadenze}
         <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
         {(droni || []).length > 0 && <AvvisoWeekend inHome />}
+        {(voli || []).length > 0 && <CommunityPosti voli={voli} />}
         <ConsiglioDelGiorno />
 
         {cartelle && <Cartelle spazi={cartelle} impianti={impianti} voli={voli} onApri={onEntraSpazio} onAggiungi={() => onNav("impostazioni")} />}
@@ -15940,6 +15941,50 @@ function AccessoImpronta() {
 
 // «Il weekend giusto per volare»: chi lo attiva riceve il giovedì un'email con il momento migliore del weekend
 // vicino a casa sua e i posti consigliati lì intorno. Salvo solo la zona (il comune, coordinate arrotondate)
+// Home: i posti che ho consigliato e quanti piloti li hanno trovati utili (script community-posti.sql).
+// Chi non ne ha ancora consigliati ma ha voli con la posizione vede l'invito a consigliarne uno.
+const CHIAVE_GRAZIE_VISTI = "eyedrones_grazie_visti";
+const CHIAVE_COMMUNITY_CHIUSO = "eyedrones_community_chiuso";
+function CommunityPosti({ voli }) {
+  const [c, setC] = useState(null);
+  const [nuovi, setNuovi] = useState(0);
+  const [chiuso, setChiuso] = useState(() => leggiLocale(CHIAVE_COMMUNITY_CHIUSO) === "si");
+  useEffect(() => {
+    supabase.rpc("la_mia_community").then(({ data, error }) => {
+      if (error || !data) return;
+      const visti = Number(leggiLocale(CHIAVE_GRAZIE_VISTI) || 0);
+      if (data.grazie > visti) { setNuovi(data.grazie - visti); scriviLocale(CHIAVE_GRAZIE_VISTI, String(data.grazie)); }
+      setC(data);
+    }, () => {});
+  }, []);
+  if (!c) return null;
+  const conGps = (voli || []).some((v) => v.coordinate_gps && /-?\d+\.\d+\s*,\s*-?\d+\.\d+/.test(v.coordinate_gps));
+  if (!c.posti && (chiuso || !conGps)) return null;
+  const consiglia = () => vaiA({ pagina: "consiglia" });
+  const grande = c.piloti_tutti >= 10 ? `Nella community ci sono già ${c.posti_tutti} posti consigliati da ${c.piloti_tutti} piloti.` : "";
+  return (
+    <div style={{ position: "relative", background: "linear-gradient(135deg, #2a2412, #151b2b)", border: "1px solid #f5b94255", borderRadius: 12, padding: 14, marginBottom: 18, maxWidth: 640 }}>
+      {!c.posti && <button type="button" onClick={() => { scriviLocale(CHIAVE_COMMUNITY_CHIUSO, "si"); setChiuso(true); }} aria-label="Non mostrarlo più" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>}
+      {c.posti ? (
+        <>
+          <div style={{ fontSize: 14.5, fontWeight: 700 }}>⭐ I tuoi posti per gli altri piloti</div>
+          {nuovi > 0 && <div style={{ fontSize: 13.5, color: "#4ade80", fontWeight: 700, marginTop: 6 }}>🎉 {nuovi === 1 ? "Un pilota ha" : `${nuovi} piloti hanno`} trovato utile un tuo posto!</div>}
+          <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4, lineHeight: 1.45 }}>
+            Hai consigliato <strong>{c.posti} {c.posti === 1 ? "posto" : "posti"}</strong>{c.grazie > 0 ? <> · 👍 utili per <strong>{c.grazie} {c.grazie === 1 ? "pilota" : "piloti"}</strong></> : " · quando qualcuno lo trova utile lo vedi qui"}.
+            {c.migliore && c.grazie > 1 ? <> Il più apprezzato: «{c.migliore}».</> : null} {grande}
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 14.5, fontWeight: 700, paddingRight: 30 }}>⭐ Consiglia un posto dove hai volato</div>
+          <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4, lineHeight: 1.45 }}>Aiuti gli altri piloti a trovare dove riprendere, e loro aiutano te. Il tuo nome non si vede. {grande}</div>
+        </>
+      )}
+      <button type="button" onClick={consiglia} style={{ marginTop: 10, background: "#f5b942", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700, minHeight: 40 }}>{c.posti ? "Consiglia un altro posto" : "Consiglia un posto"}</button>
+    </div>
+  );
+}
+
 const CHIAVE_WEEKEND_CHIUSO = "eyedrones_weekend_chiuso";
 function AvvisoWeekend({ inHome }) {
   const [stato, setStato] = useState(undefined); // undefined = leggo, null = colonne non create, {attivo, zona}

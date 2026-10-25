@@ -194,7 +194,13 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
   const [salvando, setSalvando] = useState(false);
   const [vista, setVista] = useState("mappa"); // "mappa" | "elenco"
   const [nelGiro, setNelGiro] = useState({});
+  // «👍 Utile»: i totali per posto e i grazie che ho messo io (null = script community-posti.sql non eseguito)
+  const [grazie, setGrazie] = useState(null);
+  const [mieiGrazie, setMieiGrazie] = useState({});
+  const [uid, setUid] = useState(null);
+  const [appenaConsigliato, setAppenaConsigliato] = useState(false);
 
+  useEffect(() => { supabase.auth.getSession().then(({ data }) => setUid(data?.session?.user?.id || null)).catch(() => {}); }, [supabase]);
   useEffect(() => { leggiZoneSalvate().then((d) => setZone(d && Array.isArray(d.zone) ? d.zone : null)).catch(() => setZone(null)); }, []);
   // arrivo da «⭐ Consiglia un posto» (Home, un volo, Qui e ora): apro subito il modulo
   useEffect(() => {
@@ -212,16 +218,39 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
     const dLat = km / 111, dLon = km / (111 * Math.cos((c.lat * Math.PI) / 180));
     // prima i consigli dei piloti (veloci), poi i punti delle mappe quando arrivano
     const pil = await conTempoMassimo(
-      supabase.from("posti_consigliati").select("id, nome, lat, lon, tipo, nota, voto, created_at").gte("lat", c.lat - dLat).lte("lat", c.lat + dLat).gte("lon", c.lon - dLon).lte("lon", c.lon + dLon).limit(300)
+      supabase.from("posti_consigliati").select("id, user_id, nome, lat, lon, tipo, nota, voto, created_at").gte("lat", c.lat - dLat).lte("lat", c.lat + dLat).gte("lon", c.lon - dLon).lte("lon", c.lon + dLon).limit(300)
         .then(({ data, error }) => (error ? [] : data || [])),
       10000,
     ).catch(() => []);
     setConsigli(pil);
     setCaricando(false);
+    caricaGrazie(pil);
     const osm = await cercaPostiOsm(c, km).catch(() => null);
     setCaricandoMappe(false);
     if (osm === null) setErrore(pil.length ? "I punti panoramici delle mappe non arrivano adesso: ti mostro solo i consigli dei piloti. Riprova tra poco." : "Le mappe non rispondono in questo momento: riprova tra qualche minuto.");
     setPosti(osm || []);
+  };
+  const caricaGrazie = async (pil) => {
+    const ids = pil.map((c) => c.id).slice(0, 300);
+    if (!ids.length) { setGrazie((g) => g || {}); return; }
+    const [tot, miei] = await Promise.all([
+      supabase.rpc("grazie_posti", { p_ids: ids }).then((r) => r, () => ({ error: true })),
+      supabase.from("posti_grazie").select("posto_id").in("posto_id", ids).then((r) => r, () => ({ error: true })),
+    ]);
+    if (tot.error) { setGrazie(null); return; }
+    setGrazie(Object.fromEntries((tot.data || []).map((r) => [r.posto_id, r.quanti])));
+    setMieiGrazie(Object.fromEntries((miei.data || []).map((r) => [r.posto_id, true])));
+  };
+  // il grazie va al primo consiglio del posto scritto da un altro pilota
+  const cambiaGrazie = async (p) => {
+    const c = p.consigli.find((x) => x.user_id !== uid);
+    if (!c) return;
+    const gia = p.consigli.some((x) => mieiGrazie[x.id]);
+    const id = gia ? p.consigli.find((x) => mieiGrazie[x.id]).id : c.id;
+    setMieiGrazie((m) => ({ ...m, [id]: !gia }));
+    setGrazie((g) => ({ ...g, [id]: Math.max(0, ((g || {})[id] || 0) + (gia ? -1 : 1)) }));
+    const { error } = gia ? await supabase.from("posti_grazie").delete().eq("posto_id", id).eq("user_id", uid) : await supabase.from("posti_grazie").insert({ posto_id: id });
+    if (error) { setMieiGrazie((m) => ({ ...m, [id]: gia })); setGrazie((g) => ({ ...g, [id]: Math.max(0, ((g || {})[id] || 0) + (gia ? 1 : -1)) })); }
   };
   const cerca = async () => {
     if (!testo.trim()) return;
@@ -250,7 +279,7 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
     if (g) g.consigli.push(c); else gruppi.push({ id: "pil-" + c.id, fonte: "piloti", nome: c.nome, tipo: c.tipo || "Consigliato", emoji: "⭐", lat: c.lat, lon: c.lon, consigli: [c] });
   }
   const tutti = centro ? [
-    ...gruppi.map((g) => ({ ...g, voto: g.consigli.filter((x) => x.voto).reduce((s, x, _, a) => s + x.voto / a.length, 0) })),
+    ...gruppi.map((g) => ({ ...g, voto: g.consigli.filter((x) => x.voto).reduce((s, x, _, a) => s + x.voto / a.length, 0), grazie: g.consigli.reduce((s, x) => s + ((grazie || {})[x.id] || 0), 0), mieiGrazie: g.consigli.some((x) => mieiGrazie[x.id]), mio: !!uid && g.consigli.every((x) => x.user_id === uid) })),
     ...(posti || []).filter((p) => !gruppi.some((g) => distanzaKm(g, p) < 0.3)),
   ].map((p) => ({ ...p, km: distanzaKm(centro, p), zona: statoZona(zone, p) }))
     .filter((p) => p.km <= raggio + 0.5)
@@ -265,7 +294,7 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
     const { error } = await supabase.from("posti_consigliati").insert({ nome: nuovo.nome.trim(), lat: Number(nuovo.lat.toFixed(5)), lon: Number(nuovo.lon.toFixed(5)), tipo: nuovo.tipo || null, nota: nuovo.nota?.trim() || null, voto: nuovo.voto || null });
     setSalvando(false);
     if (error) { alert(/posti_consigliati|relation|schema cache/i.test(error.message) ? "Per consigliare i posti esegui prima lo script supabase/posti-consigliati.sql su Supabase." : "Non riuscito: " + error.message); return; }
-    setNuovo(null);
+    setNuovo(null); setAppenaConsigliato(true);
     if (centro) carica(centro);
   };
   const stChip = (on) => ({ background: on ? "#ff8c42" : "#1a2133", color: on ? "#10141f" : "#e7eaee", border: on ? "none" : "1px solid #343e57", borderRadius: 16, padding: "5px 11px", fontSize: 12, fontWeight: on ? 700 : 500, whiteSpace: "nowrap" });
@@ -296,6 +325,14 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
           <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>Voto: {[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" onClick={() => setNuovo({ ...nuovo, voto: n })} style={{ background: "none", border: "none", fontSize: 20, padding: 0, opacity: n <= nuovo.voto ? 1 : 0.3 }}>⭐</button>)}</div>
           <button type="button" onClick={salvaConsiglio} disabled={!nuovo.nome.trim() || !nuovo.lat || salvando} style={{ background: nuovo.nome.trim() && nuovo.lat ? "#ff8c42" : "#343e57", color: nuovo.nome.trim() && nuovo.lat ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 0", fontSize: 13, fontWeight: 600 }}>{salvando ? "Salvataggio..." : "Consiglia questo posto"}</button>
           <div style={{ fontSize: 10.5, color: "#6b7480" }}>Consiglia solo posti dove si può volare e senza indicare case o proprietà private.</div>
+        </div>
+      )}
+
+      {appenaConsigliato && !nuovo && (
+        <div style={{ background: "#12261b", border: "1px solid #2f6b45", borderRadius: 10, padding: "11px 14px", marginBottom: 14, fontSize: 13, color: "#c9f2d6", display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <span style={{ fontSize: 20 }}>🙌</span>
+          <div style={{ flex: 1 }}><strong>Grazie!</strong> Il tuo posto ora lo vedono i piloti della zona. Quando qualcuno lo trova utile te lo diciamo in Home.</div>
+          <button type="button" onClick={() => setAppenaConsigliato(false)} aria-label="Chiudi" style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 18, padding: 0 }}>×</button>
         </div>
       )}
 
@@ -334,6 +371,7 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
                       <div style={{ fontSize: 14, fontWeight: 700 }}>{p.nome}</div>
                       <div style={{ fontSize: 12, color: "#8b95a3" }}>{p.tipo} · {p.km < 1 ? `${Math.round(p.km * 1000)} m` : `${p.km.toFixed(1)} km`}{p.fonte === "piloti" ? ` · consigliato da ${p.consigli.length} ${p.consigli.length === 1 ? "pilota" : "piloti"}${p.voto ? ` · ${"★".repeat(Math.round(p.voto))}` : ""}` : ""}</div>
                       {p.zona && <div style={{ fontSize: 12, color: p.zona.colore, fontWeight: 600, marginTop: 2 }}>🛡️ {p.zona.testo}</div>}
+                      {p.fonte === "piloti" && (p.mio || p.grazie > 0) && <div style={{ fontSize: 12, color: "#4ade80", marginTop: 2 }}>{p.mio ? "⭐ Il tuo posto" : ""}{p.mio && p.grazie > 0 ? " · " : ""}{p.grazie > 0 ? `👍 utile per ${p.grazie} ${p.grazie === 1 ? "pilota" : "piloti"}` : ""}</div>}
                     </div>
                   </div>
                   {ap && (
@@ -341,6 +379,9 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
                       {p.fonte === "piloti" && p.consigli.filter((c) => c.nota).slice(0, 5).map((c) => <div key={c.id} style={{ fontSize: 12.5, color: "#d6dde6" }}>💬 «{c.nota}»{c.voto ? <span style={{ color: "#f5b942" }}> {"★".repeat(c.voto)}</span> : null}</div>)}
                       {p.zona && p.zona.colore !== "#4ade80" && onZonaRossa && <button type="button" onClick={onZonaRossa} style={{ ...stLink, alignSelf: "flex-start", color: "#ff8c42" }}>🔴 Come si fa a volare qui?</button>}
                       {!p.zona && <div style={{ fontSize: 11.5, color: "#8b95a3" }}>Zona di volo non controllata: verificala su D-Flight prima di andare.</div>}
+                      {p.fonte === "piloti" && grazie && !p.mio && (
+                        <button type="button" onClick={() => cambiaGrazie(p)} style={{ ...stLink, alignSelf: "flex-start", fontSize: 13, fontWeight: 600, color: p.mieiGrazie ? "#10141f" : "#4ade80", background: p.mieiGrazie ? "#4ade80" : "none", borderColor: "#4ade80" }}>{p.mieiGrazie ? "👍 Ti è stato utile · grazie!" : "👍 Utile, grazie a chi l'ha consigliato"}</button>
+                      )}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button type="button" onClick={() => onPianifica({ nome: p.nome, lat: p.lat, lon: p.lon })} style={{ ...stLink, background: "#241d16", color: "#ffb877", borderColor: "#ff8c42" }}>📅 Pianifica qui</button>
                         {onAlGiro && <button type="button" disabled={nelGiro[p.id]} onClick={() => { onAlGiro({ nome: p.nome, lat: p.lat, lon: p.lon }); setNelGiro((x) => ({ ...x, [p.id]: true })); }} style={{ ...stLink, color: nelGiro[p.id] ? "#4ade80" : "#ffb877" }}>{nelGiro[p.id] ? "✓ Nel giro" : "＋ Al giro"}</button>}

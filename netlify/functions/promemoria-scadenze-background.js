@@ -274,12 +274,18 @@ function emailWeekend(u, giorni, oggi = new Date()) {
   const posti = (u.posti || []).filter((p) => p && p.nome);
   const consiglio = consiglioDiStagione(oggi, giorni);
   const link = `${APP_URL}/?vai=pianificazione`;
+  const linkConsiglia = `${APP_URL}/?vai=consiglia`;
+  const grazie = Number(u.grazie) || 0;
+  const testoGrazie = grazie > 0 ? `👍 Questa settimana ${grazie === 1 ? "un pilota ha" : `${grazie} piloti hanno`} trovato utile un posto che hai consigliato. Grazie!` : "";
+  const invitoPosti = posti.length ? "Conosci un altro bel posto qui vicino? Consiglialo agli altri piloti" : `Nessuno ha ancora consigliato un posto vicino a ${zona}: sii il primo, gli altri piloti ti ringrazieranno`;
   const mappa = (p) => `https://www.google.com/maps?q=${Number(p.lat).toFixed(5)},${Number(p.lon).toFixed(5)}`;
   const testo = [
     ciao, "",
+    ...(testoGrazie ? [testoGrazie, ""] : []),
     `Il weekend vicino a ${zona}:`,
     ...migliori.map(({ t }) => `• ${t.nome}, ${t.orario}: ${t.dettagli}`), "",
     ...(posti.length ? ["Posti consigliati dagli altri piloti qui vicino:", ...posti.map((p) => `• ${p.nome} (${String(p.km).replace(".", ",")} km)${p.nota ? `: ${p.nota}` : ""} · ${mappa(p)}`), ""] : []),
+    `${invitoPosti}: ${linkConsiglia}`, "",
     `Consiglio della settimana: ${consiglio}`, "",
     "Prima di volare controlla la zona e i NOTAM su D-Flight.",
     `Meteo ora per ora, zona e luce del posto: ${link}`, "",
@@ -291,8 +297,10 @@ function emailWeekend(u, giorni, oggi = new Date()) {
   const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
     <h2 style="color:#e0552f;margin:0 0 6px">🌤️ Il weekend giusto per volare</h2>
     <p style="font-size:15px;margin-top:0">${html(ciao)} Ecco quando conviene volare vicino a <b>${html(zona)}</b>.</p>
+    ${testoGrazie ? `<p style="font-size:15px;background:#eafaf0;border-radius:8px;padding:10px 12px;color:#1d6b3a"><b>${html(testoGrazie)}</b></p>` : ""}
     <table style="border-collapse:collapse;width:100%;background:#fff7f2;border-radius:8px">${migliori.map(riga).join("")}</table>
     ${posti.length ? `<p style="font-size:15px;margin:18px 0 6px"><b>📍 Posti consigliati qui vicino</b></p><ul style="padding-left:18px;margin:0">${posti.map(posto).join("")}</ul>` : ""}
+    <p style="font-size:14px;margin:12px 0 0">⭐ ${html(invitoPosti)} › <a href="${linkConsiglia}" style="color:#e0552f;font-weight:bold">Consiglia un posto</a></p>
     <p style="font-size:14px;background:#f4f6f8;border-radius:8px;padding:10px 12px;margin-top:18px">💡 <b>Consiglio della settimana:</b> ${html(consiglio)}</p>
     <p style="font-size:13px;color:#a33">Prima di volare controlla la zona e i NOTAM su D-Flight.</p>
     <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Prepara il volo ›</a></p>
