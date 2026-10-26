@@ -12144,9 +12144,11 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     <div style={{ background: "#141c28", border: "1px solid #3d8bfd44", borderRadius: 12, padding: 14, marginTop: 6 }}>
       <div style={{ fontSize: 16, fontWeight: 800 }}>📍 Lavori nella tua zona</div>
       <div style={{ fontSize: 13, color: "#c3cad4", marginTop: 4, lineHeight: 1.5 }}>Clienti che cercano un pilota in provincia di <strong>{PROVINCE_ITALIA[provincia] || provincia}</strong>. Mandi l'offerta; se ti scelgono confermi e ricevi i contatti.</div>
-      {regole && (
+      {regole && regole.percento != null && (
         <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 6, lineHeight: 1.5 }}>
-          💶 Commissione EyeDrones: <strong style={{ color: "#c3cad4" }}>{String(regole.percento).replace(".", ",")}% del prezzo</strong>, minimo {euroIt(regole.minimo)}, massimo {euroIt(regole.massimo)}, solo sui lavori che ottieni.
+          {regole.attiva && Number(regole.percento) > 0
+            ? <>💶 Commissione EyeDrones: <strong style={{ color: "#c3cad4" }}>{String(regole.percento).replace(".", ",")}% del prezzo</strong>, minimo {euroIt(regole.minimo)}, massimo {euroIt(regole.massimo)}, solo sui lavori che ottieni.</>
+            : <>💶 Per ora nessuna commissione: se il cliente ti sceglie, confermi il lavoro e basta.</>}
         </div>
       )}
 
