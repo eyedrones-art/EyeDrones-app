@@ -58,7 +58,21 @@ begin
       'valore', (select coalesce(sum(prezzo), 0) from public.offerte_zona where confermata_il is not null),
       'commissioni', (select coalesce(sum(commissione), 0) from public.offerte_zona where confermata_il is not null),
       'stelle', (select round(avg(stelle)::numeric, 1) from public.offerte_zona where stelle is not null),
-      'recensioni', (select count(*) from public.offerte_zona where stelle is not null)
+      'recensioni', (select count(*) from public.offerte_zona where stelle is not null),
+      -- provincia per provincia: piloti nell'elenco e richieste degli ultimi 90 giorni (dove mancano piloti)
+      'province', (
+        select coalesce(jsonb_agg(jsonb_build_object('provincia', x.provincia, 'piloti', x.piloti, 'richieste', x.richieste) order by x.piloti desc, x.richieste desc, x.provincia), '[]')
+        from (
+          select pr.provincia,
+            (select count(*) from public.pagine_pilota g where upper(btrim(g.provincia)) = pr.provincia and g.attiva and g.in_elenco and not g.escluso_trova and g.scelte_decadute < 2) as piloti,
+            (select count(*) from public.richieste_zona z where upper(btrim(z.provincia)) = pr.provincia and z.created_at > now() - interval '90 days') as richieste
+          from (
+            select distinct upper(btrim(provincia)) as provincia from public.pagine_pilota where provincia is not null and btrim(provincia) <> '' and attiva
+            union
+            select distinct upper(btrim(provincia)) from public.richieste_zona where provincia is not null and created_at > now() - interval '90 days'
+          ) pr
+        ) x
+      )
     );
   end if;
 

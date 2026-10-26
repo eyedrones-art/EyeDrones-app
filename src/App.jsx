@@ -3921,6 +3921,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         {bloccoScadenze}
         <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
         {(droni || []).length > 0 && <AvvisoWeekend inHome />}
+        {(voli || []).length > 0 && <InvitoPaginaPilota onNav={onNav} />}
         {(voli || []).length > 0 && <CommunityPosti voli={voli} />}
         <ConsiglioDelGiorno />
 
@@ -16015,6 +16016,25 @@ function NumeriStartup({ onIndietro }) {
             </div>
           )}
 
+          {conTrova && (t.province || []).length > 0 && (
+            <>
+              <h3 style={{ fontSize: 15, margin: "0 0 4px 0" }}>Piloti per provincia</h3>
+              <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 8px 0" }}>Scrivi ai clienti dove ci sono almeno 5 piloti: altrimenti le richieste restano senza offerte.</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18 }}>
+                {t.province.map((r) => {
+                  const pronto = r.piloti >= 5, scoperta = r.richieste > 0 && r.piloti < 2;
+                  return (
+                    <div key={r.provincia} className="mono" title={`${r.piloti} piloti · ${r.richieste} richieste negli ultimi 90 giorni`} style={{ background: pronto ? "#12261b" : scoperta ? "#2a1616" : "#151b2b", border: `1px solid ${pronto ? "#2f6b45" : scoperta ? "#6b2f2f" : "#2a3349"}`, borderRadius: 8, padding: "6px 10px", fontSize: 12.5, minWidth: 74 }}>
+                      <strong>{r.provincia}</strong> <span style={{ color: pronto ? "#4ade80" : "#e7eaee" }}>{num(r.piloti)}</span>
+                      {r.richieste > 0 && <span style={{ display: "block", fontSize: 10.5, color: scoperta ? "#ff9c9c" : "#8b95a3" }}>{num(r.richieste)} {r.richieste === 1 ? "richiesta" : "richieste"}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: 11, color: "#6b7480", margin: "-10px 0 18px 0" }}>Verde = 5 piloti o più · rosso = richieste ma meno di 2 piloti · richieste degli ultimi 90 giorni.</p>
+            </>
+          )}
+
           <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 8px 0" }}>
             <h3 style={{ fontSize: 15, margin: 0, flex: 1 }}>Mese per mese</h3>
             <button type="button" onClick={copia} style={{ background: copiato ? "#4ade80" : "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>{copiato ? "✓ Copiati" : "📋 Copia i numeri"}</button>
@@ -16040,6 +16060,27 @@ function NumeriStartup({ onIndietro }) {
           <p style={{ fontSize: 11, color: "#6b7480", marginTop: 10 }}>«Usano l'app» = l'hanno aperta almeno un giorno nel mese. «Lavori» = confermati dal pilota in quel mese. Il mese in corso è in alto.</p>
         </>
       )}
+    </div>
+  );
+}
+
+// Home: chi vola ma non è in «Trova un pilota» vede l'invito ad attivare la sua pagina (si chiude con la ×)
+const CHIAVE_PAGINA_INVITO_CHIUSO = "eyedrones_pagina_invito_chiuso";
+function InvitoPaginaPilota({ onNav }) {
+  const [mostra, setMostra] = useState(false);
+  useEffect(() => {
+    if (leggiLocale(CHIAVE_PAGINA_INVITO_CHIUSO) === "si") return;
+    supabase.from("pagine_pilota").select("attiva, in_elenco").maybeSingle()
+      .then(({ data, error }) => { if (!error) setMostra(!data || !data.attiva || data.in_elenco === false); }, () => {});
+  }, []);
+  if (!mostra) return null;
+  const chiudi = () => { scriviLocale(CHIAVE_PAGINA_INVITO_CHIUSO, "si"); setMostra(false); };
+  return (
+    <div style={{ position: "relative", background: "linear-gradient(135deg, #241d16, #151b2b)", border: "1px solid #ff8c4288", borderRadius: 12, padding: 14, marginBottom: 18, maxWidth: 640 }}>
+      <button type="button" onClick={chiudi} aria-label="Non mostrarlo più" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
+      <div style={{ fontSize: 14.5, fontWeight: 700, paddingRight: 30 }}>📍 Fai lavori con il drone?</div>
+      <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4, lineHeight: 1.45 }}>Attiva la tua pagina in 5 minuti: i clienti della tua provincia (matrimoni, case, aziende, agricoltura) ti mandano le richieste e tu scegli a quali rispondere con un'offerta.</div>
+      <button type="button" onClick={() => onNav("pagina-pilota")} style={{ marginTop: 10, background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700, minHeight: 40 }}>Attiva la mia pagina</button>
     </div>
   );
 }
