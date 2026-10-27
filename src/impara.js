@@ -298,7 +298,7 @@ export const LEZIONI = {
     {
       id: "operatore-sts", titolo: "Cosa serve all'operatore",
       punti: [
-        "La dichiarazione dell'operazione STS fatta su D-Flight, prima di iniziare a volare nello scenario.",
+        "La dichiarazione dell'operazione STS fatta solo su D-Flight, prima di iniziare a volare nello scenario. Costa 114 € di diritti ENAC (codice R66-1, su «Servizi online»): il numero della fattura va scritto nella dichiarazione.",
         "Il manuale delle operazioni: come lavori, chi fa cosa, le procedure normali e quelle d'emergenza.",
         "Un piano di risposta alle emergenze (ERP): cosa fare se il drone esce dall'area o cade, chi chiamare.",
         "Personale formato (pilota e, in STS-02, osservatori), droni della classe giusta mantenuti in efficienza e assicurazione RC.",
@@ -344,7 +344,7 @@ export const LEZIONI = {
         "Dentro ci vanno: il modulo di domanda aggiornato di ENAC, il manuale delle operazioni, i documenti a supporto e la ricevuta dei diritti. Tutti elencati in una «master document list» e inviati in un unico file compresso.",
         "Se EASA ha pubblicato un PDRA adatto al tuo volo, alleghi la sua checklist. Se no, serve una valutazione del rischio con il metodo SORA.",
         "Tempi: ENAC chiede di mandare la domanda almeno 90 giorni prima di iniziare. Domande incomplete o su moduli vecchi non vengono prese in carico.",
-        "Costo: 355 € di anticipo dei diritti ENAC, pagati su «Servizi online» con il codice tariffa R66-1A. Dopo, ENAC fa la sorveglianza e ci sono altri diritti.",
+        "Costo: 355 € di anticipo dei diritti ENAC, pagati su «Servizi online» con il codice tariffa R66-1A. A fine pratica può arrivare una fattura di conguaglio; dopo, ENAC fa la sorveglianza con i suoi diritti.",
         "L'autorizzazione vale in tutti i paesi EASA, nei limiti e per la durata scritti dentro.",
         "I voli BVLOS vanno sempre pianificati su D-Flight con una DOP (Regolamento UAS-IT).",
       ],
