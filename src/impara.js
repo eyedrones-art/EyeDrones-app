@@ -349,6 +349,33 @@ export const LEZIONI = {
         "I voli BVLOS vanno sempre pianificati su D-Flight con una DOP (Regolamento UAS-IT).",
       ],
     },
+    {
+      id: "precise-generic", titolo: "Autorizzazione «precise» o «generic»",
+      punti: [
+        "«Precise»: luoghi e periodo sono decisi quando ENAC rilascia l'autorizzazione. Si vola solo lì e solo come scritto, senza cambiare niente.",
+        "«Generic»: periodo deciso, ma il luogo no. Però il volo va ripetuto identico (stessi parametri, stesso rischio) in ogni nuova area.",
+        "La «generic» si dà solo per voli semplici e ripetibili, a rischio basso (al massimo SAIL II), su aree a terra controllate o poco abitate, lontano dagli aeroporti o in spazio aereo riservato.",
+        "Di solito servono un PDRA, oppure un rischio a terra iniziale (iGRC) fino a 3 e un rischio aereo iniziale ARC-b.",
+        "ENAC la concede anche con ARC-c (AEC 8) se: si resta sotto i 30 m senza toccare le zone per la sicurezza degli aerei, si seguono le procedure TMPR «low» e il drone ha un contenimento avanzato (SORA 2.0) o medio (SORA 2.5).",
+        "Nella domanda va scritto chiaramente che è «generic». Nel manuale delle operazioni serve una procedura per valutare ogni nuova area, con il nome di chi la fa (per esempio chi ha fatto un corso SORA) e un modulo da compilare.",
+        "Alla domanda si allega un esempio compilato per una prima area, con le immagini per verificare GRC e ARC e il file KML/KMZ. Per ogni nuova area il modulo va nella cartella della missione e si conserva.",
+      ],
+    },
+    {
+      id: "arc-dflight", titolo: "Il rischio aereo (ARC) letto sulla mappa D-Flight",
+      punti: [
+        "L'ARC dice quanto è probabile incontrare un aereo con pilota: da ARC-a (quasi mai) ad ARC-d (molto probabile). Dipende da tipo di spazio aereo, altezza e territorio sorvolato.",
+        "In Italia fino a 150 m lo spazio aereo è quasi sempre di classe G (non controllato). Dove c'è un CTR, e quindi un ATZ, è controllato di classe D.",
+        "Zona rossa di un aeroporto in spazio controllato, o volo più alto di quanto permette l'Open: sarebbe ARC-d. Ma in Italia lì si vola solo con riserva di spazio aereo, e con la riserva diventa ARC-a (AEC 12).",
+        "Sotto le zone di un aeroporto controllato, restando entro le altezze dell'Open: ARC-c (AEC 8).",
+        "Zone di aeroporti non strumentali, aviosuperfici ed elisuperfici fuori dal CTR: ARC-c, oppure ARC-a con riserva di spazio aereo (AEC 6).",
+        "Campagna in classe G (entro le altezze Open vicino ad aviosuperfici, o in zona bianca su D-Flight): ARC-b (AEC 10).",
+        "Città fuori dalle zone per la sicurezza degli aerei: ARC-c (AEC 9).",
+        "ARC-a (AEC 12) anche dentro zone P, D, R con il nulla osta, con un'area riservata da NOTAM, in classe G fino a 30 m (volume fino a 50 m), o vicino a un ostacolo fuori dalle zone per la sicurezza degli aerei.",
+        "Parchi, siti sensibili e privacy non cambiano l'ARC: conta lo spazio aereo intorno. Un parco vicino a un aeroporto segue le regole dell'aeroporto; un parco in campagna, quelle della campagna.",
+        "Dentro i sedimi aeroportuali e vicino agli aeroporti si vola solo in Specific, con la circolare ATM-09A e misure in più: NOTAM, lettera di accordi (LoA) con il gestore, o lettera di operazioni (LoO) con l'IAM-CC di D-Flight o con il Comando dell'aeroporto militare.",
+      ],
+    },
   ],
 };
 
