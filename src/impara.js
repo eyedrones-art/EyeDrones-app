@@ -101,7 +101,7 @@ export const LEZIONI = {
       id: "registrazione", titolo: "Registrazione, attestato, assicurazione",
       punti: [
         "L'operatore si registra su D-Flight se il drone pesa da 250 g in su oppure ha una fotocamera (giocattoli esclusi).",
-        "Il codice operatore va applicato sul drone (QR D-Flight) e inserito nel Remote ID dei droni che lo hanno (C1, C2, C3).",
+        "Il codice operatore va applicato sul drone (QR D-Flight) e inserito nel Remote ID dei droni che lo hanno (C1, C2, C3, C5, C6). In categoria Specific il Remote ID diretto serve su tutti i droni.",
         "Con un C0 basta leggere il manuale del costruttore; dal C1 in su serve l'attestato A1/A3.",
         "Attestato A1/A3: corso online ENAC e test di 40 domande in 60 minuti. Vale 5 anni.",
         "In Italia serve un'assicurazione di responsabilità civile verso terzi: tienila sempre a portata di mano.",
@@ -302,6 +302,7 @@ export const LEZIONI = {
         "Il manuale delle operazioni: come lavori, chi fa cosa, le procedure normali e quelle d'emergenza.",
         "Un piano di risposta alle emergenze (ERP): cosa fare se il drone esce dall'area o cade, chi chiamare.",
         "Personale formato (pilota e, in STS-02, osservatori), droni della classe giusta mantenuti in efficienza e assicurazione RC.",
+        "Remote ID diretto attivo su tutti i droni usati in Specific (Reg. UE 2019/945), con il tuo codice operatore inserito.",
         "Prima di ogni volo: zone geografiche e NOTAM, meteo, area controllata a terra delimitata, briefing alla squadra.",
       ],
     },
