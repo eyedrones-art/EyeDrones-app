@@ -376,6 +376,30 @@ export const LEZIONI = {
         "Dentro i sedimi aeroportuali e vicino agli aeroporti si vola solo in Specific, con la circolare ATM-09A e misure in più: NOTAM, lettera di accordi (LoA) con il gestore, o lettera di operazioni (LoO) con l'IAM-CC di D-Flight o con il Comando dell'aeroporto militare.",
       ],
     },
+    {
+      id: "aeroporti-mitigazioni", titolo: "Vicino agli aeroporti: cosa serve in più",
+      punti: [
+        "Per ENAC l'«ambiente aeroportuale» sono tutte le zone geografiche fatte per la sicurezza intorno ad aeroporti, eliporti, aviosuperfici ed elisuperfici. Lì si vola solo in Specific, con la circolare ATM-09A.",
+        "Dentro un aeroporto civile controllato: niente NOTAM, ma sempre in coordinamento con l'ente ATS (la torre), con la procedura del Regolamento di scalo o una lettera di accordi (LoA) con tutti gli interessati.",
+        "Dentro un aeroporto non controllato, aviosuperficie o elisuperficie fuori dal CTR: riserva di spazio aereo con NOTAM e LoA con il gestore. L'aerodromo non deve chiudere, se la LoA non lo prevede.",
+        "Se quell'aviosuperficie è dentro il CTR di un aeroporto controllato e il volo tocca anche le sue zone, valgono anche le regole dell'aeroporto controllato.",
+        "Fuori dall'aeroporto controllato ma dentro una delle sue zone: NOTAM (salvo i casi della GENDISP del 27/04/2022) e lettera di operazioni (LoO) con l'IAM-CC di D-Flight se lo spazio è civile, o con il Comando dell'aeroporto se è militare.",
+        "Fuori da un'aviosuperficie, in classe G ma dentro la sua zona: NOTAM (salvo i casi della GENDISP) e LoA con il gestore.",
+        "In classe G fuori dalle zone, ma sopra i 120 m: NOTAM. Nelle «aree tattiche» militari: NOTAM.",
+        "Sugli aeroporti militari decide il Comando. In classe G, fuori da tutti questi casi, non servono misure in più.",
+      ],
+    },
+    {
+      id: "altri-casi", titolo: "Altri casi utili da sapere",
+      punti: [
+        "Agricoltura e foreste (irrorazioni, semina, lotta biologica, monitoraggio, mappatura): in Open se si può, altrimenti in Specific con STS (C5 o C6), con PDRA o SORA, oppure con la valutazione semplificata ENAC (AltMoC IT-UAS-2026-002) che dà l'autorizzazione in tempi brevi.",
+        "Con la valutazione semplificata ti prendi tutta la responsabilità, ENAC fa i controlli e devi conservare i documenti.",
+        "LUC (certificato di operatore leggero): permette di autorizzarti da solo, nei limiti del certificato. Serve un sistema di gestione della sicurezza (SMS) strutturato.",
+        "Piloti stranieri con autorizzazione del loro paese: domanda per operazioni transfrontaliere a mobilita.innovativa@enac.gov.it almeno 60 giorni prima; acconto 353 € + 2 € di bollo (+ diritti per la riserva di spazio aereo, se serve).",
+        "Stranieri in STS: mandano a ENAC la copia della dichiarazione e della ricevuta del loro paese. Per lo STS-02 si registrano su D-Flight solo per mandare la DOP.",
+        "Fatture ENAC: il nome dell'operatore registrato su D-Flight (anche se è una società) deve essere lo stesso di chi riceve la fattura.",
+      ],
+    },
   ],
 };
 

@@ -7441,7 +7441,7 @@ const CHECKLIST_SPECIFICHE = {
   ] },
   agricoltura: { titolo: "🌾 Controlli agricoltura", voci: [
     "Trattamenti: verificato cosa è consentito oggi (Legge 182/2025, decreto attuativo, etichetta del prodotto che preveda l'uso aereo)",
-    "Operazione in categoria Specifica: autorizzazione ENAC o PDRA adatta al drone (spesso oltre 25 kg)",
+    "Operazione in categoria Specifica (spesso oltre 25 kg): STS con drone C5/C6, autorizzazione ENAC con PDRA o SORA, oppure la valutazione semplificata ENAC per l'agricoltura (AltMoC IT-UAS-2026-002)",
     "Area delimitata, nessuna persona estranea; distanze da case, strade e corsi d'acqua",
     "Vento basso per evitare la deriva del prodotto",
     "Prodotto, dosaggio e serbatoio controllati; dispositivi di protezione indossati",
@@ -8700,7 +8700,7 @@ function CalcolatoreTrattamento() {
         <span>🛢️ {pieni} {pieni === 1 ? "pieno" : "pieni"} del serbatoio</span>
         <span>⏱️ circa {ore.toLocaleString("it-IT", { maximumFractionDigits: 1 })} ore</span>
       </div>
-      <p style={{ fontSize: 11, color: "#ffb877", margin: "8px 0 0 0", lineHeight: 1.5 }}>Trattamenti con prodotti fitosanitari: la Legge 182/2025 ha aperto una sperimentazione fino al 2028, ma servono il decreto attuativo, un prodotto la cui etichetta preveda l'uso aereo e le abilitazioni del pilota (es. PDRA-S01). Prima di ogni lavoro verifica che cosa è consentito oggi. La mappatura multispettrale (NDVI) segue invece le regole normali di volo.</p>
+      <p style={{ fontSize: 11, color: "#ffb877", margin: "8px 0 0 0", lineHeight: 1.5 }}>Trattamenti con prodotti fitosanitari: la Legge 182/2025 ha aperto una sperimentazione fino al 2028, ma servono il decreto attuativo, un prodotto la cui etichetta preveda l'uso aereo e le abilitazioni del pilota (es. PDRA-S01). Per il volo in Specific ENAC ha una valutazione del rischio semplificata per agricoltura e foreste (AltMoC IT-UAS-2026-002), con autorizzazione in tempi brevi. Prima di ogni lavoro verifica che cosa è consentito oggi. La mappatura multispettrale (NDVI) segue invece le regole normali di volo.</p>
     </div>
   );
 }
