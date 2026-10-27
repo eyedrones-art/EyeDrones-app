@@ -335,7 +335,21 @@ export const LEZIONI = {
         "Il lavoro in squadra (CRM) serve a non sbagliare per fretta o malinteso: chi vede un problema lo dice subito.",
         "Controlla sempre zone geografiche e NOTAM: in STS valgono le stesse zone di D-Flight dell'Open.",
       ],
-    },  ],
+    },
+    {
+      id: "autorizzazione-enac", titolo: "Quando non basta lo STS: l'autorizzazione ENAC",
+      punti: [
+        "Se il lavoro non rientra in uno scenario standard (e non hai un LUC), serve un'autorizzazione operativa di ENAC.",
+        "La domanda si manda via PEC a protocollo@pec.enac.gov.it, alla Direzione Regolazione e Ricerca Mobilità Innovativa.",
+        "Dentro ci vanno: il modulo di domanda aggiornato di ENAC, il manuale delle operazioni, i documenti a supporto e la ricevuta dei diritti. Tutti elencati in una «master document list» e inviati in un unico file compresso.",
+        "Se EASA ha pubblicato un PDRA adatto al tuo volo, alleghi la sua checklist. Se no, serve una valutazione del rischio con il metodo SORA.",
+        "Tempi: ENAC chiede di mandare la domanda almeno 90 giorni prima di iniziare. Domande incomplete o su moduli vecchi non vengono prese in carico.",
+        "Costo: 355 € di anticipo dei diritti ENAC, pagati su «Servizi online» con il codice tariffa R66-1A. Dopo, ENAC fa la sorveglianza e ci sono altri diritti.",
+        "L'autorizzazione vale in tutti i paesi EASA, nei limiti e per la durata scritti dentro.",
+        "I voli BVLOS vanno sempre pianificati su D-Flight con una DOP (Regolamento UAS-IT).",
+      ],
+    },
+  ],
 };
 
 // Guida «zona rossa», scritta per chi ha appena iniziato. Fonti: ENAC «Voli con droni (UAS): limitazioni e riserve
