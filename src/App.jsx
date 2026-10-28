@@ -11704,7 +11704,7 @@ function PaginaPilotaPubblica({ slug }) {
           {codiceFirmato && vediCodice && (
             <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ fontSize: 13, color: "#c3cad4" }}>Questo pilota si è impegnato a rispettare il codice di condotta dei piloti di EyeDrones:</div>
-              {CODICE_CONDOTTA.map((c) => <div key={c.titolo} style={{ fontSize: 12.5, color: "#aab3c2", lineHeight: 1.45 }}><span>{c.emoji} </span><strong style={{ color: "#e7eaee" }}>{c.titolo}.</strong> {c.testo}</div>)}
+              {CODICE_CONDOTTA.map((c) => <div key={c.titolo} style={{ fontSize: 12.5, color: "#aab3c2", lineHeight: 1.45 }}><span>{c.emoji} </span><strong style={{ color: "#e7eaee" }}>{c.titolo}.</strong> {c.cliente}</div>)}
               <div style={{ fontSize: 11.5, color: "#6b7480" }}>Se qualcosa non va, scrivi a <a href="mailto:info@eyedrones.it" style={{ color: "#ffb877" }}>info@eyedrones.it</a>.</div>
             </div>
           )}
