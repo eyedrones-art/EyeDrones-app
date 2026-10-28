@@ -16,6 +16,7 @@ import { GIRO_VUOTO, giroUsato, aggiungiAllaCoda, prendiCoda, tappaDa, MAX_TAPPE
 import { SPAZI, spaziAttivi, moduliDa, leggiSpazio, scriviSpazio, spazioDalLink, linkUsato } from "./spazi.js";
 import { DRONI_CAMERE, CAMERA_MANUALE, trovaCamera, cameraDelDrone } from "./camereRilievo.js";
 import { rinnovoPer } from "./rinnovi.js";
+import { CODICE_CONDOTTA } from "./codiceCondotta.js";
 import VoloHero, { STILE_VOLO, TestataPagina, STILE_TESTATA } from "./VoloHero.jsx";
 import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
 import Elio, { ElioDice, STILE_ELIO, useElio, accendiElio } from "./Elio.jsx";
@@ -11590,6 +11591,9 @@ function PaginaPilotaPubblica({ slug }) {
   const formRef = useRef(null);
   const [recensioni, setRecensioni] = useState(null); // le stelle dei clienti di «Trova un pilota»
   useEffect(() => { supabase.rpc("recensioni_pilota", { p_slug: slug }).then(({ data }) => setRecensioni(data || null), () => {}); }, [slug]);
+  const [codiceFirmato, setCodiceFirmato] = useState(false); // ha firmato il codice di condotta (script codice-condotta.sql)
+  const [vediCodice, setVediCodice] = useState(false);
+  useEffect(() => { supabase.rpc("codice_condotta_pilota", { p_slug: slug }).then(({ data, error }) => setCodiceFirmato(!error && data === true), () => {}); }, [slug]);
 
   useEffect(() => {
     let annullato = false;
@@ -11689,11 +11693,19 @@ function PaginaPilotaPubblica({ slug }) {
               </div>
             </div>
           </div>
-          {(dati.codice_operatore || dati.assicurato || abilitazioni.length > 0) && (
+          {(dati.codice_operatore || dati.assicurato || abilitazioni.length > 0 || codiceFirmato) && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {codiceFirmato && <button type="button" onClick={() => setVediCodice(!vediCodice)} style={{ fontSize: 12, background: "#3a2a1c", border: "1px solid #7a4a22", color: "#ffb877", borderRadius: 20, padding: "3px 10px", cursor: "pointer" }}>📜 Ha firmato il codice di condotta EyeDrones {vediCodice ? "▴" : "▾"}</button>}
               {dati.codice_operatore && <span style={{ fontSize: 12, background: "#16263d", border: "1px solid #24456e", color: "#9cc4ff", borderRadius: 20, padding: "3px 10px" }}>✓ Operatore registrato</span>}
               {dati.assicurato && <span style={{ fontSize: 12, background: "#1d3a2a", border: "1px solid #2c5a3f", color: "#86efac", borderRadius: 20, padding: "3px 10px" }}>✓ Assicurazione RC</span>}
               {abilitazioni.slice(0, 3).map((a) => <span key={a} style={{ fontSize: 12, background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 20, padding: "3px 10px" }}>{a}</span>)}
+            </div>
+          )}
+          {codiceFirmato && vediCodice && (
+            <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 13, color: "#c3cad4" }}>Questo pilota si è impegnato a rispettare il codice di condotta dei piloti di EyeDrones:</div>
+              {CODICE_CONDOTTA.map((c) => <div key={c.titolo} style={{ fontSize: 12.5, color: "#aab3c2", lineHeight: 1.45 }}><span>{c.emoji} </span><strong style={{ color: "#e7eaee" }}>{c.titolo}.</strong> {c.testo}</div>)}
+              <div style={{ fontSize: 11.5, color: "#6b7480" }}>Se qualcosa non va, scrivi a <a href="mailto:info@eyedrones.it" style={{ color: "#ffb877" }}>info@eyedrones.it</a>.</div>
             </div>
           )}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -12352,6 +12364,16 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
   const avvisoDisponibile = !!salvata && "avviso_email" in salvata;
   // e in_elenco solo dopo trova-pilota.sql
   const elencoDisponibile = !!salvata && "in_elenco" in salvata;
+  // e codice_firmato_il solo dopo codice-condotta.sql
+  const codiceDisponibile = !!salvata && "codice_firmato_il" in salvata;
+  const codiceFirmato = codiceDisponibile && !!salvata.codice_firmato_il;
+  const [firmaCodice, setFirmaCodice] = useState(null); // null | "firmo" | messaggio d'errore
+  const firmaIlCodice = async () => {
+    setFirmaCodice("firmo");
+    const { data, error } = await supabase.from("pagine_pilota").update({ codice_firmato_il: new Date().toISOString() }).eq("user_id", salvata.user_id).select().single();
+    if (error) { setFirmaCodice("Firma non riuscita: " + error.message); return; }
+    setSalvata(data); setFirmaCodice(null);
+  };
 
   const caricaRichieste = async () => {
     const { data, error } = await supabase.from("richieste_preventivo").select("*").order("created_at", { ascending: false });
@@ -12438,6 +12460,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
   const mancanti = elencoMancanti.map((m) => m.testo);
 
   const salva = async (attiva = f.attiva) => {
+    if (attiva && codiceDisponibile && !codiceFirmato && f.in_elenco) { setSalvataggio("Per comparire in «Trova un pilota» firma prima il codice di condotta, qui sopra."); return; }
     if (attiva && elencoMancanti.length) { setSalvataggio(`Per pubblicare manca ${mancanti.join(", ")}.`); vaiAlCampo(elencoMancanti[0].campo); return; }
     if (!slugValido(slugPulito)) { setSalvataggio("Scrivi l'indirizzo della pagina (in alto): da 3 a 40 caratteri, solo lettere minuscole, numeri e trattini."); vaiAlCampo("slug"); return; }
     setSalvataggio("salvo");
@@ -12698,6 +12721,31 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
               <label><span style={etichetta}>Instagram</span><input value={f.instagram} onChange={cambia("instagram")} maxLength={100} placeholder="@nomeutente" style={inputStyle} /></label>
             </div>
           </div>
+
+          {codiceDisponibile && (
+            <div style={{ ...sezione, borderColor: codiceFirmato ? "#2c5a3f" : "#ff8c4288" }}>
+              <h2 style={titoloSezione}>📜 Codice di condotta dei piloti {codiceFirmato && <span style={{ fontSize: 12, fontWeight: 600, color: "#4ade80" }}>· ✓ firmato il {new Date(salvata.codice_firmato_il).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}</span>}</h2>
+              <p style={{ fontSize: 12.5, color: "#8b95a3", margin: 0, lineHeight: 1.5 }}>{codiceFirmato ? "I clienti vedono sulla tua pagina il bollino «Ha firmato il codice di condotta EyeDrones»." : "Per comparire in «Trova un pilota» si firma una volta sola. I clienti vedranno sulla tua pagina che l'hai firmato: è una garanzia in più per sceglierti."}</p>
+              <details open={!codiceFirmato}>
+                <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#c3cad4" }}>Leggi gli 8 punti</summary>
+                <ol style={{ margin: "10px 0 0 0", paddingLeft: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
+                  {CODICE_CONDOTTA.map((c, i) => (
+                    <li key={c.titolo} style={{ display: "flex", gap: 10 }}>
+                      <span style={{ fontSize: 20, flexShrink: 0 }}>{c.emoji}</span>
+                      <span><strong style={{ fontSize: 13.5 }}>{i + 1}. {c.titolo}</strong><span style={{ display: "block", fontSize: 12.5, color: "#aab3c2", lineHeight: 1.5, marginTop: 2 }}>{c.testo}</span></span>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+              {!codiceFirmato && (
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <button type="button" onClick={firmaIlCodice} disabled={firmaCodice === "firmo"} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 700, fontSize: 13.5 }}>{firmaCodice === "firmo" ? "Firmo…" : "✍️ Firmo il codice di condotta"}</button>
+                  <span style={{ fontSize: 11.5, color: "#6b7480" }}>Firmando accetti di rispettare questi punti. Se non li rispetti, EyeDrones può toglierti da «Trova un pilota».</span>
+                  {firmaCodice && firmaCodice !== "firmo" && <span style={{ fontSize: 12, color: "#ff9c9c" }}>{firmaCodice}</span>}
+                </div>
+              )}
+            </div>
+          )}
 
           {elencoDisponibile && (
             <label style={{ ...sezione, flexDirection: "row", alignItems: "center", gap: 10, cursor: "pointer" }}>
