@@ -11591,9 +11591,6 @@ function PaginaPilotaPubblica({ slug }) {
   const formRef = useRef(null);
   const [recensioni, setRecensioni] = useState(null); // le stelle dei clienti di «Trova un pilota»
   useEffect(() => { supabase.rpc("recensioni_pilota", { p_slug: slug }).then(({ data }) => setRecensioni(data || null), () => {}); }, [slug]);
-  const [codiceFirmato, setCodiceFirmato] = useState(false); // ha firmato il codice di condotta (script codice-condotta.sql)
-  const [vediCodice, setVediCodice] = useState(false);
-  useEffect(() => { supabase.rpc("codice_condotta_pilota", { p_slug: slug }).then(({ data, error }) => setCodiceFirmato(!error && data === true), () => {}); }, [slug]);
 
   useEffect(() => {
     let annullato = false;
@@ -11693,19 +11690,11 @@ function PaginaPilotaPubblica({ slug }) {
               </div>
             </div>
           </div>
-          {(dati.codice_operatore || dati.assicurato || abilitazioni.length > 0 || codiceFirmato) && (
+          {(dati.codice_operatore || dati.assicurato || abilitazioni.length > 0) && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {codiceFirmato && <button type="button" onClick={() => setVediCodice(!vediCodice)} style={{ fontSize: 12, background: "#3a2a1c", border: "1px solid #7a4a22", color: "#ffb877", borderRadius: 20, padding: "3px 10px", cursor: "pointer" }}>📜 Ha firmato il codice di condotta EyeDrones {vediCodice ? "▴" : "▾"}</button>}
               {dati.codice_operatore && <span style={{ fontSize: 12, background: "#16263d", border: "1px solid #24456e", color: "#9cc4ff", borderRadius: 20, padding: "3px 10px" }}>✓ Operatore registrato</span>}
               {dati.assicurato && <span style={{ fontSize: 12, background: "#1d3a2a", border: "1px solid #2c5a3f", color: "#86efac", borderRadius: 20, padding: "3px 10px" }}>✓ Assicurazione RC</span>}
               {abilitazioni.slice(0, 3).map((a) => <span key={a} style={{ fontSize: 12, background: "#232b3f", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 20, padding: "3px 10px" }}>{a}</span>)}
-            </div>
-          )}
-          {codiceFirmato && vediCodice && (
-            <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ fontSize: 13, color: "#8b95a3" }}>Questo pilota si è impegnato a:</div>
-              {CODICE_CONDOTTA.map((c) => <div key={c.titolo} style={{ fontSize: 13, color: "#d5dae1", lineHeight: 1.4 }}>{c.emoji} {c.cliente}</div>)}
-              <div style={{ fontSize: 11.5, color: "#6b7480" }}>Se qualcosa non va, scrivi a <a href="mailto:info@eyedrones.it" style={{ color: "#ffb877" }}>info@eyedrones.it</a>.</div>
             </div>
           )}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -12725,7 +12714,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
           {codiceDisponibile && (
             <div style={{ ...sezione, borderColor: codiceFirmato ? "#2c5a3f" : "#ff8c4288" }}>
               <h2 style={titoloSezione}>📜 Codice di condotta dei piloti {codiceFirmato && <span style={{ fontSize: 12, fontWeight: 600, color: "#4ade80" }}>· ✓ firmato il {new Date(salvata.codice_firmato_il).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}</span>}</h2>
-              <p style={{ fontSize: 12.5, color: "#8b95a3", margin: 0, lineHeight: 1.5 }}>{codiceFirmato ? "I clienti vedono sulla tua pagina il bollino «Ha firmato il codice di condotta EyeDrones»." : "Per comparire in «Trova un pilota» si firma una volta sola. I clienti vedranno sulla tua pagina che l'hai firmato: è una garanzia in più per sceglierti."}</p>
+              <p style={{ fontSize: 12.5, color: "#8b95a3", margin: 0, lineHeight: 1.5 }}>{codiceFirmato ? "Grazie: puoi comparire in «Trova un pilota». Sono le regole tra te ed EyeDrones per lavorare con i clienti." : "Sono le regole tra te ed EyeDrones per lavorare con i clienti di «Trova un pilota». Si firma una volta sola e serve per comparire nell'elenco."}</p>
               <details open={!codiceFirmato}>
                 <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#c3cad4" }}>Leggi gli 8 punti</summary>
                 <ol style={{ margin: "10px 0 0 0", paddingLeft: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10 }}>
