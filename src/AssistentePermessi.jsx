@@ -312,7 +312,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
           {zoneDaMostrare.length === 0 && (
             <div style={{ borderLeft: "3px solid #4ade80", background: "#4ade8012", borderRadius: 6, padding: "10px 12px", fontSize: 13 }}>
               <strong style={{ color: "#4ade80" }}>✓ Nessuna zona geografica qui: non devi chiedere permessi per lo spazio aereo.</strong>
-              <div style={{ color: "#c3cad4", marginTop: 4 }}>Valgono le regole della tua categoria (Open: massimo 120 m, drone sempre in vista). Controlla comunque i <strong>NOTAM</strong> su D-Flight il giorno prima: eventi, elisoccorso ed esercitazioni non sempre sono nel file.</div>
+              <div style={{ color: "#c3cad4", marginTop: 4 }}>Valgono le regole della tua categoria (Open: massimo 120 m, drone sempre in vista). Controlla comunque i <strong>NOTAM</strong> su D-Flight il giorno prima e la mattina del volo: eventi, elisoccorso ed esercitazioni non sempre sono nel file.</div>
             </div>
           )}
 
@@ -407,7 +407,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
                   </div>
                 </div>
               ))}
-              {Array.isArray(alternative) && alternative.length > 0 && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 8 }}>✓ Zone già controllate da me, anche 100 m tutto intorno: non devi riguardarle su D-Flight. Come per ogni volo, il giorno prima guarda solo i NOTAM (eventi, elisoccorso). Sul posto controlla che sia sicuro (persone, strade, cavi), in A1/A3 stai lontano da case e persone, e se decolli da un terreno privato chiedi al proprietario.</div>}
+              {Array.isArray(alternative) && alternative.length > 0 && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 8 }}>✓ Zone già controllate da me, anche 100 m tutto intorno: non devi riguardarle su D-Flight. Come per ogni volo, il giorno prima e la mattina del volo guarda solo i NOTAM (eventi, elisoccorso). Sul posto controlla che sia sicuro (persone, strade, cavi), in A1/A3 stai lontano da case e persone, e se decolli da un terreno privato chiedi al proprietario.</div>}
             </div>
           )}
 
