@@ -11,6 +11,8 @@
 //   miei_lavori        al cliente: il link a «I miei lavori» (tutte le sue richieste)
 // Alle email per i clienti il database aggiunge «cliente»: il codice del loro link «I miei lavori».
 // Variabili su Netlify: RESEND_API_KEY, AVVISO_SEGRETO, AVVISO_MITTENTE (facoltativa), come per avviso-richiesta.js
+// Se ci sono anche TELEGRAM_TOKEN e TELEGRAM_CHAT_ID (assistente-telegram.js), all'amministratore arriva un messaggio
+// Telegram per ogni richiesta nuova e ogni lavoro confermato: solo servizio e provincia, mai i dati del cliente.
 const crypto = require("crypto");
 
 const APP_URL = "https://app.eyedrones.it";
@@ -233,6 +235,21 @@ function componiEmail(d) {
 
 exports.componiEmail = componiEmail;
 
+// avviso Telegram all'amministratore (facoltativo): solo cosa e dove, niente dati personali
+async function avvisaTelegram(d) {
+  const { TELEGRAM_TOKEN: token, TELEGRAM_CHAT_ID: chat } = process.env;
+  if (!token || !chat) return;
+  const prov = pulisci(d.provincia, 4).toUpperCase();
+  let testo = null;
+  if (d.tipo === "richiesta_inviata") testo = `📍 Nuova richiesta su «Trova un pilota» in provincia di ${prov || "?"} · piloti avvisati: ${Number(d.piloti) || 0}${Number(d.piloti) ? "" : " ⚠️ nessun pilota in zona"}`;
+  else if (d.tipo === "confermato") testo = `✅ Lavoro confermato su «Trova un pilota»${Number(d.prezzo) ? ` · ${euro(d.prezzo)}` : ""}`;
+  if (!testo) return;
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chat, text: testo, disable_web_page_preview: true }),
+  }).catch(() => null);
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return risposta(405, "Solo POST");
   const segreto = process.env.AVVISO_SEGRETO;
@@ -242,6 +259,7 @@ exports.handler = async (event) => {
 
   let d;
   try { d = JSON.parse(event.body || "{}"); } catch { return risposta(400, "JSON non valido"); }
+  await avvisaTelegram(d);
   const m = componiEmail(d);
   if (!m) return risposta(400, "Tipo sconosciuto");
   const a = m.a.filter(emailValida);
