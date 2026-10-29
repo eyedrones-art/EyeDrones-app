@@ -437,7 +437,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
       )}
 
       {/* 3) richiesta */}
-      {scelta && <ModuloRichiesta key={(scelta.zona.id || scelta.zona.nome) + scelta.tipo + (scelta.libero ? scelta.libero.id : "") + (luogo ? luogo.comune : "")} scelta={scelta} punto={punto} luogo={luogo} categoria={categoria} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={onSalva} />}
+      {scelta && <ModuloRichiesta key={(scelta.zona.id || scelta.zona.nome) + scelta.tipo + (scelta.libero ? scelta.libero.id : "") + (luogo ? luogo.comune : "")} scelta={scelta} punto={punto} cercaIndirizzo={cercaIndirizzo} zoneQui={archivio ? (p) => controllaPunto(zoneValide, p, { raggio: 0 }).dentro : null} luogo={luogo} categoria={categoria} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={onSalva} />}
 
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>
         Basato sul tuo file zone D-Flight e sulla Circolare ENAC ATM-09A. ENAC sta preparando un nuovo regolamento sulle zone geografiche: quando entra in vigore alcune regole possono cambiare. La verifica ufficiale resta su D-Flight.
@@ -450,7 +450,7 @@ function Campo({ label, children, largo }) {
   return <label style={{ display: "block", gridColumn: largo ? "1 / -1" : undefined }}><span style={st.etich}>{label}</span>{children}</label>;
 }
 
-function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emailUtente, onSalva }) {
+function ModuloRichiesta({ scelta, punto, cercaIndirizzo, zoneQui, luogo, categoria, droni, azienda, emailUtente, onSalva }) {
   const aeroporto = scelta.tipo === "aeroporto";
   const atm05 = scelta.tipo === "atm05";
   const ricordo = leggiRichiedente();
@@ -469,6 +469,24 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     sicurezza: "Volo in VLOS con osservatore. Area di decollo e atterraggio delimitata e senza pubblico. Drone con geofence e ritorno automatico attivi.",
   }));
   const [fatto, setFatto] = useState(null);
+  // altre aree nella stessa richiesta (es. Duomo e piazza Castello sotto la stessa zona di Milano)
+  const [aree, setAree] = useState([]); // { localita, lat, lon, raggio, fuori }
+  const [nuovaArea, setNuovaArea] = useState("");
+  const [cercoArea, setCercoArea] = useState(false);
+  const [erroreArea, setErroreArea] = useState(null);
+  const aggiungiArea = async () => {
+    const t = nuovaArea.trim(); if (!t) return;
+    setCercoArea(true); setErroreArea(null);
+    const c = /^\s*(-?\d{1,2}[.,]\d+)\s*[,;\s]\s*(-?\d{1,3}[.,]\d+)\s*$/.exec(t);
+    const p = c ? { lat: Number(c[1].replace(",", ".")), lon: Number(c[2].replace(",", ".")) } : await cercaIndirizzo(t).catch(() => null);
+    setCercoArea(false);
+    if (!p) { setErroreArea("Non trovo questo posto: prova con via e comune."); return; }
+    // con il file delle zone controllo che sia nella stessa zona
+    const fuori = zoneQui && !libero && scelta.zona.id ? !zoneQui(p).some((z) => z.id === scelta.zona.id) : false;
+    setAree([...aree, { localita: c ? "" : t, lat: p.lat, lon: p.lon, raggio: f.raggio, fuori }]);
+    setNuovaArea("");
+  };
+  const cambiaArea = (i, k) => (e) => setAree(aree.map((a, j) => (j === i ? { ...a, [k]: e.target.value } : a)));
   const libero = scelta.libero || null;
   const avviso = libero?.id === "polizia"; // alla Polizia locale si manda un avviso, non una richiesta di nulla osta
   const nomeProposto = atm05
@@ -489,6 +507,9 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
   const entro = giorni && f.dataDa ? meno(f.dataDa, giorni) : null;
   const tardi = entro && entro < oggiIso();
   const coord = coordinateDms(punto.lat, punto.lon);
+  const elencoAree = [{ localita: f.localita, lat: punto.lat, lon: punto.lon, raggio: f.raggio }, ...aree]
+    .map((a) => ({ ...a, testo: `${a.localita ? `${a.localita} – ` : ""}${coordinateDms(a.lat, a.lon)} – raggio ${a.raggio} m` }));
+  const notaAree = aree.length ? ` Aree di volo: ${aree.length + 1}, elencate nella pagina allegata.` : "";
   const periodo = f.dataDa ? `${f.dataA && f.dataA !== f.dataDa ? `dal ${dataIt(f.dataDa)} al ${dataIt(f.dataA)}` : `il ${dataIt(f.dataDa)}`}, dalle ${f.oraDa} alle ${f.oraA} (ora locale)` : "";
   const categoriaTesto = categoria === "open" ? "categoria Open" : f.autorizzazione ? `categoria Specific – ${f.autorizzazione}` : "categoria Specific";
   const richiedente = [f.nome, f.operatore ? `operatore UAS ${f.operatore}` : null, categoria === "specific" && f.autorizzazione ? f.autorizzazione : null].filter(Boolean).join(" – ");
@@ -542,8 +563,10 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     `• Richiedente: ${richiedente || "—"}`,
     `• Attività: ${f.attivita}, in VLOS, ${categoriaTesto}`,
     `• Drone: ${descrDrone || "—"}`,
-    `• Luogo: ${[f.localita, `coordinate ${coord} (WGS84)`].filter(Boolean).join(" – ")}`,
-    `• Area: raggio ${f.raggio} m dal punto, altezza massima ${f.altezza} m dal suolo (${piedi(f.altezza)} ft AGL)`,
+    ...(aree.length
+      ? [`• Aree di volo (${aree.length + 1}), altezza massima ${f.altezza} m dal suolo (${piedi(f.altezza)} ft AGL), coordinate WGS84:`, ...elencoAree.map((a, i) => `  ${i + 1}) ${a.testo}`)]
+      : [`• Luogo: ${[f.localita, `coordinate ${coord} (WGS84)`].filter(Boolean).join(" – ")}`,
+        `• Area: raggio ${f.raggio} m dal punto, altezza massima ${f.altezza} m dal suolo (${piedi(f.altezza)} ft AGL)`]),
     `• Quando: ${periodo || "—"}`,
     ...(f.riserva && f.dataA && f.dataA !== f.dataDa ? ["  (chiedo qualche giorno in più per poter spostare il volo in caso di maltempo)"] : []),
     `• Sicurezza: ${f.sicurezza}`,
@@ -562,10 +585,25 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
 
   const ricorda = () => { try { localStorage.setItem(CHIAVE_RICHIEDENTE, JSON.stringify({ nome: f.nome, operatore: f.operatore, autorizzazione: f.autorizzazione, telefono: f.telefono, email: f.email })); } catch { /* niente */ } };
 
+  // con più aree aggiungo al modello una pagina con l'elenco
+  const paginaAree = async (pdf, StandardFonts, rgb) => {
+    if (!aree.length) return;
+    const font = await pdf.embedFont(StandardFonts.Helvetica), grassetto = await pdf.embedFont(StandardFonts.HelveticaBold);
+    const pg = pdf.addPage([595, 842]);
+    const pulito = (t) => String(t || "").replace(/[^\x20-\x7E\xA0-\xFF–—]/g, "");
+    let y = 780;
+    pg.drawText("Allegato - Aree di volo", { x: 50, y, size: 14, font: grassetto }); y -= 22;
+    pg.drawText(pulito(`Altezza massima ${f.altezza} m dal suolo (${piedi(f.altezza)} ft AGL) - ${periodo}`), { x: 50, y, size: 10, font }); y -= 26;
+    elencoAree.forEach((a, i) => {
+      pg.drawText(pulito(`${i + 1}) ${a.localita || "Area"}`), { x: 50, y, size: 11, font: grassetto }); y -= 15;
+      pg.drawText(pulito(`Centro ${coordinateDms(a.lat, a.lon)} (WGS84) - raggio ${a.raggio} m (${(a.raggio / 1852).toFixed(2)} NM)`), { x: 64, y, size: 10, font, color: rgb(0.1, 0.1, 0.1) }); y -= 24;
+    });
+  };
+
   // Modello ATM-09A ufficiale: è un PDF con i campi, li riempio uno per uno
   const scaricaModello = async () => {
     ricorda();
-    const { PDFDocument } = await import("pdf-lib");
+    const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
     const byte = await (await fetch("/moduli/MOD_ATM-09A.pdf")).arrayBuffer();
     const pdf = await PDFDocument.load(byte);
     const form = pdf.getForm();
@@ -588,8 +626,9 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     metti("fill_9", f.aeroportoNome);
     if (f.distanzaKm) { metti("undefined_3", (Number(f.distanzaKm) / 1.852).toFixed(1)); metti("NM_2", Number(f.distanzaKm).toFixed(1)); }
     metti("Datae orarioi inizio attività 8", periodo);
-    metti("Altre notizie utili alla sicurezza delle operazioni 9", f.sicurezza);
+    metti("Altre notizie utili alla sicurezza delle operazioni 9", f.sicurezza + notaAree);
     metti("Luogo e data", [(f.localita || "").split(",")[0], new Date().toLocaleDateString("it-IT")].filter(Boolean).join(", "));
+    await paginaAree(pdf, StandardFonts, rgb);
     const out = await pdf.save();
     const url = URL.createObjectURL(new Blob([out], { type: "application/pdf" }));
     const a = document.createElement("a"); a.href = url; a.download = `Modello-ATM-09A-${(f.localita || "volo").replace(/[^\w]+/g, "-").slice(0, 30)}.pdf`; a.click();
@@ -635,8 +674,9 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     scrivi(`${piedi(f.altezza)} ft AGL`, 425, 867, 505);
     scrivi(luogo && luogo.provincia ? `${luogo.comune || ""} (${luogo.sigla || luogo.provincia})` : "", 538, 888);
     scrivi(periodo, 305, 931);
-    aCapo(f.sicurezza, 395, 951, 770, 4);
+    aCapo(f.sicurezza + notaAree, 395, 951, 770, 4);
     scrivi([(f.localita || "").split(/[,(]/)[0].trim(), new Date().toLocaleDateString("it-IT")].filter(Boolean).join(", "), 178, 1229, 345);
+    await paginaAree(pdf, StandardFonts, rgb);
     const out = await pdf.save();
     const url = URL.createObjectURL(new Blob([out], { type: "application/pdf" }));
     const a = document.createElement("a"); a.href = url; a.download = `Modello-ATM-05-${(scelta.zona.nome || "zona").replace(/[^\w]+/g, "-").slice(0, 30)}.pdf`; a.click();
@@ -669,7 +709,7 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
       ente_contattato: atm05 ? `${ente?.nome || ""} (cc ENAC)` : aeroporto ? [tipoA.a.join(", "), `ENAC DA ${dir ? dir.nome : ""}`].filter(Boolean).join(" + ") : (ente?.nome || (libero ? libero.nome : scelta.zona.nome)),
       permessi_richiesti: atm05 ? `Nulla osta zona ${scelta.zona.nome} – Modello ATM-05` : aeroporto ? `Riserva spazio aereo – Modello ATM-09A (${scelta.zona.nome})` : `${avviso ? "Avviso di volo" : libero && libero.id === "proprietario" ? "Permesso" : "Nulla osta"} sorvolo – ${libero ? `${libero.nome}, ${nomeZona}` : scelta.zona.nome}`,
       data_richiesta: oggiIso(),
-      note: [`Volo: ${periodo}`, `Area: raggio ${f.raggio} m, max ${f.altezza} m AGL, ${coord}`, giorni ? `Preavviso richiesto: ${giorni} giorni` : null].filter(Boolean).join("\n"),
+      note: [`Volo: ${periodo}`, aree.length ? `Aree (max ${f.altezza} m AGL):\n${elencoAree.map((a, i) => `${i + 1}) ${a.testo}`).join("\n")}` : `Area: raggio ${f.raggio} m, max ${f.altezza} m AGL, ${coord}`, giorni ? `Preavviso richiesto: ${giorni} giorni` : null].filter(Boolean).join("\n"),
     });
     if (ok) setFatto("salvato");
   };
@@ -729,6 +769,26 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
         <Campo label="Alle"><input type="time" value={f.oraA} onChange={cambia("oraA")} style={st.input} /></Campo>
         <Campo label="Altezza massima (m dal suolo)"><input type="number" inputMode="numeric" value={f.altezza} onChange={cambia("altezza")} style={st.input} /></Campo>
         <Campo label="Raggio dell'area (m)"><input type="number" inputMode="numeric" value={f.raggio} onChange={cambia("raggio")} style={st.input} /></Campo>
+        {!avviso && (
+          <div style={{ gridColumn: "1 / -1", background: "#141c28", border: "1px solid #343e57", borderRadius: 8, padding: "8px 10px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700 }}>➕ Altre aree nella stessa richiesta</div>
+            {aree.map((a, i) => (
+              <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, color: "#8b95a3", minWidth: 16 }}>{i + 2})</span>
+                <input value={a.localita} onChange={cambiaArea(i, "localita")} placeholder={coordinateDms(a.lat, a.lon)} style={{ ...st.input, flex: "1 1 160px", width: "auto" }} />
+                <input type="number" inputMode="numeric" value={a.raggio} onChange={cambiaArea(i, "raggio")} aria-label="Raggio (m)" style={{ ...st.input, width: 80 }} />
+                <span style={{ fontSize: 12, color: "#8b95a3" }}>m</span>
+                <button type="button" onClick={() => setAree(aree.filter((_, j) => j !== i))} aria-label="Togli" style={{ ...st.secondario, minHeight: 36, padding: "4px 10px" }}>✕</button>
+                {a.fuori && <div style={{ flexBasis: "100%", fontSize: 11.5, color: "#ffd68a" }}>⚠️ Non è nella zona {scelta.zona.nome}: fai una richiesta a parte.</div>}
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+              <input value={nuovaArea} onChange={(e) => setNuovaArea(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aggiungiArea(); } }} placeholder="Via e comune, o coordinate" style={{ ...st.input, flex: 1, width: "auto" }} />
+              <button type="button" onClick={aggiungiArea} disabled={cercoArea || !nuovaArea.trim()} style={{ ...st.secondario, opacity: nuovaArea.trim() ? 1 : 0.5 }}>{cercoArea ? "Cerco…" : "Aggiungi"}</button>
+            </div>
+            {erroreArea && <div style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 4 }}>{erroreArea}</div>}
+          </div>
+        )}
         {aeroporto && <>
           <Campo label="Che aeroporto è?" largo>
             <select value={f.tipoAeroporto} onChange={cambia("tipoAeroporto")} style={st.input}>{Object.entries(TIPI_AEROPORTO).map(([k, t]) => <option key={k} value={k}>{t.nome} · {t.giorni} giorni prima</option>)}</select>
