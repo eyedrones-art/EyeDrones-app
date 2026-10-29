@@ -6680,7 +6680,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
           {attestati.map((a) => {
             const copre = coperturaAttestato(a, attestati);
             const stato = copre && statoScadenza(a.data_scadenza)?.livello !== "ok"
-              ? { colore: "#4ade80", testo: `Ti basta ${rinnovoPer(copre.tipo).chiave === "sts" ? "l'STS" : "l'A2"}, valido fino al ${formatData(copre.data_scadenza)}: quando lo rinnovi si rinnova anche l'A1/A3` }
+              ? { colore: "#4ade80", testo: `Coperto dall'${rinnovoPer(copre.tipo).chiave === "sts" ? "STS" : "A2"} fino al ${formatData(copre.data_scadenza)}` }
               : statoScadenza(a.data_scadenza);
             return (
               <div key={a.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
