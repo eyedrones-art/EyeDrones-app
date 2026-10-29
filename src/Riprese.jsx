@@ -40,7 +40,7 @@ export function VentoInQuota({ orari, data, ora, limite = 30, compatto }) {
     </span>
   );
   return (
-    <div style={{ marginTop: compatto ? 8 : 10, background: "#161a1f", border: `1px solid ${colore}55`, borderRadius: 6, padding: compatto ? "8px 10px" : 12 }}>
+    <div style={{ marginTop: compatto ? 8 : 10, background: "#10141f", border: `1px solid ${colore}55`, borderRadius: 6, padding: compatto ? "8px 10px" : 12 }}>
       <div style={{ fontSize: 12.5, fontWeight: 700, color: colore }}>💨 Vento in quota{h != null ? ` alle ${String(h).padStart(2, "0")}:00` : ` (ora peggiore: ${String(o.ora).padStart(2, "0")}:00)`}</div>
       <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
         {valore("a terra", v10)}{valore("a 80 m", v80)}{valore("a 120 m", v120)}
@@ -79,7 +79,7 @@ export function PrevisioneCielo({ orari, data, albaMin, tramontoMin, compatto })
     </div>
   );
   return (
-    <div style={{ marginTop: compatto ? 6 : 10, background: "#161a1f", border: "1px solid #ff8c4244", borderRadius: 6, padding: compatto ? "6px 10px" : 12 }}>
+    <div style={{ marginTop: compatto ? 6 : 10, background: "#10141f", border: "1px solid #ff8c4244", borderRadius: 6, padding: compatto ? "6px 10px" : 12 }}>
       {!compatto && <div style={{ fontSize: 12.5, fontWeight: 700, color: "#ffb877" }}>🌅 Il cielo si colorerà?</div>}
       {riga("Alba", alba)}
       {riga("Tramonto", tramonto)}

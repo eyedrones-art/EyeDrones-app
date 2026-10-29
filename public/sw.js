@@ -24,8 +24,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/.netlify/")) return;
-  // le pagine partner sono a parte: non vanno salvate al posto dell'app
-  if (url.pathname.startsWith("/partner-") || url.pathname.startsWith("/diventa-partner")) return;
+  // le pagine partner e il simulatore sono a parte: non vanno salvate al posto dell'app
+  if (url.pathname.startsWith("/partner-") || url.pathname.startsWith("/diventa-partner") || url.pathname.startsWith("/simulatore")) return;
 
   if (req.mode === "navigate") {
     event.respondWith(

@@ -29,7 +29,7 @@ class ProtezioneErrori extends React.Component {
           <div style={{ fontSize: 40 }}>🛠️</div>
           <h1 style={{ fontSize: 20, margin: "8px 0" }}>Qualcosa è andato storto</h1>
           <p style={{ fontSize: 14, color: "#9aa4b1" }}>L'errore è stato segnalato e lo sistemiamo al più presto. Ricarica l'app per continuare: i tuoi dati sono al sicuro.</p>
-          <button onClick={() => { try { sessionStorage.removeItem("eyedrones_pagina"); } catch (e) { /* niente */ } location.reload(); }} style={{ marginTop: 10, background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 8, padding: "12px 20px", fontSize: 15, fontWeight: 700 }}>Ricarica EyeDrones</button>
+          <button onClick={() => { try { sessionStorage.removeItem("eyedrones_pagina"); } catch (e) { /* niente */ } location.reload(); }} style={{ marginTop: 10, background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 8, padding: "12px 20px", fontSize: 15, fontWeight: 700 }}>Ricarica EyeDrones</button>
         </div>
       </div>
     );
@@ -46,6 +46,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </ProtezioneErrori>
   </React.StrictMode>
 );
+
+// nelle pagine per i clienti l'app da installare è quella dei clienti («I miei lavori»), non quella dei piloti
+if (/^\/(trova-pilota|offerte|miei-lavori)(\/|$)/i.test(window.location.pathname)) {
+  document.querySelector('link[rel="manifest"]')?.setAttribute("href", "/manifest-clienti.webmanifest");
+  document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", "I miei lavori");
+  document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.setAttribute("content", "default");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#fbf7f2");
+}
 
 // il telefono propone "Installa l'app" con questo evento: lo conservo per il pulsante dentro l'app
 window.addEventListener("beforeinstallprompt", (e) => {

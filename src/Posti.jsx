@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import L from "./leafletSicuro";
 import "leaflet/dist/leaflet.css";
 import { leggiZoneSalvate, controllaPunto, altezzaLibera } from "./zoneUAS";
+import { Compass } from "lucide-react";
+import { TestataPagina } from "./VoloHero.jsx";
 
 // Posti belli dove volare: punti panoramici dalle mappe pubbliche (OpenStreetMap) + consigli dei piloti EyeDrones.
 // Ogni posto mostra la verifica della zona (se il file D-Flight è caricato): l'app non deve mandare nessuno dove non si può.
@@ -173,7 +175,7 @@ function MappaPosti({ centro, posti, scelto, onScegli, onPunto, nuovo }) {
     }
     if (nuovo && nuovo.lat) L.marker([nuovo.lat, nuovo.lon], { icon: L.divIcon({ className: "", html: '<div style="width:32px;height:32px;font-size:30px;line-height:32px;text-align:center;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7))">📍</div>', iconSize: [32, 32], iconAnchor: [16, 30] }) }).addTo(s);
   }, [posti, scelto, nuovo && nuovo.lat, nuovo && nuovo.lon]);
-  return <div ref={box} style={{ height: 360, borderRadius: 10, overflow: "hidden", border: "1px solid #2b313d", marginBottom: 10, cursor: nuovo ? "crosshair" : "grab" }} />;
+  return <div ref={box} style={{ height: 360, borderRadius: 10, overflow: "hidden", border: "1px solid #2a3349", marginBottom: 10, cursor: nuovo ? "crosshair" : "grab" }} />;
 }
 
 export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle, onPianifica, onZonaRossa, onAlGiro }) {
@@ -192,24 +194,63 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
   const [salvando, setSalvando] = useState(false);
   const [vista, setVista] = useState("mappa"); // "mappa" | "elenco"
   const [nelGiro, setNelGiro] = useState({});
+  // «👍 Utile»: i totali per posto e i grazie che ho messo io (null = script community-posti.sql non eseguito)
+  const [grazie, setGrazie] = useState(null);
+  const [mieiGrazie, setMieiGrazie] = useState({});
+  const [uid, setUid] = useState(null);
+  const [appenaConsigliato, setAppenaConsigliato] = useState(false);
 
+  useEffect(() => { supabase.auth.getSession().then(({ data }) => setUid(data?.session?.user?.id || null)).catch(() => {}); }, [supabase]);
   useEffect(() => { leggiZoneSalvate().then((d) => setZone(d && Array.isArray(d.zone) ? d.zone : null)).catch(() => setZone(null)); }, []);
+  // arrivo da «⭐ Consiglia un posto» (Home, un volo, Qui e ora): apro subito il modulo
+  useEffect(() => {
+    let d = null;
+    try { d = JSON.parse(sessionStorage.getItem("eyedrones_consiglia") || "null"); sessionStorage.removeItem("eyedrones_consiglia"); } catch { /* niente */ }
+    if (!d) return;
+    const conPunto = Number.isFinite(d.lat) && Number.isFinite(d.lon);
+    setNuovo({ nome: d.nome || "", tipo: "", nota: "", voto: 5, ...(conPunto ? { lat: d.lat, lon: d.lon } : {}) });
+    if (conPunto) carica({ lat: d.lat, lon: d.lon, etichetta: d.nome || "il posto scelto" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const carica = async (c, km = raggio) => {
     setCentro(c); setCaricando(true); setCaricandoMappe(true); setErrore(null); setPosti([]); setConsigli([]);
     const dLat = km / 111, dLon = km / (111 * Math.cos((c.lat * Math.PI) / 180));
     // prima i consigli dei piloti (veloci), poi i punti delle mappe quando arrivano
     const pil = await conTempoMassimo(
-      supabase.from("posti_consigliati").select("id, nome, lat, lon, tipo, nota, voto, created_at").gte("lat", c.lat - dLat).lte("lat", c.lat + dLat).gte("lon", c.lon - dLon).lte("lon", c.lon + dLon).limit(300)
+      supabase.from("posti_consigliati").select("id, user_id, nome, lat, lon, tipo, nota, voto, created_at").gte("lat", c.lat - dLat).lte("lat", c.lat + dLat).gte("lon", c.lon - dLon).lte("lon", c.lon + dLon).limit(300)
         .then(({ data, error }) => (error ? [] : data || [])),
       10000,
     ).catch(() => []);
     setConsigli(pil);
     setCaricando(false);
+    caricaGrazie(pil);
     const osm = await cercaPostiOsm(c, km).catch(() => null);
     setCaricandoMappe(false);
     if (osm === null) setErrore(pil.length ? "I punti panoramici delle mappe non arrivano adesso: ti mostro solo i consigli dei piloti. Riprova tra poco." : "Le mappe non rispondono in questo momento: riprova tra qualche minuto.");
     setPosti(osm || []);
+  };
+  const caricaGrazie = async (pil) => {
+    const ids = pil.map((c) => c.id).slice(0, 300);
+    if (!ids.length) { setGrazie((g) => g || {}); return; }
+    const [tot, miei] = await Promise.all([
+      supabase.rpc("grazie_posti", { p_ids: ids }).then((r) => r, () => ({ error: true })),
+      supabase.from("posti_grazie").select("posto_id").in("posto_id", ids).then((r) => r, () => ({ error: true })),
+    ]);
+    if (tot.error) { setGrazie(null); return; }
+    setGrazie(Object.fromEntries((tot.data || []).map((r) => [r.posto_id, r.quanti])));
+    setMieiGrazie(Object.fromEntries((miei.data || []).map((r) => [r.posto_id, true])));
+  };
+  // il grazie va al primo consiglio del posto scritto da un altro pilota
+  const cambiaGrazie = async (p) => {
+    const c = p.consigli.find((x) => x.user_id !== uid);
+    if (!c) return;
+    const gia = p.consigli.some((x) => mieiGrazie[x.id]);
+    const id = gia ? p.consigli.find((x) => mieiGrazie[x.id]).id : c.id;
+    setMieiGrazie((m) => ({ ...m, [id]: !gia }));
+    setGrazie((g) => ({ ...g, [id]: Math.max(0, ((g || {})[id] || 0) + (gia ? -1 : 1)) }));
+    const { error } = gia ? await supabase.from("posti_grazie").delete().eq("posto_id", id).eq("user_id", uid) : await supabase.from("posti_grazie").insert({ posto_id: id });
+    if (error) { setMieiGrazie((m) => ({ ...m, [id]: gia })); setGrazie((g) => ({ ...g, [id]: Math.max(0, ((g || {})[id] || 0) + (gia ? 1 : -1)) })); }
   };
   const cerca = async () => {
     if (!testo.trim()) return;
@@ -238,7 +279,7 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
     if (g) g.consigli.push(c); else gruppi.push({ id: "pil-" + c.id, fonte: "piloti", nome: c.nome, tipo: c.tipo || "Consigliato", emoji: "⭐", lat: c.lat, lon: c.lon, consigli: [c] });
   }
   const tutti = centro ? [
-    ...gruppi.map((g) => ({ ...g, voto: g.consigli.filter((x) => x.voto).reduce((s, x, _, a) => s + x.voto / a.length, 0) })),
+    ...gruppi.map((g) => ({ ...g, voto: g.consigli.filter((x) => x.voto).reduce((s, x, _, a) => s + x.voto / a.length, 0), grazie: g.consigli.reduce((s, x) => s + ((grazie || {})[x.id] || 0), 0), mieiGrazie: g.consigli.some((x) => mieiGrazie[x.id]), mio: !!uid && g.consigli.every((x) => x.user_id === uid) })),
     ...(posti || []).filter((p) => !gruppi.some((g) => distanzaKm(g, p) < 0.3)),
   ].map((p) => ({ ...p, km: distanzaKm(centro, p), zona: statoZona(zone, p) }))
     .filter((p) => p.km <= raggio + 0.5)
@@ -253,22 +294,20 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
     const { error } = await supabase.from("posti_consigliati").insert({ nome: nuovo.nome.trim(), lat: Number(nuovo.lat.toFixed(5)), lon: Number(nuovo.lon.toFixed(5)), tipo: nuovo.tipo || null, nota: nuovo.nota?.trim() || null, voto: nuovo.voto || null });
     setSalvando(false);
     if (error) { alert(/posti_consigliati|relation|schema cache/i.test(error.message) ? "Per consigliare i posti esegui prima lo script supabase/posti-consigliati.sql su Supabase." : "Non riuscito: " + error.message); return; }
-    setNuovo(null);
+    setNuovo(null); setAppenaConsigliato(true);
     if (centro) carica(centro);
   };
-  const stChip = (on) => ({ background: on ? "#ff8c42" : "#1f2530", color: on ? "#161a1f" : "#e7eaee", border: on ? "none" : "1px solid #333a45", borderRadius: 16, padding: "5px 11px", fontSize: 12, fontWeight: on ? 700 : 500, whiteSpace: "nowrap" });
-  const stLink = { fontSize: 12, color: "#3d8bfd", textDecoration: "none", border: "1px solid #2b313d", borderRadius: 5, padding: "4px 8px", background: "none" };
+  const stChip = (on) => ({ background: on ? "#ff8c42" : "#1a2133", color: on ? "#10141f" : "#e7eaee", border: on ? "none" : "1px solid #343e57", borderRadius: 16, padding: "5px 11px", fontSize: 12, fontWeight: on ? 700 : 500, whiteSpace: "nowrap" });
+  const stLink = { fontSize: 12, color: "#3d8bfd", textDecoration: "none", border: "1px solid #2a3349", borderRadius: 5, padding: "4px 8px", background: "none" };
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 780 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Posti</h1>
-        <button type="button" onClick={() => setNuovo(nuovo ? null : { nome: "", tipo: "", nota: "", voto: 5 })} style={{ background: nuovo ? "transparent" : "#ff8c42", color: nuovo ? "#8b95a3" : "#161a1f", border: nuovo ? "1px solid #333a45" : "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>{nuovo ? "Annulla" : "⭐ Consiglia un posto"}</button>
-      </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "4px 0 14px 0" }}>Posti belli da riprendere vicino a te: quelli consigliati dagli altri piloti e i punti panoramici delle mappe, con la zona di volo già controllata.</p>
+      <TestataPagina titolo="Posti" sigla="MAP · POSTI DA RIPRENDERE" icona={Compass} info="Posti belli da riprendere vicino a te: quelli consigliati dagli altri piloti e i punti panoramici delle mappe, con la zona di volo già controllata.">
+        <button type="button" onClick={() => setNuovo(nuovo ? null : { nome: "", tipo: "", nota: "", voto: 5 })} style={{ background: nuovo ? "transparent" : "#ff8c42", color: nuovo ? "#8b95a3" : "#10141f", border: nuovo ? "1px solid #343e57" : "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>{nuovo ? "Annulla" : "⭐ Consiglia un posto"}</button>
+      </TestataPagina>
 
       {nuovo && (
-        <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: 14, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 14, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ fontSize: 13, color: "#c3cad4" }}>Consiglia un posto dove hai volato: gli altri piloti vedono nome, nota e voto, <strong>mai chi l'ha scritto</strong>.</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {voliConPosizione.length > 0 && (
@@ -284,15 +323,23 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{TIPI_PILOTI.map((t) => <button key={t} type="button" onClick={() => setNuovo({ ...nuovo, tipo: nuovo.tipo === t ? "" : t })} style={stChip(nuovo.tipo === t)}>{t}</button>)}</div>
           <textarea rows={2} placeholder="Una dritta per gli altri: parcheggio, orari migliori, vento, quanta gente c'è..." value={nuovo.nota} onChange={(e) => setNuovo({ ...nuovo, nota: e.target.value })} style={{ ...inputStyle, resize: "vertical" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>Voto: {[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" onClick={() => setNuovo({ ...nuovo, voto: n })} style={{ background: "none", border: "none", fontSize: 20, padding: 0, opacity: n <= nuovo.voto ? 1 : 0.3 }}>⭐</button>)}</div>
-          <button type="button" onClick={salvaConsiglio} disabled={!nuovo.nome.trim() || !nuovo.lat || salvando} style={{ background: nuovo.nome.trim() && nuovo.lat ? "#ff8c42" : "#333a45", color: nuovo.nome.trim() && nuovo.lat ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 0", fontSize: 13, fontWeight: 600 }}>{salvando ? "Salvataggio..." : "Consiglia questo posto"}</button>
+          <button type="button" onClick={salvaConsiglio} disabled={!nuovo.nome.trim() || !nuovo.lat || salvando} style={{ background: nuovo.nome.trim() && nuovo.lat ? "#ff8c42" : "#343e57", color: nuovo.nome.trim() && nuovo.lat ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 0", fontSize: 13, fontWeight: 600 }}>{salvando ? "Salvataggio..." : "Consiglia questo posto"}</button>
           <div style={{ fontSize: 10.5, color: "#6b7480" }}>Consiglia solo posti dove si può volare e senza indicare case o proprietà private.</div>
+        </div>
+      )}
+
+      {appenaConsigliato && !nuovo && (
+        <div style={{ background: "#12261b", border: "1px solid #2f6b45", borderRadius: 10, padding: "11px 14px", marginBottom: 14, fontSize: 13, color: "#c9f2d6", display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <span style={{ fontSize: 20 }}>🙌</span>
+          <div style={{ flex: 1 }}><strong>Grazie!</strong> Il tuo posto ora lo vedono i piloti della zona. Quando qualcuno lo trova utile te lo diciamo in Home.</div>
+          <button type="button" onClick={() => setAppenaConsigliato(false)} aria-label="Chiudi" style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 18, padding: 0 }}>×</button>
         </div>
       )}
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
         <input placeholder="Dove sei? (es. Ivrea, Lago Maggiore)" value={testo} onChange={(e) => setTesto(e.target.value)} onKeyDown={(e) => e.key === "Enter" && cerca()} style={{ ...inputStyle, flex: "1 1 200px" }} />
-        <button type="button" onClick={cerca} disabled={caricando} style={{ background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "8px 14px", fontSize: 13 }}>Cerca</button>
-        <button type="button" onClick={miaPosizione} disabled={caricando} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>📍 Vicino a me</button>
+        <button type="button" onClick={cerca} disabled={caricando} style={{ background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "8px 14px", fontSize: 13 }}>Cerca</button>
+        <button type="button" onClick={miaPosizione} disabled={caricando} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>📍 Vicino a me</button>
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: "#8b95a3", marginBottom: 12 }}>
         Entro {[10, 15, 30].map((k) => <button key={k} type="button" onClick={() => { setRaggio(k); if (centro) carica(centro, k); }} style={stChip(raggio === k)}>{k} km</button>)}
@@ -301,7 +348,7 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
       {zone === null && centro && <div style={{ fontSize: 12, color: "#f5b942", marginBottom: 10 }}>⚠ Per vedere la zona di volo di ogni posto carica il file D-Flight dalla Pianificazione (una volta sola).</div>}
       {errore && <div style={{ fontSize: 12.5, color: "#ff9c9c", marginBottom: 10 }}>{errore}</div>}
       {caricando && <div style={{ fontSize: 13, color: "#8b95a3" }}>{centro ? "Cerco i posti…" : "Cerco dove sei…"}</div>}
-      {!centro && !caricando && <div style={{ background: "#1b2028", border: "1px dashed #333a45", borderRadius: 10, padding: 18, fontSize: 13, color: "#8b95a3", textAlign: "center" }}>Scrivi dove sei o tocca «📍 Vicino a me» per vedere i posti intorno.</div>}
+      {!centro && !caricando && <div style={{ background: "#151b2b", border: "1px dashed #343e57", borderRadius: 10, padding: 18, fontSize: 13, color: "#8b95a3", textAlign: "center" }}>Scrivi dove sei o tocca «📍 Vicino a me» per vedere i posti intorno.</div>}
 
       {centro && !caricando && (
         <>
@@ -317,20 +364,24 @@ export default function Posti({ supabase, cercaIndirizzo, voli = [], inputStyle,
             {(vista === "mappa" ? elenco.filter((p) => p.id === aperto) : elenco.slice(0, 60)).map((p) => {
               const ap = aperto === p.id;
               return (
-                <div key={p.id} style={{ background: "#1b2028", border: `1px solid ${p.fonte === "piloti" ? "#5a4a16" : "#2b313d"}`, borderRadius: 10, padding: "11px 14px" }}>
+                <div key={p.id} style={{ background: "#151b2b", border: `1px solid ${p.fonte === "piloti" ? "#5a4a16" : "#2a3349"}`, borderRadius: 10, padding: "11px 14px" }}>
                   <div onClick={() => setAperto(ap ? null : p.id)} style={{ cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start" }}>
                     <span style={{ fontSize: 22 }}>{p.emoji}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700 }}>{p.nome}</div>
                       <div style={{ fontSize: 12, color: "#8b95a3" }}>{p.tipo} · {p.km < 1 ? `${Math.round(p.km * 1000)} m` : `${p.km.toFixed(1)} km`}{p.fonte === "piloti" ? ` · consigliato da ${p.consigli.length} ${p.consigli.length === 1 ? "pilota" : "piloti"}${p.voto ? ` · ${"★".repeat(Math.round(p.voto))}` : ""}` : ""}</div>
                       {p.zona && <div style={{ fontSize: 12, color: p.zona.colore, fontWeight: 600, marginTop: 2 }}>🛡️ {p.zona.testo}</div>}
+                      {p.fonte === "piloti" && (p.mio || p.grazie > 0) && <div style={{ fontSize: 12, color: "#4ade80", marginTop: 2 }}>{p.mio ? "⭐ Il tuo posto" : ""}{p.mio && p.grazie > 0 ? " · " : ""}{p.grazie > 0 ? `👍 utile per ${p.grazie} ${p.grazie === 1 ? "pilota" : "piloti"}` : ""}</div>}
                     </div>
                   </div>
                   {ap && (
-                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2b313d", display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2a3349", display: "flex", flexDirection: "column", gap: 8 }}>
                       {p.fonte === "piloti" && p.consigli.filter((c) => c.nota).slice(0, 5).map((c) => <div key={c.id} style={{ fontSize: 12.5, color: "#d6dde6" }}>💬 «{c.nota}»{c.voto ? <span style={{ color: "#f5b942" }}> {"★".repeat(c.voto)}</span> : null}</div>)}
                       {p.zona && p.zona.colore !== "#4ade80" && onZonaRossa && <button type="button" onClick={onZonaRossa} style={{ ...stLink, alignSelf: "flex-start", color: "#ff8c42" }}>🔴 Come si fa a volare qui?</button>}
                       {!p.zona && <div style={{ fontSize: 11.5, color: "#8b95a3" }}>Zona di volo non controllata: verificala su D-Flight prima di andare.</div>}
+                      {p.fonte === "piloti" && grazie && !p.mio && (
+                        <button type="button" onClick={() => cambiaGrazie(p)} style={{ ...stLink, alignSelf: "flex-start", fontSize: 13, fontWeight: 600, color: p.mieiGrazie ? "#10141f" : "#4ade80", background: p.mieiGrazie ? "#4ade80" : "none", borderColor: "#4ade80" }}>{p.mieiGrazie ? "👍 Ti è stato utile · grazie!" : "👍 Utile, grazie a chi l'ha consigliato"}</button>
+                      )}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button type="button" onClick={() => onPianifica({ nome: p.nome, lat: p.lat, lon: p.lon })} style={{ ...stLink, background: "#241d16", color: "#ffb877", borderColor: "#ff8c42" }}>📅 Pianifica qui</button>
                         {onAlGiro && <button type="button" disabled={nelGiro[p.id]} onClick={() => { onAlGiro({ nome: p.nome, lat: p.lat, lon: p.lon }); setNelGiro((x) => ({ ...x, [p.id]: true })); }} style={{ ...stLink, color: nelGiro[p.id] ? "#4ade80" : "#ffb877" }}>{nelGiro[p.id] ? "✓ Nel giro" : "＋ Al giro"}</button>}
@@ -393,7 +444,7 @@ export function PostiVicini({ supabase, punto, tipo, onZonaRossa, onAlGiro, nelG
 
   if (!punto) return null;
   const sottotitolo = ["video", "foto"].includes(tipo) ? "per foto e riprese suggestive (sposi, eventi, immobili)" : "per sapere cosa c'è intorno";
-  const stChip = (on) => ({ background: on ? "#ff8c42" : "#1f2530", color: on ? "#161a1f" : "#e7eaee", border: on ? "none" : "1px solid #333a45", borderRadius: 14, padding: "3px 10px", fontSize: 11.5, fontWeight: on ? 700 : 500 });
+  const stChip = (on) => ({ background: on ? "#ff8c42" : "#1a2133", color: on ? "#10141f" : "#e7eaee", border: on ? "none" : "1px solid #343e57", borderRadius: 14, padding: "3px 10px", fontSize: 11.5, fontWeight: on ? 700 : 500 });
   return (
     <details open={aperto} onToggle={(e) => setAperto(e.currentTarget.open)} style={{ background: "#171c24", border: "1px solid #2b3a52", borderRadius: 8, padding: "10px 14px", margin: "14px 0" }}>
       <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#9fc3ff" }}>📍 Posti belli qui vicino <span style={{ fontWeight: 400, color: "#8b95a3", fontSize: 12 }}>· {sottotitolo}</span></summary>
@@ -408,7 +459,7 @@ export function PostiVicini({ supabase, punto, tipo, onZonaRossa, onAlGiro, nelG
           {stato.posti.slice(0, 20).map((p) => {
             const z = statoZona(zone, p);
             return (
-              <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#1b2028", border: `1px solid ${p.piloti ? "#5a4a16" : "#2b313d"}`, borderRadius: 8, padding: "8px 10px" }}>
+              <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#151b2b", border: `1px solid ${p.piloti ? "#5a4a16" : "#2a3349"}`, borderRadius: 8, padding: "8px 10px" }}>
                 <span style={{ fontSize: 18 }}>{p.emoji}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{p.nome}</div>
