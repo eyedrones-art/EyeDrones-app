@@ -11945,9 +11945,11 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     })();
     return () => { vivo = false; };
   }, [lavori]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [storia, setStoria] = useState({}); // id richiesta → { nuovo, confermati }: il cliente è nuovo su EyeDrones?
   const carica = async () => {
     const { data, error } = await supabase.rpc("lavori_in_zona");
     setLavori(error ? null : Array.isArray(data) ? data : []);
+    supabase.rpc("storia_clienti_zona").then(({ data: st }) => st && typeof st === "object" && setStoria(st), () => {});
     return Array.isArray(data) ? data : [];
   };
   useEffect(() => {
@@ -12098,6 +12100,12 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     return (
       <>
         {l.diretto && <div style={{ display: "inline-block", fontSize: 12, fontWeight: 800, color: "#86efac", background: "#163322", border: "1px solid #2c5a3f", borderRadius: 20, padding: "3px 10px", marginBottom: 8 }}>🔁 {l.cliente || "Un tuo cliente"} ti richiede di nuovo: è arrivata solo a te</div>}
+        {!l.diretto && storia[l.id]?.nuovo && (!l.mia || l.mia.stato === "inviata" || l.mia.stato === "scelta") && (
+          <div style={{ fontSize: 12.5, color: "#fde68a", background: "#3a2e10", border: "1px solid #6b5520", borderRadius: 10, padding: "8px 10px", marginBottom: 8, lineHeight: 1.45 }}>
+            🆕 <strong>Cliente nuovo su EyeDrones.</strong> Prima del volo mettete per iscritto cosa è compreso e il prezzo, e conferma il lavoro solo qui su EyeDrones.
+          </div>
+        )}
+        {!l.diretto && storia[l.id]?.confermati > 0 && <div style={{ display: "inline-block", fontSize: 12, fontWeight: 800, color: "#86efac", background: "#163322", border: "1px solid #2c5a3f", borderRadius: 20, padding: "3px 10px", marginBottom: 8 }}>✓ Cliente che ha già confermato {storia[l.id].confermati === 1 ? "1 lavoro" : `${storia[l.id].confermati} lavori`} su EyeDrones</div>}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
           <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.3 }}>{/matrimon/i.test(l.servizio || "") ? "💍" : EMOJI_TIPO[tipo]} {l.servizio || "Richiesta"}</div>
           {l.budget && BUDGET_CLIENTE[l.budget] && pillola("#c4b5fd", `💶 ${BUDGET_CLIENTE[l.budget]}`)}
