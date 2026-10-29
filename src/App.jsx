@@ -3830,7 +3830,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
 
   // scadenze di attestati e manutenzioni dei droni (valide per tutti i piloti)
   const voci = [
-    ...attestati.filter((a) => a.data_scadenza).map((a) => ({ id: "a" + a.id, nome: a.tipo, stato: statoScadenza(a.data_scadenza), vai: "attestati" })),
+    ...attestati.filter((a) => a.data_scadenza && !coperturaAttestato(a, attestati)).map((a) => ({ id: "a" + a.id, nome: a.tipo, stato: statoScadenza(a.data_scadenza), vai: "attestati" })),
     ...droni.filter((d) => d.prossima_manutenzione).map((d) => ({ id: "d" + d.id, nome: `Manutenzione — ${d.nome}`, stato: statoManutenzione(d.prossima_manutenzione), vai: "droni" })),
     ...(batterie || []).flatMap((b) => avvisiBatteria(b).map((a, i) => ({ id: `b${b.id}-${i}`, nome: `Batteria — ${b.nome}`, stato: a, vai: "batterie" }))),
     ...(eventiVolo || []).filter((e) => !e.segnalato).map((e) => ({ id: "e" + e.id, nome: `Segnalazione evento — ${etichettaEvento(e.tipo)}`, stato: statoEvento(e), vai: "registro-voli" })),
@@ -6457,6 +6457,13 @@ function statoScadenza(dataScadenza) {
   return { livello: "ok", testo: `Valido fino al ${formatData(dataScadenza)}`, colore: "#4ade80" };
 }
 
+// basta l'attestato più alto: un A1/A3 che scade è coperto da un A2 o un STS che vale più a lungo (lo restituisce)
+function coperturaAttestato(a, attestati) {
+  if (rinnovoPer(a.tipo)?.chiave !== "a1a3" || !a.data_scadenza) return null;
+  return (attestati || []).filter((b) => ["a2", "sts"].includes(rinnovoPer(b.tipo)?.chiave) && b.data_scadenza && b.data_scadenza > a.data_scadenza)
+    .sort((x, y) => (x.data_scadenza < y.data_scadenza ? 1 : -1))[0] || null;
+}
+
 // attestato A1/A3, A2 o STS che scade entro 3 mesi (o già scaduto): come si rinnova, link ENAC, ripasso e corso
 function RinnovoAttestato({ attestato }) {
   const r = rinnovoPer(attestato.tipo);
@@ -6671,7 +6678,10 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {attestati.map((a) => {
-            const stato = statoScadenza(a.data_scadenza);
+            const copre = coperturaAttestato(a, attestati);
+            const stato = copre && statoScadenza(a.data_scadenza)?.livello !== "ok"
+              ? { colore: "#4ade80", testo: `Ti basta ${rinnovoPer(copre.tipo).chiave === "sts" ? "l'STS" : "l'A2"}, valido fino al ${formatData(copre.data_scadenza)}` }
+              : statoScadenza(a.data_scadenza);
             return (
               <div key={a.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
@@ -6702,7 +6712,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
                     Elimina
                   </button>
                 </div>
-                <RinnovoAttestato attestato={a} />
+                {!copre && <RinnovoAttestato attestato={a} />}
               </div>
             );
           })}
