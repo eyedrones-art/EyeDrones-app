@@ -72,7 +72,7 @@ export function UltimaNotizia({ onTutte }) {
   // il riquadro di DronEzine c'è sempre: se le notizie non arrivano, porta al loro sito
   if (!a) {
     return (
-      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: "12px 14px", marginBottom: 18, maxWidth: 720 }}>
+      <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: "12px 14px", marginBottom: 18, maxWidth: 720 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "#8b95a3" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>📰 Notizie da <Marchio altezza={18} /></span>
           {onTutte && <button type="button" onClick={onTutte} style={{ background: "none", border: "none", color: "#3d8bfd", fontSize: 12, padding: "6px 0", minHeight: 32 }}>Tutte ›</button>}
@@ -85,13 +85,13 @@ export function UltimaNotizia({ onTutte }) {
     );
   }
   return (
-    <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: "12px 14px", marginBottom: 18, maxWidth: 720 }}>
+    <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: "12px 14px", marginBottom: 18, maxWidth: 720 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "#8b95a3" }}>
         <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>📰 Ultima notizia da <Marchio altezza={18} /></span>
         {onTutte && <button type="button" onClick={onTutte} style={{ background: "none", border: "none", color: "#3d8bfd", fontSize: 12, padding: "6px 0", minHeight: 32 }}>Tutte ›</button>}
       </div>
       <a href={conUtm(a.link)} target="_blank" rel="noreferrer" style={{ display: "flex", gap: 12, alignItems: "center", textDecoration: "none", color: "#e7eaee" }}>
-        {a.immagine && <img src={a.immagine} alt="" loading="lazy" style={{ width: 72, height: 54, objectFit: "cover", borderRadius: 6, flex: "none", background: "#262b33" }} />}
+        {a.immagine && <img src={a.immagine} alt="" loading="lazy" style={{ width: 72, height: 54, objectFit: "cover", borderRadius: 6, flex: "none", background: "#232b3f" }} />}
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, lineHeight: 1.35 }}>{a.titolo}</span>
           <span style={{ display: "block", fontSize: 11.5, color: "#6b7480", marginTop: 3 }}>{quando(a.data)} · leggi su DronEzine ↗</span>
@@ -106,7 +106,7 @@ export default function Notizie() {
   const articoli = useNotizie();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 700 }}>📰 Notizie dal mondo droni</div>
           <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2 }}>a cura di DronEzine, la prima rivista italiana sui droni. Gli articoli si aprono sul loro sito.</div>
@@ -120,8 +120,8 @@ export default function Notizie() {
         </p>
       )}
       {articoli && articoli.map((a) => (
-        <a key={a.link} href={conUtm(a.link)} target="_blank" rel="noreferrer" style={{ display: "flex", gap: 12, alignItems: "flex-start", background: "#1b2028", border: "1px solid #262b33", borderRadius: 10, padding: 10, textDecoration: "none", color: "#e7eaee" }}>
-          {a.immagine && <img src={a.immagine} alt="" loading="lazy" style={{ width: 96, height: 72, objectFit: "cover", borderRadius: 6, flex: "none", background: "#262b33" }} />}
+        <a key={a.link} href={conUtm(a.link)} target="_blank" rel="noreferrer" style={{ display: "flex", gap: 12, alignItems: "flex-start", background: "#151b2b", border: "1px solid #232b3f", borderRadius: 10, padding: 10, textDecoration: "none", color: "#e7eaee" }}>
+          {a.immagine && <img src={a.immagine} alt="" loading="lazy" style={{ width: 96, height: 72, objectFit: "cover", borderRadius: 6, flex: "none", background: "#232b3f" }} />}
           <span style={{ flex: 1, minWidth: 0 }}>
             <span style={{ display: "block", fontSize: 14, fontWeight: 600, lineHeight: 1.35 }}>{a.titolo}</span>
             {a.riassunto && <span style={{ fontSize: 12, color: "#aab3bf", marginTop: 4, lineHeight: 1.45, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{a.riassunto}</span>}

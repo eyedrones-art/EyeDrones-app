@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { Handshake } from "lucide-react";
+import { TestataPagina } from "./VoloHero.jsx";
 
 // «Collaboratori»: la rubrica privata dei piloti con cui lavori (secondo operatore, sostituti, chi copre altre zone).
 // Ognuno vede solo i suoi: dove lavorano, fin dove si spostano, cosa fanno e con quali attestati.
@@ -21,10 +23,10 @@ const FILTRI_ATTESTATO = [
 const scaduto = (d) => d && d < new Date().toISOString().slice(0, 10);
 const numeroWa = (t) => { let n = String(t || "").replace(/[^\d+]/g, "").replace(/^\+/, "").replace(/^00/, ""); if (/^3\d{8,9}$/.test(n) || /^0\d{5,10}$/.test(n)) n = "39" + n; return n.length >= 8 ? n : ""; };
 
-const stCard = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "14px 16px" };
-const stChip = (on) => ({ background: on ? "#ff8c42" : "#1f2530", color: on ? "#161a1f" : "#e7eaee", border: on ? "none" : "1px solid #333a45", borderRadius: 16, padding: "5px 11px", fontSize: 12, fontWeight: on ? 700 : 500, whiteSpace: "nowrap" });
+const stCard = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "14px 16px" };
+const stChip = (on) => ({ background: on ? "#ff8c42" : "#1a2133", color: on ? "#10141f" : "#e7eaee", border: on ? "none" : "1px solid #343e57", borderRadius: 16, padding: "5px 11px", fontSize: 12, fontWeight: on ? 700 : 500, whiteSpace: "nowrap" });
 const stLabel = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
-const stLink = { fontSize: 12, color: "#3d8bfd", textDecoration: "none", border: "1px solid #2b313d", borderRadius: 5, padding: "4px 8px" };
+const stLink = { fontSize: 12, color: "#3d8bfd", textDecoration: "none", border: "1px solid #2a3349", borderRadius: 5, padding: "4px 8px" };
 const VUOTO = { nome: "", citta: "", provincia: "", raggio_km: 50, servizi: [], attestati: [], droni: "", esperienza: "", disponibilita: "", portfolio: "", telefono: "", email: "", stato: "contatto", note: "" };
 
 export default function Collaboratori({ supabase, inputStyle, servizi = [] }) {
@@ -90,11 +92,9 @@ export default function Collaboratori({ supabase, inputStyle, servizi = [] }) {
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 860 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Collaboratori</h1>
-        <button type="button" onClick={() => { setForm(form ? null : { ...VUOTO }); setEditingId(null); }} style={{ background: form ? "transparent" : "#ff8c42", color: form ? "#8b95a3" : "#161a1f", border: form ? "1px solid #333a45" : "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>{form ? "Annulla" : "+ Nuovo collaboratore"}</button>
-      </div>
-      <p style={{ color: "#8b95a3", fontSize: 13, margin: "4px 0 14px 0" }}>I piloti con cui lavori o vorresti lavorare: dove sono, fin dove si spostano, cosa fanno e con quali attestati. Li vedi solo tu.</p>
+      <TestataPagina titolo="Collaboratori" sigla="TEAM · PILOTI CON CUI LAVORI" icona={Handshake} info="I piloti con cui lavori o vorresti lavorare: dove sono, fin dove si spostano, cosa fanno e con quali attestati. Li vedi solo tu.">
+        <button type="button" onClick={() => { setForm(form ? null : { ...VUOTO }); setEditingId(null); }} style={{ background: form ? "transparent" : "#ff8c42", color: form ? "#8b95a3" : "#10141f", border: form ? "1px solid #343e57" : "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>{form ? "Annulla" : "+ Nuovo collaboratore"}</button>
+      </TestataPagina>
       {errore && <div style={{ ...stCard, color: "#f5b942", fontSize: 12.5, marginBottom: 12 }}>{errore}</div>}
 
       {form && (
@@ -121,7 +121,7 @@ export default function Collaboratori({ supabase, inputStyle, servizi = [] }) {
               <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                 <input value={a.tipo} onChange={(e) => setForm({ ...form, attestati: form.attestati.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)) })} style={{ ...inputStyle, flex: 2 }} />
                 <input type="date" value={a.scadenza || ""} onChange={(e) => setForm({ ...form, attestati: form.attestati.map((x, j) => (j === i ? { ...x, scadenza: e.target.value || null } : x)) })} style={{ ...inputStyle, flex: 1 }} />
-                <button type="button" onClick={() => setForm({ ...form, attestati: form.attestati.filter((_, j) => j !== i) })} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 6, padding: "0 10px" }}>×</button>
+                <button type="button" onClick={() => setForm({ ...form, attestati: form.attestati.filter((_, j) => j !== i) })} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 6, padding: "0 10px" }}>×</button>
               </div>
             ))}
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -138,7 +138,7 @@ export default function Collaboratori({ supabase, inputStyle, servizi = [] }) {
             <label style={stLabel}>Note</label>
             <textarea rows={2} value={form.note || ""} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="es. molto preciso nei rilievi, tariffa concordata, ha P.IVA" style={{ ...inputStyle, resize: "vertical" }} />
           </div>
-          <button type="button" onClick={salva} disabled={!form.nome.trim() || salvando} style={{ background: form.nome.trim() ? "#ff8c42" : "#333a45", color: form.nome.trim() ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "10px 0", fontSize: 13.5, fontWeight: 700 }}>{salvando ? "Salvataggio..." : editingId ? "Aggiorna" : "Salva collaboratore"}</button>
+          <button type="button" onClick={salva} disabled={!form.nome.trim() || salvando} style={{ background: form.nome.trim() ? "#ff8c42" : "#343e57", color: form.nome.trim() ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "10px 0", fontSize: 13.5, fontWeight: 700 }}>{salvando ? "Salvataggio..." : editingId ? "Aggiorna" : "Salva collaboratore"}</button>
         </div>
       )}
 
@@ -189,7 +189,7 @@ export default function Collaboratori({ supabase, inputStyle, servizi = [] }) {
                 {r.portfolio && <a href={/^https?:\/\//.test(r.portfolio) ? r.portfolio : `https://${r.portfolio}`} target="_blank" rel="noreferrer" style={stLink}>🎬 Portfolio</a>}
               </div>
               {ap && (
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2b313d", display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "#c3cad4" }}>
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2a3349", display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "#c3cad4" }}>
                   {r.droni && <div>🚁 {r.droni}</div>}
                   {r.esperienza && <div>🎓 {r.esperienza}</div>}
                   {r.disponibilita && <div>🗓️ {r.disponibilita}</div>}
@@ -199,8 +199,8 @@ export default function Collaboratori({ supabase, inputStyle, servizi = [] }) {
                     {STATI.map((s) => <button key={s.key} type="button" onClick={() => cambiaStato(r, s.key)} style={stChip((r.stato || "contatto") === s.key)}>{s.label}</button>)}
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button type="button" onClick={() => { setForm({ ...VUOTO, ...Object.fromEntries(Object.keys(VUOTO).map((k) => [k, r[k] ?? VUOTO[k]])) }); setEditingId(r.id); window.scrollTo(0, 0); }} style={{ background: "none", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Modifica</button>
-                    <button type="button" onClick={() => elimina(r)} style={{ background: "none", border: "1px solid #333a45", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Togli</button>
+                    <button type="button" onClick={() => { setForm({ ...VUOTO, ...Object.fromEntries(Object.keys(VUOTO).map((k) => [k, r[k] ?? VUOTO[k]])) }); setEditingId(r.id); window.scrollTo(0, 0); }} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Modifica</button>
+                    <button type="button" onClick={() => elimina(r)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Togli</button>
                   </div>
                 </div>
               )}

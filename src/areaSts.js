@@ -244,7 +244,20 @@ function leggiKmlMissione(testo) {
   };
 }
 
-// legge un file .kmz o .kml di DJI Pilot 2 (va bene anche un KML qualsiasi con un'area)
+// traccia GPX (AirData, Litchi, app di volo): i punti del volo e l'altezza, presa come quota più alta meno quella
+// del primo punto (il decollo). Non c'è un'area disegnata: si usa l'involucro dei punti
+function leggiGpx(testo) {
+  const doc = new DOMParser().parseFromString(testo, "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) throw new Error("Il file GPX non è leggibile.");
+  const pt = ["trkpt", "rtept", "wpt"].flatMap((n) => tag(doc, n))
+    .map((e) => ({ lat: Number(e.getAttribute("lat")), lon: Number(e.getAttribute("lon")), z: Number((tag(e, "ele")[0] || {}).textContent) }))
+    .filter((q) => Number.isFinite(q.lat) && Number.isFinite(q.lon));
+  const quote = pt.map((q) => q.z).filter(Number.isFinite);
+  const h = quote.length > 1 ? Math.max(...quote) - quote[0] : null;
+  return { area: null, punti: pt.map((q) => [q.lat, q.lon]), altezza: h > 0 && h < 1000 ? h : null, modoAltezza: h > 0 ? "relativeToStartPoint" : null, tipo: "traccia" };
+}
+
+// legge un file .kmz o .kml di DJI Pilot 2 (va bene anche un KML qualsiasi con un'area) o una traccia .gpx
 // → { punti: [[lat, lon], ...], daPunti, altezza, altezzaDalSuolo, tipo }
 export async function leggiMissioneDji(file) {
   const nome = (file.name || "").toLowerCase();
@@ -259,18 +272,23 @@ export async function leggiMissioneDji(file) {
     if (!letti.length) throw new Error("Nel file non c'è nessuna missione (KML o WPML).");
   } else if (nome.endsWith(".kml") || nome.endsWith(".wpml")) {
     letti.push({ n: nome, testo: await file.text() });
+  } else if (nome.endsWith(".gpx")) {
+    letti.push({ n: nome, testo: await file.text(), gpx: true });
   } else {
-    throw new Error("Carica il file della missione esportato da DJI Pilot 2 (.kmz) oppure un .kml.");
+    throw new Error("Carica il file della missione esportato da DJI Pilot 2 (.kmz), un .kml o una traccia .gpx.");
   }
   // prima il modello (template.kml), poi le rotte (waylines.wpml)
   letti.sort((a, b) => (a.n.includes("template") ? -1 : 0) - (b.n.includes("template") ? -1 : 0));
-  const parti = letti.map((l) => leggiKmlMissione(l.testo));
+  const parti = letti.map((l) => (l.gpx ? leggiGpx(l.testo) : leggiKmlMissione(l.testo)));
   const conArea = parti.find((x) => x.area);
   const punti = parti.flatMap((x) => x.punti);
   const area = conArea ? conArea.area : punti.length >= 3 ? involucro(punti) : null;
   if (!area || area.length < 3 || misuraArea(area).m2 < 1) throw new Error("Nel file non ho trovato un'area o abbastanza punti della missione.");
   const conAltezza = parti.find((x) => x.altezza);
   const modo = (conAltezza && conAltezza.modoAltezza) || (parti.find((x) => x.modoAltezza) || {}).modoAltezza || "";
+  // il percorso del drone, in ordine: i punti della rotta (waylines.wpml) o della traccia/missione a punti
+  const iRotta = letti.findIndex((l, i) => l.n.includes("waylines") && parti[i].punti.length >= 2);
+  const rotta = iRotta >= 0 ? parti[iRotta].punti : (parti.find((x) => !x.area && x.punti.length >= 2) || {}).punti || null;
   return {
     punti: area.map(([a, b]) => [Math.round(a * 1e7) / 1e7, Math.round(b * 1e7) / 1e7]),
     daPunti: !conArea,
@@ -279,5 +297,6 @@ export async function leggiMissioneDji(file) {
     altezzaUsabile: !/egm96|wgs84/i.test(modo),
     modoAltezza: modo,
     tipo: (parti.find((x) => x.tipo) || {}).tipo || null,
+    percorso: rotta ? rotta.map(([a, b]) => [Math.round(a * 1e7) / 1e7, Math.round(b * 1e7) / 1e7]) : null,
   };
 }

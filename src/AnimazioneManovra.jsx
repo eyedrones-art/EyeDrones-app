@@ -52,9 +52,9 @@ function Stick({ cx, v, etichetta }) {
   const fermo = Math.abs(x) < 0.02 && Math.abs(y) < 0.02;
   return (
     <g>
-      <rect x={cx - 24} y={40} width={48} height={48} rx={10} fill="#11151b" stroke="#333a45" />
-      <line x1={cx} y1={44} x2={cx} y2={84} stroke="#262b33" />
-      <line x1={cx - 20} y1={64} x2={cx + 20} y2={64} stroke="#262b33" />
+      <rect x={cx - 24} y={40} width={48} height={48} rx={10} fill="#11151b" stroke="#343e57" />
+      <line x1={cx} y1={44} x2={cx} y2={84} stroke="#232b3f" />
+      <line x1={cx - 20} y1={64} x2={cx + 20} y2={64} stroke="#232b3f" />
       {!fermo && <line x1={cx} y1={64} x2={kx} y2={ky} stroke="#ff8c42" strokeWidth={3} strokeLinecap="round" />}
       <circle cx={kx} cy={ky} r={9} fill={fermo ? "#4b5563" : "#ff8c42"} stroke="#e7eaee" strokeWidth={1.5} />
       <text x={cx} y={100} textAnchor="middle" fontSize={9} fill="#c3cad4" fontWeight={700}>{etichetta[0]}</text>
@@ -140,7 +140,7 @@ export default function AnimazioneManovra({ id }) {
   const camera = m.camera ? m.camera(p) : 0;
   const scatto = m.scattiA ? m.scattiA.some((a) => Math.abs(p - a) < 0.03) : m.scatti ? inMovimento && (p * m.scatti) % 1 < 0.08 : false;
   return (
-    <svg viewBox="0 0 320 130" style={{ width: "100%", maxWidth: 420, display: "block", background: "#0f1318", border: "1px solid #2b313d", borderRadius: 8, marginTop: 6 }} role="img" aria-label="Animazione della manovra">
+    <svg viewBox="0 0 320 130" style={{ width: "100%", maxWidth: 420, display: "block", background: "#0f1318", border: "1px solid #2a3349", borderRadius: 8, marginTop: 6 }} role="img" aria-label="Animazione della manovra">
       <rect x={4} y={4} width={154} height={122} rx={10} fill="#171c24" />
       <text x={81} y={20} textAnchor="middle" fontSize={8.5} fill="#8b95a3">🕹️ radiocomando (modo 2)</text>
       {m.camera && camera !== 0 && <text x={81} y={32} textAnchor="middle" fontSize={8} fill="#ffd166">📷 camera {camera <= -85 ? "dritta giù" : camera < -5 ? `giù ${Math.round(-camera)}°` : "dritta avanti"}</text>}

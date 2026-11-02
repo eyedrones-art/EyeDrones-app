@@ -150,7 +150,7 @@ export default function FascicoloScia({ supabase, inputStyle, campi = [], droni 
     setStato(error ? `Non salvato: ${error.message}` : "Salvato ✓");
   };
 
-  const scheda = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: 16, marginTop: 14 };
+  const scheda = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: 16, marginTop: 14 };
   const et = { fontSize: 11, color: "#8b95a3", display: "block", marginBottom: 4 };
   const griglia = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 };
   const campo = (label, valore, onChange, extra = {}) => (
@@ -158,7 +158,7 @@ export default function FascicoloScia({ supabase, inputStyle, campi = [], droni 
       <input value={valore || ""} onChange={(e) => onChange(e.target.value)} style={inputStyle} {...extra} /></label>
   );
   const h = (t, sotto) => <><div style={{ fontSize: 15, fontWeight: 700 }}>{t}</div>{sotto && <div style={{ fontSize: 12, color: "#8b95a3", margin: "2px 0 10px 0" }}>{sotto}</div>}</>;
-  const piccolo = { background: "#1f2530", border: "1px solid #333a45", color: "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 };
+  const piccolo = { background: "#1a2133", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 6, padding: "6px 10px", fontSize: 12 };
   const tutto = controlli.fatte === controlli.voci.length;
 
   return (
@@ -173,7 +173,7 @@ export default function FascicoloScia({ supabase, inputStyle, campi = [], droni 
         <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4, lineHeight: 1.5 }}>
           Per i trattamenti con il drone serve una <strong>SCIA</strong> al servizio fitosanitario della tua regione. Qui prepari tutto quello che serve e lo stampi in un PDF da consegnare o da allegare.
         </div>
-        <div style={{ height: 6, background: "#262b33", borderRadius: 3, margin: "10px 0", overflow: "hidden" }}><div style={{ width: `${Math.round((controlli.fatte / controlli.voci.length) * 100)}%`, height: "100%", background: tutto ? "#4ade80" : "#ff8c42" }} /></div>
+        <div style={{ height: 6, background: "#232b3f", borderRadius: 3, margin: "10px 0", overflow: "hidden" }}><div style={{ width: `${Math.round((controlli.fatte / controlli.voci.length) * 100)}%`, height: "100%", background: tutto ? "#4ade80" : "#ff8c42" }} /></div>
         {controlli.voci.map((v) => (
           <div key={v.titolo} style={{ display: "flex", gap: 8, fontSize: 12.5, padding: "3px 0", color: v.ok ? "#8b95a3" : "#e7eaee" }}>
             <span>{v.ok ? "✅" : "⬜"}</span><span>{v.titolo}{!v.ok && v.nota ? <span style={{ color: "#ffb877" }}> · {v.nota}</span> : null}</span>
@@ -199,7 +199,7 @@ export default function FascicoloScia({ supabase, inputStyle, campi = [], droni 
       <div style={scheda}>
         {h("👨‍✈️ Piloti", "Per ognuno: attestato del drone, patentino per i prodotti fitosanitari e la certificazione per i trattamenti con drone.")}
         {f.piloti.map((p, i) => (
-          <div key={i} style={{ borderTop: i ? "1px solid #262b33" : "none", paddingTop: i ? 12 : 0, marginTop: i ? 12 : 0 }}>
+          <div key={i} style={{ borderTop: i ? "1px solid #232b3f" : "none", paddingTop: i ? 12 : 0, marginTop: i ? 12 : 0 }}>
             <div style={griglia}>
               {campo("Nome e cognome", p.nome, (v) => cambiaLista("piloti", i, "nome", v))}
               {campo("Attestato UAS (es. STS, Specific)", p.attestato, (v) => cambiaLista("piloti", i, "attestato", v))}
@@ -217,7 +217,7 @@ export default function FascicoloScia({ supabase, inputStyle, campi = [], droni 
       <div style={scheda}>
         {h("🚁 Droni e attrezzatura", "Il drone irroratore e il controllo dell'attrezzatura per la distribuzione.")}
         {f.mezzi.map((m, i) => (
-          <div key={i} style={{ borderTop: i ? "1px solid #262b33" : "none", paddingTop: i ? 12 : 0, marginTop: i ? 12 : 0 }}>
+          <div key={i} style={{ borderTop: i ? "1px solid #232b3f" : "none", paddingTop: i ? 12 : 0, marginTop: i ? 12 : 0 }}>
             <div style={griglia}>
               {droni.length > 0 && (
                 <label style={{ display: "block" }}><span style={et}>Dai tuoi droni</span>
@@ -290,8 +290,8 @@ export default function FascicoloScia({ supabase, inputStyle, campi = [], droni 
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 14 }}>
-        <button type="button" onClick={salva} disabled={stato === "salvo"} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13.5, fontWeight: 800 }}>{stato === "salvo" ? "Salvo…" : "💾 Salva il fascicolo"}</button>
-        <button type="button" onClick={() => pdfFascicolo(f, campi, controlli, azienda)} style={{ background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "10px 16px", fontSize: 13.5, fontWeight: 700 }}>📄 PDF del fascicolo</button>
+        <button type="button" onClick={salva} disabled={stato === "salvo"} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13.5, fontWeight: 800 }}>{stato === "salvo" ? "Salvo…" : "💾 Salva il fascicolo"}</button>
+        <button type="button" onClick={() => pdfFascicolo(f, campi, controlli, azienda)} style={{ background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 8, padding: "10px 16px", fontSize: 13.5, fontWeight: 700 }}>📄 PDF del fascicolo</button>
         {stato && stato !== "salvo" && <span style={{ fontSize: 12.5, color: stato.startsWith("Salvato") ? "#4ade80" : "#ff9c9c" }}>{stato}</span>}
       </div>
     </div>

@@ -53,7 +53,7 @@ export function scaricaIcs(c) {
 }
 export function PulsantiCalendario({ dati, compatto = false }) {
   if (!dati) return null;
-  const st = { display: "inline-flex", alignItems: "center", gap: 5, background: compatto ? "none" : "#1f2530", color: compatto ? "#3d8bfd" : "#e7eaee", border: compatto ? "none" : "1px solid #333a45", borderRadius: 6, padding: compatto ? "2px 4px" : "8px 12px", fontSize: 12.5, textDecoration: compatto ? "underline" : "none" };
+  const st = { display: "inline-flex", alignItems: "center", gap: 5, background: compatto ? "none" : "#1a2133", color: compatto ? "#3d8bfd" : "#e7eaee", border: compatto ? "none" : "1px solid #343e57", borderRadius: 6, padding: compatto ? "2px 4px" : "8px 12px", fontSize: 12.5, textDecoration: compatto ? "underline" : "none" };
   return (
     <div style={{ display: "flex", gap: compatto ? 4 : 6, flexWrap: "wrap", alignItems: "center", fontSize: 12.5, color: "#8b95a3" }}>
       {compatto && <span>📅 Aggiungi al calendario:</span>}

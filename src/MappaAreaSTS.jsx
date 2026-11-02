@@ -83,8 +83,8 @@ export default function MappaAreaSTS({ centro, punti, aree, zone, onCambia, alte
 
   return (
     <div style={{ position: "relative", marginTop: 8 }}>
-      <div ref={contenitore} style={{ height: altezza, borderRadius: 8, overflow: "hidden", border: "1px solid #262b33", background: "#0e1116", zIndex: 0, position: "relative", cursor: "crosshair" }} />
-      <button type="button" onClick={() => setSatellite(!satellite)} style={{ position: "absolute", top: 10, right: 10, zIndex: 500, background: "#12151cdd", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}>
+      <div ref={contenitore} style={{ height: altezza, borderRadius: 8, overflow: "hidden", border: "1px solid #232b3f", background: "#0a0d16", zIndex: 0, position: "relative", cursor: "crosshair" }} />
+      <button type="button" onClick={() => setSatellite(!satellite)} style={{ position: "absolute", top: 10, right: 10, zIndex: 500, background: "#12151cdd", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600 }}>
         {satellite ? "🗺️ Strade" : "🛰️ Satellite"}
       </button>
     </div>

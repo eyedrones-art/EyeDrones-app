@@ -83,7 +83,7 @@ export function SemaforoTermografia({ tipo, orari, data, ora }) {
   for (const h of buone) { const u = fasce[fasce.length - 1]; if (u && h === u[1] + 1) u[1] = h; else fasce.push([h, h]); }
   const testoFasce = fasce.map(([a, b]) => (a === b ? `${a}:00` : `${a}:00–${b + 1}:00`)).join(", ");
   return (
-    <div style={{ marginTop: 12, background: "#161a1f", border: `1px solid ${COLORI[giudizio.voto]}66`, borderRadius: 6, padding: 12 }}>
+    <div style={{ marginTop: 12, background: "#10141f", border: `1px solid ${COLORI[giudizio.voto]}66`, borderRadius: 6, padding: 12 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: COLORI[giudizio.voto] }}>
         {SIMBOLI[giudizio.voto]} {tipo === "fotovoltaico" ? "Termografia fotovoltaico" : "Termografia edificio"}: {scelta ? `alle ${scelta.ora}:00 ` : ""}{["meglio rimandare", "si può, ma non è l'ideale", "condizioni buone"][giudizio.voto]}
       </div>
@@ -205,7 +205,7 @@ export function FrasiReport({ tipo, valori, onAggiungi, chiaro }) {
       <summary style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: chiaro ? "#2e7d32" : "#a6e3a1" }}>📋 Aggiungi una frase pronta</summary>
       <div style={{ fontSize: 11.5, color: chiaro ? "#555" : "#8b95a3", margin: "4px 0 6px 0" }}>Tocca: si scrive nelle note con data, ora e irraggiamento già messi. Poi cambia le parti rimaste tra [ ].</div>
       {c.frasi.map((f) => (
-        <button key={f} type="button" onClick={() => aggiungi(f)} style={{ display: "block", width: "100%", textAlign: "left", background: aggiunta === f ? (chiaro ? "#e3f4e4" : "#1d3a2a") : (chiaro ? "#fff" : "#161a1f"), color: chiaro ? "#1a1a1a" : "#e7eaee", border: `1px solid ${aggiunta === f ? "#4ade80" : chiaro ? "#ddd" : "#2b313d"}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, lineHeight: 1.45, marginBottom: 5, cursor: "pointer" }}>
+        <button key={f} type="button" onClick={() => aggiungi(f)} style={{ display: "block", width: "100%", textAlign: "left", background: aggiunta === f ? (chiaro ? "#e3f4e4" : "#1d3a2a") : (chiaro ? "#fff" : "#10141f"), color: chiaro ? "#1a1a1a" : "#e7eaee", border: `1px solid ${aggiunta === f ? "#4ade80" : chiaro ? "#ddd" : "#2a3349"}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, lineHeight: 1.45, marginBottom: 5, cursor: "pointer" }}>
           {aggiunta === f ? "✓ Aggiunta! " : "➕ "}{compilaFrase(f, valori)}
         </button>
       ))}
@@ -236,10 +236,10 @@ export function CosaConsegnare({ tipo }) {
         const dentro = scelte.includes(f);
         return (
           <div key={f} style={{ display: "flex", gap: 5, marginBottom: 5 }}>
-            <button type="button" onClick={() => cambia(f)} aria-pressed={dentro} style={{ flex: 1, textAlign: "left", background: dentro ? "#1d3a2a" : "#161a1f", color: "#e7eaee", border: `1px solid ${dentro ? "#4ade80" : "#2b313d"}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, lineHeight: 1.45, cursor: "pointer" }}>
+            <button type="button" onClick={() => cambia(f)} aria-pressed={dentro} style={{ flex: 1, textAlign: "left", background: dentro ? "#1d3a2a" : "#10141f", color: "#e7eaee", border: `1px solid ${dentro ? "#4ade80" : "#2a3349"}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, lineHeight: 1.45, cursor: "pointer" }}>
               <span style={{ color: dentro ? "#4ade80" : "#8b95a3", fontWeight: 700 }}>{dentro ? "✓ Nel report · " : "➕ "}</span>{f}
             </button>
-            <button type="button" onClick={() => copia(f)} aria-label="Copia la frase" title="Copia" style={{ flex: "none", width: 40, background: copiata === f ? "#1d3a2a" : "#161a1f", color: copiata === f ? "#4ade80" : "#8b95a3", border: "1px solid #2b313d", borderRadius: 6, fontSize: 13 }}>{copiata === f ? "✓" : "📋"}</button>
+            <button type="button" onClick={() => copia(f)} aria-label="Copia la frase" title="Copia" style={{ flex: "none", width: 40, background: copiata === f ? "#1d3a2a" : "#10141f", color: copiata === f ? "#4ade80" : "#8b95a3", border: "1px solid #2a3349", borderRadius: 6, fontSize: 13 }}>{copiata === f ? "✓" : "📋"}</button>
           </div>
         );
       })}

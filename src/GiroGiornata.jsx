@@ -132,13 +132,13 @@ function MappaGiro({ punti, linea }) {
     s.clearLayers();
     if (linea && linea.length > 1) L.polyline(linea, { color: "#ff8c42", weight: 4, opacity: 0.85 }).addTo(s);
     punti.forEach((p, i) => {
-      const icona = L.divIcon({ className: "", html: `<div style="width:26px;height:26px;border-radius:50%;background:${i === 0 ? "#ff8c42" : "#161a1f"};color:${i === 0 ? "#161a1f" : "#fff"};border:2px solid #ff8c42;font:700 13px/22px 'IBM Plex Sans',sans-serif;text-align:center;box-shadow:0 2px 4px rgba(0,0,0,.5)">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
+      const icona = L.divIcon({ className: "", html: `<div style="width:26px;height:26px;border-radius:50%;background:${i === 0 ? "#ff8c42" : "#10141f"};color:${i === 0 ? "#10141f" : "#fff"};border:2px solid #ff8c42;font:700 13px/22px 'IBM Plex Sans',sans-serif;text-align:center;box-shadow:0 2px 4px rgba(0,0,0,.5)">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
       L.marker([p.lat, p.lon], { icon: icona, title: p.nome }).addTo(s);
     });
     if (punti.length === 1) m.setView([punti[0].lat, punti[0].lon], 13);
     else if (punti.length > 1) m.fitBounds(L.latLngBounds(punti.map((p) => [p.lat, p.lon])), { padding: [28, 28], maxZoom: 14 });
   }, [punti, linea]);
-  return <div ref={box} style={{ height: 240, borderRadius: 8, overflow: "hidden", marginTop: 12, border: "1px solid #2b313d" }} />;
+  return <div ref={box} style={{ height: 240, borderRadius: 8, overflow: "hidden", marginTop: 12, border: "1px solid #2a3349" }} />;
 }
 
 export default function GiroGiornata({ partenza, giro, onCambia, data, oraPartenza, cercaIndirizzo, inputStyle, apertoIniziale = false }) {
@@ -246,8 +246,8 @@ export default function GiroGiornata({ partenza, giro, onCambia, data, oraParten
     ? `https://www.google.com/maps/dir/?api=1&origin=${punti[0].lat},${punti[0].lon}&destination=${punti[punti.length - 1].lat},${punti[punti.length - 1].lon}${punti.length > 2 ? `&waypoints=${encodeURIComponent(punti.slice(1, -1).map((p) => `${p.lat},${p.lon}`).join("|"))}` : ""}&travelmode=driving`
     : null;
 
-  const bottone = (attivo = true) => ({ background: attivo ? "#1f2530" : "#1a1e25", color: attivo ? "#e7eaee" : "#6b7480", border: "1px solid #333a45", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 });
-  const piccolo = { background: "none", border: "1px solid #333a45", color: "#aab3bf", borderRadius: 5, padding: "2px 7px", fontSize: 12, lineHeight: 1.4 };
+  const bottone = (attivo = true) => ({ background: attivo ? "#1a2133" : "#1a1e25", color: attivo ? "#e7eaee" : "#6b7480", border: "1px solid #343e57", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 600 });
+  const piccolo = { background: "none", border: "1px solid #343e57", color: "#aab3bf", borderRadius: 5, padding: "2px 7px", fontSize: 12, lineHeight: 1.4 };
 
   return (
     <details open={aperto} onToggle={(e) => setAperto(e.currentTarget.open)} style={{ background: "#1a1712", border: "1px solid #5a3f22", borderRadius: 8, padding: "10px 14px", margin: "14px 0" }}>
@@ -258,7 +258,7 @@ export default function GiroGiornata({ partenza, giro, onCambia, data, oraParten
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         <input value={testo} onChange={(e) => setTesto(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); cerca(); } }} placeholder="Posto, indirizzo o coordinate" style={{ ...inputStyle, flex: "1 1 200px", minWidth: 0 }} />
-        <button type="button" onClick={cerca} disabled={cercando || !testo.trim()} style={{ background: testo.trim() ? "#ff8c42" : "#333a45", color: testo.trim() ? "#161a1f" : "#6b7480", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>{cercando ? "Cerco…" : "＋ Aggiungi"}</button>
+        <button type="button" onClick={cerca} disabled={cercando || !testo.trim()} style={{ background: testo.trim() ? "#ff8c42" : "#343e57", color: testo.trim() ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>{cercando ? "Cerco…" : "＋ Aggiungi"}</button>
         <button type="button" onClick={dovesono} disabled={cercando} style={bottone()}>📍 Dove sono</button>
       </div>
       <div style={{ fontSize: 11, color: "#6b7480", marginTop: 4 }}>Puoi aggiungere anche i posti dei piloti da «📍 Posti belli qui vicino» e dalla pagina Posti (tasto «＋ Al giro»).</div>
@@ -276,17 +276,17 @@ export default function GiroGiornata({ partenza, giro, onCambia, data, oraParten
             return (
               <React.Fragment key={p.id}>
                 {tratto && <div style={{ fontSize: 11.5, color: "#8b95a3", paddingLeft: 14 }}>🚗 {kmIt(tratto.km)} km · {durata(tratto.min)}{strada.stimato ? " (stima)" : ""}</div>}
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#1b2028", border: `1px solid ${p.partenza ? "#ff8c4288" : "#2b313d"}`, borderRadius: 8, padding: "8px 10px" }}>
-                  <span style={{ flex: "none", width: 24, height: 24, borderRadius: "50%", background: i === 0 ? "#ff8c42" : "#161a1f", color: i === 0 ? "#161a1f" : "#fff", border: "2px solid #ff8c42", fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#151b2b", border: `1px solid ${p.partenza ? "#ff8c4288" : "#2a3349"}`, borderRadius: 8, padding: "8px 10px" }}>
+                  <span style={{ flex: "none", width: 24, height: 24, borderRadius: "50%", background: i === 0 ? "#ff8c42" : "#10141f", color: i === 0 ? "#10141f" : "#fff", border: "2px solid #ff8c42", fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {p.partenza
                       ? <div style={{ fontSize: 13, fontWeight: 700 }}>{p.nome} <span style={{ fontSize: 11, fontWeight: 400, color: "#8b95a3" }}>· luogo del piano</span></div>
-                      : <input value={p.nome} onChange={(e) => cambiaTappa(p.id, { nome: e.target.value })} aria-label="Nome della tappa" style={{ background: "transparent", border: "none", borderBottom: "1px dashed #333a45", color: "#e7eaee", fontSize: 13, fontWeight: 700, padding: "1px 0", width: "100%" }} />}
+                      : <input value={p.nome} onChange={(e) => cambiaTappa(p.id, { nome: e.target.value })} aria-label="Nome della tappa" style={{ background: "transparent", border: "none", borderBottom: "1px dashed #343e57", color: "#e7eaee", fontSize: 13, fontWeight: 700, padding: "1px 0", width: "100%" }} />}
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 11.5, color: "#c3cad4", marginTop: 3 }}>
                       <span>🕒 arrivo <strong>{hhmm(arrivi[i])}</strong></span>
                       <label style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#8b95a3" }}>
                         sosta
-                        <select value={Number(p.sosta) || 0} onChange={(e) => (p.partenza ? cambia({ sostaPartenza: Number(e.target.value) }) : cambiaTappa(p.id, { sosta: Number(e.target.value) }))} style={{ background: "#161a1f", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 4, fontSize: 11.5, padding: "1px 4px" }}>
+                        <select value={Number(p.sosta) || 0} onChange={(e) => (p.partenza ? cambia({ sostaPartenza: Number(e.target.value) }) : cambiaTappa(p.id, { sosta: Number(e.target.value) }))} style={{ background: "#10141f", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 4, fontSize: 11.5, padding: "1px 4px" }}>
                           {[10, 15, 20, 30, 45, 60, 90, 120].map((v) => <option key={v} value={v}>{durata(v)}</option>)}
                         </select>
                       </label>
@@ -318,7 +318,7 @@ export default function GiroGiornata({ partenza, giro, onCambia, data, oraParten
             Totale: <strong>{kmIt(totKm)} km</strong> · <strong>{durata(totMin)}</strong> in auto · fine all'ultima tappa verso le <strong>{hhmm(fine)}</strong>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-            {punti.length >= 3 && <button type="button" onClick={ottimizza} disabled={ordinando} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>{ordinando ? "Calcolo…" : "✨ Ordine migliore"}</button>}
+            {punti.length >= 3 && <button type="button" onClick={ottimizza} disabled={ordinando} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>{ordinando ? "Calcolo…" : "✨ Ordine migliore"}</button>}
             {linkMaps && <a href={linkMaps} target="_blank" rel="noreferrer" style={{ ...bottone(), textDecoration: "none", display: "inline-flex", alignItems: "center" }}>🧭 Apri il giro in Google Maps</a>}
           </div>
           {aperto && <MappaGiro punti={punti} linea={strada.linea} />}

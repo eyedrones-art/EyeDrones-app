@@ -60,7 +60,7 @@ export default function Sopralluogo({ tipo, dati, onCambia, scene, centro, sole,
     ...(scene || []).filter((s) => s.ora).map((s) => ({ ora: s.ora, testo: s.titolo || "Scena", scena: true })),
   ].sort((a, b) => minuti(a.ora) - minuti(b.ora));
 
-  const campo = { background: "#12151a", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 5, padding: "6px 8px", fontSize: 12.5, boxSizing: "border-box", minHeight: 36 };
+  const campo = { background: "#0d111c", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 5, padding: "6px 8px", fontSize: 12.5, boxSizing: "border-box", minHeight: 36 };
   const titoletto = { fontSize: 13, fontWeight: 700, color: "#7fb0ff", margin: "14px 0 6px 0" };
   const puntiMappa = [
     ...d.punti,
@@ -105,7 +105,7 @@ export default function Sopralluogo({ tipo, dati, onCambia, scene, centro, sole,
       <div style={titoletto}>📍 Punti sul posto</div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         {Object.entries(TIPI_PUNTO).map(([k, t]) => (
-          <button key={k} type="button" onClick={() => setTipoPunto(k)} aria-pressed={tipoPunto === k} style={{ background: tipoPunto === k ? t.colore + "33" : "#1b2028", border: `1px solid ${tipoPunto === k ? t.colore : "#333a45"}`, color: "#e7eaee", borderRadius: 14, padding: "4px 10px", fontSize: 12, minHeight: 32 }}>{t.emoji} {t.nome}</button>
+          <button key={k} type="button" onClick={() => setTipoPunto(k)} aria-pressed={tipoPunto === k} style={{ background: tipoPunto === k ? t.colore + "33" : "#151b2b", border: `1px solid ${tipoPunto === k ? t.colore : "#343e57"}`, color: "#e7eaee", borderRadius: 14, padding: "4px 10px", fontSize: 12, minHeight: 32 }}>{t.emoji} {t.nome}</button>
         ))}
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>

@@ -8,7 +8,7 @@ export function apriManuale(sezione) {
   window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail: { pagina: "impara", scheda: "manuale" } }));
 }
 
-const stCard = { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 10, padding: "12px 14px" };
+const stCard = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "12px 14px" };
 const stLista = { margin: "8px 0 0 0", paddingLeft: 18, fontSize: 13, lineHeight: 1.6, color: "#d6dde6" };
 const Lista = ({ voci }) => <ul style={stLista}>{voci.map((v) => <li key={v} style={{ marginBottom: 3 }}>{v}</li>)}</ul>;
 const Sotto = ({ children }) => <div style={{ fontSize: 12.5, fontWeight: 700, color: "#ffb877", margin: "12px 0 0 0" }}>{children}</div>;
@@ -17,8 +17,8 @@ function Tabella({ righe, intestazione }) {
   return (
     <div style={{ overflowX: "auto", marginTop: 8 }}>
       <table style={{ borderCollapse: "collapse", fontSize: 12.5, minWidth: 520, width: "100%" }}>
-        <thead><tr>{intestazione.map((h) => <th key={h} style={{ textAlign: "left", color: "#8b95a3", fontWeight: 600, padding: "6px 8px", borderBottom: "1px solid #333a45" }}>{h}</th>)}</tr></thead>
-        <tbody>{righe.map((r) => <tr key={r[0]}>{r.map((c, i) => <td key={i} style={{ padding: "6px 8px", borderBottom: "1px solid #262b33", color: i === 0 ? "#e7eaee" : "#c3cad4", fontWeight: i === 0 ? 600 : 400 }}>{c}</td>)}</tr>)}</tbody>
+        <thead><tr>{intestazione.map((h) => <th key={h} style={{ textAlign: "left", color: "#8b95a3", fontWeight: 600, padding: "6px 8px", borderBottom: "1px solid #343e57" }}>{h}</th>)}</tr></thead>
+        <tbody>{righe.map((r) => <tr key={r[0]}>{r.map((c, i) => <td key={i} style={{ padding: "6px 8px", borderBottom: "1px solid #232b3f", color: i === 0 ? "#e7eaee" : "#c3cad4", fontWeight: i === 0 ? 600 : 400 }}>{c}</td>)}</tr>)}</tbody>
       </table>
     </div>
   );
@@ -59,7 +59,7 @@ const ESEMPI_COLORE = [
 function Esempio({ e }) {
   const colore = e.ok === true ? "#4ade80" : e.ok === false ? "#ff6b6b" : "#f5b942";
   return (
-    <figure style={{ margin: 0, background: "#161a1f", border: `1px solid ${colore}55`, borderRadius: 8, overflow: "hidden" }}>
+    <figure style={{ margin: 0, background: "#10141f", border: `1px solid ${colore}55`, borderRadius: 8, overflow: "hidden" }}>
       <div style={{ position: "relative" }}>
         {e.mezzo ? (
           <div style={{ display: "flex" }}>
@@ -82,7 +82,7 @@ function PrimaDopo() {
   const [x, setX] = useState(50);
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: "1px solid #333a45" }}>
+      <div style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: "1px solid #343e57" }}>
         <div style={{ filter: "saturate(.35) contrast(.6) brightness(1.12)" }}><Paesaggio /></div>
         <div style={{ position: "absolute", inset: 0, clipPath: `inset(0 0 0 ${x}%)` }}><Paesaggio /></div>
         <div style={{ position: "absolute", top: 0, bottom: 0, left: `${x}%`, width: 3, marginLeft: -1, background: "#fff", boxShadow: "0 0 8px #000" }} />
@@ -323,7 +323,7 @@ export default function Manuale({ colore }) {
   }, []);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ ...stCard, background: "linear-gradient(135deg, #241d16, #1b2028)", borderColor: "#4a2f16" }}>
+      <div style={{ ...stCard, background: "linear-gradient(135deg, #241d16, #151b2b)", borderColor: "#4a2f16" }}>
         <div style={{ fontSize: 15, fontWeight: 700 }}>🎞️ Manuale di post-produzione</div>
         <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 3 }}>Dal volo alla consegna: copia di sicurezza, montaggio, musica, colore, esportazione e consegna al cliente. Più le impostazioni per le riprese speciali e i problemi più comuni.</div>
       </div>
@@ -376,10 +376,10 @@ export function DopoIlVolo({ volo, onSalva, onConsegna }) {
           const ok = fatti.includes(p.id);
           return (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 40 }}>
-              <button type="button" onClick={() => cambia(p.id)} aria-pressed={ok} aria-label={p.testo} style={{ width: 26, height: 26, flex: "none", borderRadius: 6, border: ok ? "none" : "1.5px solid #4a5d80", background: ok ? "#4ade80" : "transparent", color: "#12151a", fontWeight: 800, fontSize: 14 }}>{ok ? "✓" : ""}</button>
+              <button type="button" onClick={() => cambia(p.id)} aria-pressed={ok} aria-label={p.testo} style={{ width: 26, height: 26, flex: "none", borderRadius: 6, border: ok ? "none" : "1.5px solid #4a5d80", background: ok ? "#4ade80" : "transparent", color: "#0d111c", fontWeight: 800, fontSize: 14 }}>{ok ? "✓" : ""}</button>
               <button type="button" onClick={() => cambia(p.id)} style={{ flex: 1, textAlign: "left", background: "none", border: "none", color: ok ? "#6b7480" : "#e7eaee", textDecoration: ok ? "line-through" : "none", fontSize: 13, padding: "6px 0" }}>{p.testo}</button>
               {p.consegna && onConsegna
-                ? <button type="button" onClick={onConsegna} style={{ background: "#ff8c42", color: "#161a1f", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 12, fontWeight: 700 }}>📤 Consegna</button>
+                ? <button type="button" onClick={onConsegna} style={{ background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 12, fontWeight: 700 }}>📤 Consegna</button>
                 : <button type="button" onClick={() => apriManuale(p.sezione)} style={{ background: "none", border: "1px solid #2a4562", color: "#8fc1ff", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>Come si fa ›</button>}
             </div>
           );

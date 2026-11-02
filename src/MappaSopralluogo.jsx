@@ -14,7 +14,7 @@ const STILI = {
 };
 const icona = (tipo) => {
   const s = STILI[tipo] || STILI.altro;
-  return L.divIcon({ className: "", html: `<div style="width:30px;height:30px;border-radius:50%;background:#12151a;border:2px solid ${s.colore};display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 4px rgba(0,0,0,.5)">${s.emoji}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
+  return L.divIcon({ className: "", html: `<div style="width:30px;height:30px;border-radius:50%;background:#0d111c;border:2px solid ${s.colore};display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 4px rgba(0,0,0,.5)">${s.emoji}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
 };
 const testo = (t) => String(t || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 

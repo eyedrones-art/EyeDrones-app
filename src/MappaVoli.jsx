@@ -39,7 +39,7 @@ export default function MappaVoli({ voli, tipi, onApri }) {
       if (!c) return;
       punti.push(c);
       const tipo = (tipi || []).find((t) => t.key === v.tipo_attivita) || { colore: "#ff8c42", emoji: "✈️", label: "Volo" };
-      const marker = L.circleMarker(c, { radius: 8, color: "#12151a", weight: 2, fillColor: tipo.colore, fillOpacity: 0.95 }).addTo(livello);
+      const marker = L.circleMarker(c, { radius: 8, color: "#0d111c", weight: 2, fillColor: tipo.colore, fillOpacity: 0.95 }).addTo(livello);
       const div = document.createElement("div");
       div.style.cssText = "font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; min-width: 150px";
       div.innerHTML = `<strong>${escape(v.data ? new Date(v.data).toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" }) : "")}</strong> · ${tipo.emoji} ${escape(tipo.label)}<br>${escape(v.luogo || "")}${v.drone_nome ? `<br><span style="color:#666">${escape(v.drone_nome)}</span>` : ""}`;
@@ -59,5 +59,5 @@ export default function MappaVoli({ voli, tipi, onApri }) {
     return () => livello.remove();
   }, [voli]);
 
-  return <div ref={contenitore} style={{ width: "100%", height: "60vh", minHeight: 320, borderRadius: 10, overflow: "hidden", border: "1px solid #262b33" }} />;
+  return <div ref={contenitore} style={{ width: "100%", height: "60vh", minHeight: 320, borderRadius: 10, overflow: "hidden", border: "1px solid #232b3f" }} />;
 }

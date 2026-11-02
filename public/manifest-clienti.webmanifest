@@ -1,0 +1,37 @@
+{
+  "id": "/miei-lavori",
+  "name": "EyeDrones · I miei lavori",
+  "short_name": "I miei lavori",
+  "description": "Le tue richieste a un pilota di droni: offerte, pilota scelto, lavori consegnati.",
+  "lang": "it",
+  "start_url": "/miei-lavori",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbf7f2",
+  "theme_color": "#fbf7f2",
+  "categories": [
+    "lifestyle",
+    "photo"
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

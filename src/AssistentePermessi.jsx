@@ -97,11 +97,14 @@ const TIPI_AEROPORTO = {
 const ENTI_LIBERI = [
   { id: "prefettura", nome: "Prefettura", esempio: "Prefettura di Torino", nota: "La Prefettura dà il nulla osta per l'ordine e la sicurezza pubblica (centri città, eventi, luoghi sensibili). Molte vogliono il loro modulo: guarda il sito della tua Prefettura («sorvoli con drone»). Di solito 10–15 giorni lavorativi prima, via PEC.", giorni: 15 },
   { id: "comune", nome: "Comune", esempio: "Comune di Caselle Torinese", nota: "Al Comune si chiede per riprese in luoghi pubblici o se c'è un'ordinanza. Per il decollo da suolo pubblico può servire l'ufficio occupazione suolo pubblico.", giorni: 10 },
-  { id: "parco", nome: "Ente parco o riserva", esempio: "Ente Parco del …", nota: "Molti parchi hanno un loro modulo «nulla osta sorvolo droni» sul sito, a volte a pagamento: se c'è, usa quello.", giorni: 15 },
+  { id: "polizia", nome: "Polizia locale", esempio: "Polizia locale di Cassino", nota: "Alla Polizia locale di solito non si chiede un permesso: si manda un avviso del volo, così sanno chi sei se qualcuno li chiama. Molti Comandi lo vogliono per voli in città, a eventi o vicino alle strade. Mandalo qualche giorno prima e porta con te la loro risposta.", giorni: 3 },
+  { id: "parco", nome: "Ente parco o riserva", esempio: "Ente Parco del …", nota: "Molti parchi hanno un loro modulo «nulla osta sorvolo droni» sul sito, a volte a pagamento: se c'è, usa quello. Alcuni parchi (soprattutto nei siti Natura 2000) chiedono anche la Valutazione di Incidenza Ambientale (VINCA), che può costare diverse centinaia di euro: chiedi prima se serve, così sai subito se il volo conviene.", giorni: 15 },
   { id: "proprietario", nome: "Proprietario o gestore del posto", esempio: "Villa …, Azienda …", nota: "Per decollare o atterrare su un terreno privato, o volare vicino a un edificio (eccezione dell'ostacolo vicino agli aeroporti), serve il permesso del proprietario.", giorni: 3 },
   { id: "capitaneria", nome: "Capitaneria di porto", esempio: "Capitaneria di porto di Genova", nota: "Per porti, spiagge e specchi d'acqua: molte Capitanerie hanno un'ordinanza sui droni. In alcune basta una comunicazione, in altre serve l'autorizzazione: guarda le ordinanze sul sito della tua Capitaneria (guardiacostiera.gov.it).", giorni: 10 },
   { id: "soprintendenza", nome: "Soprintendenza o museo", esempio: "Soprintendenza ABAP di Torino", nota: "Per riprendere monumenti, aree archeologiche o musei statali per lavoro serve la concessione all'uso delle immagini (Codice dei beni culturali, artt. 107-108). Per uso personale le riprese di beni culturali sono libere. Per volare dentro un sito chiedi anche al gestore del sito.", giorni: 15 },
   { id: "infrastruttura", nome: "Ferrovia, autostrada, linee elettriche", esempio: "RFI, Autostrade per l'Italia, ANAS, Terna", nota: "Per volare sopra o vicino a binari, autostrade, linee elettriche o dighe chiedi al gestore. Per le ispezioni di solito c'è già un accordo con il committente: chiedi a lui chi va avvisato.", giorni: 15 },
+  { id: "questura", nome: "Questura", esempio: "Questura di Milano", nota: "Per voli sopra o vicino a luoghi sensibili per la sicurezza (palazzi di giustizia, caserme, sedi istituzionali, eventi) spesso va informata o coinvolta anche la Questura, di solito insieme alla Prefettura. Chiedi alla Prefettura se serve e mandale la stessa documentazione.", giorni: 15 },
+  { id: "edificio-pubblico", nome: "Edificio pubblico sensibile", esempio: "Corte d'Appello di Milano, Ospedale …, Ministero …", nota: "Per tribunali, ospedali, ministeri e altre sedi pubbliche serve il permesso di chi gestisce l'edificio (per un tribunale la Corte d'Appello, per lavori statali anche il ministero committente). Spesso servono più nulla osta: Prefettura, Questura, gestore. Prepara una volta sola attestati, assicurazione, valutazione del rischio e piano di volo, e mandali a tutti. Muoviti con largo anticipo.", giorni: 30 },
   { id: "altro", nome: "Altro ente", esempio: "Capitaneria di porto, Soprintendenza…", nota: "Usa il contatto scritto sul sito dell'ente.", giorni: 15 },
 ];
 
@@ -134,12 +137,12 @@ const durata = (d) => { const m = String(d || "").match(/^P(?:(\d+)D)?(?:T(?:(\d
 function leggiRichiedente() { try { return JSON.parse(localStorage.getItem(CHIAVE_RICHIEDENTE) || "null") || {}; } catch { return {}; } }
 
 const st = {
-  card: { background: "#1b2028", border: "1px solid #2b313d", borderRadius: 12, padding: 16, marginBottom: 14 },
-  input: { width: "100%", boxSizing: "border-box", background: "#12151a", border: "1px solid #333a45", color: "#e7eaee", borderRadius: 6, padding: "9px 10px", fontSize: 13.5, minHeight: 40 },
+  card: { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: 16, marginBottom: 14 },
+  input: { width: "100%", boxSizing: "border-box", background: "#0d111c", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 6, padding: "9px 10px", fontSize: 13.5, minHeight: 40 },
   etich: { fontSize: 11.5, color: "#8b95a3", display: "block", marginBottom: 4 },
-  primario: { background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#161a1f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 700, minHeight: 44 },
-  secondario: { background: "#1f2530", color: "#e7eaee", border: "1px solid #333a45", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 600, minHeight: 42 },
-  passo: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", background: "#ff8c42", color: "#161a1f", fontWeight: 800, fontSize: 13, flex: "none" },
+  primario: { background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 700, minHeight: 44 },
+  secondario: { background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 600, minHeight: 42 },
+  passo: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", background: "#ff8c42", color: "#10141f", fontWeight: 800, fontSize: 13, flex: "none" },
 };
 
 function Titolo({ n, children }) {
@@ -148,8 +151,11 @@ function Titolo({ n, children }) {
 
 export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, riprendiZone, droni = [], azienda, emailUtente, onSalva, onChiudi }) {
   const [archivio, setArchivio] = useState(undefined);
-  const [testo, setTesto] = useState("");
-  const [punto, setPunto] = useState(null);
+  // aperto da «Lavori nella tua zona» (o da un'altra pagina) con il punto già scelto: lo uso una volta
+  // (vale per un minuto: la pagina può montare l'assistente più di una volta mentre carica)
+  const [puntoIniziale] = useState(() => { try { const v = JSON.parse(sessionStorage.getItem("eyedrones_permessi_punto") || "null"); return v && Number.isFinite(v.lat) && Number.isFinite(v.lon) && Date.now() - (v.quando || 0) < 60000 ? { lat: v.lat, lon: v.lon, etichetta: v.etichetta } : null; } catch { return null; } });
+  const [testo, setTesto] = useState(() => (puntoIniziale ? `${puntoIniziale.lat}, ${puntoIniziale.lon}` : ""));
+  const [punto, setPunto] = useState(puntoIniziale);
   const [cerco, setCerco] = useState(false);
   const [errore, setErrore] = useState(null);
   const [scelta, setScelta] = useState(null); // { zona, tipo: "aeroporto" | "ente" }
@@ -230,7 +236,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <div style={{ ...st.card, background: "linear-gradient(135deg, #1d2633, #1b2028)", borderColor: "#3d8bfd55" }}>
+      <div style={{ ...st.card, background: "linear-gradient(135deg, #1d2633, #151b2b)", borderColor: "#3d8bfd55" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 800 }}>🧭 Assistente permessi</div>
@@ -285,7 +291,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {ZONE_A_MANO.map((x) => {
               const attivo = aMano !== undefined && (x.zona ? aMano && aMano.id === x.zona.id : aMano === null);
-              return <button key={x.etichetta} type="button" onClick={() => { setAMano(x.zona); setScelta(null); }} aria-pressed={attivo} style={{ ...st.secondario, minHeight: 38, padding: "6px 12px", fontSize: 12.5, background: attivo ? "#2b3a52" : "#1f2530", borderColor: attivo ? "#3d8bfd" : "#333a45" }}>{x.etichetta}</button>;
+              return <button key={x.etichetta} type="button" onClick={() => { setAMano(x.zona); setScelta(null); }} aria-pressed={attivo} style={{ ...st.secondario, minHeight: 38, padding: "6px 12px", fontSize: 12.5, background: attivo ? "#2b3a52" : "#1a2133", borderColor: attivo ? "#3d8bfd" : "#343e57" }}>{x.etichetta}</button>;
             })}
           </div>
           <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "8px 0 0 0" }}>Con il file faccio tutto da solo, trovo anche il contatto dell'ente e i posti liberi lì vicino.</p>
@@ -299,14 +305,14 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
             <span style={{ fontSize: 12.5, color: "#8b95a3", alignSelf: "center" }}>Come voli?</span>
             {[["open", "Categoria Open (A1/A3, A2)"], ["specific", "Specific (STS o autorizzazione ENAC)"]].map(([k, l]) => (
-              <button key={k} type="button" onClick={() => { setCategoria(k); setScelta(null); }} aria-pressed={categoria === k} style={{ ...st.secondario, minHeight: 36, padding: "6px 12px", background: categoria === k ? "#2b3a52" : "#1f2530", borderColor: categoria === k ? "#3d8bfd" : "#333a45" }}>{l}</button>
+              <button key={k} type="button" onClick={() => { setCategoria(k); setScelta(null); }} aria-pressed={categoria === k} style={{ ...st.secondario, minHeight: 36, padding: "6px 12px", background: categoria === k ? "#2b3a52" : "#1a2133", borderColor: categoria === k ? "#3d8bfd" : "#343e57" }}>{l}</button>
             ))}
           </div>
 
           {zoneDaMostrare.length === 0 && (
             <div style={{ borderLeft: "3px solid #4ade80", background: "#4ade8012", borderRadius: 6, padding: "10px 12px", fontSize: 13 }}>
               <strong style={{ color: "#4ade80" }}>✓ Nessuna zona geografica qui: non devi chiedere permessi per lo spazio aereo.</strong>
-              <div style={{ color: "#c3cad4", marginTop: 4 }}>Valgono le regole della tua categoria (Open: massimo 120 m, drone sempre in vista). Controlla comunque i <strong>NOTAM</strong> su D-Flight il giorno prima: eventi, elisoccorso ed esercitazioni non sempre sono nel file.</div>
+              <div style={{ color: "#c3cad4", marginTop: 4 }}>Valgono le regole della tua categoria (Open: massimo 120 m, drone sempre in vista). Controlla comunque i <strong>NOTAM</strong> su D-Flight il giorno prima e la mattina del volo: eventi, elisoccorso ed esercitazioni non sempre sono nel file.</div>
             </div>
           )}
 
@@ -393,7 +399,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
               {alternative === "cerco" && <div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 8 }}>Cerco nel raggio di 8 km…</div>}
               {Array.isArray(alternative) && alternative.length === 0 && <div style={{ fontSize: 12.5, color: "#f5b942", marginTop: 8 }}>Nel raggio di 8 km non trovo posti senza zone: qui conviene chiedere il permesso.</div>}
               {Array.isArray(alternative) && alternative.map((x) => (
-                <div key={x.altezza} style={{ background: "#12151a", border: "1px solid #2b313d", borderRadius: 8, padding: "8px 10px", marginTop: 8 }}>
+                <div key={x.altezza} style={{ background: "#0d111c", border: "1px solid #2a3349", borderRadius: 8, padding: "8px 10px", marginTop: 8 }}>
                   <div style={{ fontSize: 13, color: "#e7eaee" }}>📍 <strong>{x.distanza >= 1000 ? `${(x.distanza / 1000).toFixed(1).replace(".", ",")} km` : `${x.distanza} m`} a {x.direzione}</strong>{x.luogo && x.luogo.comune ? ` · ${x.luogo.comune}` : ""} · <span style={{ color: "#4ade80" }}>{x.altezza >= 120 ? "libero fino a 120 m" : `libero fino a ${x.altezza} m`}</span></div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                     <button type="button" onClick={() => { setScelta(null); setPunto({ lat: x.lat, lon: x.lon, etichetta: "Posto libero vicino" }); setTesto(`${x.lat.toFixed(5)}, ${x.lon.toFixed(5)}`); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ ...st.secondario, minHeight: 34, padding: "5px 10px", fontSize: 12 }}>Usa questo punto</button>
@@ -401,7 +407,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
                   </div>
                 </div>
               ))}
-              {Array.isArray(alternative) && alternative.length > 0 && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 8 }}>✓ Zone già controllate da me, anche 100 m tutto intorno: non devi riguardarle su D-Flight. Come per ogni volo, il giorno prima guarda solo i NOTAM (eventi, elisoccorso). Sul posto controlla che sia sicuro (persone, strade, cavi), in A1/A3 stai lontano da case e persone, e se decolli da un terreno privato chiedi al proprietario.</div>}
+              {Array.isArray(alternative) && alternative.length > 0 && <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 8 }}>✓ Zone già controllate da me, anche 100 m tutto intorno: non devi riguardarle su D-Flight. Come per ogni volo, il giorno prima e la mattina del volo guarda solo i NOTAM (eventi, elisoccorso). Sul posto controlla che sia sicuro (persone, strade, cavi), in A1/A3 stai lontano da case e persone, e se decolli da un terreno privato chiedi al proprietario.</div>}
             </div>
           )}
 
@@ -421,17 +427,17 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
 
       {punto && (
         <div style={{ ...st.card, padding: 12 }}>
-          <div style={{ fontSize: 13, color: "#c3cad4", marginBottom: 8 }}>✍️ Devi scrivere a qualcun altro? Prefettura, Comune, un parco che non è nel file o il proprietario del posto: ti scrivo io la richiesta.</div>
+          <div style={{ fontSize: 13, color: "#c3cad4", marginBottom: 8 }}>✍️ Devi scrivere a qualcun altro? Prefettura, Comune, Polizia locale, un parco che non è nel file o il proprietario del posto: ti scrivo io la richiesta o l'avviso.</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {ENTI_LIBERI.map((e) => (
-              <button key={e.id} type="button" onClick={() => setScelta({ tipo: "ente", libero: e, zona: { id: "libero-" + e.id, nome: "" }, ente: null })} style={{ ...st.secondario, minHeight: 38, padding: "6px 12px", fontSize: 12.5, borderColor: scelta?.libero?.id === e.id ? "#3d8bfd" : "#333a45" }}>{e.nome}</button>
+              <button key={e.id} type="button" onClick={() => setScelta({ tipo: "ente", libero: e, zona: { id: "libero-" + e.id, nome: "" }, ente: null })} style={{ ...st.secondario, minHeight: 38, padding: "6px 12px", fontSize: 12.5, borderColor: scelta?.libero?.id === e.id ? "#3d8bfd" : "#343e57" }}>{e.nome}</button>
             ))}
           </div>
         </div>
       )}
 
       {/* 3) richiesta */}
-      {scelta && <ModuloRichiesta key={(scelta.zona.id || scelta.zona.nome) + scelta.tipo + (scelta.libero ? scelta.libero.id : "") + (luogo ? luogo.comune : "")} scelta={scelta} punto={punto} luogo={luogo} categoria={categoria} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={onSalva} />}
+      {scelta && <ModuloRichiesta key={(scelta.zona.id || scelta.zona.nome) + scelta.tipo + (scelta.libero ? scelta.libero.id : "") + (luogo ? luogo.comune : "")} scelta={scelta} punto={punto} cercaIndirizzo={cercaIndirizzo} zoneQui={archivio ? (p) => controllaPunto(zoneValide, p, { raggio: 0 }).dentro : null} luogo={luogo} categoria={categoria} droni={droni} azienda={azienda} emailUtente={emailUtente} onSalva={onSalva} />}
 
       <p style={{ fontSize: 10.5, color: "#6b7480", margin: "4px 0 0 0" }}>
         Basato sul tuo file zone D-Flight e sulla Circolare ENAC ATM-09A. ENAC sta preparando un nuovo regolamento sulle zone geografiche: quando entra in vigore alcune regole possono cambiare. La verifica ufficiale resta su D-Flight.
@@ -444,7 +450,7 @@ function Campo({ label, children, largo }) {
   return <label style={{ display: "block", gridColumn: largo ? "1 / -1" : undefined }}><span style={st.etich}>{label}</span>{children}</label>;
 }
 
-function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emailUtente, onSalva }) {
+function ModuloRichiesta({ scelta, punto, cercaIndirizzo, zoneQui, luogo, categoria, droni, azienda, emailUtente, onSalva }) {
   const aeroporto = scelta.tipo === "aeroporto";
   const atm05 = scelta.tipo === "atm05";
   const ricordo = leggiRichiedente();
@@ -463,10 +469,29 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     sicurezza: "Volo in VLOS con osservatore. Area di decollo e atterraggio delimitata e senza pubblico. Drone con geofence e ritorno automatico attivi.",
   }));
   const [fatto, setFatto] = useState(null);
+  // altre aree nella stessa richiesta (es. Duomo e piazza Castello sotto la stessa zona di Milano)
+  const [aree, setAree] = useState([]); // { localita, lat, lon, raggio, fuori }
+  const [nuovaArea, setNuovaArea] = useState("");
+  const [cercoArea, setCercoArea] = useState(false);
+  const [erroreArea, setErroreArea] = useState(null);
+  const aggiungiArea = async () => {
+    const t = nuovaArea.trim(); if (!t) return;
+    setCercoArea(true); setErroreArea(null);
+    const c = /^\s*(-?\d{1,2}[.,]\d+)\s*[,;\s]\s*(-?\d{1,3}[.,]\d+)\s*$/.exec(t);
+    const p = c ? { lat: Number(c[1].replace(",", ".")), lon: Number(c[2].replace(",", ".")) } : await cercaIndirizzo(t).catch(() => null);
+    setCercoArea(false);
+    if (!p) { setErroreArea("Non trovo questo posto: prova con via e comune."); return; }
+    // con il file delle zone controllo che sia nella stessa zona
+    const fuori = zoneQui && !libero && scelta.zona.id ? !zoneQui(p).some((z) => z.id === scelta.zona.id) : false;
+    setAree([...aree, { localita: c ? "" : t, lat: p.lat, lon: p.lon, raggio: f.raggio, fuori }]);
+    setNuovaArea("");
+  };
+  const cambiaArea = (i, k) => (e) => setAree(aree.map((a, j) => (j === i ? { ...a, [k]: e.target.value } : a)));
   const libero = scelta.libero || null;
+  const avviso = libero?.id === "polizia"; // alla Polizia locale si manda un avviso, non una richiesta di nulla osta
   const nomeProposto = atm05
     ? (scelta.carcere ? "Ministero della Giustizia – Dipartimento dell'Amministrazione Penitenziaria – Segreteria di Sicurezza" : scelta.ente?.nome || (scelta.citta && luogo && luogo.provincia ? `Prefettura di ${luogo.provincia}` : ""))
-    : !libero || !luogo ? "" : libero.id === "prefettura" && luogo.provincia ? `Prefettura di ${luogo.provincia}` : libero.id === "comune" && luogo.comune ? `Comune di ${luogo.comune}` : "";
+    : !libero || !luogo ? "" : libero.id === "prefettura" && luogo.provincia ? `Prefettura di ${luogo.provincia}` : libero.id === "comune" && luogo.comune ? `Comune di ${luogo.comune}` : libero.id === "polizia" && luogo.comune ? `Polizia locale di ${luogo.comune}` : "";
   const emailProposta = atm05 ? (scelta.carcere ? scelta.ente?.email || PEC_DAP : scelta.ente?.email || (scelta.citta && luogo ? pecPrefettura(luogo.sigla) : "")) : libero && libero.id === "prefettura" && luogo ? pecPrefettura(luogo.sigla) : "";
   const [enteNome, setEnteNome] = useState(nomeProposto);
   const [enteEmail, setEnteEmail] = useState(emailProposta);
@@ -482,6 +507,9 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
   const entro = giorni && f.dataDa ? meno(f.dataDa, giorni) : null;
   const tardi = entro && entro < oggiIso();
   const coord = coordinateDms(punto.lat, punto.lon);
+  const elencoAree = [{ localita: f.localita, lat: punto.lat, lon: punto.lon, raggio: f.raggio }, ...aree]
+    .map((a) => ({ ...a, testo: `${a.localita ? `${a.localita} – ` : ""}${coordinateDms(a.lat, a.lon)} – raggio ${a.raggio} m` }));
+  const notaAree = aree.length ? ` Aree di volo: ${aree.length + 1}, elencate nella pagina allegata.` : "";
   const periodo = f.dataDa ? `${f.dataA && f.dataA !== f.dataDa ? `dal ${dataIt(f.dataDa)} al ${dataIt(f.dataA)}` : `il ${dataIt(f.dataDa)}`}, dalle ${f.oraDa} alle ${f.oraA} (ora locale)` : "";
   const categoriaTesto = categoria === "open" ? "categoria Open" : f.autorizzazione ? `categoria Specific – ${f.autorizzazione}` : "categoria Specific";
   const richiedente = [f.nome, f.operatore ? `operatore UAS ${f.operatore}` : null, categoria === "specific" && f.autorizzazione ? f.autorizzazione : null].filter(Boolean).join(" – ");
@@ -494,6 +522,8 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     ? `Modello ATM-05 – Richiesta di nulla osta al sorvolo della zona ${scelta.zona.nome} con drone – ${giorniOggetto}`
     : aeroporto
     ? `Modello ATM-09A – Riserva di spazio aereo per operazioni UAS – ${f.localita || coord} – ${giorniOggetto}`
+    : avviso
+    ? `Comunicazione di volo con drone – ${nomeZona} – ${giorniOggetto}`
     : `${libero && libero.id === "proprietario" ? "Richiesta di permesso" : "Richiesta di nulla osta"} per sorvolo con drone – ${nomeZona} – ${giorniOggetto}`;
   const allegati = atm05
     ? ["Modello ATM-05 compilato e firmato, con marca da bollo da 16 €", "Documento d'identità del richiedente", "Attestato del pilota remoto", "Registrazione operatore D-Flight (codice operatore)", "Polizza assicurativa RC", ...(categoria === "specific" ? ["Autorizzazione ENAC o dichiarazione dello scenario standard (STS)"] : []), "Mappa dell'area di volo"]
@@ -509,13 +539,14 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
       : [["Comando Operazioni Aeree", "di solito gratis", "per gli aeroporti militari non ci sono diritti ENAC da pagare"]])
     : libero?.id === "prefettura" ? [["Prefettura", "di solito gratis", "alcune Prefetture chiedono una marca da bollo da 16 €: è scritto sul loro modulo"]]
     : libero?.id === "comune" ? [["Comune", "di solito gratis", "se decolli da suolo pubblico per lavoro può servire il permesso di occupazione (costo secondo il Comune)"]]
-    : libero?.id === "parco" ? [["Ente parco", "dipende", "spesso gratis per uso amatoriale, a pagamento per riprese commerciali: da poche decine a centinaia di €. Guarda il regolamento del parco"]]
+    : libero?.id === "polizia" ? [["Polizia locale", "gratis", "è solo un avviso del volo"]]
+    : libero?.id === "parco" ? [["Ente parco", "dipende", "spesso gratis per uso amatoriale, a pagamento per riprese commerciali: da poche decine a centinaia di €. Guarda il regolamento del parco"], ["VINCA", "se la chiedono", "la Valutazione di Incidenza Ambientale la fa un tecnico abilitato e può costare diverse centinaia di €: nella richiesta chiedo io se serve"]]
     : libero?.id === "proprietario" ? [["Proprietario", "gratis", "salvo accordi diversi con lui"]]
     : libero?.id === "capitaneria" ? [["Capitaneria", "di solito gratis", "a volte con marca da bollo da 16 € sull'istanza: è scritto nell'ordinanza"]]
     : libero?.id === "soprintendenza" ? [["Soprintendenza", "dipende", "per uso personale gratis; per uso commerciale c'è un canone di concessione, deciso da ogni istituto"]]
     : libero?.id === "infrastruttura" ? [["Gestore", "dipende", "di solito gratis; il gestore può chiedere la tua assicurazione o di essere presente"]]
     : [["Ente", "dipende", "di solito gratis: nella richiesta chiedo io se ci sono costi"]];
-  const chiediCosti = !atm05 && !aeroporto;
+  const chiediCosti = !atm05 && !aeroporto && !avviso;
   const testoEmail = [
     "Buongiorno,",
     "",
@@ -524,14 +555,18 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
       : aeroporto
       ? `in allegato il Modello ATM-09A per la riserva di spazio aereo per operazioni UAS in ${categoriaTesto}, nella zona «${scelta.zona.nome}».`
       : libero
-        ? `con la presente chiedo ${libero.id === "proprietario" ? "il permesso di decollare, atterrare e volare con un drone" : "il nulla osta al sorvolo con drone"} a ${f.localita || "nel luogo indicato"}, con le seguenti caratteristiche:`
+        ? avviso
+          ? `con la presente comunico che effettuerò un volo con drone a ${f.localita || "nel luogo indicato"}, nel rispetto del Regolamento (UE) 2019/947 e del Regolamento ENAC UAS-IT, con le seguenti caratteristiche:`
+          : `con la presente chiedo ${libero.id === "proprietario" ? "il permesso di decollare, atterrare e volare con un drone" : "il nulla osta al sorvolo con drone"} a ${f.localita || "nel luogo indicato"}, con le seguenti caratteristiche:`
         : `con la presente chiedo il nulla osta al sorvolo con drone nella zona «${scelta.zona.nome}», con le seguenti caratteristiche:`,
     "",
     `• Richiedente: ${richiedente || "—"}`,
     `• Attività: ${f.attivita}, in VLOS, ${categoriaTesto}`,
     `• Drone: ${descrDrone || "—"}`,
-    `• Luogo: ${[f.localita, `coordinate ${coord} (WGS84)`].filter(Boolean).join(" – ")}`,
-    `• Area: raggio ${f.raggio} m dal punto, altezza massima ${f.altezza} m dal suolo (${piedi(f.altezza)} ft AGL)`,
+    ...(aree.length
+      ? [`• Aree di volo (${aree.length + 1}), altezza massima ${f.altezza} m dal suolo (${piedi(f.altezza)} ft AGL), coordinate WGS84:`, ...elencoAree.map((a, i) => `  ${i + 1}) ${a.testo}`)]
+      : [`• Luogo: ${[f.localita, `coordinate ${coord} (WGS84)`].filter(Boolean).join(" – ")}`,
+        `• Area: raggio ${f.raggio} m dal punto, altezza massima ${f.altezza} m dal suolo (${piedi(f.altezza)} ft AGL)`]),
     `• Quando: ${periodo || "—"}`,
     ...(f.riserva && f.dataA && f.dataA !== f.dataDa ? ["  (chiedo qualche giorno in più per poter spostare il volo in caso di maltempo)"] : []),
     `• Sicurezza: ${f.sicurezza}`,
@@ -540,6 +575,8 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     ...allegati.map((a) => `- ${a}`),
     "",
     ...(chiediCosti ? ["Vi chiedo cortesemente di indicarmi eventuali costi, diritti o marche da bollo necessari.", ""] : []),
+    ...(libero?.id === "parco" ? ["Vi chiedo anche se per questo volo è necessaria la Valutazione di Incidenza Ambientale (VINCA).", ""] : []),
+    ...(avviso ? ["Vi chiedo cortesemente una breve conferma di ricezione, da tenere con me durante il volo.", ""] : []),
     "Resto a disposizione per qualsiasi chiarimento.",
     "Cordiali saluti,",
     f.nome,
@@ -548,10 +585,25 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
 
   const ricorda = () => { try { localStorage.setItem(CHIAVE_RICHIEDENTE, JSON.stringify({ nome: f.nome, operatore: f.operatore, autorizzazione: f.autorizzazione, telefono: f.telefono, email: f.email })); } catch { /* niente */ } };
 
+  // con più aree aggiungo al modello una pagina con l'elenco
+  const paginaAree = async (pdf, StandardFonts, rgb) => {
+    if (!aree.length) return;
+    const font = await pdf.embedFont(StandardFonts.Helvetica), grassetto = await pdf.embedFont(StandardFonts.HelveticaBold);
+    const pg = pdf.addPage([595, 842]);
+    const pulito = (t) => String(t || "").replace(/[^\x20-\x7E\xA0-\xFF–—]/g, "");
+    let y = 780;
+    pg.drawText("Allegato - Aree di volo", { x: 50, y, size: 14, font: grassetto }); y -= 22;
+    pg.drawText(pulito(`Altezza massima ${f.altezza} m dal suolo (${piedi(f.altezza)} ft AGL) - ${periodo}`), { x: 50, y, size: 10, font }); y -= 26;
+    elencoAree.forEach((a, i) => {
+      pg.drawText(pulito(`${i + 1}) ${a.localita || "Area"}`), { x: 50, y, size: 11, font: grassetto }); y -= 15;
+      pg.drawText(pulito(`Centro ${coordinateDms(a.lat, a.lon)} (WGS84) - raggio ${a.raggio} m (${(a.raggio / 1852).toFixed(2)} NM)`), { x: 64, y, size: 10, font, color: rgb(0.1, 0.1, 0.1) }); y -= 24;
+    });
+  };
+
   // Modello ATM-09A ufficiale: è un PDF con i campi, li riempio uno per uno
   const scaricaModello = async () => {
     ricorda();
-    const { PDFDocument } = await import("pdf-lib");
+    const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
     const byte = await (await fetch("/moduli/MOD_ATM-09A.pdf")).arrayBuffer();
     const pdf = await PDFDocument.load(byte);
     const form = pdf.getForm();
@@ -574,8 +626,9 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     metti("fill_9", f.aeroportoNome);
     if (f.distanzaKm) { metti("undefined_3", (Number(f.distanzaKm) / 1.852).toFixed(1)); metti("NM_2", Number(f.distanzaKm).toFixed(1)); }
     metti("Datae orarioi inizio attività 8", periodo);
-    metti("Altre notizie utili alla sicurezza delle operazioni 9", f.sicurezza);
+    metti("Altre notizie utili alla sicurezza delle operazioni 9", f.sicurezza + notaAree);
     metti("Luogo e data", [(f.localita || "").split(",")[0], new Date().toLocaleDateString("it-IT")].filter(Boolean).join(", "));
+    await paginaAree(pdf, StandardFonts, rgb);
     const out = await pdf.save();
     const url = URL.createObjectURL(new Blob([out], { type: "application/pdf" }));
     const a = document.createElement("a"); a.href = url; a.download = `Modello-ATM-09A-${(f.localita || "volo").replace(/[^\w]+/g, "-").slice(0, 30)}.pdf`; a.click();
@@ -621,8 +674,9 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     scrivi(`${piedi(f.altezza)} ft AGL`, 425, 867, 505);
     scrivi(luogo && luogo.provincia ? `${luogo.comune || ""} (${luogo.sigla || luogo.provincia})` : "", 538, 888);
     scrivi(periodo, 305, 931);
-    aCapo(f.sicurezza, 395, 951, 770, 4);
+    aCapo(f.sicurezza + notaAree, 395, 951, 770, 4);
     scrivi([(f.localita || "").split(/[,(]/)[0].trim(), new Date().toLocaleDateString("it-IT")].filter(Boolean).join(", "), 178, 1229, 345);
+    await paginaAree(pdf, StandardFonts, rgb);
     const out = await pdf.save();
     const url = URL.createObjectURL(new Blob([out], { type: "application/pdf" }));
     const a = document.createElement("a"); a.href = url; a.download = `Modello-ATM-05-${(scelta.zona.nome || "zona").replace(/[^\w]+/g, "-").slice(0, 30)}.pdf`; a.click();
@@ -653,9 +707,9 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
     const ok = await onSalva({
       impianto: f.localita || coord,
       ente_contattato: atm05 ? `${ente?.nome || ""} (cc ENAC)` : aeroporto ? [tipoA.a.join(", "), `ENAC DA ${dir ? dir.nome : ""}`].filter(Boolean).join(" + ") : (ente?.nome || (libero ? libero.nome : scelta.zona.nome)),
-      permessi_richiesti: atm05 ? `Nulla osta zona ${scelta.zona.nome} – Modello ATM-05` : aeroporto ? `Riserva spazio aereo – Modello ATM-09A (${scelta.zona.nome})` : `${libero && libero.id === "proprietario" ? "Permesso" : "Nulla osta"} sorvolo – ${libero ? `${libero.nome}, ${nomeZona}` : scelta.zona.nome}`,
+      permessi_richiesti: atm05 ? `Nulla osta zona ${scelta.zona.nome} – Modello ATM-05` : aeroporto ? `Riserva spazio aereo – Modello ATM-09A (${scelta.zona.nome})` : `${avviso ? "Avviso di volo" : libero && libero.id === "proprietario" ? "Permesso" : "Nulla osta"} sorvolo – ${libero ? `${libero.nome}, ${nomeZona}` : scelta.zona.nome}`,
       data_richiesta: oggiIso(),
-      note: [`Volo: ${periodo}`, `Area: raggio ${f.raggio} m, max ${f.altezza} m AGL, ${coord}`, giorni ? `Preavviso richiesto: ${giorni} giorni` : null].filter(Boolean).join("\n"),
+      note: [`Volo: ${periodo}`, aree.length ? `Aree (max ${f.altezza} m AGL):\n${elencoAree.map((a, i) => `${i + 1}) ${a.testo}`).join("\n")}` : `Area: raggio ${f.raggio} m, max ${f.altezza} m AGL, ${coord}`, giorni ? `Preavviso richiesto: ${giorni} giorni` : null].filter(Boolean).join("\n"),
     });
     if (ok) setFatto("salvato");
   };
@@ -667,7 +721,7 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
   useEffect(() => { const t = setTimeout(() => inizio.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); return () => clearTimeout(t); }, []);
   return (
     <div ref={inizio} style={{ ...st.card, scrollMarginTop: 80 }}>
-      <Titolo n="3">{aeroporto ? "Modello ATM-09A, compilato da me" : atm05 ? "Modello ATM-05, compilato da me" : libero ? `La richiesta per: ${libero.nome}` : "La richiesta di nulla osta"}</Titolo>
+      <Titolo n="3">{aeroporto ? "Modello ATM-09A, compilato da me" : atm05 ? "Modello ATM-05, compilato da me" : libero ? `${avviso ? "L'avviso per" : "La richiesta per"}: ${libero.nome}` : "La richiesta di nulla osta"}</Titolo>
       {atm05 ? (
         <>
           <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 10px 0" }}>Zona <strong>{scelta.zona.nome}</strong>. Il nulla osta lo dà l'amministrazione che ha chiesto la zona{scelta.carcere ? ": per le carceri il DAP, solo per lavoro" : ""}. Se non è scritta nel file, la trovi nell'AIP-Italia (ENR 5.1) o toccando la zona su D-Flight.</p>
@@ -685,7 +739,7 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
           </div>
           {enteNome.trim() && (
             <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 10px 0" }}>
-              🔎 Non sai l'indirizzo? <a href={cercaSulWeb(`${enteNome} ${libero.id === "prefettura" ? "sorvolo drone PEC" : libero.id === "comune" ? "PEC protocollo" : "PEC nulla osta drone"}`)} target="_blank" rel="noreferrer" style={{ color: "#7fb0ff" }}>Cercalo sul sito di {enteNome} ↗</a>{libero.id === "prefettura" ? " (guarda se c'è la pagina «sorvoli con drone» e il loro modulo)" : ""}
+              🔎 Non sai l'indirizzo? <a href={cercaSulWeb(`${enteNome} ${libero.id === "prefettura" ? "sorvolo drone PEC" : libero.id === "comune" ? "PEC protocollo" : libero.id === "polizia" ? "email comando" : "PEC nulla osta drone"}`)} target="_blank" rel="noreferrer" style={{ color: "#7fb0ff" }}>Cercalo sul sito di {enteNome} ↗</a>{libero.id === "prefettura" ? " (guarda se c'è la pagina «sorvoli con drone» e il loro modulo)" : ""}
             </p>
           )}
         </>
@@ -708,13 +762,33 @@ function ModuloRichiesta({ scelta, punto, luogo, categoria, droni, azienda, emai
         <Campo label="Ultimo giorno (se più giorni)"><input type="date" value={f.dataA} onChange={cambia("dataA")} style={st.input} /></Campo>
         <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "#c3cad4", background: "#141c28", border: "1px solid #3d8bfd33", borderRadius: 8, padding: "8px 10px" }}>
           🌧️ <strong>Consiglio:</strong> chiedi qualche giorno in più di quello che ti serve, così se piove o c'è vento sei già coperto (e una fascia oraria più larga).{" "}
-          {f.dataDa ? <>Aggiungi giorni di riserva:{" "}{[1, 2, 3].map((n) => <button key={n} type="button" onClick={() => setF({ ...f, dataA: piu(f.dataDa, n), riserva: true })} style={{ background: f.dataA === piu(f.dataDa, n) ? "#2b3a52" : "#1f2530", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 6, padding: "3px 9px", fontSize: 12, fontWeight: 600, marginLeft: 4 }}>+{n}</button>)}</> : "Prima scegli il giorno del volo."}
+          {f.dataDa ? <>Aggiungi giorni di riserva:{" "}{[1, 2, 3].map((n) => <button key={n} type="button" onClick={() => setF({ ...f, dataA: piu(f.dataDa, n), riserva: true })} style={{ background: f.dataA === piu(f.dataDa, n) ? "#2b3a52" : "#1a2133", border: "1px solid #3d8bfd66", color: "#9fc5ff", borderRadius: 6, padding: "3px 9px", fontSize: 12, fontWeight: 600, marginLeft: 4 }}>+{n}</button>)}</> : "Prima scegli il giorno del volo."}
           <div style={{ color: "#8b95a3", marginTop: 4 }}>Non esagerare: 2–3 giorni in più vanno bene, periodi troppo lunghi possono essere rifiutati. Il preavviso si conta dal primo giorno.</div>
         </div>
         <Campo label="Dalle"><input type="time" value={f.oraDa} onChange={cambia("oraDa")} style={st.input} /></Campo>
         <Campo label="Alle"><input type="time" value={f.oraA} onChange={cambia("oraA")} style={st.input} /></Campo>
         <Campo label="Altezza massima (m dal suolo)"><input type="number" inputMode="numeric" value={f.altezza} onChange={cambia("altezza")} style={st.input} /></Campo>
         <Campo label="Raggio dell'area (m)"><input type="number" inputMode="numeric" value={f.raggio} onChange={cambia("raggio")} style={st.input} /></Campo>
+        {!avviso && (
+          <div style={{ gridColumn: "1 / -1", background: "#141c28", border: "1px solid #343e57", borderRadius: 8, padding: "8px 10px" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700 }}>➕ Altre aree nella stessa richiesta</div>
+            {aree.map((a, i) => (
+              <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, color: "#8b95a3", minWidth: 16 }}>{i + 2})</span>
+                <input value={a.localita} onChange={cambiaArea(i, "localita")} placeholder={coordinateDms(a.lat, a.lon)} style={{ ...st.input, flex: "1 1 160px", width: "auto" }} />
+                <input type="number" inputMode="numeric" value={a.raggio} onChange={cambiaArea(i, "raggio")} aria-label="Raggio (m)" style={{ ...st.input, width: 80 }} />
+                <span style={{ fontSize: 12, color: "#8b95a3" }}>m</span>
+                <button type="button" onClick={() => setAree(aree.filter((_, j) => j !== i))} aria-label="Togli" style={{ ...st.secondario, minHeight: 36, padding: "4px 10px" }}>✕</button>
+                {a.fuori && <div style={{ flexBasis: "100%", fontSize: 11.5, color: "#ffd68a" }}>⚠️ Non è nella zona {scelta.zona.nome}: fai una richiesta a parte.</div>}
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+              <input value={nuovaArea} onChange={(e) => setNuovaArea(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); aggiungiArea(); } }} placeholder="Via e comune, o coordinate" style={{ ...st.input, flex: 1, width: "auto" }} />
+              <button type="button" onClick={aggiungiArea} disabled={cercoArea || !nuovaArea.trim()} style={{ ...st.secondario, opacity: nuovaArea.trim() ? 1 : 0.5 }}>{cercoArea ? "Cerco…" : "Aggiungi"}</button>
+            </div>
+            {erroreArea && <div style={{ fontSize: 11.5, color: "#ff9c9c", marginTop: 4 }}>{erroreArea}</div>}
+          </div>
+        )}
         {aeroporto && <>
           <Campo label="Che aeroporto è?" largo>
             <select value={f.tipoAeroporto} onChange={cambia("tipoAeroporto")} style={st.input}>{Object.entries(TIPI_AEROPORTO).map(([k, t]) => <option key={k} value={k}>{t.nome} · {t.giorni} giorni prima</option>)}</select>
