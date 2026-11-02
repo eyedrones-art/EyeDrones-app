@@ -10945,7 +10945,7 @@ function TrovaPilota() {
           ) : (
             <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 21, margin: 0 }}>{sezione ? sezione.titoloModulo : "Racconta cosa ti serve"}</h2>
-              <p style={{ fontSize: 14, color: "#6b6258", margin: "-4px 0 4px 0" }}>{quanti > 0 ? `In provincia di ${nomeProvincia} ci sono ${quanti === 1 ? "1 pilota pronto" : `${quanti} piloti pronti`} a ${sezione?.voi ? "mandarvi" : "mandarti"} un'offerta.` : sezione?.voi ? "Ricevete le offerte dei piloti della vostra zona, gratis." : "Ricevi le offerte dei piloti della tua zona, gratis."}</p>
+              <p style={{ fontSize: 14, color: "#6b6258", margin: "-4px 0 4px 0" }}>{quanti > 0 ? `In provincia di ${nomeProvincia} ${quanti === 1 ? "c'è 1 pilota pronto" : `ci sono ${quanti} piloti pronti`} a ${sezione?.voi ? "mandarvi" : "mandarti"} un'offerta.` : sezione?.voi ? "Ricevete le offerte dei piloti della vostra zona, gratis." : "Ricevi le offerte dei piloti della tua zona, gratis."}</p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                 <label><span style={CLIENTE.etichetta}>La tua provincia *</span>
                   <select value={provincia} onChange={(e) => { setProvincia(e.target.value); setInvio(null); }} style={CLIENTE.input}>
