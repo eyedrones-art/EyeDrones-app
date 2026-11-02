@@ -1,7 +1,6 @@
--- EyeDrones — email «I clienti della tua zona ti scrivono» (Trova un pilota) a chi vola per lavoro
--- Va UNA SOLA VOLTA a ogni iscritto che lavora con il drone, con le email di EyeDrones accese, 30 al giorno.
--- «Lavora» = ha preventivi, clienti, richieste, ispezioni, impianti o la sua pagina, oppure ha scelto ispezioni,
--- agricoltura o rilievi. Chi vola solo per hobby non la riceve.
+-- EyeDrones — email «La nuova EyeDrones è online»: le novità e l'invito ad attivare «La mia pagina» (Trova un pilota)
+-- Va UNA SOLA VOLTA a ogni iscritto con le email di EyeDrones accese, 40 al giorno.
+-- Chi ha già la pagina in «Trova un pilota» la riceve senza l'invito ad attivarla.
 -- Parte dal 2 novembre 2026, solo dal lunedì al venerdì alle 8:45 UTC (chi lavora legge in settimana),
 -- finché non l'hanno ricevuta tutti, poi il giro si cancella da solo.
 -- La manda la funzione Netlify dei promemoria (promemoria-scadenze-background). Serve errori-spazio-promemoria.sql
@@ -58,27 +57,25 @@ begin
   if v_url is null or v_segreto is null then return; end if;
 
   with scelti as (
-    select u.id, u.email, p.azienda_nome as nome
+    select u.id, u.email, p.azienda_nome as nome,
+      exists (select 1 from public.pagine_pilota g where g.user_id = u.id and g.attiva and g.in_elenco) as pagina
     from auth.users u
     left join public.profili p on p.user_id = u.id
     where u.email is not null
       and coalesce(p.promemoria_email, true)
       and u.email not in ('eyedrones@libero.it', 'ravinale.ivan@libero.it')
-      and privato.lavora_con_drone(u.id, p.moduli)
-      -- chi ha già la pagina in «Trova un pilota» non ne ha bisogno
-      and not exists (select 1 from public.pagine_pilota g where g.user_id = u.id and g.attiva and g.in_elenco)
       -- chi ha ricevuto oggi un'altra email di EyeDrones la riceve un altro giorno
       and not exists (select 1 from privato.email_primi_passi e where e.user_id = u.id and e.inviata > now() - interval '20 hours')
       and not exists (select 1 from privato.email_community c where c.user_id = u.id and c.inviata > now() - interval '20 hours')
       and not exists (select 1 from privato.email_lavori l where l.user_id = u.id)
     order by u.created_at
-    limit 30
+    limit 40
   ), segnati as (
     insert into privato.email_lavori (user_id) select id from scelti
     on conflict do nothing
     returning user_id
   )
-  select coalesce(jsonb_agg(jsonb_build_object('email', s.email, 'nome', s.nome)), '[]')
+  select coalesce(jsonb_agg(jsonb_build_object('email', s.email, 'nome', s.nome, 'pagina', s.pagina)), '[]')
     into v_utenti
   from scelti s join segnati g on g.user_id = s.id;
 
@@ -101,13 +98,11 @@ revoke all on function privato.invia_email_lavori() from public, anon, authentic
 select cron.unschedule('eyedrones-email-lavori') where exists (select 1 from cron.job where jobname = 'eyedrones-email-lavori');
 select cron.schedule('eyedrones-email-lavori', '45 8 * * 1-5', 'select privato.invia_email_lavori()');
 
--- quante persone la riceveranno (30 al giorno, dal lunedì al venerdì)
-select count(*) as "riceveranno l'email «Trova un pilota»"
+-- quante persone la riceveranno (40 al giorno, dal lunedì al venerdì)
+select count(*) as "riceveranno l'email «La nuova EyeDrones»"
 from auth.users u
 left join public.profili p on p.user_id = u.id
 where u.email is not null
   and coalesce(p.promemoria_email, true)
   and u.email not in ('eyedrones@libero.it', 'ravinale.ivan@libero.it')
-  and privato.lavora_con_drone(u.id, p.moduli)
-  and not exists (select 1 from public.pagine_pilota g where g.user_id = u.id and g.attiva and g.in_elenco)
   and not exists (select 1 from privato.email_lavori l where l.user_id = u.id);
