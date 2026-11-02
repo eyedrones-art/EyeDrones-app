@@ -54,7 +54,11 @@ function messaggioMattino(x) {
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return risposta(405, "Solo POST");
-  const { TELEGRAM_TOKEN: token, TELEGRAM_CHAT_ID: chat, AVVISO_SEGRETO: segreto } = process.env;
+  const { TELEGRAM_TOKEN: grezzo, TELEGRAM_CHAT_ID: chatGrezza, AVVISO_SEGRETO: segreto } = process.env;
+  // il token copiato può avere spazi, «a capo» o altro testo intorno (es. il messaggio di BotFather): teniamo solo «numeri:lettere»
+  const token = String(grezzo || "").match(/\d{5,}:[A-Za-z0-9_-]{30,}/)?.[0] || "";
+  const chat = String(chatGrezza || "").trim();
+  if (grezzo && !token) return risposta(500, "TELEGRAM_TOKEN non sembra un token di BotFather (numeri, due punti, lettere)");
   if (!token || !chat || !segreto) return risposta(500, "Mancano TELEGRAM_TOKEN, TELEGRAM_CHAT_ID o AVVISO_SEGRETO nelle variabili di Netlify");
   if (!stessoSegreto(event.headers["x-eyedrones-segreto"], segreto)) return risposta(401, "Non autorizzato");
   let d;
