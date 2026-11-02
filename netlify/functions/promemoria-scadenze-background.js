@@ -1,6 +1,6 @@
 // EyeDrones — promemoria via email delle scadenze (attestati, assicurazione, manutenzioni, abbonamento D-Flight)
 // e riepilogo giornaliero per l'amministratore (errori dell'app, spazio usato).
-// In più, una volta sola, l'email «Trova un pilota» a chi lavora con il drone (supabase/email-lavori.sql) e l'email «primi passi» a chi si è iscritto da almeno 2 giorni e non ha ancora messo il drone
+// In più, una volta sola, l'email «La nuova EyeDrones è online» a tutti gli iscritti (supabase/email-lavori.sql) e l'email «primi passi» a chi si è iscritto da almeno 2 giorni e non ha ancora messo il drone
 // (script supabase/benvenuto-primi-passi.sql).
 // La chiama ogni mattina il database (script supabase/errori-spazio-promemoria.sql) con l'elenco già pronto.
 // È una funzione «background»: Netlify risponde subito e lei ha fino a 15 minuti per mandare le email.
@@ -153,42 +153,55 @@ function emailCommunity(u) {
   return { oggetto, testo, corpo };
 }
 
-// «Trova un pilota»: una sola volta a chi lavora con il drone (script supabase/email-lavori.sql)
+// «La nuova EyeDrones è online»: una sola volta a tutti gli iscritti (script supabase/email-lavori.sql),
+// con l'invito ad attivare «La mia pagina» per ricevere i lavori di «Trova un pilota» (se non è già attiva)
+const NOVITA = [
+  ["🏠", "Una Home nuova", "il prossimo volo e le cose da fare subito in alto, e un menu più semplice."],
+  ["⚡", "Registro automatico", "scegli foto e video della scheda SD e i voli si creano da soli, con data, posto e durata."],
+  ["📝", "Permessi più veloci", "più aree nella stessa richiesta e il nuovo avviso alla Polizia locale."],
+  ["🌤️", "Il weekend giusto per volare", "se la attivi, il giovedì ti arriva un'email con le ore buone di sabato e domenica."],
+  ["⭐", "Consiglia un posto", "i posti più belli dove volare, consigliati dagli altri piloti."],
+];
 function emailLavori(u) {
-  const link = `${APP_URL}/?vai=pagina-pilota`;
+  const conPagina = !!u.pagina;
+  const link = conPagina ? APP_URL : `${APP_URL}/?vai=pagina-pilota`;
   const ciao = `Ciao${u.nome ? ` ${u.nome}` : ""}!`;
-  const oggetto = "I clienti della tua zona ora ti scrivono su EyeDrones 🚁";
+  const oggetto = "La nuova EyeDrones è online 🚁";
+  const passi = [
+    "attivi «La mia pagina» e spunti «Mostrami in Trova un pilota»;",
+    "quando un cliente della tua provincia cerca un pilota, ti arriva un'email;",
+    "vedi il posto esatto, le zone e la categoria che serve;",
+    "mandi la tua offerta con il tuo prezzo: gli altri piloti non lo vedono;",
+    "se il cliente ti sceglie, confermi e ricevi i suoi contatti.",
+  ];
   const testo = [
     ciao, "",
-    "in EyeDrones c'è una novità per chi lavora con il drone: «Trova un pilota».",
-    "I clienti della tua provincia scrivono cosa gli serve (matrimoni, case, ispezioni, rilievi, termografia, agricoltura) e la richiesta arriva ai piloti della zona.", "",
-    "Come funziona per te:",
-    "• attivi «La mia pagina» e spunti «Mostrami in Trova un pilota»;",
-    "• per ogni richiesta nella tua provincia ti arriva un'email;",
-    "• vedi subito il posto esatto, le zone e la categoria che serve (con il tuo file D-Flight);",
-    "• mandi la tua offerta: cosa comprende e il tuo prezzo. Gli altri piloti non vedono il tuo prezzo;",
-    "• se il cliente ti sceglie, confermi entro 48 ore e ricevi i suoi contatti.", "",
-    "Commissione EyeDrones: 5% del prezzo, minimo 5 €, massimo 50 €, solo sui lavori che ottieni.", "",
-    `Attiva la tua pagina da qui: ${link}`, "",
+    "Da oggi c'è la nuova versione di EyeDrones. Ecco le novità:", "",
+    ...NOVITA.map(([, t, d]) => `• ${t}: ${d}`), "",
+    "E la più grande: «Trova un pilota».",
+    "I clienti scrivono cosa gli serve (matrimoni, case, ispezioni, rilievi, termografia, agricoltura) e la richiesta arriva ai piloti della loro provincia.", "",
+    ...(conPagina
+      ? ["La tua pagina è già in «Trova un pilota»: quando arriva una richiesta nella tua provincia ti scriviamo noi.", "", `Apri EyeDrones: ${link}`]
+      : ["Per ricevere i lavori:", ...passi.map((t) => `• ${t}`), "", `Attiva la tua pagina da qui: ${link}`]),
+    "",
     `Conosci qualcuno che cerca un pilota? Mandagli questo link: ${APP_URL}/trova-pilota`, "",
     "Buoni voli!", "Ivan · EyeDrones", "",
     "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
   ].join("\n");
   const punto = (t) => `<li style="margin:0 0 6px 0">${t}</li>`;
+  const novita = NOVITA.map(([e, t, d]) => `<tr><td style="font-size:20px;padding:6px 10px 6px 0;vertical-align:top">${e}</td><td style="font-size:15px;padding:6px 0"><b>${html(t)}</b><br><span style="color:#555">${html(d)}</span></td></tr>`).join("");
+  const bottone = (testoBottone) => `<p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">${testoBottone}</a></p>`;
   const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
-    <h2 style="color:#e0552f;margin:0 0 12px">🚁 I clienti della tua zona ti scrivono</h2>
-    <p style="font-size:15px">${html(ciao)} In EyeDrones c'è una novità per chi lavora con il drone: <b>«Trova un pilota»</b>.</p>
-    <p style="font-size:15px">I clienti della tua provincia scrivono cosa gli serve (matrimoni, case, ispezioni, rilievi, termografia, agricoltura) e la richiesta arriva <b>ai piloti della zona</b>.</p>
-    <p style="font-size:15px;margin-bottom:6px"><b>Come funziona per te</b></p>
-    <ul style="font-size:15px;padding-left:20px;margin-top:0">
-      ${punto("attivi <b>«La mia pagina»</b> e spunti <b>«Mostrami in Trova un pilota»</b>;")}
-      ${punto("per ogni richiesta nella tua provincia ti arriva un'email;")}
-      ${punto("vedi subito il <b>posto esatto</b>, le zone e la categoria che serve (con il tuo file D-Flight);")}
-      ${punto("mandi la tua offerta: cosa comprende e <b>il tuo prezzo</b>. Gli altri piloti non vedono il tuo prezzo;")}
-      ${punto("se il cliente ti sceglie, confermi entro 48 ore e ricevi i suoi contatti.")}
-    </ul>
-    <p style="font-size:14px;color:#444">Commissione EyeDrones: 5% del prezzo, minimo 5 €, massimo 50 €, solo sui lavori che ottieni.</p>
-    <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Attiva la tua pagina ›</a></p>
+    <h2 style="color:#e0552f;margin:0 0 12px">🚁 La nuova EyeDrones è online</h2>
+    <p style="font-size:15px">${html(ciao)} Da oggi c'è la nuova versione di EyeDrones. Ecco le novità:</p>
+    <table style="border-collapse:collapse;margin:0 0 14px 0">${novita}</table>
+    <h3 style="color:#e0552f;margin:18px 0 8px">📍 E la più grande: «Trova un pilota»</h3>
+    <p style="font-size:15px">I clienti scrivono cosa gli serve (matrimoni, case, ispezioni, rilievi, termografia, agricoltura) e la richiesta arriva <b>ai piloti della loro provincia</b>.</p>
+    ${conPagina
+      ? `<p style="font-size:15px">La tua pagina è già in «Trova un pilota»: quando arriva una richiesta nella tua provincia ti scriviamo noi.</p>${bottone("Apri EyeDrones ›")}`
+      : `<p style="font-size:15px;margin-bottom:6px"><b>Per ricevere i lavori</b></p>
+    <ul style="font-size:15px;padding-left:20px;margin-top:0">${passi.map((t) => punto(html(t))).join("")}</ul>
+    ${bottone("Attiva la tua pagina ›")}`}
     <p style="font-size:14px;color:#444">Conosci qualcuno che cerca un pilota? Mandagli questo link: <a href="${APP_URL}/trova-pilota">app.eyedrones.it/trova-pilota</a></p>
     <p style="font-size:15px">Buoni voli!<br>Ivan · EyeDrones</p>
     <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
