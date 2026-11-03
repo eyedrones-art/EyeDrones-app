@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>Simulatore drone online: missioni, FPV e quiz A1/A3 — EyeDrones</title>
+<meta name="description" content="Simulatore di drone online nel browser: riprese GPS e FPV, missioni per veri clienti (matrimoni, immobili, termografia), sala di montaggio e prova d'esame A1/A3.">
+<link rel="canonical" href="https://app.eyedrones.it/simulatore-drone/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://app.eyedrones.it/simulatore-drone/">
+<meta property="og:title" content="Simulatore drone online: missioni, FPV e quiz A1/A3 — EyeDrones">
+<meta property="og:description" content="Simulatore di drone online nel browser: riprese GPS e FPV, missioni per veri clienti (matrimoni, immobili, termografia), sala di montaggio e prova d'esame A1/A3.">
+<meta property="og:image" content="https://app.eyedrones.it/simulatore-drone/anteprima.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root {
+  --bg: #12151c; --surface: #1b2028; --surface-2: #161a1f; --line: #2b313d;
+  --fg: #e7eaee; --muted: #9aa4b1; --faint: #6b7480;
+  --accent: #ff8c42; --accent-deep: #e0552f; --violet: #a78bfa; --ok: #4ade80; --on-accent: #161a1f;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+    --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+    --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+  --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+  --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 16px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.12; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(34px, 6vw, 54px); }
+h2 { font-size: clamp(24px, 4vw, 32px); margin-bottom: 14px; }
+h3 { font-size: 19px; margin-bottom: 6px; }
+p { margin: 0; }
+a { color: var(--accent); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 18px; }
+.marchio { font-family: var(--display); font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; }
+.occhio { width: 30px; height: 18px; border-radius: 50%; border: 2.5px solid var(--accent); position: relative; }
+.occhio::after { content: ""; position: absolute; inset: 3px 9px; border-radius: 50%; background: var(--violet); }
+.top a.link { font-family: var(--mono); font-size: 13px; text-decoration: none; }
+.hero { padding-block: 32px 48px; display: grid; gap: 18px; }
+.hero p.lead { font-size: 19px; color: var(--muted); max-width: 640px; }
+.cta { display: inline-block; background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; font-weight: 700; padding: 13px 22px; border-radius: 10px; text-decoration: none; font-size: 16px; }
+section { padding-block: 32px; border-top: 1px solid var(--line); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.card .emoji { font-size: 26px; margin-bottom: 8px; display: block; }
+.numeri { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.numero { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.numero b { display: block; font-family: var(--display); font-size: 38px; color: var(--accent); line-height: 1.1; }
+.esempio { background: var(--surface-2); border: 1px dashed var(--line); border-radius: 12px; padding: 14px 16px; margin-top: 14px; color: var(--muted); }
+ol.passi { margin: 0; padding-left: 22px; display: grid; gap: 10px; }
+ul.regole { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--muted); }
+form { display: grid; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+input, select, textarea { width: 100%; background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; font: inherit; font-weight: 400; min-height: 44px; }
+textarea { min-height: 96px; resize: vertical; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; color: var(--muted); }
+.check input { width: 20px; min-height: 20px; margin-top: 3px; }
+button { background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; border: none; border-radius: 10px; padding: 13px 22px; font-weight: 700; font-size: 16px; cursor: pointer; min-height: 48px; }
+.esito { display: none; padding: 14px 16px; border-radius: 10px; }
+.esito.ok { display: block; background: color-mix(in srgb, var(--ok) 14%, transparent); border: 1px solid var(--ok); }
+.esito.ko { display: block; background: color-mix(in srgb, #ff6b6b 14%, transparent); border: 1px solid #ff6b6b; }
+.nascosto { display: none; }
+.vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.vs .card ul { margin: 8px 0 0 0; padding-left: 20px; color: var(--muted); display: grid; gap: 6px; }
+.prezzo b { color: var(--ok); }
+.cta-2 { display: inline-block; margin-left: 10px; color: var(--fg); text-decoration: none; border: 1px solid var(--line); padding: 12px 18px; border-radius: 10px; }
+footer { padding-block: 28px 40px; color: var(--faint); font-size: 13px; border-top: 1px solid var(--line); }
+
+.cta-2 { display: inline-block; margin-left: 10px; color: var(--fg); text-decoration: none; border: 1px solid var(--line); padding: 12px 18px; border-radius: 10px; }
+details.dom { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+details.dom summary { cursor: pointer; font-weight: 600; }
+details.dom ol { margin: 10px 0 0 0; padding-left: 22px; color: var(--muted); display: grid; gap: 4px; }
+details.dom li.giusta { color: var(--ok); font-weight: 600; }
+.lista { display: grid; gap: 10px; }
+.faq { display: grid; gap: 10px; }
+.faq details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.faq summary { cursor: pointer; font-weight: 600; }
+.faq p { margin-top: 8px; color: var(--muted); }
+.nota { font-size: 13px; color: var(--faint); }
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"VideoGame","name":"Vola in regola — simulatore di drone","url":"https://app.eyedrones.it/simulatore-drone/","inLanguage":"it","genre":"Simulazione","gamePlatform":["Web browser","Smartphone","PC"],"applicationCategory":"GameApplication","operatingSystem":"Qualsiasi (browser)","publisher":{"@type":"Organization","name":"EyeDrones","url":"https://app.eyedrones.it/"}},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Il simulatore di drone si usa online?","acceptedAnswer":{"@type":"Answer","text":"Sì: si apre nel browser, dal telefono o dal computer, senza installare niente. Sul telefono si pilota con due stick sullo schermo, sul computer con la tastiera."}},{"@type":"Question","name":"Si può provare il volo FPV?","acceptedAnswer":{"@type":"Answer","text":"Sì: ci sono missioni FPV con il drone in modalità acro, i portali da attraversare e la visuale come dagli occhiali."}},{"@type":"Question","name":"Aiuta a preparare l'esame A1/A3?","acceptedAnswer":{"@type":"Answer","text":"C'è una prova d'esame con 10 domande prese da 22, come allenamento. Non è l'esame ufficiale: l'esame A1/A3 si fa online sul portale ENAC."}},{"@type":"Question","name":"Le regole sono quelle vere?","acceptedAnswer":{"@type":"Answer","text":"Le missioni seguono le regole della categoria Open: altezza massima 120 m, drone sempre a vista, niente sorvolo di assembramenti. Prima di un volo vero controlla sempre le zone su D-Flight."}},{"@type":"Question","name":"Quanto costa?","acceptedAnswer":{"@type":"Answer","text":"Il simulatore si apre e si gioca dal browser, senza registrazione."}}]}]}</script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><a class="marchio" href="https://app.eyedrones.it/piloti"><span class="occhio"></span>EyeDrones</a><a class="link" href="https://app.eyedrones.it/piloti">L'app per piloti ›</a></header>
+  <main>
+  <div class="hero">
+    <p class="eyebrow">Simulatore drone online · nel browser</p>
+    <h1>Vola in regola: il simulatore di drone di EyeDrones</h1>
+    <p class="lead">Piloti un drone in 3D dal telefono o dal computer: riprese con il GPS, voli FPV, lavori per i clienti e la prova d'esame A1/A3. Si impara volando, rispettando le regole vere.</p>
+    <p><a class="cta" href="/simulatore/">▶ Gioca adesso</a><a class="cta-2" href="/quiz-a1-a3/">Quiz A1/A3</a></p>
+  </div>
+  <section>
+    <h2>Cosa fai nel simulatore</h2>
+    <div class="grid">
+      <div class="card"><span class="emoji">🎥</span><h3>Riprese con il GPS</h3><p class="muted">Reveal della chiesa, la villa sul lago, il faro: impari i movimenti di camera delle riprese vere.</p></div>
+      <div class="card"><span class="emoji">🥽</span><h3>Volo FPV</h3><p class="muted">Modalità acro e portali da attraversare, con la visuale come dagli occhiali.</p></div>
+      <div class="card"><span class="emoji">💼</span><h3>Lavori per i clienti</h3><p class="muted">Matrimoni, immobili, pannelli solari guasti, rilievo del terreno e trattamento del grano.</p></div>
+      <div class="card"><span class="emoji">🎬</span><h3>Sala di montaggio</h3><p class="muted">Monti il video per gli sposi e scegli il colore con le LUT.</p></div>
+      <div class="card"><span class="emoji">📝</span><h3>Prova d'esame A1/A3</h3><p class="muted">10 domande come all'esame: per passare ne servono almeno 8 giuste.</p></div>
+      <div class="card"><span class="emoji">✅</span><h3>Regole vere</h3><p class="muted">120 m di altezza, drone a vista, niente sorvolo di assembramenti, batterie e vento.</p></div>
+    </div>
+  </section>
+  <section>
+    <h2>Come si gioca</h2>
+    <ol class="passi">
+      <li>Tocca <b>Gioca adesso</b>: il simulatore si apre nel browser.</li>
+      <li>Sul telefono usi i due stick sullo schermo; sul computer la tastiera.</li>
+      <li>Completa le missioni per sbloccare i lavori per i clienti e la prova d'esame.</li>
+    </ol>
+    <p style="margin-top:16px"><a class="cta" href="/simulatore/">▶ Gioca adesso</a></p>
+  </section>
+  <section>
+    <h2>Domande frequenti</h2>
+    <div class="faq"><details><summary>Il simulatore di drone si usa online?</summary><p>Sì: si apre nel browser, dal telefono o dal computer, senza installare niente. Sul telefono si pilota con due stick sullo schermo, sul computer con la tastiera.</p></details><details><summary>Si può provare il volo FPV?</summary><p>Sì: ci sono missioni FPV con il drone in modalità acro, i portali da attraversare e la visuale come dagli occhiali.</p></details><details><summary>Aiuta a preparare l'esame A1/A3?</summary><p>C'è una prova d'esame con 10 domande prese da 22, come allenamento. Non è l'esame ufficiale: l'esame A1/A3 si fa online sul portale ENAC.</p></details><details><summary>Le regole sono quelle vere?</summary><p>Le missioni seguono le regole della categoria Open: altezza massima 120 m, drone sempre a vista, niente sorvolo di assembramenti. Prima di un volo vero controlla sempre le zone su D-Flight.</p></details><details><summary>Quanto costa?</summary><p>Il simulatore si apre e si gioca dal browser, senza registrazione.</p></details></div>
+  </section>
+  <section>
+    <h2>Quando voli davvero</h2>
+    <p class="muted">Con l'app EyeDrones controlli le zone di volo, prepari i permessi, tieni il registro dei voli e le scadenze di attestati e assicurazione. E con «Trova un pilota» i clienti della tua provincia ti mandano le richieste di lavoro.</p>
+    <p style="margin-top:14px"><a class="cta" href="https://app.eyedrones.it/piloti">Prova l'app EyeDrones</a></p>
+  </section>
+  </main>
+  <footer>EyeDrones · Ivan Ravinale, Grugliasco (TO) · <a href="/simulatore-drone/">Simulatore drone</a> · <a href="/quiz-a1-a3/">Quiz A1/A3</a> · <a href="/trova-pilota">Trova un pilota</a> · <a href="https://app.eyedrones.it/privacy">Privacy</a></footer>
+</div>
+</body>
+</html>
