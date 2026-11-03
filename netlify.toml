@@ -111,3 +111,14 @@
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
     Referrer-Policy = "no-referrer"
+
+# app «Pescheria» (tracciabilità del pesce): pagina a sé, fuori dai motori di ricerca
+[[headers]]
+  for = "/pescheria/*"
+  [headers.values]
+    X-Robots-Tag = "noindex"
+
+[[headers]]
+  for = "/pescheria/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
