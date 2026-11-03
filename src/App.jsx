@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
+import React, { useState, useRef, useEffect, Suspense, lazy, Fragment } from "react";
 import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
@@ -23,6 +23,7 @@ import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
 import Elio, { ElioDice, STILE_ELIO, useElio, accendiElio } from "./Elio.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese, leggiGpsFoto } from "./Scene.jsx";
+import { REGIMI, FISCO_DEFAULT, calcolaFisco, fraseIvaNoteLegali, sembraAzienda } from "./fisco.js";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente, altezzaSenzaPermessi } from "./zoneUAS";
@@ -191,9 +192,14 @@ const OBIETTIVI_FORMATIVI = [
   { key: "altro", label: "Altro" },
 ];
 
+// fonte ufficiale ENAC sulle zone geografiche UAS (la stessa di src/impara.js)
+const ENAC_ZONE = "https://www.enac.gov.it/sicurezza-aerea/droni/zone-geografiche-space/voli-con-droni-uas-limitazioni-riserve-dello/";
+
+// Coverdrone: link personale di Ivan (Introducer). Il preventivo lo fa il pilota da solo sul sito di Coverdrone.
+const COVERDRONE_URL = "https://quoteseur.coverdrone.com/AWE/Container.aspx?Culture=it-IT&Source=124951078";
+
 const RISORSE_CONSIGLIATE = [
-  // esempio (da riempire quando pronto):
-  // { nome: "Assicurazione RC drone — Coverdrone", url: "https://www.coverdrone.com/it/?ref=IL_TUO_CODICE", descrizione: "Polizza RC obbligatoria per uso professionale." },
+  { nome: "Assicurazione RC drone — Coverdrone", url: COVERDRONE_URL, descrizione: "Il preventivo lo fai online sul sito di Coverdrone.", partner: true },
   // { nome: "Corso A2 online", url: "https://...", descrizione: "Prepara l'esame A2 e sostienilo online." },
 ];
 
@@ -1530,6 +1536,38 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
   doc.text(`€ ${totale.toFixed(2)}`, 195, y, { align: "right" });
   y += 16;
 
+  // --- riepilogo fiscale (dal regime scelto in Impostazioni e dal tipo di cliente del preventivo) ---
+  const fisco = calcolaFisco(totale, azienda.fisco, preventivo.cliente_tipo || "privato");
+  if (fisco.regime) {
+    if (y > 235) { doc.addPage(); y = 20; }
+    doc.setFontSize(9.5);
+    fisco.righe.forEach(([etichetta, importo]) => {
+      doc.setTextColor(...grigio); doc.text(etichetta, 15, y);
+      doc.setTextColor(...nero); doc.text(`€ ${importo.toFixed(2)}`, 192, y, { align: "right" });
+      y += 5.5;
+    });
+    doc.setDrawColor(225, 225, 225); doc.line(15, y - 2, 195, y - 2);
+    y += 4;
+    doc.setFontSize(11); doc.setTextColor(...nero);
+    doc.text("TOTALE DOCUMENTO", 15, y); doc.text(`€ ${fisco.totale.toFixed(2)}`, 192, y, { align: "right" });
+    y += 6.5;
+    if (fisco.ritenuta) {
+      doc.setFontSize(9.5); doc.setTextColor(...grigio);
+      doc.text("Ritenuta d'acconto 20% (versata dal cliente)", 15, y); doc.text(`− € ${fisco.ritenuta.toFixed(2)}`, 192, y, { align: "right" });
+      y += 6;
+      doc.setFontSize(11); doc.setTextColor(...nero);
+      doc.text("NETTO DA PAGARE", 15, y); doc.text(`€ ${fisco.netto.toFixed(2)}`, 192, y, { align: "right" });
+      y += 6.5;
+    }
+    if (fisco.frasi.length) {
+      doc.setFontSize(8); doc.setTextColor(...grigio);
+      const righe = doc.splitTextToSize(fisco.frasi.join(" "), 180);
+      doc.text(righe, 15, y + 1);
+      y += righe.length * 3.8 + 3;
+    }
+    y += 6;
+  }
+
   // --- note ---
   if (preventivo.note) {
     if (y > 250) { doc.addPage(); y = 20; }
@@ -1545,7 +1583,7 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
   }
 
   // --- diciture legali (personalizzabili in Impostazioni) ---
-  const testoLegale = (azienda.noteLegaliPreventivo || NOTE_LEGALI_PREVENTIVO_DEFAULT).replace("{validita}", String(preventivo.validita_giorni || 30));
+  const testoLegale = (azienda.noteLegaliPreventivo || NOTE_LEGALI_PREVENTIVO_DEFAULT.replace("I prezzi indicati si intendono IVA esclusa, se dovuta.", fraseIvaNoteLegali(azienda.fisco))).replace("{validita}", String(preventivo.validita_giorni || 30));
   if (testoLegale) {
     if (y > 240) { doc.addPage(); y = 20; }
     doc.setDrawColor(225, 225, 225);
@@ -1952,7 +1990,7 @@ function AppShell({ session }) {
     };
   }, []);
   const [impiantoAttivo, setImpiantoAttivo] = useState(null);
-  const [azienda, setAzienda] = useState({ nome: "EyeDrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "" });
+  const [azienda, setAzienda] = useState({ nome: "EyeDrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "", fisco: FISCO_DEFAULT });
   const [pianoReale, setPiano] = useState("free");
   // durante il lancio tutti usano le funzioni Pro; la pagina Abbonamento mostra il piano vero
   const piano = lancioInCorso() ? "pro" : pianoReale;
@@ -2010,6 +2048,7 @@ function AppShell({ session }) {
         tariffaBase: profilo.tariffa_base ?? 150,
         tariffaKwp: profilo.tariffa_kwp ?? 0.12,
         noteLegaliPreventivo: profilo.preventivo_note_legali || "",
+        fisco: { ...FISCO_DEFAULT, ...(profilo.regime_fiscale || {}) },
       });
       salvaCopiaControllo({ azienda: { nome: profilo.azienda_nome || "EyeDrones" } });
     }
@@ -2025,6 +2064,8 @@ function AppShell({ session }) {
       tariffa_kwp: nuovaAzienda.tariffaKwp,
       preventivo_note_legali: nuovaAzienda.noteLegaliPreventivo,
     }).eq("user_id", session.user.id);
+    // il regime fiscale a parte: se lo script regime-fiscale.sql non è ancora stato eseguito, il resto si salva lo stesso
+    if (nuovaAzienda.fisco) await supabase.from("profili").update({ regime_fiscale: nuovaAzienda.fisco }).eq("user_id", session.user.id);
   };
 
   const salvaModuli = async (nuovi) => {
@@ -3041,6 +3082,8 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ...(k !== "video" ? [{ key: "galleria", label: "Foto e video", icon: Camera }] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
     ...(k !== "video" ? [{ key: "posti", label: "Posti", icon: Compass }] : []),
+    // l'Esperto anche nella Home delle cartelle (nelle cartelle è già tra le voci della cartella)
+    ...(usaAI && !vociSpazio.some((v) => v.key === "analisi-ai") ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
     { key: "impara", label: "Impara e quiz", icon: GraduationCap },
@@ -3357,9 +3400,9 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
           {/* il cerchio con le funzioni principali: gira e si apre verso quella che tocchi */}
           <MenuRotondo voci={[
             { key: "qui", label: "Sono sul posto", corto: "Sul posto", sigla: "GPS", icon: MapPin, vai: () => { setAltroAperto(false); vaiA({ pagina: "qui" }); } },
-            ...[["pianificazione", "Pianifica", "PLN", CalendarDays], ["registro-voli", "Registro", "LOG", BookOpen], ["documenti-controllo", "Controllo", "CTR", ShieldCheck], ["permessi", "Permessi", "PRM", ClipboardCheck], ["preventivi", "Preventivi", "EUR", FileText], ["impara", "Impara", "EDU", GraduationCap]]
-              .filter(([k]) => items.some((it) => it.key === k)).map(([k, l, sg, ic]) => ({ key: k, label: l, sigla: sg, icon: ic })),
-            // il simulatore è una pagina a parte, a tutto schermo
+            ...[["pianificazione", "Pianifica", "PLN", CalendarDays], ["registro-voli", "Registro", "LOG", BookOpen], ["documenti-controllo", "Controllo", "CTR", ShieldCheck], ["permessi", "Permessi", "PRM", ClipboardCheck], ["preventivi", "Preventivi", "EUR", FileText], ["impara", "Impara", "EDU", GraduationCap], ["analisi-ai", "Chiedi all'Esperto", "AI", Sparkles, "Esperto"]]
+              .filter(([k]) => items.some((it) => it.key === k)).map(([k, l, sg, ic, c]) => ({ key: k, label: l, sigla: sg, icon: ic, ...(c ? { corto: c } : {}) })),
+            // il simulatore è una pagina a parte, a tutto schermo (con l'Esperto i cerchi sono già 8: resta in Impara)
             { key: "simulatore", label: "Simulatore", sigla: "SIM", icon: Gamepad2, nuovo: true, vai: () => { window.location.href = "/simulatore/"; } },
           ]} onScegli={(v) => (v.vai ? v.vai() : scegli(v.key))} />
           <div>
@@ -3831,7 +3874,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
 
   // scadenze di attestati e manutenzioni dei droni (valide per tutti i piloti)
   const voci = [
-    ...attestati.filter((a) => a.data_scadenza && !coperturaAttestato(a, attestati)).map((a) => ({ id: "a" + a.id, nome: a.tipo, stato: statoScadenza(a.data_scadenza), vai: "attestati" })),
+    ...attestati.filter((a) => a.data_scadenza && !coperturaAttestato(a, attestati)).map((a) => ({ id: "a" + a.id, nome: a.tipo, stato: statoScadenza(a.data_scadenza), vai: "attestati", coverdrone: eAssicurazione(a) ? statoAssicurazione(a) : null })),
     ...droni.filter((d) => d.prossima_manutenzione).map((d) => ({ id: "d" + d.id, nome: `Manutenzione — ${d.nome}`, stato: statoManutenzione(d.prossima_manutenzione), vai: "droni" })),
     ...(batterie || []).flatMap((b) => avvisiBatteria(b).map((a, i) => ({ id: `b${b.id}-${i}`, nome: `Batteria — ${b.nome}`, stato: a, vai: "batterie" }))),
     ...(eventiVolo || []).filter((e) => !e.segnalato).map((e) => ({ id: "e" + e.id, nome: `Segnalazione evento — ${etichettaEvento(e.tipo)}`, stato: statoEvento(e), vai: "registro-voli" })),
@@ -3863,10 +3906,13 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
       {tutteScadenze && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
           {urgenti.map((v) => (
-            <button key={v.id} onClick={() => onNav(v.vai)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#10141f", border: `1px solid ${v.stato.colore}44`, borderRadius: 8, padding: "10px 14px", color: "#e7eaee", fontSize: 13 }}>
-              <span>{v.nome}</span>
-              <span style={{ color: v.stato.colore, fontWeight: 600, fontSize: 12 }}>{v.stato.testo} ›</span>
-            </button>
+            <Fragment key={v.id}>
+              <button onClick={() => onNav(v.vai)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#10141f", border: `1px solid ${v.stato.colore}44`, borderRadius: 8, padding: "10px 14px", color: "#e7eaee", fontSize: 13 }}>
+                <span>{v.nome}</span>
+                <span style={{ color: v.stato.colore, fontWeight: 600, fontSize: 12 }}>{v.stato.testo} ›</span>
+              </button>
+              {v.coverdrone && <div style={{ padding: "0 4px 4px" }}><PulsanteCoverdrone stato={v.coverdrone} piccolo /></div>}
+            </Fragment>
           ))}
         </div>
       )}
@@ -5698,6 +5744,11 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
   const listino = voci.reduce((s, v) => s + (Number(v.importo) || 0), 0);
   const scontoVal = Number(scontoImporto) || 0;
   const totale = Math.max(0, listino - scontoVal);
+  // privato o azienda (serve per la ritenuta d'acconto): se non lo scegli, lo deduco dalla P. IVA in rubrica
+  const [clienteTipo, setClienteTipo] = useState("");
+  const clienteRubrica = clienti.find((c) => (c.nome || "").trim().toLowerCase() === cliente.trim().toLowerCase());
+  const tipoCliente = clienteTipo || (sembraAzienda(clienteRubrica?.piva_cf) ? "azienda" : "privato");
+  const fiscoForm = calcolaFisco(totale, azienda.fisco, tipoCliente);
 
   const aggiungiVoce = () => setVoci([...voci, { descrizione: "", importo: "" }]);
   const rimuoviVoce = (idx) => setVoci(voci.filter((_, i) => i !== idx));
@@ -5741,7 +5792,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
   };
 
   const resetForm = () => {
-    setCliente(""); setLuogoIntervento(""); setOggetto("");
+    setCliente(""); setLuogoIntervento(""); setOggetto(""); setClienteTipo("");
     setVoci([{ descrizione: "", importo: "" }]); setScontoImporto("");
     setValiditaGiorni("30"); setNote(""); setKwp(""); setEditingId(null); setRichiesta(null);
     setDataPreventivo(new Date().toISOString().slice(0, 10));
@@ -5763,6 +5814,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
   const apriModifica = (p) => {
     setEditingId(p.id);
     setCliente(p.cliente || "");
+    setClienteTipo(p.cliente_tipo || "");
     setLuogoIntervento(p.luogo_intervento || "");
     setOggetto(p.oggetto || "");
     setVoci(p.voci && p.voci.length > 0 ? p.voci.map((v) => ({ descrizione: v.descrizione || "", importo: v.importo != null ? String(v.importo) : "" })) : [{ descrizione: "", importo: "" }]);
@@ -5793,12 +5845,14 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
       prezzo: totale,
       validita_giorni: Number(validitaGiorni) || 30,
       note: note || null,
+      ...(azienda.fisco?.regime ? { cliente_tipo: tipoCliente } : {}),
     };
-    let error;
-    if (editingId) {
-      ({ error } = await supabase.from("preventivi").update(payload).eq("id", editingId));
-    } else {
-      ({ error } = await supabase.from("preventivi").insert({ ...payload, numero: generaNumero() }));
+    const scrivi = (dati) => (editingId ? supabase.from("preventivi").update(dati).eq("id", editingId) : supabase.from("preventivi").insert({ ...dati, numero: generaNumero() }));
+    let { error } = await scrivi(payload);
+    // colonna cliente_tipo non ancora creata (script regime-fiscale.sql): salvo il resto
+    if (error && payload.cliente_tipo && /cliente_tipo/.test(error.message || "")) {
+      const { cliente_tipo, ...senza } = payload; // eslint-disable-line no-unused-vars
+      ({ error } = await scrivi(senza));
     }
     setSalvataggio(false);
     if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
@@ -5986,8 +6040,39 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", color: "#e7eaee", fontWeight: 700, fontSize: 14.5, marginTop: 6, paddingTop: 6, borderTop: "1px solid #232b3f" }}>
-              <span>Totale</span><span className="mono">{totale.toFixed(2)} €</span>
+              <span>{fiscoForm.regime ? "Prezzo" : "Totale"}</span><span className="mono">{totale.toFixed(2)} €</span>
             </div>
+            {fiscoForm.regime ? (
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #343e57" }}>
+                <div role="group" aria-label="Il cliente è" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+                  <span style={{ color: "#8b95a3", fontSize: 12 }}>Il cliente è</span>
+                  {[["privato", "un privato"], ["azienda", "un'azienda o un professionista"]].map(([k, l]) => (
+                    <button key={k} type="button" onClick={() => setClienteTipo(k)} aria-pressed={tipoCliente === k} style={{ background: tipoCliente === k ? "#3d8bfd22" : "none", border: `1px solid ${tipoCliente === k ? "#3d8bfd" : "#343e57"}`, color: tipoCliente === k ? "#9cc3ff" : "#c3cad4", borderRadius: 14, padding: "4px 10px", fontSize: 12 }}>{l}</button>
+                  ))}
+                </div>
+                {fiscoForm.righe.map(([etichetta, importo]) => (
+                  <div key={etichetta} style={{ display: "flex", justifyContent: "space-between", gap: 10, color: "#c3cad4", marginTop: 3 }}>
+                    <span>{etichetta}</span><span className="mono">{importo.toFixed(2)} €</span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#e7eaee", fontWeight: 700, fontSize: 14, marginTop: 6 }}>
+                  <span>Totale documento</span><span className="mono">{fiscoForm.totale.toFixed(2)} €</span>
+                </div>
+                {fiscoForm.ritenuta > 0 && <>
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "#c3cad4", marginTop: 3 }}>
+                    <span>Ritenuta d'acconto 20% (la versa il cliente)</span><span className="mono">− {fiscoForm.ritenuta.toFixed(2)} €</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "#4ade80", fontWeight: 700, marginTop: 3 }}>
+                    <span>Netto da pagare</span><span className="mono">{fiscoForm.netto.toFixed(2)} €</span>
+                  </div>
+                </>}
+                {fiscoForm.frasi.length > 0 && <p style={{ fontSize: 11, color: "#8b95a3", margin: "6px 0 0 0", lineHeight: 1.45 }}>{fiscoForm.frasi.join(" ")}</p>}
+                {azienda.fisco?.regime === "occasionale" && <p style={{ fontSize: 11, color: "#f5b942", margin: "6px 0 0 0" }}>Oltre 5.000 € di compensi occasionali nell'anno si pagano i contributi INPS (Gestione separata) sulla parte in più.</p>}
+                <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>È un aiuto per il preventivo: fattura e conti controllali con il tuo commercialista. Il regime si cambia in Impostazioni azienda.</p>
+              </div>
+            ) : (
+              <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Vuoi IVA, ritenuta e bollo calcolati da soli? Scegli il tuo regime fiscale in Impostazioni azienda.</p>
+            )}
           </div>
 
           <div>
@@ -6465,6 +6550,29 @@ function coperturaAttestato(a, attestati) {
     .sort((x, y) => (x.data_scadenza < y.data_scadenza ? 1 : -1))[0] || null;
 }
 
+// assicurazione RC: "manca", "scaduta" o "scade" (entro 30 giorni); null se è valida per più di 30 giorni o senza data
+function statoAssicurazione(a) {
+  if (!a) return "manca";
+  if (!a.data_scadenza) return null;
+  const giorni = Math.ceil((new Date(a.data_scadenza) - new Date()) / 86400000);
+  return giorni < 0 ? "scaduta" : giorni <= 30 ? "scade" : null;
+}
+const eAssicurazione = (a) => String(a?.tipo || "").toLowerCase().includes("assicura");
+
+// pulsante Coverdrone (partner): «Rinnova» se c'è un'assicurazione da rinnovare, «Fai il preventivo» se manca
+function PulsanteCoverdrone({ stato, piccolo }) {
+  if (!stato) return null;
+  const testo = stato === "manca" ? "Fai il preventivo con Coverdrone" : "Rinnova con Coverdrone";
+  return (
+    <div style={{ flexBasis: "100%", marginTop: piccolo ? 4 : 2 }}>
+      <a href={COVERDRONE_URL} target="_blank" rel="noreferrer sponsored" style={piccolo
+        ? { display: "inline-flex", alignItems: "center", gap: 6, background: "#1a2133", border: "1px solid #f5b94266", color: "#ffd68a", borderRadius: 8, padding: "7px 12px", fontSize: 13, fontWeight: 700, textDecoration: "none" }
+        : { display: "block", textAlign: "center", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", borderRadius: 8, padding: "11px 14px", fontSize: 14.5, fontWeight: 800, textDecoration: "none" }}>🛡️ {testo} ↗</a>
+      <span style={{ display: piccolo ? "inline" : "block", marginLeft: piccolo ? 8 : 0, marginTop: piccolo ? 0 : 4, fontSize: 10.5, color: "#8b95a3", textAlign: piccolo ? "left" : "center" }}>Partner · link affiliato</span>
+    </div>
+  );
+}
+
 // attestato A1/A3, A2 o STS che scade entro 3 mesi (o già scaduto): come si rinnova, link ENAC, ripasso e corso
 function RinnovoAttestato({ attestato }) {
   const r = rinnovoPer(attestato.tipo);
@@ -6714,6 +6822,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
                   </button>
                 </div>
                 {!copre && <RinnovoAttestato attestato={a} />}
+                {eAssicurazione(a) && <PulsanteCoverdrone stato={statoAssicurazione(a)} />}
               </div>
             );
           })}
@@ -6751,9 +6860,10 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
           <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Servizi consigliati</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {RISORSE_CONSIGLIATE.map((r) => (
-              <a key={r.nome} href={r.url} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none" }}>
+              <a key={r.nome} href={r.url} target="_blank" rel={r.partner ? "noreferrer sponsored" : "noreferrer"} style={{ display: "block", textDecoration: "none" }}>
                 <div style={{ fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{r.nome} ↗</div>
                 {r.descrizione && <div style={{ fontSize: 11.5, color: "#6b7480" }}>{r.descrizione}</div>}
+                {r.partner && <div style={{ fontSize: 10.5, color: "#8b95a3", marginTop: 2 }}>Partner · link affiliato</div>}
               </a>
             ))}
           </div>
@@ -7074,7 +7184,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
           <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: "10px 14px", marginBottom: 14, maxWidth: 460, fontSize: 12, color: "#c3cad4" }}>
             💡 Ricorda: ogni drone dev'essere assicurato, anche in categoria Aperta.{" "}
             {assicurazioneConsigliata ? (
-              <a href={assicurazioneConsigliata.url} target="_blank" rel="noreferrer" style={{ color: "#4ade80", fontWeight: 600 }}>{assicurazioneConsigliata.nome} ↗</a>
+              <><a href={assicurazioneConsigliata.url} target="_blank" rel="noreferrer sponsored" style={{ color: "#4ade80", fontWeight: 600 }}>{assicurazioneConsigliata.nome} ↗</a> <span style={{ fontSize: 10.5, color: "#8b95a3" }}>(Partner · link affiliato)</span></>
             ) : (
               <span style={{ color: "#6b7480" }}>Trovi il link per un preventivo in "Attestati".</span>
             )}
@@ -7868,6 +7978,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
           </label>
         )}
       </div>
+      <a href={ENAC_ZONE} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 4, fontSize: 11.5, color: "#7fb0ff", fontWeight: 600, textDecoration: "none" }}>Fonte ufficiale ENAC: zone geografiche e limitazioni ↗</a>
       {/* il volo è tra pochi giorni e il file è di qualche giorno fa: i NOTAM nuovi non ci sono ancora */}
       {archivio && dataPrevista && (() => {
         const traGiorni = Math.round((new Date(`${dataPrevista}T12:00`).getTime() - Date.now()) / 86400000);
@@ -10396,9 +10507,9 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
           {assicurazione
             ? (() => {
                 const scaduta = assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date();
-                return <RigaDocumento nome="Assicurazione" stato={`${scaduta ? "Scaduta il " : "Valida fino al "}${assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}`} colore={scaduta ? "#ff9c9c" : "#4ade80"} url={assicurazione.documento_url} />;
+                return <RigaDocumento nome="Assicurazione" stato={`${scaduta ? "Scaduta il " : "Valida fino al "}${assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}`} colore={scaduta ? "#ff9c9c" : statoAssicurazione(assicurazione) ? "#f5b942" : "#4ade80"} url={assicurazione.documento_url} azione={<PulsanteCoverdrone stato={statoAssicurazione(assicurazione)} piccolo />} />;
               })()
-            : <RigaDocumento nome="Assicurazione" stato="Non registrata: aggiungila in «Attestati»" colore="#ff9c9c" />}
+            : <RigaDocumento nome="Assicurazione" stato="Non registrata: aggiungila in «Attestati»" colore="#ff9c9c" azione={<PulsanteCoverdrone stato="manca" piccolo />} />}
           {droneSelezionato && <RigaDocumento nome={`Documento del drone · ${droneSelezionato.nome}`} stato={droneSelezionato.documento_url ? "Caricato" : "Nessuno caricato"} colore={droneSelezionato.documento_url ? "#4ade80" : "#8b95a3"} url={droneSelezionato.documento_url} />}
           <RigaDocumento nome={`Permessi${impiantoSel ? " per questo luogo" : ""}`} stato={permessiFiltrati.length === 0 ? "Nessuno" : permessiFiltrati.length === 1 ? "1 permesso" : `${permessiFiltrati.length} permessi`} colore={permessiFiltrati.length ? "#4ade80" : "#8b95a3"} />
           {zonaPiano && (() => {
@@ -16263,15 +16374,16 @@ function SceltaUnitaVento() {
 }
 
 // riga di Controllo: un documento, il suo stato e il tasto per aprirlo
-function RigaDocumento({ nome, stato, colore, url, nota }) {
+function RigaDocumento({ nome, stato, colore, url, nota, azione }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: "1px solid #232b3f" }}>
+    <div style={{ display: "flex", alignItems: "center", flexWrap: azione ? "wrap" : "nowrap", gap: 12, padding: "11px 0", borderTop: "1px solid #232b3f" }}>
       <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: "50%", background: colore, flex: "none", boxShadow: `0 0 10px ${colore}66` }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#f3f0ea" }}>{nome}</div>
         <div style={{ fontSize: 13.5, color: colore, marginTop: 1 }}>{stato}{nota && <span style={{ color: "#6b7480" }}> · {nota}</span>}</div>
       </div>
       {url && <LinkFile url={url} style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 6, minHeight: 40, padding: "0 14px", borderRadius: 8, border: "1px solid #3d8bfd66", background: "#3d8bfd18", color: "#9cc3ff", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}><FileText size={15} /> Apri</LinkFile>}
+      {azione && <div style={{ flexBasis: "100%", paddingLeft: 22 }}>{azione}</div>}
     </div>
   );
 }
@@ -16290,6 +16402,42 @@ function SceltaElio() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// il regime fiscale del pilota: decide IVA, ritenuta, rivalsa e marca da bollo nei preventivi
+function RegimeFiscale({ fisco, onCambia }) {
+  const f = { ...FISCO_DEFAULT, ...fisco };
+  const cambia = (k, v) => onCambia({ ...f, [k]: v });
+  const spunta = (k, testo) => (
+    <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: "#c3cad4", marginTop: 8 }}>
+      <input type="checkbox" checked={!!f[k]} onChange={(e) => cambia(k, e.target.checked)} style={{ marginTop: 2 }} /> <span>{testo}</span>
+    </label>
+  );
+  return (
+    <div style={{ borderTop: "1px solid #232b3f", paddingTop: 18 }}>
+      <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Il tuo regime fiscale</h3>
+      <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 10px 0", lineHeight: 1.5 }}>Serve ai preventivi: IVA, ritenuta d'acconto e marca da bollo si calcolano da soli. È un aiuto: fattura e conti controllali con il tuo commercialista.</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {REGIMI.map((r) => (
+          <label key={r.key} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: "#e7eaee" }}>
+            <input type="radio" name="regime-fiscale" checked={f.regime === r.key} onChange={() => cambia("regime", r.key)} />
+            <span>{r.label} <span style={{ color: "#6b7480", fontSize: 11.5 }}>· {r.breve}</span></span>
+          </label>
+        ))}
+      </div>
+      {f.regime === "ordinario" && (
+        <div style={{ marginTop: 8 }}>
+          <label style={{ fontSize: 12, color: "#8b95a3", display: "flex", gap: 8, alignItems: "center" }}>Aliquota IVA
+            <input type="number" min="0" max="30" value={f.iva} onChange={(e) => cambia("iva", e.target.value === "" ? "" : Number(e.target.value))} style={{ ...inputStyle, width: 80 }} /> %
+          </label>
+          {spunta("rivalsa", "Rivalsa INPS 4% (professionisti iscritti alla Gestione separata)")}
+          {spunta("ritenuta", "Ritenuta d'acconto 20% (solo se sei un professionista: si applica quando il cliente è un'azienda o un professionista)")}
+        </div>
+      )}
+      {f.regime === "forfettario" && spunta("rivalsa", "Rivalsa INPS 4% (professionisti iscritti alla Gestione separata)")}
+      {f.regime === "occasionale" && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "8px 0 0 0", lineHeight: 1.5 }}>Senza IVA. Ritenuta del 20% solo quando il cliente è un'azienda o un professionista. Marca da bollo da 2 € sopra 77,47 €. Oltre 5.000 € l'anno ci sono i contributi INPS.</p>}
     </div>
   );
 }
@@ -16388,6 +16536,8 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
             </div>
           </div>
         </div>
+
+        <RegimeFiscale fisco={azienda.fisco || FISCO_DEFAULT} onCambia={(f) => setAzienda({ ...azienda, fisco: f })} />
 
         <div style={{ borderTop: "1px solid #232b3f", paddingTop: 18 }}>
           <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Diciture legali nei preventivi</h3>

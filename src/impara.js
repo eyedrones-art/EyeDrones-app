@@ -1,3 +1,6 @@
+// Fonte ufficiale ENAC sulle zone geografiche UAS (indicata da ENAC il 23 ottobre 2026)
+export const ENAC_ZONE = "https://www.enac.gov.it/sicurezza-aerea/droni/zone-geografiche-space/voli-con-droni-uas-limitazioni-riserve-dello/";
+
 // Contenuti della sezione «Impara»: lezioni A1/A3 e A2, guida per volare in zona rossa, domande di allenamento.
 // Testi scritti seguendo gli argomenti d'esame (Reg. UE 2019/947 e indicazioni ENAC): sono per allenarsi,
 // non sono le domande ufficiali e non sostituiscono un corso o il materiale ENAC.
@@ -108,7 +111,7 @@ export const LEZIONI = {
       ],
     },
     {
-      id: "spazio", titolo: "Spazio aereo e zone geografiche",
+      id: "spazio", titolo: "Spazio aereo e zone geografiche", fonte: ENAC_ZONE,
       punti: [
         "Le zone geografiche UAS (vietate, soggette ad autorizzazione o con condizioni) le trovi sulla mappa di D-Flight.",
         "Molte zone non vietano tutto: spesso il limite parte da una certa altezza (es. «da 25 a 120 m»).",
