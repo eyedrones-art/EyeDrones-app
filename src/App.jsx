@@ -23,6 +23,7 @@ import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
 import Elio, { ElioDice, STILE_ELIO, useElio, accendiElio } from "./Elio.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese, leggiGpsFoto } from "./Scene.jsx";
+import { REGIMI, FISCO_DEFAULT, calcolaFisco, fraseIvaNoteLegali, sembraAzienda } from "./fisco.js";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente, altezzaSenzaPermessi } from "./zoneUAS";
@@ -1535,6 +1536,38 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
   doc.text(`€ ${totale.toFixed(2)}`, 195, y, { align: "right" });
   y += 16;
 
+  // --- riepilogo fiscale (dal regime scelto in Impostazioni e dal tipo di cliente del preventivo) ---
+  const fisco = calcolaFisco(totale, azienda.fisco, preventivo.cliente_tipo || "privato");
+  if (fisco.regime) {
+    if (y > 235) { doc.addPage(); y = 20; }
+    doc.setFontSize(9.5);
+    fisco.righe.forEach(([etichetta, importo]) => {
+      doc.setTextColor(...grigio); doc.text(etichetta, 15, y);
+      doc.setTextColor(...nero); doc.text(`€ ${importo.toFixed(2)}`, 192, y, { align: "right" });
+      y += 5.5;
+    });
+    doc.setDrawColor(225, 225, 225); doc.line(15, y - 2, 195, y - 2);
+    y += 4;
+    doc.setFontSize(11); doc.setTextColor(...nero);
+    doc.text("TOTALE DOCUMENTO", 15, y); doc.text(`€ ${fisco.totale.toFixed(2)}`, 192, y, { align: "right" });
+    y += 6.5;
+    if (fisco.ritenuta) {
+      doc.setFontSize(9.5); doc.setTextColor(...grigio);
+      doc.text("Ritenuta d'acconto 20% (versata dal cliente)", 15, y); doc.text(`− € ${fisco.ritenuta.toFixed(2)}`, 192, y, { align: "right" });
+      y += 6;
+      doc.setFontSize(11); doc.setTextColor(...nero);
+      doc.text("NETTO DA PAGARE", 15, y); doc.text(`€ ${fisco.netto.toFixed(2)}`, 192, y, { align: "right" });
+      y += 6.5;
+    }
+    if (fisco.frasi.length) {
+      doc.setFontSize(8); doc.setTextColor(...grigio);
+      const righe = doc.splitTextToSize(fisco.frasi.join(" "), 180);
+      doc.text(righe, 15, y + 1);
+      y += righe.length * 3.8 + 3;
+    }
+    y += 6;
+  }
+
   // --- note ---
   if (preventivo.note) {
     if (y > 250) { doc.addPage(); y = 20; }
@@ -1550,7 +1583,7 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
   }
 
   // --- diciture legali (personalizzabili in Impostazioni) ---
-  const testoLegale = (azienda.noteLegaliPreventivo || NOTE_LEGALI_PREVENTIVO_DEFAULT).replace("{validita}", String(preventivo.validita_giorni || 30));
+  const testoLegale = (azienda.noteLegaliPreventivo || NOTE_LEGALI_PREVENTIVO_DEFAULT.replace("I prezzi indicati si intendono IVA esclusa, se dovuta.", fraseIvaNoteLegali(azienda.fisco))).replace("{validita}", String(preventivo.validita_giorni || 30));
   if (testoLegale) {
     if (y > 240) { doc.addPage(); y = 20; }
     doc.setDrawColor(225, 225, 225);
@@ -1957,7 +1990,7 @@ function AppShell({ session }) {
     };
   }, []);
   const [impiantoAttivo, setImpiantoAttivo] = useState(null);
-  const [azienda, setAzienda] = useState({ nome: "EyeDrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "" });
+  const [azienda, setAzienda] = useState({ nome: "EyeDrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "", fisco: FISCO_DEFAULT });
   const [pianoReale, setPiano] = useState("free");
   // durante il lancio tutti usano le funzioni Pro; la pagina Abbonamento mostra il piano vero
   const piano = lancioInCorso() ? "pro" : pianoReale;
@@ -2015,6 +2048,7 @@ function AppShell({ session }) {
         tariffaBase: profilo.tariffa_base ?? 150,
         tariffaKwp: profilo.tariffa_kwp ?? 0.12,
         noteLegaliPreventivo: profilo.preventivo_note_legali || "",
+        fisco: { ...FISCO_DEFAULT, ...(profilo.regime_fiscale || {}) },
       });
       salvaCopiaControllo({ azienda: { nome: profilo.azienda_nome || "EyeDrones" } });
     }
@@ -2030,6 +2064,8 @@ function AppShell({ session }) {
       tariffa_kwp: nuovaAzienda.tariffaKwp,
       preventivo_note_legali: nuovaAzienda.noteLegaliPreventivo,
     }).eq("user_id", session.user.id);
+    // il regime fiscale a parte: se lo script regime-fiscale.sql non è ancora stato eseguito, il resto si salva lo stesso
+    if (nuovaAzienda.fisco) await supabase.from("profili").update({ regime_fiscale: nuovaAzienda.fisco }).eq("user_id", session.user.id);
   };
 
   const salvaModuli = async (nuovi) => {
@@ -5708,6 +5744,11 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
   const listino = voci.reduce((s, v) => s + (Number(v.importo) || 0), 0);
   const scontoVal = Number(scontoImporto) || 0;
   const totale = Math.max(0, listino - scontoVal);
+  // privato o azienda (serve per la ritenuta d'acconto): se non lo scegli, lo deduco dalla P. IVA in rubrica
+  const [clienteTipo, setClienteTipo] = useState("");
+  const clienteRubrica = clienti.find((c) => (c.nome || "").trim().toLowerCase() === cliente.trim().toLowerCase());
+  const tipoCliente = clienteTipo || (sembraAzienda(clienteRubrica?.piva_cf) ? "azienda" : "privato");
+  const fiscoForm = calcolaFisco(totale, azienda.fisco, tipoCliente);
 
   const aggiungiVoce = () => setVoci([...voci, { descrizione: "", importo: "" }]);
   const rimuoviVoce = (idx) => setVoci(voci.filter((_, i) => i !== idx));
@@ -5751,7 +5792,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
   };
 
   const resetForm = () => {
-    setCliente(""); setLuogoIntervento(""); setOggetto("");
+    setCliente(""); setLuogoIntervento(""); setOggetto(""); setClienteTipo("");
     setVoci([{ descrizione: "", importo: "" }]); setScontoImporto("");
     setValiditaGiorni("30"); setNote(""); setKwp(""); setEditingId(null); setRichiesta(null);
     setDataPreventivo(new Date().toISOString().slice(0, 10));
@@ -5773,6 +5814,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
   const apriModifica = (p) => {
     setEditingId(p.id);
     setCliente(p.cliente || "");
+    setClienteTipo(p.cliente_tipo || "");
     setLuogoIntervento(p.luogo_intervento || "");
     setOggetto(p.oggetto || "");
     setVoci(p.voci && p.voci.length > 0 ? p.voci.map((v) => ({ descrizione: v.descrizione || "", importo: v.importo != null ? String(v.importo) : "" })) : [{ descrizione: "", importo: "" }]);
@@ -5803,12 +5845,14 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
       prezzo: totale,
       validita_giorni: Number(validitaGiorni) || 30,
       note: note || null,
+      ...(azienda.fisco?.regime ? { cliente_tipo: tipoCliente } : {}),
     };
-    let error;
-    if (editingId) {
-      ({ error } = await supabase.from("preventivi").update(payload).eq("id", editingId));
-    } else {
-      ({ error } = await supabase.from("preventivi").insert({ ...payload, numero: generaNumero() }));
+    const scrivi = (dati) => (editingId ? supabase.from("preventivi").update(dati).eq("id", editingId) : supabase.from("preventivi").insert({ ...dati, numero: generaNumero() }));
+    let { error } = await scrivi(payload);
+    // colonna cliente_tipo non ancora creata (script regime-fiscale.sql): salvo il resto
+    if (error && payload.cliente_tipo && /cliente_tipo/.test(error.message || "")) {
+      const { cliente_tipo, ...senza } = payload; // eslint-disable-line no-unused-vars
+      ({ error } = await scrivi(senza));
     }
     setSalvataggio(false);
     if (error) { alert("Salvataggio non riuscito: " + error.message); return; }
@@ -5996,8 +6040,39 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", color: "#e7eaee", fontWeight: 700, fontSize: 14.5, marginTop: 6, paddingTop: 6, borderTop: "1px solid #232b3f" }}>
-              <span>Totale</span><span className="mono">{totale.toFixed(2)} €</span>
+              <span>{fiscoForm.regime ? "Prezzo" : "Totale"}</span><span className="mono">{totale.toFixed(2)} €</span>
             </div>
+            {fiscoForm.regime ? (
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #343e57" }}>
+                <div role="group" aria-label="Il cliente è" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+                  <span style={{ color: "#8b95a3", fontSize: 12 }}>Il cliente è</span>
+                  {[["privato", "un privato"], ["azienda", "un'azienda o un professionista"]].map(([k, l]) => (
+                    <button key={k} type="button" onClick={() => setClienteTipo(k)} aria-pressed={tipoCliente === k} style={{ background: tipoCliente === k ? "#3d8bfd22" : "none", border: `1px solid ${tipoCliente === k ? "#3d8bfd" : "#343e57"}`, color: tipoCliente === k ? "#9cc3ff" : "#c3cad4", borderRadius: 14, padding: "4px 10px", fontSize: 12 }}>{l}</button>
+                  ))}
+                </div>
+                {fiscoForm.righe.map(([etichetta, importo]) => (
+                  <div key={etichetta} style={{ display: "flex", justifyContent: "space-between", gap: 10, color: "#c3cad4", marginTop: 3 }}>
+                    <span>{etichetta}</span><span className="mono">{importo.toFixed(2)} €</span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#e7eaee", fontWeight: 700, fontSize: 14, marginTop: 6 }}>
+                  <span>Totale documento</span><span className="mono">{fiscoForm.totale.toFixed(2)} €</span>
+                </div>
+                {fiscoForm.ritenuta > 0 && <>
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "#c3cad4", marginTop: 3 }}>
+                    <span>Ritenuta d'acconto 20% (la versa il cliente)</span><span className="mono">− {fiscoForm.ritenuta.toFixed(2)} €</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "#4ade80", fontWeight: 700, marginTop: 3 }}>
+                    <span>Netto da pagare</span><span className="mono">{fiscoForm.netto.toFixed(2)} €</span>
+                  </div>
+                </>}
+                {fiscoForm.frasi.length > 0 && <p style={{ fontSize: 11, color: "#8b95a3", margin: "6px 0 0 0", lineHeight: 1.45 }}>{fiscoForm.frasi.join(" ")}</p>}
+                {azienda.fisco?.regime === "occasionale" && <p style={{ fontSize: 11, color: "#f5b942", margin: "6px 0 0 0" }}>Oltre 5.000 € di compensi occasionali nell'anno si pagano i contributi INPS (Gestione separata) sulla parte in più.</p>}
+                <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>È un aiuto per il preventivo: fattura e conti controllali con il tuo commercialista. Il regime si cambia in Impostazioni azienda.</p>
+              </div>
+            ) : (
+              <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Vuoi IVA, ritenuta e bollo calcolati da soli? Scegli il tuo regime fiscale in Impostazioni azienda.</p>
+            )}
           </div>
 
           <div>
@@ -16331,6 +16406,42 @@ function SceltaElio() {
   );
 }
 
+// il regime fiscale del pilota: decide IVA, ritenuta, rivalsa e marca da bollo nei preventivi
+function RegimeFiscale({ fisco, onCambia }) {
+  const f = { ...FISCO_DEFAULT, ...fisco };
+  const cambia = (k, v) => onCambia({ ...f, [k]: v });
+  const spunta = (k, testo) => (
+    <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: "#c3cad4", marginTop: 8 }}>
+      <input type="checkbox" checked={!!f[k]} onChange={(e) => cambia(k, e.target.checked)} style={{ marginTop: 2 }} /> <span>{testo}</span>
+    </label>
+  );
+  return (
+    <div style={{ borderTop: "1px solid #232b3f", paddingTop: 18 }}>
+      <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Il tuo regime fiscale</h3>
+      <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 10px 0", lineHeight: 1.5 }}>Serve ai preventivi: IVA, ritenuta d'acconto e marca da bollo si calcolano da soli. È un aiuto: fattura e conti controllali con il tuo commercialista.</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {REGIMI.map((r) => (
+          <label key={r.key} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: "#e7eaee" }}>
+            <input type="radio" name="regime-fiscale" checked={f.regime === r.key} onChange={() => cambia("regime", r.key)} />
+            <span>{r.label} <span style={{ color: "#6b7480", fontSize: 11.5 }}>· {r.breve}</span></span>
+          </label>
+        ))}
+      </div>
+      {f.regime === "ordinario" && (
+        <div style={{ marginTop: 8 }}>
+          <label style={{ fontSize: 12, color: "#8b95a3", display: "flex", gap: 8, alignItems: "center" }}>Aliquota IVA
+            <input type="number" min="0" max="30" value={f.iva} onChange={(e) => cambia("iva", e.target.value === "" ? "" : Number(e.target.value))} style={{ ...inputStyle, width: 80 }} /> %
+          </label>
+          {spunta("rivalsa", "Rivalsa INPS 4% (professionisti iscritti alla Gestione separata)")}
+          {spunta("ritenuta", "Ritenuta d'acconto 20% (solo se sei un professionista: si applica quando il cliente è un'azienda o un professionista)")}
+        </div>
+      )}
+      {f.regime === "forfettario" && spunta("rivalsa", "Rivalsa INPS 4% (professionisti iscritti alla Gestione separata)")}
+      {f.regime === "occasionale" && <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "8px 0 0 0", lineHeight: 1.5 }}>Senza IVA. Ritenuta del 20% solo quando il cliente è un'azienda o un professionista. Marca da bollo da 2 € sopra 77,47 €. Oltre 5.000 € l'anno ci sono i contributi INPS.</p>}
+    </div>
+  );
+}
+
 function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userEmail }) {
   const [confermaEliminazione, setConfermaEliminazione] = useState("");
   const [spostamento, setSpostamento] = useState(null); // null | "in corso: ..." | risultato
@@ -16425,6 +16536,8 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
             </div>
           </div>
         </div>
+
+        <RegimeFiscale fisco={azienda.fisco || FISCO_DEFAULT} onCambia={(f) => setAzienda({ ...azienda, fisco: f })} />
 
         <div style={{ borderTop: "1px solid #232b3f", paddingTop: 18 }}>
           <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Diciture legali nei preventivi</h3>
