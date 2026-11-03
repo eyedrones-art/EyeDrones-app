@@ -3041,6 +3041,8 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ...(k !== "video" ? [{ key: "galleria", label: "Foto e video", icon: Camera }] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
     ...(k !== "video" ? [{ key: "posti", label: "Posti", icon: Compass }] : []),
+    // l'Esperto anche nella Home delle cartelle (nelle cartelle è già tra le voci della cartella)
+    ...(usaAI && !vociSpazio.some((v) => v.key === "analisi-ai") ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
     { key: "impara", label: "Impara e quiz", icon: GraduationCap },
@@ -3357,9 +3359,9 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
           {/* il cerchio con le funzioni principali: gira e si apre verso quella che tocchi */}
           <MenuRotondo voci={[
             { key: "qui", label: "Sono sul posto", corto: "Sul posto", sigla: "GPS", icon: MapPin, vai: () => { setAltroAperto(false); vaiA({ pagina: "qui" }); } },
-            ...[["pianificazione", "Pianifica", "PLN", CalendarDays], ["registro-voli", "Registro", "LOG", BookOpen], ["documenti-controllo", "Controllo", "CTR", ShieldCheck], ["permessi", "Permessi", "PRM", ClipboardCheck], ["preventivi", "Preventivi", "EUR", FileText], ["impara", "Impara", "EDU", GraduationCap]]
-              .filter(([k]) => items.some((it) => it.key === k)).map(([k, l, sg, ic]) => ({ key: k, label: l, sigla: sg, icon: ic })),
-            // il simulatore è una pagina a parte, a tutto schermo
+            ...[["pianificazione", "Pianifica", "PLN", CalendarDays], ["registro-voli", "Registro", "LOG", BookOpen], ["documenti-controllo", "Controllo", "CTR", ShieldCheck], ["permessi", "Permessi", "PRM", ClipboardCheck], ["preventivi", "Preventivi", "EUR", FileText], ["impara", "Impara", "EDU", GraduationCap], ["analisi-ai", "Chiedi all'Esperto", "AI", Sparkles, "Esperto"]]
+              .filter(([k]) => items.some((it) => it.key === k)).map(([k, l, sg, ic, c]) => ({ key: k, label: l, sigla: sg, icon: ic, ...(c ? { corto: c } : {}) })),
+            // il simulatore è una pagina a parte, a tutto schermo (con l'Esperto i cerchi sono già 8: resta in Impara)
             { key: "simulatore", label: "Simulatore", sigla: "SIM", icon: Gamepad2, nuovo: true, vai: () => { window.location.href = "/simulatore/"; } },
           ]} onScegli={(v) => (v.vai ? v.vai() : scegli(v.key))} />
           <div>
