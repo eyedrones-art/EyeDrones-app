@@ -36,6 +36,30 @@ as $$
 $$;
 revoke all on function privato.lavora_con_drone(uuid, text) from public, anon, authenticated;
 
+-- tetto comune delle email «una tantum» del giorno (Resend gratis: 100 email al giorno in tutto).
+-- Le email una tantum (primi passi, primo volo, community, novità) insieme non superano 55 al giorno,
+-- così restano almeno 45 email per le richieste dei clienti, le offerte e i promemoria delle scadenze.
+create or replace function privato.email_restanti_oggi()
+returns int
+language plpgsql stable security definer set search_path = public
+as $f$
+declare
+  v_inizio timestamptz := date_trunc('day', now() at time zone 'Europe/Rome') at time zone 'Europe/Rome';
+  v_usate int := 0;
+  v_n int;
+  t text;
+begin
+  foreach t in array array['email_primi_passi', 'email_primo_volo', 'email_community', 'email_lavori'] loop
+    if to_regclass('privato.' || t) is not null then
+      execute format('select count(*) from privato.%I where inviata >= $1', t) into v_n using v_inizio;
+      v_usate := v_usate + coalesce(v_n, 0);
+    end if;
+  end loop;
+  return greatest(0, 55 - v_usate);
+end;
+$f$;
+revoke all on function privato.email_restanti_oggi() from public, anon, authenticated;
+
 create or replace function privato.invia_email_lavori()
 returns void
 language plpgsql
@@ -43,6 +67,7 @@ security definer
 set search_path = public
 as $$
 declare
+  v_max int;
   v_url text;
   v_segreto text;
   v_utenti jsonb;
@@ -55,6 +80,9 @@ begin
   select valore into v_url from privato.impostazioni where chiave = 'promemoria_url';
   select valore into v_segreto from privato.impostazioni where chiave = 'avviso_segreto';
   if v_url is null or v_segreto is null then return; end if;
+  -- tetto comune del giorno: se oggi sono già partite tante email, si riprende domani (senza togliere il giro)
+  v_max := least(40, privato.email_restanti_oggi());
+  if v_max <= 0 then return; end if;
 
   with scelti as (
     select u.id, u.email, p.azienda_nome as nome,
@@ -69,7 +97,7 @@ begin
       and not exists (select 1 from privato.email_community c where c.user_id = u.id and c.inviata > now() - interval '20 hours')
       and not exists (select 1 from privato.email_lavori l where l.user_id = u.id)
     order by u.created_at
-    limit 40
+    limit v_max
   ), segnati as (
     insert into privato.email_lavori (user_id) select id from scelti
     on conflict do nothing
