@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, Suspense, lazy } from "react";
+import React, { useState, useRef, useEffect, Suspense, lazy, Fragment } from "react";
 import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
@@ -191,9 +191,11 @@ const OBIETTIVI_FORMATIVI = [
   { key: "altro", label: "Altro" },
 ];
 
+// Coverdrone: link personale di Ivan (Introducer). Il preventivo lo fa il pilota da solo sul sito di Coverdrone.
+const COVERDRONE_URL = "https://quoteseur.coverdrone.com/AWE/Container.aspx?Culture=it-IT&Source=124951078";
+
 const RISORSE_CONSIGLIATE = [
-  // esempio (da riempire quando pronto):
-  // { nome: "Assicurazione RC drone — Coverdrone", url: "https://www.coverdrone.com/it/?ref=IL_TUO_CODICE", descrizione: "Polizza RC obbligatoria per uso professionale." },
+  { nome: "Assicurazione RC drone — Coverdrone", url: COVERDRONE_URL, descrizione: "Il preventivo lo fai online sul sito di Coverdrone.", partner: true },
   // { nome: "Corso A2 online", url: "https://...", descrizione: "Prepara l'esame A2 e sostienilo online." },
 ];
 
@@ -3833,7 +3835,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
 
   // scadenze di attestati e manutenzioni dei droni (valide per tutti i piloti)
   const voci = [
-    ...attestati.filter((a) => a.data_scadenza && !coperturaAttestato(a, attestati)).map((a) => ({ id: "a" + a.id, nome: a.tipo, stato: statoScadenza(a.data_scadenza), vai: "attestati" })),
+    ...attestati.filter((a) => a.data_scadenza && !coperturaAttestato(a, attestati)).map((a) => ({ id: "a" + a.id, nome: a.tipo, stato: statoScadenza(a.data_scadenza), vai: "attestati", coverdrone: eAssicurazione(a) ? statoAssicurazione(a) : null })),
     ...droni.filter((d) => d.prossima_manutenzione).map((d) => ({ id: "d" + d.id, nome: `Manutenzione — ${d.nome}`, stato: statoManutenzione(d.prossima_manutenzione), vai: "droni" })),
     ...(batterie || []).flatMap((b) => avvisiBatteria(b).map((a, i) => ({ id: `b${b.id}-${i}`, nome: `Batteria — ${b.nome}`, stato: a, vai: "batterie" }))),
     ...(eventiVolo || []).filter((e) => !e.segnalato).map((e) => ({ id: "e" + e.id, nome: `Segnalazione evento — ${etichettaEvento(e.tipo)}`, stato: statoEvento(e), vai: "registro-voli" })),
@@ -3865,10 +3867,13 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
       {tutteScadenze && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
           {urgenti.map((v) => (
-            <button key={v.id} onClick={() => onNav(v.vai)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#10141f", border: `1px solid ${v.stato.colore}44`, borderRadius: 8, padding: "10px 14px", color: "#e7eaee", fontSize: 13 }}>
-              <span>{v.nome}</span>
-              <span style={{ color: v.stato.colore, fontWeight: 600, fontSize: 12 }}>{v.stato.testo} ›</span>
-            </button>
+            <Fragment key={v.id}>
+              <button onClick={() => onNav(v.vai)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", textAlign: "left", background: "#10141f", border: `1px solid ${v.stato.colore}44`, borderRadius: 8, padding: "10px 14px", color: "#e7eaee", fontSize: 13 }}>
+                <span>{v.nome}</span>
+                <span style={{ color: v.stato.colore, fontWeight: 600, fontSize: 12 }}>{v.stato.testo} ›</span>
+              </button>
+              {v.coverdrone && <div style={{ padding: "0 4px 4px" }}><PulsanteCoverdrone stato={v.coverdrone} piccolo /></div>}
+            </Fragment>
           ))}
         </div>
       )}
@@ -6467,6 +6472,29 @@ function coperturaAttestato(a, attestati) {
     .sort((x, y) => (x.data_scadenza < y.data_scadenza ? 1 : -1))[0] || null;
 }
 
+// assicurazione RC: "manca", "scaduta" o "scade" (entro 30 giorni); null se è valida per più di 30 giorni o senza data
+function statoAssicurazione(a) {
+  if (!a) return "manca";
+  if (!a.data_scadenza) return null;
+  const giorni = Math.ceil((new Date(a.data_scadenza) - new Date()) / 86400000);
+  return giorni < 0 ? "scaduta" : giorni <= 30 ? "scade" : null;
+}
+const eAssicurazione = (a) => String(a?.tipo || "").toLowerCase().includes("assicura");
+
+// pulsante Coverdrone (partner): «Rinnova» se c'è un'assicurazione da rinnovare, «Fai il preventivo» se manca
+function PulsanteCoverdrone({ stato, piccolo }) {
+  if (!stato) return null;
+  const testo = stato === "manca" ? "Fai il preventivo con Coverdrone" : "Rinnova con Coverdrone";
+  return (
+    <div style={{ flexBasis: "100%", marginTop: piccolo ? 4 : 2 }}>
+      <a href={COVERDRONE_URL} target="_blank" rel="noreferrer sponsored" style={piccolo
+        ? { display: "inline-flex", alignItems: "center", gap: 6, background: "#1a2133", border: "1px solid #f5b94266", color: "#ffd68a", borderRadius: 8, padding: "7px 12px", fontSize: 13, fontWeight: 700, textDecoration: "none" }
+        : { display: "block", textAlign: "center", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", borderRadius: 8, padding: "11px 14px", fontSize: 14.5, fontWeight: 800, textDecoration: "none" }}>🛡️ {testo} ↗</a>
+      <span style={{ display: piccolo ? "inline" : "block", marginLeft: piccolo ? 8 : 0, marginTop: piccolo ? 0 : 4, fontSize: 10.5, color: "#8b95a3", textAlign: piccolo ? "left" : "center" }}>Partner · link affiliato</span>
+    </div>
+  );
+}
+
 // attestato A1/A3, A2 o STS che scade entro 3 mesi (o già scaduto): come si rinnova, link ENAC, ripasso e corso
 function RinnovoAttestato({ attestato }) {
   const r = rinnovoPer(attestato.tipo);
@@ -6716,6 +6744,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
                   </button>
                 </div>
                 {!copre && <RinnovoAttestato attestato={a} />}
+                {eAssicurazione(a) && <PulsanteCoverdrone stato={statoAssicurazione(a)} />}
               </div>
             );
           })}
@@ -6753,9 +6782,10 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
           <p style={{ fontSize: 11.5, fontWeight: 600, color: "#8b95a3", margin: "0 0 8px 0" }}>Servizi consigliati</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {RISORSE_CONSIGLIATE.map((r) => (
-              <a key={r.nome} href={r.url} target="_blank" rel="noreferrer" style={{ display: "block", textDecoration: "none" }}>
+              <a key={r.nome} href={r.url} target="_blank" rel={r.partner ? "noreferrer sponsored" : "noreferrer"} style={{ display: "block", textDecoration: "none" }}>
                 <div style={{ fontSize: 12.5, color: "#4ade80", fontWeight: 600 }}>{r.nome} ↗</div>
                 {r.descrizione && <div style={{ fontSize: 11.5, color: "#6b7480" }}>{r.descrizione}</div>}
+                {r.partner && <div style={{ fontSize: 10.5, color: "#8b95a3", marginTop: 2 }}>Partner · link affiliato</div>}
               </a>
             ))}
           </div>
@@ -7076,7 +7106,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
           <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: "10px 14px", marginBottom: 14, maxWidth: 460, fontSize: 12, color: "#c3cad4" }}>
             💡 Ricorda: ogni drone dev'essere assicurato, anche in categoria Aperta.{" "}
             {assicurazioneConsigliata ? (
-              <a href={assicurazioneConsigliata.url} target="_blank" rel="noreferrer" style={{ color: "#4ade80", fontWeight: 600 }}>{assicurazioneConsigliata.nome} ↗</a>
+              <><a href={assicurazioneConsigliata.url} target="_blank" rel="noreferrer sponsored" style={{ color: "#4ade80", fontWeight: 600 }}>{assicurazioneConsigliata.nome} ↗</a> <span style={{ fontSize: 10.5, color: "#8b95a3" }}>(Partner · link affiliato)</span></>
             ) : (
               <span style={{ color: "#6b7480" }}>Trovi il link per un preventivo in "Attestati".</span>
             )}
@@ -10398,9 +10428,9 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
           {assicurazione
             ? (() => {
                 const scaduta = assicurazione.data_scadenza && new Date(assicurazione.data_scadenza) < new Date();
-                return <RigaDocumento nome="Assicurazione" stato={`${scaduta ? "Scaduta il " : "Valida fino al "}${assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}`} colore={scaduta ? "#ff9c9c" : "#4ade80"} url={assicurazione.documento_url} />;
+                return <RigaDocumento nome="Assicurazione" stato={`${scaduta ? "Scaduta il " : "Valida fino al "}${assicurazione.data_scadenza ? formatData(assicurazione.data_scadenza) : "—"}`} colore={scaduta ? "#ff9c9c" : statoAssicurazione(assicurazione) ? "#f5b942" : "#4ade80"} url={assicurazione.documento_url} azione={<PulsanteCoverdrone stato={statoAssicurazione(assicurazione)} piccolo />} />;
               })()
-            : <RigaDocumento nome="Assicurazione" stato="Non registrata: aggiungila in «Attestati»" colore="#ff9c9c" />}
+            : <RigaDocumento nome="Assicurazione" stato="Non registrata: aggiungila in «Attestati»" colore="#ff9c9c" azione={<PulsanteCoverdrone stato="manca" piccolo />} />}
           {droneSelezionato && <RigaDocumento nome={`Documento del drone · ${droneSelezionato.nome}`} stato={droneSelezionato.documento_url ? "Caricato" : "Nessuno caricato"} colore={droneSelezionato.documento_url ? "#4ade80" : "#8b95a3"} url={droneSelezionato.documento_url} />}
           <RigaDocumento nome={`Permessi${impiantoSel ? " per questo luogo" : ""}`} stato={permessiFiltrati.length === 0 ? "Nessuno" : permessiFiltrati.length === 1 ? "1 permesso" : `${permessiFiltrati.length} permessi`} colore={permessiFiltrati.length ? "#4ade80" : "#8b95a3"} />
           {zonaPiano && (() => {
@@ -16265,15 +16295,16 @@ function SceltaUnitaVento() {
 }
 
 // riga di Controllo: un documento, il suo stato e il tasto per aprirlo
-function RigaDocumento({ nome, stato, colore, url, nota }) {
+function RigaDocumento({ nome, stato, colore, url, nota, azione }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: "1px solid #232b3f" }}>
+    <div style={{ display: "flex", alignItems: "center", flexWrap: azione ? "wrap" : "nowrap", gap: 12, padding: "11px 0", borderTop: "1px solid #232b3f" }}>
       <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: "50%", background: colore, flex: "none", boxShadow: `0 0 10px ${colore}66` }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#f3f0ea" }}>{nome}</div>
         <div style={{ fontSize: 13.5, color: colore, marginTop: 1 }}>{stato}{nota && <span style={{ color: "#6b7480" }}> · {nota}</span>}</div>
       </div>
       {url && <LinkFile url={url} style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 6, minHeight: 40, padding: "0 14px", borderRadius: 8, border: "1px solid #3d8bfd66", background: "#3d8bfd18", color: "#9cc3ff", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}><FileText size={15} /> Apri</LinkFile>}
+      {azione && <div style={{ flexBasis: "100%", paddingLeft: 22 }}>{azione}</div>}
     </div>
   );
 }
