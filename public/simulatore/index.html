@@ -2163,7 +2163,7 @@ body { margin: 0; background: var(--fondo); color: var(--testo); font-family: va
       ${nuova ? bannerMissione(m) : ""}
       <p>${passato ? "Conosci le regole base per volare in categoria Open." : "Ne servono almeno 8 giuste. Le domande cambiano ogni volta: riprova!"}</p>
       ${E.sbagliate.length ? `<h3>Da ripassare</h3><ul class="voti">${E.sbagliate.map((q) => `<li><span class="no">✗</span><span>${q}</span><span></span></li>`).join("")}</ul>` : ""}
-      <p class="piccolo">È un allenamento, non l'esame ufficiale. L'esame vero A1/A3 si fa online sul portale D-Flight: 40 domande, si passa con il 75% di risposte giuste.</p>
+      <p class="piccolo">È un allenamento, non l'esame ufficiale. L'esame vero A1/A3 si fa online sul portale ENAC, con lo SPID: 40 domande in 60 minuti, si passa con almeno 60 punti su 80.</p>
       <div class="riga"><button class="grande" id="ancora" type="button">${passato ? "Rifai la prova" : "Riprova"}</button><button class="secondario" id="vaiMissioni" type="button">🏆 Missioni</button></div></div>`);
     $("ancora").onclick = avviaEsame; $("vaiMissioni").onclick = missioni;
   }

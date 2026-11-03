@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>Quiz A1/A3 drone: 22 domande con le risposte spiegate — EyeDrones</title>
+<meta name="description" content="Domande di allenamento per l'esame A1/A3 da pilota di drone, con la risposta giusta e la spiegazione. Poi mettiti alla prova nel simulatore.">
+<link rel="canonical" href="https://app.eyedrones.it/quiz-a1-a3/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://app.eyedrones.it/quiz-a1-a3/">
+<meta property="og:title" content="Quiz A1/A3 drone: 22 domande con le risposte spiegate — EyeDrones">
+<meta property="og:description" content="Domande di allenamento per l'esame A1/A3 da pilota di drone, con la risposta giusta e la spiegazione. Poi mettiti alla prova nel simulatore.">
+<meta property="og:image" content="https://app.eyedrones.it/simulatore-drone/anteprima.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root {
+  --bg: #12151c; --surface: #1b2028; --surface-2: #161a1f; --line: #2b313d;
+  --fg: #e7eaee; --muted: #9aa4b1; --faint: #6b7480;
+  --accent: #ff8c42; --accent-deep: #e0552f; --violet: #a78bfa; --ok: #4ade80; --on-accent: #161a1f;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+    --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+    --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+  --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+  --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 16px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.12; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(34px, 6vw, 54px); }
+h2 { font-size: clamp(24px, 4vw, 32px); margin-bottom: 14px; }
+h3 { font-size: 19px; margin-bottom: 6px; }
+p { margin: 0; }
+a { color: var(--accent); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 18px; }
+.marchio { font-family: var(--display); font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; }
+.occhio { width: 30px; height: 18px; border-radius: 50%; border: 2.5px solid var(--accent); position: relative; }
+.occhio::after { content: ""; position: absolute; inset: 3px 9px; border-radius: 50%; background: var(--violet); }
+.top a.link { font-family: var(--mono); font-size: 13px; text-decoration: none; }
+.hero { padding-block: 32px 48px; display: grid; gap: 18px; }
+.hero p.lead { font-size: 19px; color: var(--muted); max-width: 640px; }
+.cta { display: inline-block; background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; font-weight: 700; padding: 13px 22px; border-radius: 10px; text-decoration: none; font-size: 16px; }
+section { padding-block: 32px; border-top: 1px solid var(--line); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.card .emoji { font-size: 26px; margin-bottom: 8px; display: block; }
+.numeri { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.numero { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.numero b { display: block; font-family: var(--display); font-size: 38px; color: var(--accent); line-height: 1.1; }
+.esempio { background: var(--surface-2); border: 1px dashed var(--line); border-radius: 12px; padding: 14px 16px; margin-top: 14px; color: var(--muted); }
+ol.passi { margin: 0; padding-left: 22px; display: grid; gap: 10px; }
+ul.regole { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--muted); }
+form { display: grid; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+input, select, textarea { width: 100%; background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; font: inherit; font-weight: 400; min-height: 44px; }
+textarea { min-height: 96px; resize: vertical; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; color: var(--muted); }
+.check input { width: 20px; min-height: 20px; margin-top: 3px; }
+button { background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; border: none; border-radius: 10px; padding: 13px 22px; font-weight: 700; font-size: 16px; cursor: pointer; min-height: 48px; }
+.esito { display: none; padding: 14px 16px; border-radius: 10px; }
+.esito.ok { display: block; background: color-mix(in srgb, var(--ok) 14%, transparent); border: 1px solid var(--ok); }
+.esito.ko { display: block; background: color-mix(in srgb, #ff6b6b 14%, transparent); border: 1px solid #ff6b6b; }
+.nascosto { display: none; }
+.vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.vs .card ul { margin: 8px 0 0 0; padding-left: 20px; color: var(--muted); display: grid; gap: 6px; }
+.prezzo b { color: var(--ok); }
+.cta-2 { display: inline-block; margin-left: 10px; color: var(--fg); text-decoration: none; border: 1px solid var(--line); padding: 12px 18px; border-radius: 10px; }
+footer { padding-block: 28px 40px; color: var(--faint); font-size: 13px; border-top: 1px solid var(--line); }
+
+.cta-2 { display: inline-block; margin-left: 10px; color: var(--fg); text-decoration: none; border: 1px solid var(--line); padding: 12px 18px; border-radius: 10px; }
+details.dom { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+details.dom summary { cursor: pointer; font-weight: 600; }
+details.dom ol { margin: 10px 0 0 0; padding-left: 22px; color: var(--muted); display: grid; gap: 4px; }
+details.dom li.giusta { color: var(--ok); font-weight: 600; }
+.lista { display: grid; gap: 10px; }
+.faq { display: grid; gap: 10px; }
+.faq details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.faq summary { cursor: pointer; font-weight: 600; }
+.faq p { margin-top: 8px; color: var(--muted); }
+.nota { font-size: 13px; color: var(--faint); }
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Quiz","name":"Quiz A1/A3 drone","url":"https://app.eyedrones.it/quiz-a1-a3/","inLanguage":"it","educationalLevel":"Categoria Open A1/A3","about":"Esame da pilota di drone A1/A3","hasPart":[{"@type":"Question","name":"Qual è l'altezza massima in categoria Open?","acceptedAnswer":{"@type":"Answer","text":"120 m dal suolo. Si vola al massimo a 120 m dal punto più vicino del terreno."}},{"@type":"Question","name":"Cosa vuol dire volare in VLOS?","acceptedAnswer":{"@type":"Answer","text":"Vedere sempre il drone a occhio nudo. VLOS: il drone resta sempre visibile ai tuoi occhi, senza binocolo."}},{"@type":"Question","name":"Voli in FPV con gli occhiali. Cosa serve?","acceptedAnswer":{"@type":"Answer","text":"Un osservatore accanto che guarda il drone. Con gli occhiali non vedi il drone: un osservatore accanto a te lo tiene d'occhio."}},{"@type":"Question","name":"Puoi sorvolare un assembramento di persone (concerto, mercato, festa)?","acceptedAnswer":{"@type":"Answer","text":"No, mai in categoria Open. Il sorvolo degli assembramenti è vietato in tutta la categoria Open, anche con i droni piccoli."}},{"@type":"Question","name":"In A3 quanto devi stare lontano da case, fabbriche e parchi?","acceptedAnswer":{"@type":"Answer","text":"Almeno 150 m. In A3 si vola lontano dalle persone e ad almeno 150 m da aree residenziali, commerciali, industriali e ricreative."}},{"@type":"Question","name":"Dove va il codice operatore (QR code)?","acceptedAnswer":{"@type":"Answer","text":"Attaccato sul drone. Il codice operatore va applicato sul drone, ben visibile."}},{"@type":"Question","name":"Quando devi registrarti come operatore?","acceptedAnswer":{"@type":"Answer","text":"Se il drone pesa 250 g o più, o ha una camera e non è un giocattolo. Anche un drone sotto i 250 g con la camera richiede la registrazione, se non è un giocattolo."}},{"@type":"Question","name":"Dove controlli se in una zona si può volare?","acceptedAnswer":{"@type":"Answer","text":"Sulla mappa delle zone di D-Flight. Le zone geografiche (aeroporti, zone vietate o limitate) si controllano su D-Flight prima di ogni volo."}},{"@type":"Question","name":"Di notte il drone deve avere…","acceptedAnswer":{"@type":"Answer","text":"La luce verde lampeggiante accesa. Per volare di notte va accesa la luce verde lampeggiante, così il drone si vede da terra."}},{"@type":"Question","name":"Con un drone C1 in A1, sopra persone che non c'entrano:","acceptedAnswer":{"@type":"Answer","text":"Devi evitarlo; se succede, passa il prima possibile. In A1 con un C1 non si sorvolano persone non coinvolte: se capita, riduci al minimo il tempo sopra di loro."}},{"@type":"Question","name":"Prima di decollare cosa controlli?","acceptedAnswer":{"@type":"Answer","text":"Eliche, batterie, home point, meteo e zona. Il controllo prima del volo evita la maggior parte degli incidenti."}},{"@type":"Question","name":"L'altezza del Return to Home (RTH) va impostata…","acceptedAnswer":{"@type":"Answer","text":"Più alta degli ostacoli intorno. Se il drone torna da solo, deve passare sopra alberi, case e tralicci."}},{"@type":"Question","name":"Con il freddo le batterie…","acceptedAnswer":{"@type":"Answer","text":"Durano meno: tienile calde e atterra prima. Il freddo fa calare la carica in fretta: atterra con margine."}},{"@type":"Question","name":"In Italia l'assicurazione per il drone è…","acceptedAnswer":{"@type":"Answer","text":"Obbligatoria. In Italia serve l'assicurazione di responsabilità civile verso terzi per volare."}},{"@type":"Question","name":"Quanto vale l'attestato A1/A3?","acceptedAnswer":{"@type":"Answer","text":"5 anni. L'attestato vale 5 anni, poi va rinnovato."}},{"@type":"Question","name":"In categoria Open puoi sganciare oggetti dal drone?","acceptedAnswer":{"@type":"Answer","text":"No. In Open è vietato sganciare oggetti e trasportare merci pericolose."}},{"@type":"Question","name":"Hai bevuto alcolici. Puoi volare?","acceptedAnswer":{"@type":"Answer","text":"No: serve essere lucidi e riposati. Come per la guida: niente alcol, droghe o farmaci che danno sonno, e non volare se sei stanco."}},{"@type":"Question","name":"Riprendi persone riconoscibili. Cosa devi rispettare?","acceptedAnswer":{"@type":"Answer","text":"La privacy: serve il loro consenso per pubblicare. Le riprese di persone riconoscibili sono dati personali: chiedi il permesso prima di pubblicarle."}},{"@type":"Question","name":"Il vento è più forte di quanto dice il produttore. Cosa fai?","acceptedAnswer":{"@type":"Answer","text":"Non decollo. Si rispettano sempre i limiti del produttore: in quota il vento è ancora più forte."}},{"@type":"Question","name":"Chi è responsabile durante il volo?","acceptedAnswer":{"@type":"Answer","text":"Il pilota remoto (e l'operatore). Chi pilota risponde di quello che fa il drone."}},{"@type":"Question","name":"Vicino a un aeroporto…","acceptedAnswer":{"@type":"Answer","text":"Controllo le zone su D-Flight: di solito non si può volare. Intorno agli aeroporti ci sono zone vietate o limitate: si controllano sempre prima."}},{"@type":"Question","name":"Il drone perde il segnale. Cosa succede di solito?","acceptedAnswer":{"@type":"Answer","text":"Torna a casa da solo (RTH), se impostato bene. Per questo l'home point e l'altezza RTH si controllano prima di partire."}}]},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Dove si fa l'esame A1/A3?","acceptedAnswer":{"@type":"Answer","text":"Online sul portale dei servizi ENAC, con lo SPID: 40 domande in 60 minuti. Ogni risposta giusta vale 2 punti, ogni risposta sbagliata toglie 1 punto; si passa con almeno 60 punti su 80."}},{"@type":"Question","name":"Quanto costa l'esame A1/A3?","acceptedAnswer":{"@type":"Answer","text":"Si paga online un diritto fisso di 31 € prima di iniziare. Controlla sempre l'importo aggiornato sul sito ENAC."}},{"@type":"Question","name":"Quanto vale l'attestato A1/A3?","acceptedAnswer":{"@type":"Answer","text":"5 anni, poi va rinnovato."}},{"@type":"Question","name":"Queste domande sono quelle dell'esame?","acceptedAnswer":{"@type":"Answer","text":"No: sono domande di allenamento sugli stessi argomenti (regole della categoria Open, zone, sicurezza, privacy). Per studiare usa il materiale ufficiale ENAC."}}]}]}</script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><a class="marchio" href="https://app.eyedrones.it/piloti"><span class="occhio"></span>EyeDrones</a><a class="link" href="https://app.eyedrones.it/piloti">L'app per piloti ›</a></header>
+  <main>
+  <div class="hero">
+    <p class="eyebrow">Allenamento · categoria Open</p>
+    <h1>Quiz A1/A3 drone: 22 domande con le risposte spiegate</h1>
+    <p class="lead">Ripassa le regole per volare in categoria Open. Tocca una domanda per vedere la risposta giusta e il perché. Poi fai la prova d'esame nel simulatore.</p>
+    <p><a class="cta" href="/simulatore/">▶ Prova d'esame nel simulatore</a></p>
+  </div>
+  <section>
+    <h2>Le domande</h2>
+    <div class="lista">
+      <details class="dom"><summary>1. Qual è l'altezza massima in categoria Open?</summary><ol type="A"><li class="giusta">120 m dal suolo ✓</li><li>150 m</li><li>300 m</li><li>Non c'è un limite</li></ol><p class="muted" style="margin-top:8px">Si vola al massimo a 120 m dal punto più vicino del terreno.</p></details>
+      <details class="dom"><summary>2. Cosa vuol dire volare in VLOS?</summary><ol type="A"><li class="giusta">Vedere sempre il drone a occhio nudo ✓</li><li>Guardarlo solo sul telefono</li><li>Volare di notte</li><li>Volare oltre 500 m</li></ol><p class="muted" style="margin-top:8px">VLOS: il drone resta sempre visibile ai tuoi occhi, senza binocolo.</p></details>
+      <details class="dom"><summary>3. Voli in FPV con gli occhiali. Cosa serve?</summary><ol type="A"><li class="giusta">Un osservatore accanto che guarda il drone ✓</li><li>Niente, basta l'occhiale</li><li>Solo il GPS acceso</li><li>Un secondo drone</li></ol><p class="muted" style="margin-top:8px">Con gli occhiali non vedi il drone: un osservatore accanto a te lo tiene d'occhio.</p></details>
+      <details class="dom"><summary>4. Puoi sorvolare un assembramento di persone (concerto, mercato, festa)?</summary><ol type="A"><li class="giusta">No, mai in categoria Open ✓</li><li>Sì, sotto i 30 m</li><li>Sì, con un drone sotto i 250 g</li><li>Sì, se è di giorno</li></ol><p class="muted" style="margin-top:8px">Il sorvolo degli assembramenti è vietato in tutta la categoria Open, anche con i droni piccoli.</p></details>
+      <details class="dom"><summary>5. In A3 quanto devi stare lontano da case, fabbriche e parchi?</summary><ol type="A"><li class="giusta">Almeno 150 m ✓</li><li>50 m</li><li>15 m</li><li>1 km</li></ol><p class="muted" style="margin-top:8px">In A3 si vola lontano dalle persone e ad almeno 150 m da aree residenziali, commerciali, industriali e ricreative.</p></details>
+      <details class="dom"><summary>6. Dove va il codice operatore (QR code)?</summary><ol type="A"><li class="giusta">Attaccato sul drone ✓</li><li>Tenuto a casa</li><li>Solo sul radiocomando</li><li>Non serve</li></ol><p class="muted" style="margin-top:8px">Il codice operatore va applicato sul drone, ben visibile.</p></details>
+      <details class="dom"><summary>7. Quando devi registrarti come operatore?</summary><ol type="A"><li class="giusta">Se il drone pesa 250 g o più, o ha una camera e non è un giocattolo ✓</li><li>Mai</li><li>Solo se lavori</li><li>Solo sopra i 2 kg</li></ol><p class="muted" style="margin-top:8px">Anche un drone sotto i 250 g con la camera richiede la registrazione, se non è un giocattolo.</p></details>
+      <details class="dom"><summary>8. Dove controlli se in una zona si può volare?</summary><ol type="A"><li class="giusta">Sulla mappa delle zone di D-Flight ✓</li><li>Su una mappa stradale</li><li>Chiedo ai passanti</li><li>Non serve controllare</li></ol><p class="muted" style="margin-top:8px">Le zone geografiche (aeroporti, zone vietate o limitate) si controllano su D-Flight prima di ogni volo.</p></details>
+      <details class="dom"><summary>9. Di notte il drone deve avere…</summary><ol type="A"><li class="giusta">La luce verde lampeggiante accesa ✓</li><li>I fari bianchi</li><li>Niente</li><li>Una luce rossa fissa</li></ol><p class="muted" style="margin-top:8px">Per volare di notte va accesa la luce verde lampeggiante, così il drone si vede da terra.</p></details>
+      <details class="dom"><summary>10. Con un drone C1 in A1, sopra persone che non c'entrano:</summary><ol type="A"><li class="giusta">Devi evitarlo; se succede, passa il prima possibile ✓</li><li>Puoi restare sopra quanto vuoi</li><li>Puoi se scendi a 5 m</li><li>Puoi se sono seduti</li></ol><p class="muted" style="margin-top:8px">In A1 con un C1 non si sorvolano persone non coinvolte: se capita, riduci al minimo il tempo sopra di loro.</p></details>
+      <details class="dom"><summary>11. Prima di decollare cosa controlli?</summary><ol type="A"><li class="giusta">Eliche, batterie, home point, meteo e zona ✓</li><li>Solo la batteria del telefono</li><li>Niente se il drone è nuovo</li><li>Solo il colore delle eliche</li></ol><p class="muted" style="margin-top:8px">Il controllo prima del volo evita la maggior parte degli incidenti.</p></details>
+      <details class="dom"><summary>12. L'altezza del Return to Home (RTH) va impostata…</summary><ol type="A"><li class="giusta">Più alta degli ostacoli intorno ✓</li><li>A 2 m</li><li>Sempre a 120 m</li><li>Non conta</li></ol><p class="muted" style="margin-top:8px">Se il drone torna da solo, deve passare sopra alberi, case e tralicci.</p></details>
+      <details class="dom"><summary>13. Con il freddo le batterie…</summary><ol type="A"><li class="giusta">Durano meno: tienile calde e atterra prima ✓</li><li>Durano di più</li><li>Non cambia niente</li><li>Vanno messe in frigo</li></ol><p class="muted" style="margin-top:8px">Il freddo fa calare la carica in fretta: atterra con margine.</p></details>
+      <details class="dom"><summary>14. In Italia l'assicurazione per il drone è…</summary><ol type="A"><li class="giusta">Obbligatoria ✓</li><li>Sempre facoltativa</li><li>Solo sopra 25 kg</li><li>Solo per i droni da corsa</li></ol><p class="muted" style="margin-top:8px">In Italia serve l'assicurazione di responsabilità civile verso terzi per volare.</p></details>
+      <details class="dom"><summary>15. Quanto vale l'attestato A1/A3?</summary><ol type="A"><li class="giusta">5 anni ✓</li><li>1 anno</li><li>Per sempre</li><li>6 mesi</li></ol><p class="muted" style="margin-top:8px">L'attestato vale 5 anni, poi va rinnovato.</p></details>
+      <details class="dom"><summary>16. In categoria Open puoi sganciare oggetti dal drone?</summary><ol type="A"><li class="giusta">No ✓</li><li>Sì, se sono leggeri</li><li>Sì, sopra il mare</li><li>Sì, di notte</li></ol><p class="muted" style="margin-top:8px">In Open è vietato sganciare oggetti e trasportare merci pericolose.</p></details>
+      <details class="dom"><summary>17. Hai bevuto alcolici. Puoi volare?</summary><ol type="A"><li class="giusta">No: serve essere lucidi e riposati ✓</li><li>Sì, se poco</li><li>Sì, in modalità cine</li><li>Sì, se c'è un osservatore</li></ol><p class="muted" style="margin-top:8px">Come per la guida: niente alcol, droghe o farmaci che danno sonno, e non volare se sei stanco.</p></details>
+      <details class="dom"><summary>18. Riprendi persone riconoscibili. Cosa devi rispettare?</summary><ol type="A"><li class="giusta">La privacy: serve il loro consenso per pubblicare ✓</li><li>Niente</li><li>Basta stare sotto 120 m</li><li>Solo il codice della strada</li></ol><p class="muted" style="margin-top:8px">Le riprese di persone riconoscibili sono dati personali: chiedi il permesso prima di pubblicarle.</p></details>
+      <details class="dom"><summary>19. Il vento è più forte di quanto dice il produttore. Cosa fai?</summary><ol type="A"><li class="giusta">Non decollo ✓</li><li>Volo più in alto</li><li>Volo in modalità sport</li><li>Non conta</li></ol><p class="muted" style="margin-top:8px">Si rispettano sempre i limiti del produttore: in quota il vento è ancora più forte.</p></details>
+      <details class="dom"><summary>20. Chi è responsabile durante il volo?</summary><ol type="A"><li class="giusta">Il pilota remoto (e l'operatore) ✓</li><li>Il produttore del drone</li><li>Il proprietario del terreno</li><li>Nessuno</li></ol><p class="muted" style="margin-top:8px">Chi pilota risponde di quello che fa il drone.</p></details>
+      <details class="dom"><summary>21. Vicino a un aeroporto…</summary><ol type="A"><li class="giusta">Controllo le zone su D-Flight: di solito non si può volare ✓</li><li>Bastano 50 m di distanza</li><li>Non ci sono limiti</li><li>Si vola se non sento aerei</li></ol><p class="muted" style="margin-top:8px">Intorno agli aeroporti ci sono zone vietate o limitate: si controllano sempre prima.</p></details>
+      <details class="dom"><summary>22. Il drone perde il segnale. Cosa succede di solito?</summary><ol type="A"><li class="giusta">Torna a casa da solo (RTH), se impostato bene ✓</li><li>Si spegne in aria</li><li>Atterra sempre dove si trova</li><li>Va dritto finché c'è batteria</li></ol><p class="muted" style="margin-top:8px">Per questo l'home point e l'altezza RTH si controllano prima di partire.</p></details>
+    </div>
+    <p class="nota" style="margin-top:14px">Domande di allenamento, non l'esame ufficiale. Le regole possono cambiare: per studiare usa il materiale ufficiale ENAC (<a href="https://www.enac.gov.it/sicurezza-aerea/droni/piloti-uas/come-si-diventa-pilota-uas-drone-open-a1a3/" rel="noreferrer">come si diventa pilota A1/A3</a>).</p>
+  </section>
+  <section>
+    <h2>Domande frequenti sull'esame</h2>
+    <div class="faq"><details><summary>Dove si fa l'esame A1/A3?</summary><p>Online sul portale dei servizi ENAC, con lo SPID: 40 domande in 60 minuti. Ogni risposta giusta vale 2 punti, ogni risposta sbagliata toglie 1 punto; si passa con almeno 60 punti su 80.</p></details><details><summary>Quanto costa l'esame A1/A3?</summary><p>Si paga online un diritto fisso di 31 € prima di iniziare. Controlla sempre l'importo aggiornato sul sito ENAC.</p></details><details><summary>Quanto vale l'attestato A1/A3?</summary><p>5 anni, poi va rinnovato.</p></details><details><summary>Queste domande sono quelle dell'esame?</summary><p>No: sono domande di allenamento sugli stessi argomenti (regole della categoria Open, zone, sicurezza, privacy). Per studiare usa il materiale ufficiale ENAC.</p></details></div>
+  </section>
+  <section>
+    <h2>Altri quiz e lezioni nell'app</h2>
+    <p class="muted">In EyeDrones, nella sezione Impara, trovi lezioni e quiz per A1/A3, A2 e gli scenari STS, più la guida per volare in zona rossa.</p>
+    <p style="margin-top:14px"><a class="cta" href="https://app.eyedrones.it/piloti">Prova l'app EyeDrones</a><a class="cta-2" href="/simulatore-drone/">Il simulatore</a></p>
+  </section>
+  </main>
+  <footer>EyeDrones · Ivan Ravinale, Grugliasco (TO) · <a href="/simulatore-drone/">Simulatore drone</a> · <a href="/quiz-a1-a3/">Quiz A1/A3</a> · <a href="/trova-pilota">Trova un pilota</a> · <a href="https://app.eyedrones.it/privacy">Privacy</a></footer>
+</div>
+</body>
+</html>
