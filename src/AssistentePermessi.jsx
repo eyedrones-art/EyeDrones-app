@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+const ENAC_ZONE = "https://www.enac.gov.it/sicurezza-aerea/droni/zone-geografiche-space/voli-con-droni-uas-limitazioni-riserve-dello/"; // fonte ufficiale ENAC sulle zone
 import { AvvisaFineNotam, NotamInItaliano } from "./avvisiNotam.jsx";
 import { leggiZoneSalvate, messaggioBreve, motivoZona, sistemaZona, zonaFinita, controllaPunto, altezzaSenzaPermessi, altezzaLibera, limiteVicino, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
 
@@ -414,6 +415,11 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
           {zoneDaMostrare.length > 0 && (
             <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "12px 0 0 0" }}>
               📢 I <strong>NOTAM</strong> (divieti temporanei per eventi, elisoccorso, esercitazioni) non sono nel file: guardali su <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ color: "#7fb0ff" }}>D-Flight ↗</a> il giorno prima del volo.
+            </p>
+          )}
+          {zoneDaMostrare.length > 0 && (
+            <p style={{ fontSize: 11.5, margin: "6px 0 0 0" }}>
+              <a href={ENAC_ZONE} target="_blank" rel="noreferrer" style={{ color: "#7fb0ff", fontWeight: 600 }}>Fonte ufficiale ENAC: zone geografiche e limitazioni ↗</a>
             </p>
           )}
 

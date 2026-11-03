@@ -191,6 +191,9 @@ const OBIETTIVI_FORMATIVI = [
   { key: "altro", label: "Altro" },
 ];
 
+// fonte ufficiale ENAC sulle zone geografiche UAS (la stessa di src/impara.js)
+const ENAC_ZONE = "https://www.enac.gov.it/sicurezza-aerea/droni/zone-geografiche-space/voli-con-droni-uas-limitazioni-riserve-dello/";
+
 // Coverdrone: link personale di Ivan (Introducer). Il preventivo lo fa il pilota da solo sul sito di Coverdrone.
 const COVERDRONE_URL = "https://quoteseur.coverdrone.com/AWE/Container.aspx?Culture=it-IT&Source=124951078";
 
@@ -7900,6 +7903,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
           </label>
         )}
       </div>
+      <a href={ENAC_ZONE} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 4, fontSize: 11.5, color: "#7fb0ff", fontWeight: 600, textDecoration: "none" }}>Fonte ufficiale ENAC: zone geografiche e limitazioni ↗</a>
       {/* il volo è tra pochi giorni e il file è di qualche giorno fa: i NOTAM nuovi non ci sono ancora */}
       {archivio && dataPrevista && (() => {
         const traGiorni = Math.round((new Date(`${dataPrevista}T12:00`).getTime() - Date.now()) / 86400000);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { ESAMI, COME_SI_PRENDE, LEZIONI, GUIDA_ZONA_ROSSA, DOMANDE, SIGLE_ZONE, CONTATTI_ZONE } from "./impara";
+import { ESAMI, COME_SI_PRENDE, LEZIONI, GUIDA_ZONA_ROSSA, DOMANDE, SIGLE_ZONE, CONTATTI_ZONE, ENAC_ZONE } from "./impara";
 import Notizie from "./Notizie.jsx";
 import Manuale from "./Manuale.jsx";
 import { TestataPagina } from "./VoloHero.jsx";
@@ -86,6 +86,7 @@ function Lezioni({ esame, onQuiz }) {
           <ul style={{ margin: "10px 0 0 0", paddingLeft: 18, fontSize: 13, lineHeight: 1.6, color: "#d6dde6" }}>
             {l.punti.map((p) => <li key={p} style={{ marginBottom: 4 }}>{p}</li>)}
           </ul>
+          {l.fonte && <p style={{ fontSize: 12, margin: "6px 0 0 0" }}><a href={l.fonte} target="_blank" rel="noreferrer" style={{ color: "#7fb0ff", fontWeight: 600 }}>Fonte ufficiale ENAC: zone geografiche e limitazioni ↗</a></p>}
         </details>
       ))}
       <button type="button" onClick={onQuiz} style={{ ...stAzione, alignSelf: "flex-start", marginTop: 4 }}>📝 Mettiti alla prova con il quiz {e.nome}</button>
@@ -326,6 +327,7 @@ export function ZonaRossa() {
           </ul>
         </details>
       ))}
+      <p style={{ fontSize: 12, margin: 0 }}><a href={ENAC_ZONE} target="_blank" rel="noreferrer" style={{ color: "#7fb0ff", fontWeight: 600 }}>Fonte ufficiale ENAC: zone geografiche e limitazioni ↗</a></p>
       <SigleZone />
 
       <details style={stCard}>
