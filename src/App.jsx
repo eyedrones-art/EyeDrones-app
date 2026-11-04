@@ -6121,6 +6121,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
                         {rit ? <strong>⏰ In ritardo di {rit} {rit === 1 ? "giorno" : "giorni"}</strong> : <span>Pagamento entro</span>}
                         <input type="date" value={scadenzaPagamento(p) || ""} onChange={(e) => cambiaScadenza(p, e.target.value)} title="Entro quando deve pagare" style={{ background: "#10141f", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 4, padding: "2px 6px", fontSize: 11.5 }} />
                         {rit > 0 && <button type="button" onClick={() => mandaSollecito(p, schedaCliente)} style={{ background: "none", color: "#4ade80", fontWeight: 700, fontSize: 11.5, border: "1px solid #2c5a3a", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>💬 Manda un promemoria{numeroWhatsapp(tel) ? "" : " · aggiungi numero"}</button>}
+                        {rit > 0 && schedaCliente?.email && <a href={`mailto:${schedaCliente.email.trim()}?subject=${encodeURIComponent(`Promemoria pagamento${p.numero ? ` preventivo ${p.numero}` : ""}`)}&body=${encodeURIComponent(messaggioSollecito(p, azienda))}`} style={{ color: "#9cc3ff", fontWeight: 700, fontSize: 11.5, border: "1px solid #3d8bfd55", borderRadius: 4, padding: "2px 8px", textDecoration: "none" }}>✉️ Promemoria via email</a>}
                       </div>
                     );
                   })()}
@@ -11266,6 +11267,44 @@ function InstallaCliente() {
 // «I miei lavori»: il cliente ritrova tutte le sue richieste. Entra con il link personale che riceve per email
 // (/miei-lavori/<codice>): il codice resta su questo telefono, così la volta dopo basta aprire /miei-lavori
 const CHIAVE_CLIENTE = "eyedrones_cliente";
+// «⚠️ Segnala un problema» su un lavoro confermato di Trova un pilota (script segnala-problema.sql).
+// Il pilota: il cliente non paga o sparisce. Il cliente: il pilota non si presenta o non consegna. Ivan riceve un avviso su Telegram.
+const MOTIVI_PROBLEMA = {
+  pilota: [["non_paga", "Il cliente non paga"], ["sparito", "Il cliente è sparito"], ["altro", "Altro"]],
+  cliente: [["non_presentato", "Il pilota non si è presentato"], ["non_consegna", "Il pilota non consegna il lavoro"], ["altro", "Altro"]],
+};
+function SegnalaProblema({ chi, richiesta, codice, chiaro }) {
+  const [aperto, setAperto] = useState(false);
+  const [motivo, setMotivo] = useState("");
+  const [nota, setNota] = useState("");
+  const [stato, setStato] = useState(null); // null | "invio" | "ok" | messaggio d'errore
+  const colTesto = chiaro ? "#6b6258" : "#8b95a3";
+  if (stato === "ok") return <p style={{ fontSize: 13, color: chiaro ? "#1f6b40" : "#4ade80", margin: "10px 0 0 0" }}>✓ Segnalazione ricevuta: EyeDrones la guarda e ti risponde per email.</p>;
+  if (!aperto) return <button type="button" onClick={() => setAperto(true)} style={{ display: "block", marginTop: 10, background: "none", border: "none", padding: 0, color: colTesto, fontSize: 12.5, textDecoration: "underline", cursor: "pointer" }}>⚠️ Segnala un problema</button>;
+  const invia = async () => {
+    if (!motivo) { setStato("Scegli cosa è successo."); return; }
+    setStato("invio");
+    const { data, error } = chi === "pilota"
+      ? await supabase.rpc("segnala_problema_pilota", { p_richiesta: richiesta, p_motivo: motivo, p_nota: nota })
+      : await supabase.rpc("segnala_problema_cliente", { p_codice: codice, p_motivo: motivo, p_nota: nota });
+    if (error || !data) { setStato(/function|does not exist/i.test(error?.message || "") ? "Non ancora disponibile: riprova più tardi." : "Non sono riuscito a inviarla: riprova."); return; }
+    setStato("ok");
+  };
+  const chipSt = (on) => ({ background: on ? (chiaro ? "#fff3eb" : "#ff8c4222") : chiaro ? "#fff" : "none", border: `1px solid ${on ? "#ff8c42" : chiaro ? "#e2d8cc" : "#343e57"}`, color: on ? (chiaro ? "#c2410c" : "#ffb48f") : chiaro ? "#3a332c" : "#c3cad4", borderRadius: 14, padding: "6px 11px", fontSize: 13 });
+  return (
+    <div style={{ marginTop: 10, background: chiaro ? "#fbf7f2" : "#141820", border: `1px solid ${chiaro ? "#ece4da" : "#343e57"}`, borderRadius: 10, padding: 10, display: "grid", gap: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: chiaro ? "#3a332c" : "#e7eaee" }}>⚠️ Cosa è successo?</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{MOTIVI_PROBLEMA[chi].map(([k, l]) => <button key={k} type="button" onClick={() => setMotivo(k)} aria-pressed={motivo === k} style={chipSt(motivo === k)}>{l}</button>)}</div>
+      <textarea rows={2} maxLength={500} value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Due righe (facoltativo)" style={{ background: chiaro ? "#fff" : "#10141f", color: chiaro ? "#1f2328" : "#e7eaee", border: `1px solid ${chiaro ? "#e2d8cc" : "#343e57"}`, borderRadius: 8, padding: "8px 10px", fontSize: 13.5, resize: "vertical", fontFamily: "inherit" }} />
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button type="button" onClick={invia} disabled={stato === "invio"} style={{ background: "#e0552f", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 800 }}>{stato === "invio" ? "Invio…" : "Invia la segnalazione"}</button>
+        <button type="button" onClick={() => { setAperto(false); setStato(null); }} style={{ background: "none", border: "none", color: colTesto, fontSize: 12.5 }}>Annulla</button>
+      </div>
+      {stato && stato !== "invio" && <div role="alert" style={{ fontSize: 12.5, color: "#d4442a" }}>{stato}</div>}
+    </div>
+  );
+}
+
 function MieiLavori() {
   const [codice, setCodice] = useState(() => {
     const m = window.location.pathname.match(/^\/miei-lavori\/([a-f0-9]{32,64})\/?$/i);
@@ -11376,6 +11415,7 @@ function MieiLavori() {
                   {!l.stelle && <a href={`/offerte/${l.codice}#stelle`} style={{ background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "10px 14px", fontSize: 14, fontWeight: 700, color: "#3a332c", textDecoration: "none" }}>⭐ Lascia le stelle</a>}
                 </div>
                 {l.consegna?.nota && <p style={{ fontSize: 13.5, color: "#4a433c", background: "#fbf7f2", borderRadius: 10, padding: "8px 10px", margin: "10px 0 0 0" }}>«{l.consegna.nota}»</p>}
+                <SegnalaProblema chi="cliente" codice={l.codice} chiaro />
                 {p.disponibile && nuova?.codice !== l.codice && (
                   <button type="button" onClick={() => { setInviata(null); setErrore(null); setNuova({ codice: l.codice, nome: p.nome, servizio: l.servizio || "", luogo: "", data: "", descrizione: "" }); }} style={{ marginTop: 12, width: "100%", background: "#fff3eb", border: "1px solid #ffcfae", borderRadius: 12, padding: "12px 14px", fontSize: 15, fontWeight: 800, color: "#c2410c", cursor: "pointer" }}>🔁 Richiedi di nuovo a {p.nome}</button>
                 )}
@@ -11550,6 +11590,7 @@ function OfferteCliente({ codice }) {
                 {p.contatti.email_pubblica && <a href={`mailto:${p.contatti.email_pubblica}`} style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14, background: "#fff", color: "#1f2328", border: "1px solid #e2d8cc", boxShadow: "none" }}>✉️ Scrivi</a>}
                 {p.contatti.slug && <a href={`/p/${p.contatti.slug}`} style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14, background: "#fff", color: "#1f2328", border: "1px solid #e2d8cc", boxShadow: "none" }}>La sua pagina</a>}
               </div>
+              <SegnalaProblema chi="cliente" codice={codice} chiaro />
             </div>
           )}
           {o.stato === "inviata" && r.stato === "aperta" && (
@@ -12327,6 +12368,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
             </div>
           )}
           {errore?.id === l.id && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore.testo}</p>}
+          <SegnalaProblema chi="pilota" richiesta={l.id} />
         </div>
       ))}
 
