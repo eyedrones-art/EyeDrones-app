@@ -387,7 +387,7 @@ export default function IspezioneAI({ supabase, azienda, inputStyle, admin }) {
             <button type="button" onClick={creaPdf} disabled={pdf === "creo" || !confermate.length} style={{ ...st.bottone, opacity: confermate.length ? 1 : 0.5 }}>{pdf === "creo" ? "Creo il PDF…" : "📄 Crea il report PDF"}</button>
             {!confermate.length && <p style={{ fontSize: 12, color: "#6b7480", margin: "8px 0 0 0" }}>Conferma almeno una segnalazione per creare il report.</p>}
             {pdf && pdf !== "creo" && <p role="alert" style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{pdf}</p>}
-            <p style={{ fontSize: 12, color: "#6b7480", margin: "10px 0 0 0" }}>Con il tuo logo (Impostazioni azienda), foto numerate, gravità e consigli. Per consegnarlo con «Trova un pilota» caricalo su Google Drive o WeTransfer e incolla il link in «Consegna il lavoro».</p>
+            <p style={{ fontSize: 12, color: "#6b7480", margin: "10px 0 0 0" }}>Con il tuo logo (Impostazioni azienda), foto numerate, gravità e consigli. Per consegnarlo con «Trova un pilota»: in «Consegna il lavoro» tocca «📄 Carica un file» e scegli il PDF.</p>
           </section>
         )}
       </div>
