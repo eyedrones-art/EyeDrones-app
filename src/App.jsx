@@ -23,7 +23,7 @@ import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
 import Elio, { ElioDice, STILE_ELIO, useElio, accendiElio } from "./Elio.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese, leggiGpsFoto } from "./Scene.jsx";
-import { REGIMI, FISCO_DEFAULT, calcolaFisco, fraseIvaNoteLegali, sembraAzienda } from "./fisco.js";
+import { REGIMI, FISCO_DEFAULT, calcolaFisco, fraseIvaNoteLegali, sembraAzienda, compensoDaFinale, notaPrezzoFinale } from "./fisco.js";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente, altezzaSenzaPermessi } from "./zoneUAS";
@@ -5815,7 +5815,8 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
     setOggetto(bozza.servizio || "");
     // lavoro confermato da «Trova un pilota»: riprendo il prezzo dell'offerta
     const offerta = String(bozza.descrizione || "").match(/la tua offerta era di ([\d.]+(?:,\d+)?) €/);
-    if (offerta) setVoci([{ descrizione: bozza.servizio || "Servizio con drone", importo: String(Number(offerta[1].replace(/\./g, "").replace(",", "."))) }]);
+    // il prezzo dell'offerta è quello finale per il cliente: nel preventivo va il compenso (IVA e bollo li aggiunge il riepilogo)
+    if (offerta) setVoci([{ descrizione: bozza.servizio || "Servizio con drone", importo: String(compensoDaFinale(Number(offerta[1].replace(/\./g, "").replace(",", ".")), azienda.fisco)) }]);
     setShowForm(true);
     window.scrollTo(0, 0);
     if (onBozzaUsata) onBozzaUsata();
@@ -11559,7 +11560,7 @@ function OfferteCliente({ codice }) {
           <div style={{ display: "flex", gap: 12, alignItems: "flex-start", justifyContent: "space-between" }}>
             <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.25 }}>{titoloServizio(o.dettagli, r.servizio)}</div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#e0552f", whiteSpace: "nowrap", textAlign: "right" }}>{euroIt(o.prezzo)}<div style={{ fontSize: 11, fontWeight: 600, color: "#8a8076" }}>prezzo finale</div></div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#e0552f", whiteSpace: "nowrap", textAlign: "right" }}>{euroIt(o.prezzo)}<div style={{ fontSize: 11, fontWeight: 600, color: "#8a8076" }}>{o.dettagli?.regime === "ordinario" ? "IVA compresa" : o.dettagli?.regime ? "senza IVA" : "prezzo finale"}</div></div>
               {piuCompleta === o.id && o.stato === "inviata" && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#e0552f" }}>la più completa</div>}
               {piuBassa != null && Number(o.prezzo) === piuBassa && o.stato === "inviata" && piuCompleta !== o.id && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1f8a4c" }}>la più economica</div>}
             </div>
@@ -12026,7 +12027,7 @@ const LAVORO_APPENA_PAGATO = typeof window !== "undefined" && new URLSearchParam
 // «Lavori nella tua zona»: le richieste di «Trova un pilota» della provincia del pilota, senza i contatti del cliente.
 // Il pilota manda un'offerta; se il cliente lo sceglie, conferma (e paga la commissione, se c'è) e il lavoro arriva
 // tra le sue richieste con i contatti
-function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, onVai }) {
+function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, onVai, fisco = FISCO_DEFAULT }) {
   const [lavori, setLavori] = useState(null); // null = caricamento o script non eseguito
   const [bozze, setBozze] = useState({}); // id → { prezzo, messaggio }
   const [aperto, setAperto] = useState(null); // richiesta con il modulo dell'offerta aperto
@@ -12094,7 +12095,8 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   const bozza = (l) => bozze[l.id] || (() => {
     const d = l.mia?.dettagli || {};
     const voci = VOCI_OFFERTA[tipoServizio(l.servizio)];
-    const b = { prezzo: l.mia ? String(l.mia.prezzo) : "", messaggio: l.mia?.messaggio || "" };
+    // nel modulo il pilota scrive il SUO compenso; al cliente va il prezzo finale con IVA e bollo (dal regime fiscale)
+    const b = { prezzo: l.mia ? String(compensoDaFinale(l.mia.prezzo, fisco)).replace(".", ",") : "", messaggio: l.mia?.messaggio || "" };
     // ettari e kWp: se il cliente li ha scritti nella descrizione li metto già
     const dalTesto = (re) => { const m = String(l.descrizione || "").match(re); return m ? m[1].replace(".", ",") : ""; };
     const letti = { ettari: dalTesto(/(\d+(?:[.,]\d+)?)\s*(?:ettari|ettaro|ha)\b/i), kwp: dalTesto(/(\d+(?:[.,]\d+)?)\s*kwp\b/i) };
@@ -12106,14 +12108,16 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
 
   const inviaOfferta = async (l) => {
     const b = bozza(l);
-    const prezzo = Number(String(b.prezzo).replace(",", "."));
-    if (!(prezzo >= 10)) { setErrore({ id: l.id, testo: "Scrivi il prezzo (almeno 10 €)." }); return; }
+    const compenso = Number(String(b.prezzo).replace(",", "."));
+    if (!(compenso >= 10)) { setErrore({ id: l.id, testo: "Scrivi il tuo compenso (almeno 10 €)." }); return; }
+    const prezzo = calcolaFisco(compenso, fisco, "privato").totale;
     setLavoro(l.id); setErrore(null);
     const numero = (v, decimali) => { const n = decimali ? Number(String(v || "").replace(",", ".").replace(/[^\d.]/g, "")) : parseInt(String(v || "").replace(/\D/g, ""), 10); return n > 0 ? n : null; };
     const voci = VOCI_OFFERTA[tipoServizio(l.servizio)];
     const dettagli = {};
     voci.numeri.forEach(([k]) => { dettagli[k] = numero(b[k], k === "ettari"); });
     voci.spunte.forEach(([k]) => { dettagli[k] = !!b[k]; });
+    if (["ordinario", "forfettario", "occasionale"].includes(fisco?.regime)) dettagli.regime = fisco.regime;
     const { error } = await supabase.rpc("invia_offerta_zona", { p_richiesta: l.id, p_prezzo: prezzo, p_messaggio: b.messaggio, p_dettagli: dettagli });
     setLavoro(null);
     if (error) { setErrore({ id: l.id, testo: /completo/i.test(error.message || "") ? "Per questa richiesta sono già arrivate abbastanza offerte." : /non disponibile/i.test(error.message || "") ? "Questa richiesta non è più aperta." : "Invio non riuscito: riprova." }); carica(); return; }
@@ -12428,7 +12432,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                     <button key={k} type="button" onClick={() => cambiaBozza(l, k, !b[k])} style={{ ...chip(!!b[k]), borderRadius: 16, padding: "6px 12px", fontSize: 12.5 }}>{b[k] ? "✓ " : ""}{t}</button>
                   ))}
                 </div>
-                <div style={{ fontSize: 12, color: "#8b95a3" }}>2 · Il prezzo finale per il cliente <span style={{ color: "#6b7480" }}>(con IVA, se la applichi)</span></div>
+                <div style={{ fontSize: 12, color: "#8b95a3" }}>2 · Il tuo compenso</div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <input inputMode="decimal" value={b.prezzo} onChange={(e) => cambiaBozza(l, "prezzo", e.target.value)} placeholder="es. 450" aria-label="Prezzo totale in euro" style={{ ...inputStyle, maxWidth: 140 }} />
                   <span style={{ fontSize: 12, color: "#8b95a3", flex: "1 1 180px" }}>
@@ -12437,6 +12441,14 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                     {stimata ? `Commissione se ti scelgono: ${euroIt(stimata)}.` : ""}
                   </span>
                 </div>
+                {(() => {
+                  const c = Number(String(b.prezzo || "").replace(",", "."));
+                  if (!(c > 0)) return null;
+                  const fin = calcolaFisco(c, fisco, "privato");
+                  return ["ordinario", "forfettario", "occasionale"].includes(fisco?.regime)
+                    ? <div style={{ fontSize: 12.5, color: "#c3cad4" }}>Il cliente vede <strong style={{ color: "#ffb48f" }}>{euroIt(fin.totale)}</strong> · {notaPrezzoFinale(fisco.regime, fisco)}{fin.bollo ? ", con il bollo da 2 €" : ""}.</div>
+                    : <div style={{ fontSize: 12.5, color: "#c3cad4" }}>Il cliente vede <strong style={{ color: "#ffb48f" }}>{euroIt(c)}</strong>. <button type="button" onClick={() => onVai && onVai("impostazioni")} style={{ background: "none", border: "none", padding: 0, color: "#9cc3ff", textDecoration: "underline", fontSize: 12.5 }}>Scegli il tuo regime fiscale</button> (forfettario, con IVA…) e calcolo IVA e bollo da solo.</div>;
+                })()}
                 <div style={{ fontSize: 11.5, color: "#6b7480" }}>Non abbassare troppo il prezzo: il cliente confronta prima cosa comprende ogni offerta, e gli altri piloti non vedono il tuo prezzo.</div>
                 <div style={{ fontSize: 12, color: "#8b95a3" }}>3 · Un messaggio (facoltativo)</div>
                 <textarea rows={3} maxLength={1500} value={b.messaggio} onChange={(e) => cambiaBozza(l, "messaggio", e.target.value)} placeholder={{ riprese: "es. Riprese di chiesa, uscita degli sposi e location, montaggio con musica.", ispezioni: "es. Foto ravvicinate di tetto e grondaie, segnalo i punti da sistemare.", termografia: "es. Volo con sole pieno, report con stringhe e moduli caldi, file per l'installatore.", rilievi: "es. Ortofoto a 2 cm/pixel, nuvola di punti e misure dei volumi, file DWG.", agricoltura: "es. Volo multispettrale, mappa NDVI e zone da concimare.", trattamenti: "es. Trattamento con prodotto fornito da voi, registro e meteo del giorno." }[tipoServizio(l.servizio)]} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
@@ -12737,7 +12749,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
             </div>
           )}
           {richiesteAperte.map(schedaRichiesta)}
-          {salvata?.attiva && salvata.provincia && <LavoriInZona provincia={salvata.provincia} pagina={salvata} onPreso={caricaRichieste} onPermessi={onPermessi} onApriPagina={() => { setScheda("pagina"); window.scrollTo(0, 0); }} onVai={onVai} />}
+          {salvata?.attiva && salvata.provincia && <LavoriInZona fisco={azienda.fisco || FISCO_DEFAULT} provincia={salvata.provincia} pagina={salvata} onPreso={caricaRichieste} onPermessi={onPermessi} onApriPagina={() => { setScheda("pagina"); window.scrollTo(0, 0); }} onVai={onVai} />}
           {richiesteArchiviate.length > 0 && (
             <details style={{ marginTop: 6 }}>
               <summary style={{ fontSize: 13, color: "#8b95a3", cursor: "pointer" }}>Archiviate ({richiesteArchiviate.length})</summary>

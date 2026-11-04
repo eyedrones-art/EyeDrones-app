@@ -60,7 +60,9 @@ returns jsonb language sql immutable as $$
     'radiometrico', case when (d->>'radiometrico') = 'true' then true end,
     'registro', case when (d->>'registro') = 'true' then true end,
     'permessi', case when (d->>'permessi') = 'true' then true end,
-    'sopralluogo', case when (d->>'sopralluogo') = 'true' then true end));
+    'sopralluogo', case when (d->>'sopralluogo') = 'true' then true end,
+    -- il regime fiscale del pilota: il cliente legge «IVA compresa» o «senza IVA» sotto il prezzo
+    'regime', case when (d->>'regime') in ('ordinario', 'forfettario', 'occasionale') then d->>'regime' end));
 $$;
 create or replace function public.invia_offerta_zona(p_richiesta uuid, p_prezzo numeric, p_messaggio text, p_dettagli jsonb default '{}')
 returns boolean
