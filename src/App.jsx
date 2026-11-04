@@ -5813,6 +5813,9 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
     setCliente(bozza.nome || "");
     setLuogoIntervento(bozza.luogo || "");
     setOggetto(bozza.servizio || "");
+    // lavoro confermato da «Trova un pilota»: riprendo il prezzo dell'offerta
+    const offerta = String(bozza.descrizione || "").match(/la tua offerta era di ([\d.]+(?:,\d+)?) €/);
+    if (offerta) setVoci([{ descrizione: bozza.servizio || "Servizio con drone", importo: String(Number(offerta[1].replace(/\./g, "").replace(",", "."))) }]);
     setShowForm(true);
     window.scrollTo(0, 0);
     if (onBozzaUsata) onBozzaUsata();
@@ -11556,7 +11559,7 @@ function OfferteCliente({ codice }) {
           <div style={{ display: "flex", gap: 12, alignItems: "flex-start", justifyContent: "space-between" }}>
             <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.25 }}>{titoloServizio(o.dettagli, r.servizio)}</div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#e0552f", whiteSpace: "nowrap" }}>{euroIt(o.prezzo)}</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#e0552f", whiteSpace: "nowrap", textAlign: "right" }}>{euroIt(o.prezzo)}<div style={{ fontSize: 11, fontWeight: 600, color: "#8a8076" }}>prezzo finale</div></div>
               {piuCompleta === o.id && o.stato === "inviata" && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#e0552f" }}>la più completa</div>}
               {piuBassa != null && Number(o.prezzo) === piuBassa && o.stato === "inviata" && piuCompleta !== o.id && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1f8a4c" }}>la più economica</div>}
             </div>
@@ -12156,6 +12159,21 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     setConsegna({ id: l.id, link: l.mia.consegna?.link || "", nota: l.mia.consegna?.nota || "" });
     if (gallerie === null) supabase.from("condivisioni").select("id, token, titolo, created_at").eq("attiva", true).order("created_at", { ascending: false }).limit(8).then(({ data }) => setGallerie(data || []), () => setGallerie([]));
   };
+  // il materiale caricato direttamente nell'app: il cliente lo apre dal link della consegna (fino a 50 MB)
+  const caricaFileConsegna = async (l, file) => {
+    if (!file) return;
+    if (file.size > 50 * 1048576) { setErrore({ id: l.id, testo: "File troppo grande (massimo 50 MB): per i video usa una galleria o WeTransfer." }); return; }
+    setErrore(null); setConsegna((c) => ({ ...c, caricando: true }));
+    const uid = await idUtenteCorrente();
+    const pulito = `${Date.now()}-${file.name.normalize("NFD").replace(/[^\w.-]+/g, "-").slice(-60)}`;
+    let nome = `consegne/${uid}/${pulito}`;
+    let { error } = await supabase.storage.from("foto-ispezioni").upload(nome, file, { contentType: file.type || undefined });
+    // se le regole dello spazio non permettono le cartelle, lo metto nella cartella principale (come le foto delle ispezioni)
+    if (error) { nome = `consegna-${pulito}`; ({ error } = await supabase.storage.from("foto-ispezioni").upload(nome, file, { contentType: file.type || undefined })); }
+    if (error) { setConsegna((c) => ({ ...c, caricando: false })); setErrore({ id: l.id, testo: "Caricamento non riuscito: riprova." }); return; }
+    const url = supabase.storage.from("foto-ispezioni").getPublicUrl(nome).data?.publicUrl || "";
+    setConsegna((c) => ({ ...c, caricando: false, link: url }));
+  };
   const consegna_ = async (l) => {
     const link = consegna.link.trim();
     if (!/^https:\/\/\S{4,}$/i.test(link)) { setErrore({ id: l.id, testo: "Incolla un link che inizia con https:// (galleria EyeDrones, Google Drive, WeTransfer o il report)." }); return; }
@@ -12366,6 +12384,10 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                 </div>
               )}
               {gallerie && gallerie.length === 0 && <div style={{ fontSize: 12, color: "#8b95a3" }}>Per una galleria con foto e video: apri il volo nel Registro e tocca «Condividi con il cliente». Oppure incolla un link di Google Drive o WeTransfer.</div>}
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start", background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                {consegna.caricando ? "Carico il file…" : "📄 Carica un file (report PDF, ZIP…)"}
+                <input type="file" accept=".pdf,.zip,.jpg,.jpeg,.png,.mp4,.mov,application/pdf,application/zip,image/*,video/*" disabled={consegna.caricando} onChange={(e) => caricaFileConsegna(l, e.target.files?.[0])} style={{ display: "none" }} />
+              </label>
               <input value={consegna.link} onChange={(e) => setConsegna({ ...consegna, link: e.target.value })} placeholder="https://… (galleria, Google Drive, WeTransfer o report)" inputMode="url" style={inputStyle} />
               <textarea rows={2} maxLength={500} value={consegna.nota} onChange={(e) => setConsegna({ ...consegna, nota: e.target.value })} placeholder="Due righe per il cliente (facoltativo): es. «Ecco il video e le foto, grazie!»" style={{ ...inputStyle, resize: "vertical" }} />
               <div style={{ display: "flex", gap: 8 }}>
@@ -12406,7 +12428,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                     <button key={k} type="button" onClick={() => cambiaBozza(l, k, !b[k])} style={{ ...chip(!!b[k]), borderRadius: 16, padding: "6px 12px", fontSize: 12.5 }}>{b[k] ? "✓ " : ""}{t}</button>
                   ))}
                 </div>
-                <div style={{ fontSize: 12, color: "#8b95a3" }}>2 · Il prezzo</div>
+                <div style={{ fontSize: 12, color: "#8b95a3" }}>2 · Il prezzo finale per il cliente <span style={{ color: "#6b7480" }}>(con IVA, se la applichi)</span></div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <input inputMode="decimal" value={b.prezzo} onChange={(e) => cambiaBozza(l, "prezzo", e.target.value)} placeholder="es. 450" aria-label="Prezzo totale in euro" style={{ ...inputStyle, maxWidth: 140 }} />
                   <span style={{ fontSize: 12, color: "#8b95a3", flex: "1 1 180px" }}>
