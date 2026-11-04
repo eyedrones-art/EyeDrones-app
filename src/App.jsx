@@ -3969,7 +3969,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         {bloccoScadenze}
         <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
         {(droni || []).length > 0 && <AvvisoWeekend inHome />}
-        {(voli || []).length > 0 && <InvitoPaginaPilota onNav={onNav} />}
+        {((voli || []).length > 0 || (droni || []).length > 0) && <InvitoPaginaPilota onNav={onNav} nome={nomeSaluto} />}
         {(voli || []).length > 0 && <CommunityPosti voli={voli} />}
         <ConsiglioDelGiorno />
 
@@ -16190,21 +16190,96 @@ function NumeriStartup({ onIndietro }) {
 
 // Home: chi vola ma non è in «Trova un pilota» vede l'invito ad attivare la sua pagina (si chiude con la ×)
 const CHIAVE_PAGINA_INVITO_CHIUSO = "eyedrones_pagina_invito_chiuso";
-function InvitoPaginaPilota({ onNav }) {
-  const [mostra, setMostra] = useState(false);
+function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "" }) {
+  const [riga, setRiga] = useState(undefined); // undefined = carico · null = nessuna pagina · oggetto = la pagina salvata
+  const [aperto, setAperto] = useState(false);
+  const [f, setF] = useState({ nome: "", citta: "", provincia: "", servizi: [], accetto: false });
+  const [esito, setEsito] = useState(null); // null | "salvo" | "ok" | messaggio d'errore
+  const [chiuso, setChiuso] = useState(() => leggiLocale(CHIAVE_PAGINA_INVITO_CHIUSO) === "si");
   useEffect(() => {
-    if (leggiLocale(CHIAVE_PAGINA_INVITO_CHIUSO) === "si") return;
-    supabase.from("pagine_pilota").select("attiva, in_elenco").maybeSingle()
-      .then(({ data, error }) => { if (!error) setMostra(!data || !data.attiva || data.in_elenco === false); }, () => {});
-  }, []);
-  if (!mostra) return null;
-  const chiudi = () => { scriviLocale(CHIAVE_PAGINA_INVITO_CHIUSO, "si"); setMostra(false); };
+    if (chiuso) return;
+    supabase.from("pagine_pilota").select("*").maybeSingle()
+      .then(({ data, error }) => {
+        if (error) return;
+        setRiga(data || null);
+        setF({ nome: data?.nome || nomeAzienda || "", citta: data?.citta || "", provincia: data?.provincia || "", servizi: data?.servizi || [], accetto: !!data?.codice_firmato_il });
+      }, () => {});
+  }, [chiuso]);
+  // il nome dell'attività arriva dal profilo anche dopo: lo metto se il campo è ancora vuoto
+  useEffect(() => { if (nomeAzienda) setF((x) => (x.nome ? x : { ...x, nome: nomeAzienda })); }, [nomeAzienda, riga]);
+  if (chiuso || riga === undefined) return null;
+  const giaAttiva = riga && riga.attiva && riga.in_elenco !== false;
+  if (giaAttiva && esito !== "ok") return null;
+  const chiudi = () => { scriviLocale(CHIAVE_PAGINA_INVITO_CHIUSO, "si"); setChiuso(true); };
+  const aMeta = !!riga && !giaAttiva;
+  const alterna = (sv) => setF({ ...f, servizi: f.servizi.includes(sv) ? f.servizi.filter((x) => x !== sv) : [...f.servizi, sv] });
+
+  // pagina in un minuto: nome, città, provincia, servizi e codice di condotta. Foto e contatti si aggiungono dopo.
+  const attiva = async () => {
+    const manca = [!f.nome.trim() && "il nome", !f.citta.trim() && "la città", !f.provincia && "la provincia", !f.servizi.length && "almeno un servizio", !f.accetto && "il codice di condotta"].filter(Boolean);
+    if (manca.length) { setEsito(`Manca ${manca.join(", ")}.`); return; }
+    setEsito("salvo");
+    const uid = await idUtenteCorrente();
+    // l'indirizzo della pagina: quello che c'è già, oppure dal nome (se è preso aggiungo un numero)
+    let slug = riga?.slug;
+    if (!slug) {
+      const base = pulisciSlug(f.nome).slice(0, 34) || "pilota";
+      for (const prova of [base, `${base}-${f.provincia.toLowerCase()}`, `${base}-${Math.floor(100 + Math.random() * 900)}`]) {
+        if (!slugValido(prova)) continue;
+        const { data } = await supabase.rpc("slug_pilota_libero", { p_slug: prova });
+        if (data) { slug = prova; break; }
+      }
+      if (!slug) slug = `pilota-${Math.floor(10000 + Math.random() * 90000)}`;
+    }
+    const base = { user_id: uid, slug, attiva: true, nome: f.nome.trim(), citta: f.citta.trim(), provincia: f.provincia, servizi: f.servizi, aggiornata_il: new Date().toISOString() };
+    const extra = { in_elenco: true, ...(riga?.codice_firmato_il ? {} : { codice_firmato_il: new Date().toISOString() }) };
+    let { data, error } = await supabase.from("pagine_pilota").upsert({ ...base, ...extra }, { onConflict: "user_id" }).select().single();
+    if (error && /in_elenco|codice_firmato_il/.test(error.message || "")) ({ data, error } = await supabase.from("pagine_pilota").upsert(base, { onConflict: "user_id" }).select().single());
+    if (error) { setEsito("Non sono riuscito a salvare: riprova tra poco."); return; }
+    setRiga(data);
+    setEsito("ok");
+  };
+
+  const sc = { background: "#10141f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 8, padding: "9px 11px", fontSize: 14, width: "100%" };
+  if (esito === "ok") {
+    return (
+      <div style={{ background: "#14231a", border: "1px solid #4ade8077", borderRadius: 12, padding: 14, marginBottom: 18, maxWidth: 640 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 700, color: "#4ade80" }}>✓ Fatto! Ora sei in «Trova un pilota»</div>
+        <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4 }}>Ti scriviamo quando un cliente di {PROVINCE_ITALIA[f.provincia] || f.provincia} cerca un pilota. Con 3 foto dei tuoi lavori ricevi più richieste.</div>
+        <button type="button" onClick={() => onNav("pagina-pilota")} style={{ marginTop: 10, background: "#4ade80", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700, minHeight: 40 }}>Aggiungi le foto</button>
+      </div>
+    );
+  }
   return (
     <div style={{ position: "relative", background: "linear-gradient(135deg, #241d16, #151b2b)", border: "1px solid #ff8c4288", borderRadius: 12, padding: 14, marginBottom: 18, maxWidth: 640 }}>
       <button type="button" onClick={chiudi} aria-label="Non mostrarlo più" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
-      <div style={{ fontSize: 14.5, fontWeight: 700, paddingRight: 30 }}>📍 Fai lavori con il drone?</div>
-      <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4, lineHeight: 1.45 }}>Attiva la tua pagina in 5 minuti: i clienti della tua provincia (matrimoni, case, aziende, agricoltura) ti mandano le richieste e tu scegli a quali rispondere con un'offerta.</div>
-      <button type="button" onClick={() => onNav("pagina-pilota")} style={{ marginTop: 10, background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700, minHeight: 40 }}>Attiva la mia pagina</button>
+      <div style={{ fontSize: 14.5, fontWeight: 700, paddingRight: 30 }}>{aMeta ? "📍 La tua pagina è quasi pronta" : "📍 Fai lavori con il drone?"}</div>
+      <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4, lineHeight: 1.45 }}>{aMeta ? "Accendila: i clienti della tua provincia ti mandano le richieste." : "I clienti della tua provincia ti mandano le richieste. Tu scegli a quali rispondere."}</div>
+      {!aperto ? (
+        <button type="button" onClick={() => setAperto(true)} style={{ marginTop: 10, background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700, minHeight: 40 }}>{aMeta ? "Accendi la pagina" : "Attiva in 1 minuto"}</button>
+      ) : (
+        <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+          <label style={{ fontSize: 12, color: "#8b95a3", display: "grid", gap: 4 }}>Nome (tuo o della tua attività)<input id="attiva-nome" value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} style={sc} /></label>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <label style={{ fontSize: 12, color: "#8b95a3", display: "grid", gap: 4, flex: "1 1 150px" }}>Città<input id="attiva-citta" value={f.citta} onChange={(e) => setF({ ...f, citta: e.target.value })} style={sc} /></label>
+            <label style={{ fontSize: 12, color: "#8b95a3", display: "grid", gap: 4, flex: "1 1 150px" }}>Provincia<select id="attiva-provincia" value={f.provincia} onChange={(e) => setF({ ...f, provincia: e.target.value })} style={sc}><option value="">Scegli…</option>{PROVINCE_IN_ORDINE.map(([sg, n]) => <option key={sg} value={sg}>{n}</option>)}</select></label>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 6 }}>Cosa fai</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {SERVIZI_PILOTA.map((sv) => <button key={sv} type="button" onClick={() => alterna(sv)} aria-pressed={f.servizi.includes(sv)} style={{ background: f.servizi.includes(sv) ? "#ff8c4222" : "none", border: `1px solid ${f.servizi.includes(sv) ? "#ff8c42" : "#343e57"}`, color: f.servizi.includes(sv) ? "#ffb48f" : "#c3cad4", borderRadius: 14, padding: "5px 10px", fontSize: 12 }}>{sv}</button>)}
+            </div>
+          </div>
+          <details style={{ fontSize: 12.5, color: "#c3cad4" }}>
+            <summary style={{ cursor: "pointer", color: "#9cc3ff" }}>Leggi il codice di condotta</summary>
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>{CODICE_CONDOTTA.map((c) => <li key={c.titolo}><b>{c.titolo}</b>: {c.testo}</li>)}</ul>
+          </details>
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: "#e7eaee" }}><input type="checkbox" checked={f.accetto} onChange={(e) => setF({ ...f, accetto: e.target.checked })} style={{ marginTop: 3 }} /> Accetto il codice di condotta dei piloti</label>
+          <button type="button" onClick={attiva} disabled={esito === "salvo"} style={{ background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "10px 14px", fontSize: 14, fontWeight: 800, minHeight: 44 }}>{esito === "salvo" ? "Attivo…" : "Attiva la pagina"}</button>
+          {esito && esito !== "salvo" && <div role="alert" style={{ fontSize: 12.5, color: "#ff9c9c" }}>{esito}</div>}
+          <div style={{ fontSize: 11.5, color: "#6b7480" }}>Foto, contatti e presentazione li aggiungi dopo, in «La mia pagina».</div>
+        </div>
+      )}
     </div>
   );
 }
