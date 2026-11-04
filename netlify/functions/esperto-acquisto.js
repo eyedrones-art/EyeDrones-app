@@ -10,6 +10,10 @@ const PACCHETTI = {
   p10: { crediti: 10, centesimi: 299, nome: "Esperto EyeDrones · 10 analisi" },
   p30: { crediti: 30, centesimi: 699, nome: "Esperto EyeDrones · 30 analisi" },
   p100: { crediti: 100, centesimi: 1799, nome: "Esperto EyeDrones · 100 analisi" },
+  // Ispezione con AI: 1 foto = 1 credito (stessi crediti dell'Esperto)
+  i30: { crediti: 30, centesimi: 499, nome: "Ispezione con AI · fino a 30 foto", pagina: "ispezione-ai" },
+  i100: { crediti: 100, centesimi: 1299, nome: "Ispezione con AI · fino a 100 foto", pagina: "ispezione-ai" },
+  i300: { crediti: 300, centesimi: 2999, nome: "Ispezione con AI · fino a 300 foto", pagina: "ispezione-ai" },
 };
 
 const json = (statusCode, dati) => ({ statusCode, headers: { "Content-Type": "application/json; charset=utf-8" }, body: JSON.stringify(dati) });
@@ -38,8 +42,8 @@ exports.handler = async (event) => {
     "line_items[0][price_data][unit_amount]": String(p.centesimi),
     "line_items[0][price_data][product_data][name]": p.nome,
     "line_items[0][quantity]": "1",
-    success_url: `${APP}/?vai=analisi-ai&esperto=grazie`,
-    cancel_url: `${APP}/?vai=analisi-ai`,
+    success_url: `${APP}/?vai=${p.pagina || "analisi-ai"}&esperto=grazie`,
+    cancel_url: `${APP}/?vai=${p.pagina || "analisi-ai"}`,
     client_reference_id: utente.id,
     "metadata[pacchetto]": dati.pacchetto,
     "metadata[crediti]": String(p.crediti),

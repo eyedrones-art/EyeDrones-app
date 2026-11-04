@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy, Fragment } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2 } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -48,6 +48,7 @@ const Collaboratori = pigro(() => import("./Collaboratori.jsx"));
 const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
 const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
 const AnalisiAI = pigro(() => import("./AnalisiAI.jsx"));
+const IspezioneAI = pigro(() => import("./IspezioneAI.jsx"));
 const Anteprima3D = pigro(() => import("./Anteprima3D.jsx"));
 // analisi foto con l'AI: in prova solo su questi account (il server controlla di nuovo con AI_UTENTI)
 const AI_IN_PROVA = ["eyedrones@libero.it"];
@@ -1902,7 +1903,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi", "analisi-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -1918,7 +1919,7 @@ function AppShell({ session }) {
     const passo = { droni: "drone", attestati: "attestato", "registro-voli": "primovolo" }[v];
     if (v === "importa") { try { sessionStorage.setItem("eyedrones_guida_passo", "primovolo"); } catch { /* niente */ } return "registro-voli"; }
     // ritorno dal pagamento di un pacchetto dell'Esperto: la pagina mostra il grazie
-    if (v === "analisi-ai" && new URLSearchParams(window.location.search).get("esperto") === "grazie") { try { sessionStorage.setItem("eyedrones_esperto_grazie", "1"); } catch { /* niente */ } }
+    if ((v === "analisi-ai" || v === "ispezione-ai") && new URLSearchParams(window.location.search).get("esperto") === "grazie") { try { sessionStorage.setItem("eyedrones_esperto_grazie", "1"); } catch { /* niente */ } }
     if (v === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", "{}"); } catch { /* niente */ } return "posti"; }
     if (v === "primi") { try { ["eyedrones_primi_passi_rimanda", "eyedrones_primi_passi_chiuso2", "eyedrones_primi_passi_chiuso"].forEach((k) => localStorage.removeItem(k)); } catch { /* niente */ } return "dashboard"; }
     if (v && PAGINE_RIPRISTINABILI.includes(v)) { if (passo) { try { sessionStorage.setItem("eyedrones_guida_passo", passo); } catch { /* niente */ } } return v; }
@@ -2435,6 +2436,11 @@ function AppShell({ session }) {
               onPianifica={(l) => { setLuogoDaPianificare(l); setPage("pianificazione"); window.scrollTo(0, 0); }}
               onAlGiro={(l) => { if (l) aggiungiAllaCoda(l); else { setPage("pianificazione"); window.scrollTo(0, 0); } }}
               onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} />
+          </Suspense>
+        )}
+        {page === "ispezione-ai" && (adminAI || espertoAperto) && (
+          <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
+            <IspezioneAI supabase={supabase} azienda={azienda} inputStyle={inputStyle} admin={adminAI} />
           </Suspense>
         )}
         {page === "analisi-ai" && (adminAI || espertoAperto) && (
@@ -3063,7 +3069,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { intestazione: spazio.nome },
     { key: "impianti", label: "Impianti", icon: Sun },
     { key: "nuova", label: "Nuova ispezione", icon: Plus },
-    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
+    ...(usaAI ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }, { key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
   ] : k === "agricoltura" ? [
     { intestazione: spazio.nome },
     { key: "campi", label: "Campi e trattamenti", icon: Sprout },
@@ -3084,6 +3090,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ...(k !== "video" ? [{ key: "posti", label: "Posti", icon: Compass }] : []),
     // l'Esperto anche nella Home delle cartelle (nelle cartelle è già tra le voci della cartella)
     ...(usaAI && !vociSpazio.some((v) => v.key === "analisi-ai") ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
+    ...(usaAI && !vociSpazio.some((v) => v.key === "ispezione-ai") && k !== "video" ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }] : []),
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
     { key: "impara", label: "Impara e quiz", icon: GraduationCap },
@@ -3115,7 +3122,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "pianificazione", label: "Pianificazione volo", icon: CalendarDays },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "galleria", label: "Foto e video", icon: Camera },
-    ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }] : []),
+    ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }, ...(usaIspezioni ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }] : [])] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
     { key: "posti", label: "Posti", icon: Compass },
     { intestazione: "Pilota" },
