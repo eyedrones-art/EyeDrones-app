@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy, Fragment } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2 } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -23,7 +23,7 @@ import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
 import Elio, { ElioDice, STILE_ELIO, useElio, accendiElio } from "./Elio.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese, leggiGpsFoto } from "./Scene.jsx";
-import { REGIMI, FISCO_DEFAULT, calcolaFisco, fraseIvaNoteLegali, sembraAzienda } from "./fisco.js";
+import { REGIMI, FISCO_DEFAULT, calcolaFisco, fraseIvaNoteLegali, sembraAzienda, compensoDaFinale, notaPrezzoFinale } from "./fisco.js";
 import Sopralluogo, { SOPRALLUOGO_VUOTO, TIPI_PUNTO, vociSopralluogo } from "./Sopralluogo.jsx";
 import { TIPI_ISPEZIONE, INQUADRATURE_ISPEZIONE, SCALETTE_ISPEZIONE, SemaforoTermografia, CosaConsegnare, ImpostazioniIspezione, FrasiReport, leggiFrasiReport, svuotaFrasiReport, compilaFrase } from "./Ispezioni";
 import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, sistemaArchivio, leggiFileZone, testoDaFileZone, controllaPunto, descriviRestrizione, formattaLimiti, partenzaZona, altezzaLibera, altezzaDaTesto, limiteVicino, valoreReale, zoneCaricatePrima, chiediSpazioPermanente, altezzaSenzaPermessi } from "./zoneUAS";
@@ -48,6 +48,7 @@ const Collaboratori = pigro(() => import("./Collaboratori.jsx"));
 const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
 const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
 const AnalisiAI = pigro(() => import("./AnalisiAI.jsx"));
+const IspezioneAI = pigro(() => import("./IspezioneAI.jsx"));
 const Anteprima3D = pigro(() => import("./Anteprima3D.jsx"));
 // analisi foto con l'AI: in prova solo su questi account (il server controlla di nuovo con AI_UTENTI)
 const AI_IN_PROVA = ["eyedrones@libero.it"];
@@ -1902,7 +1903,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi", "analisi-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -1918,7 +1919,7 @@ function AppShell({ session }) {
     const passo = { droni: "drone", attestati: "attestato", "registro-voli": "primovolo" }[v];
     if (v === "importa") { try { sessionStorage.setItem("eyedrones_guida_passo", "primovolo"); } catch { /* niente */ } return "registro-voli"; }
     // ritorno dal pagamento di un pacchetto dell'Esperto: la pagina mostra il grazie
-    if (v === "analisi-ai" && new URLSearchParams(window.location.search).get("esperto") === "grazie") { try { sessionStorage.setItem("eyedrones_esperto_grazie", "1"); } catch { /* niente */ } }
+    if ((v === "analisi-ai" || v === "ispezione-ai") && new URLSearchParams(window.location.search).get("esperto") === "grazie") { try { sessionStorage.setItem("eyedrones_esperto_grazie", "1"); } catch { /* niente */ } }
     if (v === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", "{}"); } catch { /* niente */ } return "posti"; }
     if (v === "primi") { try { ["eyedrones_primi_passi_rimanda", "eyedrones_primi_passi_chiuso2", "eyedrones_primi_passi_chiuso"].forEach((k) => localStorage.removeItem(k)); } catch { /* niente */ } return "dashboard"; }
     if (v && PAGINE_RIPRISTINABILI.includes(v)) { if (passo) { try { sessionStorage.setItem("eyedrones_guida_passo", passo); } catch { /* niente */ } } return v; }
@@ -2435,6 +2436,11 @@ function AppShell({ session }) {
               onPianifica={(l) => { setLuogoDaPianificare(l); setPage("pianificazione"); window.scrollTo(0, 0); }}
               onAlGiro={(l) => { if (l) aggiungiAllaCoda(l); else { setPage("pianificazione"); window.scrollTo(0, 0); } }}
               onZonaRossa={() => vaiA({ pagina: "impara", scheda: "zona-rossa", sopra: true })} />
+          </Suspense>
+        )}
+        {page === "ispezione-ai" && (adminAI || espertoAperto) && (
+          <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
+            <IspezioneAI supabase={supabase} azienda={azienda} inputStyle={inputStyle} admin={adminAI} />
           </Suspense>
         )}
         {page === "analisi-ai" && (adminAI || espertoAperto) && (
@@ -3063,7 +3069,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { intestazione: spazio.nome },
     { key: "impianti", label: "Impianti", icon: Sun },
     { key: "nuova", label: "Nuova ispezione", icon: Plus },
-    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
+    ...(usaAI ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }, { key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
   ] : k === "agricoltura" ? [
     { intestazione: spazio.nome },
     { key: "campi", label: "Campi e trattamenti", icon: Sprout },
@@ -3084,6 +3090,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ...(k !== "video" ? [{ key: "posti", label: "Posti", icon: Compass }] : []),
     // l'Esperto anche nella Home delle cartelle (nelle cartelle è già tra le voci della cartella)
     ...(usaAI && !vociSpazio.some((v) => v.key === "analisi-ai") ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
+    ...(usaAI && !vociSpazio.some((v) => v.key === "ispezione-ai") && k !== "video" ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }] : []),
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
     { key: "impara", label: "Impara e quiz", icon: GraduationCap },
@@ -3115,7 +3122,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "pianificazione", label: "Pianificazione volo", icon: CalendarDays },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "galleria", label: "Foto e video", icon: Camera },
-    ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }] : []),
+    ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }, ...(usaIspezioni ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }] : [])] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
     { key: "posti", label: "Posti", icon: Compass },
     { intestazione: "Pilota" },
@@ -5806,6 +5813,10 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
     setCliente(bozza.nome || "");
     setLuogoIntervento(bozza.luogo || "");
     setOggetto(bozza.servizio || "");
+    // lavoro confermato da «Trova un pilota»: riprendo il prezzo dell'offerta
+    const offerta = String(bozza.descrizione || "").match(/la tua offerta era di ([\d.]+(?:,\d+)?) €/);
+    // il prezzo dell'offerta è quello finale per il cliente: nel preventivo va il compenso (IVA e bollo li aggiunge il riepilogo)
+    if (offerta) setVoci([{ descrizione: bozza.servizio || "Servizio con drone", importo: String(compensoDaFinale(Number(offerta[1].replace(/\./g, "").replace(",", ".")), azienda.fisco)) }]);
     setShowForm(true);
     window.scrollTo(0, 0);
     if (onBozzaUsata) onBozzaUsata();
@@ -6121,6 +6132,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
                         {rit ? <strong>⏰ In ritardo di {rit} {rit === 1 ? "giorno" : "giorni"}</strong> : <span>Pagamento entro</span>}
                         <input type="date" value={scadenzaPagamento(p) || ""} onChange={(e) => cambiaScadenza(p, e.target.value)} title="Entro quando deve pagare" style={{ background: "#10141f", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 4, padding: "2px 6px", fontSize: 11.5 }} />
                         {rit > 0 && <button type="button" onClick={() => mandaSollecito(p, schedaCliente)} style={{ background: "none", color: "#4ade80", fontWeight: 700, fontSize: 11.5, border: "1px solid #2c5a3a", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>💬 Manda un promemoria{numeroWhatsapp(tel) ? "" : " · aggiungi numero"}</button>}
+                        {rit > 0 && schedaCliente?.email && <a href={`mailto:${schedaCliente.email.trim()}?subject=${encodeURIComponent(`Promemoria pagamento${p.numero ? ` preventivo ${p.numero}` : ""}`)}&body=${encodeURIComponent(messaggioSollecito(p, azienda))}`} style={{ color: "#9cc3ff", fontWeight: 700, fontSize: 11.5, border: "1px solid #3d8bfd55", borderRadius: 4, padding: "2px 8px", textDecoration: "none" }}>✉️ Promemoria via email</a>}
                       </div>
                     );
                   })()}
@@ -11266,6 +11278,44 @@ function InstallaCliente() {
 // «I miei lavori»: il cliente ritrova tutte le sue richieste. Entra con il link personale che riceve per email
 // (/miei-lavori/<codice>): il codice resta su questo telefono, così la volta dopo basta aprire /miei-lavori
 const CHIAVE_CLIENTE = "eyedrones_cliente";
+// «⚠️ Segnala un problema» su un lavoro confermato di Trova un pilota (script segnala-problema.sql).
+// Il pilota: il cliente non paga o sparisce. Il cliente: il pilota non si presenta o non consegna. Ivan riceve un avviso su Telegram.
+const MOTIVI_PROBLEMA = {
+  pilota: [["non_paga", "Il cliente non paga"], ["sparito", "Il cliente è sparito"], ["altro", "Altro"]],
+  cliente: [["non_presentato", "Il pilota non si è presentato"], ["non_consegna", "Il pilota non consegna il lavoro"], ["altro", "Altro"]],
+};
+function SegnalaProblema({ chi, richiesta, codice, chiaro }) {
+  const [aperto, setAperto] = useState(false);
+  const [motivo, setMotivo] = useState("");
+  const [nota, setNota] = useState("");
+  const [stato, setStato] = useState(null); // null | "invio" | "ok" | messaggio d'errore
+  const colTesto = chiaro ? "#6b6258" : "#8b95a3";
+  if (stato === "ok") return <p style={{ fontSize: 13, color: chiaro ? "#1f6b40" : "#4ade80", margin: "10px 0 0 0" }}>✓ Segnalazione ricevuta: EyeDrones la guarda e ti risponde per email.</p>;
+  if (!aperto) return <button type="button" onClick={() => setAperto(true)} style={{ display: "block", marginTop: 10, background: "none", border: "none", padding: 0, color: colTesto, fontSize: 12.5, textDecoration: "underline", cursor: "pointer" }}>⚠️ Segnala un problema</button>;
+  const invia = async () => {
+    if (!motivo) { setStato("Scegli cosa è successo."); return; }
+    setStato("invio");
+    const { data, error } = chi === "pilota"
+      ? await supabase.rpc("segnala_problema_pilota", { p_richiesta: richiesta, p_motivo: motivo, p_nota: nota })
+      : await supabase.rpc("segnala_problema_cliente", { p_codice: codice, p_motivo: motivo, p_nota: nota });
+    if (error || !data) { setStato(/function|does not exist/i.test(error?.message || "") ? "Non ancora disponibile: riprova più tardi." : "Non sono riuscito a inviarla: riprova."); return; }
+    setStato("ok");
+  };
+  const chipSt = (on) => ({ background: on ? (chiaro ? "#fff3eb" : "#ff8c4222") : chiaro ? "#fff" : "none", border: `1px solid ${on ? "#ff8c42" : chiaro ? "#e2d8cc" : "#343e57"}`, color: on ? (chiaro ? "#c2410c" : "#ffb48f") : chiaro ? "#3a332c" : "#c3cad4", borderRadius: 14, padding: "6px 11px", fontSize: 13 });
+  return (
+    <div style={{ marginTop: 10, background: chiaro ? "#fbf7f2" : "#141820", border: `1px solid ${chiaro ? "#ece4da" : "#343e57"}`, borderRadius: 10, padding: 10, display: "grid", gap: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: chiaro ? "#3a332c" : "#e7eaee" }}>⚠️ Cosa è successo?</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{MOTIVI_PROBLEMA[chi].map(([k, l]) => <button key={k} type="button" onClick={() => setMotivo(k)} aria-pressed={motivo === k} style={chipSt(motivo === k)}>{l}</button>)}</div>
+      <textarea rows={2} maxLength={500} value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Due righe (facoltativo)" style={{ background: chiaro ? "#fff" : "#10141f", color: chiaro ? "#1f2328" : "#e7eaee", border: `1px solid ${chiaro ? "#e2d8cc" : "#343e57"}`, borderRadius: 8, padding: "8px 10px", fontSize: 13.5, resize: "vertical", fontFamily: "inherit" }} />
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button type="button" onClick={invia} disabled={stato === "invio"} style={{ background: "#e0552f", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 800 }}>{stato === "invio" ? "Invio…" : "Invia la segnalazione"}</button>
+        <button type="button" onClick={() => { setAperto(false); setStato(null); }} style={{ background: "none", border: "none", color: colTesto, fontSize: 12.5 }}>Annulla</button>
+      </div>
+      {stato && stato !== "invio" && <div role="alert" style={{ fontSize: 12.5, color: "#d4442a" }}>{stato}</div>}
+    </div>
+  );
+}
+
 function MieiLavori() {
   const [codice, setCodice] = useState(() => {
     const m = window.location.pathname.match(/^\/miei-lavori\/([a-f0-9]{32,64})\/?$/i);
@@ -11376,6 +11426,7 @@ function MieiLavori() {
                   {!l.stelle && <a href={`/offerte/${l.codice}#stelle`} style={{ background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "10px 14px", fontSize: 14, fontWeight: 700, color: "#3a332c", textDecoration: "none" }}>⭐ Lascia le stelle</a>}
                 </div>
                 {l.consegna?.nota && <p style={{ fontSize: 13.5, color: "#4a433c", background: "#fbf7f2", borderRadius: 10, padding: "8px 10px", margin: "10px 0 0 0" }}>«{l.consegna.nota}»</p>}
+                <SegnalaProblema chi="cliente" codice={l.codice} chiaro />
                 {p.disponibile && nuova?.codice !== l.codice && (
                   <button type="button" onClick={() => { setInviata(null); setErrore(null); setNuova({ codice: l.codice, nome: p.nome, servizio: l.servizio || "", luogo: "", data: "", descrizione: "" }); }} style={{ marginTop: 12, width: "100%", background: "#fff3eb", border: "1px solid #ffcfae", borderRadius: 12, padding: "12px 14px", fontSize: 15, fontWeight: 800, color: "#c2410c", cursor: "pointer" }}>🔁 Richiedi di nuovo a {p.nome}</button>
                 )}
@@ -11509,7 +11560,7 @@ function OfferteCliente({ codice }) {
           <div style={{ display: "flex", gap: 12, alignItems: "flex-start", justifyContent: "space-between" }}>
             <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.25 }}>{titoloServizio(o.dettagli, r.servizio)}</div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#e0552f", whiteSpace: "nowrap" }}>{euroIt(o.prezzo)}</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#e0552f", whiteSpace: "nowrap", textAlign: "right" }}>{euroIt(o.prezzo)}<div style={{ fontSize: 11, fontWeight: 600, color: "#8a8076" }}>{o.dettagli?.regime === "ordinario" ? "IVA compresa" : o.dettagli?.regime ? "senza IVA" : "prezzo finale"}</div></div>
               {piuCompleta === o.id && o.stato === "inviata" && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#e0552f" }}>la più completa</div>}
               {piuBassa != null && Number(o.prezzo) === piuBassa && o.stato === "inviata" && piuCompleta !== o.id && <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1f8a4c" }}>la più economica</div>}
             </div>
@@ -11550,6 +11601,7 @@ function OfferteCliente({ codice }) {
                 {p.contatti.email_pubblica && <a href={`mailto:${p.contatti.email_pubblica}`} style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14, background: "#fff", color: "#1f2328", border: "1px solid #e2d8cc", boxShadow: "none" }}>✉️ Scrivi</a>}
                 {p.contatti.slug && <a href={`/p/${p.contatti.slug}`} style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14, background: "#fff", color: "#1f2328", border: "1px solid #e2d8cc", boxShadow: "none" }}>La sua pagina</a>}
               </div>
+              <SegnalaProblema chi="cliente" codice={codice} chiaro />
             </div>
           )}
           {o.stato === "inviata" && r.stato === "aperta" && (
@@ -11975,7 +12027,7 @@ const LAVORO_APPENA_PAGATO = typeof window !== "undefined" && new URLSearchParam
 // «Lavori nella tua zona»: le richieste di «Trova un pilota» della provincia del pilota, senza i contatti del cliente.
 // Il pilota manda un'offerta; se il cliente lo sceglie, conferma (e paga la commissione, se c'è) e il lavoro arriva
 // tra le sue richieste con i contatti
-function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, onVai }) {
+function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, onVai, fisco = FISCO_DEFAULT }) {
   const [lavori, setLavori] = useState(null); // null = caricamento o script non eseguito
   const [bozze, setBozze] = useState({}); // id → { prezzo, messaggio }
   const [aperto, setAperto] = useState(null); // richiesta con il modulo dell'offerta aperto
@@ -12043,7 +12095,8 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   const bozza = (l) => bozze[l.id] || (() => {
     const d = l.mia?.dettagli || {};
     const voci = VOCI_OFFERTA[tipoServizio(l.servizio)];
-    const b = { prezzo: l.mia ? String(l.mia.prezzo) : "", messaggio: l.mia?.messaggio || "" };
+    // nel modulo il pilota scrive il SUO compenso; al cliente va il prezzo finale con IVA e bollo (dal regime fiscale)
+    const b = { prezzo: l.mia ? String(compensoDaFinale(l.mia.prezzo, fisco)).replace(".", ",") : "", messaggio: l.mia?.messaggio || "" };
     // ettari e kWp: se il cliente li ha scritti nella descrizione li metto già
     const dalTesto = (re) => { const m = String(l.descrizione || "").match(re); return m ? m[1].replace(".", ",") : ""; };
     const letti = { ettari: dalTesto(/(\d+(?:[.,]\d+)?)\s*(?:ettari|ettaro|ha)\b/i), kwp: dalTesto(/(\d+(?:[.,]\d+)?)\s*kwp\b/i) };
@@ -12055,14 +12108,16 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
 
   const inviaOfferta = async (l) => {
     const b = bozza(l);
-    const prezzo = Number(String(b.prezzo).replace(",", "."));
-    if (!(prezzo >= 10)) { setErrore({ id: l.id, testo: "Scrivi il prezzo (almeno 10 €)." }); return; }
+    const compenso = Number(String(b.prezzo).replace(",", "."));
+    if (!(compenso >= 10)) { setErrore({ id: l.id, testo: "Scrivi il tuo compenso (almeno 10 €)." }); return; }
+    const prezzo = calcolaFisco(compenso, fisco, "privato").totale;
     setLavoro(l.id); setErrore(null);
     const numero = (v, decimali) => { const n = decimali ? Number(String(v || "").replace(",", ".").replace(/[^\d.]/g, "")) : parseInt(String(v || "").replace(/\D/g, ""), 10); return n > 0 ? n : null; };
     const voci = VOCI_OFFERTA[tipoServizio(l.servizio)];
     const dettagli = {};
     voci.numeri.forEach(([k]) => { dettagli[k] = numero(b[k], k === "ettari"); });
     voci.spunte.forEach(([k]) => { dettagli[k] = !!b[k]; });
+    if (["ordinario", "forfettario", "occasionale"].includes(fisco?.regime)) dettagli.regime = fisco.regime;
     const { error } = await supabase.rpc("invia_offerta_zona", { p_richiesta: l.id, p_prezzo: prezzo, p_messaggio: b.messaggio, p_dettagli: dettagli });
     setLavoro(null);
     if (error) { setErrore({ id: l.id, testo: /completo/i.test(error.message || "") ? "Per questa richiesta sono già arrivate abbastanza offerte." : /non disponibile/i.test(error.message || "") ? "Questa richiesta non è più aperta." : "Invio non riuscito: riprova." }); carica(); return; }
@@ -12107,6 +12162,21 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     setErrore(null);
     setConsegna({ id: l.id, link: l.mia.consegna?.link || "", nota: l.mia.consegna?.nota || "" });
     if (gallerie === null) supabase.from("condivisioni").select("id, token, titolo, created_at").eq("attiva", true).order("created_at", { ascending: false }).limit(8).then(({ data }) => setGallerie(data || []), () => setGallerie([]));
+  };
+  // il materiale caricato direttamente nell'app: il cliente lo apre dal link della consegna (fino a 50 MB)
+  const caricaFileConsegna = async (l, file) => {
+    if (!file) return;
+    if (file.size > 50 * 1048576) { setErrore({ id: l.id, testo: "File troppo grande (massimo 50 MB): per i video usa una galleria o WeTransfer." }); return; }
+    setErrore(null); setConsegna((c) => ({ ...c, caricando: true }));
+    const uid = await idUtenteCorrente();
+    const pulito = `${Date.now()}-${file.name.normalize("NFD").replace(/[^\w.-]+/g, "-").slice(-60)}`;
+    let nome = `consegne/${uid}/${pulito}`;
+    let { error } = await supabase.storage.from("foto-ispezioni").upload(nome, file, { contentType: file.type || undefined });
+    // se le regole dello spazio non permettono le cartelle, lo metto nella cartella principale (come le foto delle ispezioni)
+    if (error) { nome = `consegna-${pulito}`; ({ error } = await supabase.storage.from("foto-ispezioni").upload(nome, file, { contentType: file.type || undefined })); }
+    if (error) { setConsegna((c) => ({ ...c, caricando: false })); setErrore({ id: l.id, testo: "Caricamento non riuscito: riprova." }); return; }
+    const url = supabase.storage.from("foto-ispezioni").getPublicUrl(nome).data?.publicUrl || "";
+    setConsegna((c) => ({ ...c, caricando: false, link: url }));
   };
   const consegna_ = async (l) => {
     const link = consegna.link.trim();
@@ -12318,6 +12388,10 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                 </div>
               )}
               {gallerie && gallerie.length === 0 && <div style={{ fontSize: 12, color: "#8b95a3" }}>Per una galleria con foto e video: apri il volo nel Registro e tocca «Condividi con il cliente». Oppure incolla un link di Google Drive o WeTransfer.</div>}
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start", background: "#232b3f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                {consegna.caricando ? "Carico il file…" : "📄 Carica un file (report PDF, ZIP…)"}
+                <input type="file" accept=".pdf,.zip,.jpg,.jpeg,.png,.mp4,.mov,application/pdf,application/zip,image/*,video/*" disabled={consegna.caricando} onChange={(e) => caricaFileConsegna(l, e.target.files?.[0])} style={{ display: "none" }} />
+              </label>
               <input value={consegna.link} onChange={(e) => setConsegna({ ...consegna, link: e.target.value })} placeholder="https://… (galleria, Google Drive, WeTransfer o report)" inputMode="url" style={inputStyle} />
               <textarea rows={2} maxLength={500} value={consegna.nota} onChange={(e) => setConsegna({ ...consegna, nota: e.target.value })} placeholder="Due righe per il cliente (facoltativo): es. «Ecco il video e le foto, grazie!»" style={{ ...inputStyle, resize: "vertical" }} />
               <div style={{ display: "flex", gap: 8 }}>
@@ -12327,6 +12401,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
             </div>
           )}
           {errore?.id === l.id && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{errore.testo}</p>}
+          <SegnalaProblema chi="pilota" richiesta={l.id} />
         </div>
       ))}
 
@@ -12357,7 +12432,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                     <button key={k} type="button" onClick={() => cambiaBozza(l, k, !b[k])} style={{ ...chip(!!b[k]), borderRadius: 16, padding: "6px 12px", fontSize: 12.5 }}>{b[k] ? "✓ " : ""}{t}</button>
                   ))}
                 </div>
-                <div style={{ fontSize: 12, color: "#8b95a3" }}>2 · Il prezzo</div>
+                <div style={{ fontSize: 12, color: "#8b95a3" }}>2 · Il tuo compenso</div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <input inputMode="decimal" value={b.prezzo} onChange={(e) => cambiaBozza(l, "prezzo", e.target.value)} placeholder="es. 450" aria-label="Prezzo totale in euro" style={{ ...inputStyle, maxWidth: 140 }} />
                   <span style={{ fontSize: 12, color: "#8b95a3", flex: "1 1 180px" }}>
@@ -12366,6 +12441,14 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                     {stimata ? `Commissione se ti scelgono: ${euroIt(stimata)}.` : ""}
                   </span>
                 </div>
+                {(() => {
+                  const c = Number(String(b.prezzo || "").replace(",", "."));
+                  if (!(c > 0)) return null;
+                  const fin = calcolaFisco(c, fisco, "privato");
+                  return ["ordinario", "forfettario", "occasionale"].includes(fisco?.regime)
+                    ? <div style={{ fontSize: 12.5, color: "#c3cad4" }}>Il cliente vede <strong style={{ color: "#ffb48f" }}>{euroIt(fin.totale)}</strong> · {notaPrezzoFinale(fisco.regime, fisco)}{fin.bollo ? ", con il bollo da 2 €" : ""}.</div>
+                    : <div style={{ fontSize: 12.5, color: "#c3cad4" }}>Il cliente vede <strong style={{ color: "#ffb48f" }}>{euroIt(c)}</strong>. <button type="button" onClick={() => onVai && onVai("impostazioni")} style={{ background: "none", border: "none", padding: 0, color: "#9cc3ff", textDecoration: "underline", fontSize: 12.5 }}>Scegli il tuo regime fiscale</button> (forfettario, con IVA…) e calcolo IVA e bollo da solo.</div>;
+                })()}
                 <div style={{ fontSize: 11.5, color: "#6b7480" }}>Non abbassare troppo il prezzo: il cliente confronta prima cosa comprende ogni offerta, e gli altri piloti non vedono il tuo prezzo.</div>
                 <div style={{ fontSize: 12, color: "#8b95a3" }}>3 · Un messaggio (facoltativo)</div>
                 <textarea rows={3} maxLength={1500} value={b.messaggio} onChange={(e) => cambiaBozza(l, "messaggio", e.target.value)} placeholder={{ riprese: "es. Riprese di chiesa, uscita degli sposi e location, montaggio con musica.", ispezioni: "es. Foto ravvicinate di tetto e grondaie, segnalo i punti da sistemare.", termografia: "es. Volo con sole pieno, report con stringhe e moduli caldi, file per l'installatore.", rilievi: "es. Ortofoto a 2 cm/pixel, nuvola di punti e misure dei volumi, file DWG.", agricoltura: "es. Volo multispettrale, mappa NDVI e zone da concimare.", trattamenti: "es. Trattamento con prodotto fornito da voi, registro e meteo del giorno." }[tipoServizio(l.servizio)]} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
@@ -12666,7 +12749,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
             </div>
           )}
           {richiesteAperte.map(schedaRichiesta)}
-          {salvata?.attiva && salvata.provincia && <LavoriInZona provincia={salvata.provincia} pagina={salvata} onPreso={caricaRichieste} onPermessi={onPermessi} onApriPagina={() => { setScheda("pagina"); window.scrollTo(0, 0); }} onVai={onVai} />}
+          {salvata?.attiva && salvata.provincia && <LavoriInZona fisco={azienda.fisco || FISCO_DEFAULT} provincia={salvata.provincia} pagina={salvata} onPreso={caricaRichieste} onPermessi={onPermessi} onApriPagina={() => { setScheda("pagina"); window.scrollTo(0, 0); }} onVai={onVai} />}
           {richiesteArchiviate.length > 0 && (
             <details style={{ marginTop: 6 }}>
               <summary style={{ fontSize: 13, color: "#8b95a3", cursor: "pointer" }}>Archiviate ({richiesteArchiviate.length})</summary>

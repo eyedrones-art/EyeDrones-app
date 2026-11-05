@@ -82,3 +82,28 @@ export function fraseIvaNoteLegali(fisco) {
   if (r === "occasionale") return "Prestazione occasionale fuori campo IVA (art. 5 DPR 633/1972).";
   return "I prezzi indicati si intendono IVA esclusa, se dovuta.";
 }
+
+// dal prezzo finale pagato dal cliente al compenso del pilota (l'inverso di calcolaFisco, cliente privato)
+export function compensoDaFinale(finale, fisco) {
+  const f = { ...FISCO_DEFAULT, ...(fisco || {}) };
+  const tot = arr(finale);
+  const r = f.rivalsa ? 0.04 : 0;
+  if (f.regime === "ordinario") {
+    const aliquota = Number(f.iva) >= 0 && f.iva !== "" ? Number(f.iva) : 22;
+    return arr(tot / ((1 + r) * (1 + aliquota / 100)));
+  }
+  if (f.regime === "forfettario") {
+    const base = tot - BOLLO > SOGLIA_BOLLO ? tot - BOLLO : tot;
+    return arr(base / (1 + r));
+  }
+  if (f.regime === "occasionale") return arr(tot - BOLLO > SOGLIA_BOLLO ? tot - BOLLO : tot);
+  return tot;
+}
+
+// cosa leggono il pilota e il cliente sotto il prezzo finale
+export function notaPrezzoFinale(regime, fisco) {
+  if (regime === "ordinario") return `IVA${fisco?.iva !== undefined && fisco?.iva !== "" ? ` ${fisco.iva}%` : ""} compresa`;
+  if (regime === "forfettario") return "senza IVA (regime forfettario)";
+  if (regime === "occasionale") return "senza IVA (prestazione occasionale)";
+  return "";
+}

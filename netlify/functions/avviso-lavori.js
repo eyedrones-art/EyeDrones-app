@@ -237,12 +237,18 @@ exports.componiEmail = componiEmail;
 
 // avviso Telegram all'amministratore (facoltativo): solo cosa e dove, niente dati personali
 async function avvisaTelegram(d) {
-  const { TELEGRAM_TOKEN: token, TELEGRAM_CHAT_ID: chat } = process.env;
+  // il token copiato può avere spazi o altro testo intorno: tengo solo «numeri:lettere» (come in assistente-telegram.js)
+  const token = String(process.env.TELEGRAM_TOKEN || "").match(/\d{5,}:[A-Za-z0-9_-]{30,}/)?.[0];
+  const chat = String(process.env.TELEGRAM_CHAT_ID || "").trim();
   if (!token || !chat) return;
   const prov = pulisci(d.provincia, 4).toUpperCase();
   let testo = null;
   if (d.tipo === "richiesta_inviata") testo = `📍 Nuova richiesta su «Trova un pilota» in provincia di ${prov || "?"} · piloti avvisati: ${Number(d.piloti) || 0}${Number(d.piloti) ? "" : " ⚠️ nessun pilota in zona"}`;
   else if (d.tipo === "confermato") testo = `✅ Lavoro confermato su «Trova un pilota»${Number(d.prezzo) ? ` · ${euro(d.prezzo)}` : ""}`;
+  else if (d.tipo === "problema") {
+    const MOTIVI = { non_paga: "il cliente non paga", sparito: "il cliente è sparito", non_presentato: "il pilota non si è presentato", non_consegna: "il pilota non consegna", altro: "altro" };
+    testo = `⚠️ Segnalazione su «Trova un pilota» dal ${d.chi === "cliente" ? "cliente" : "pilota"}: ${MOTIVI[d.motivo] || "altro"} · ${pulisci(d.servizio, 80) || "lavoro"} in provincia di ${prov || "?"}${Number(d.prezzo) ? ` · ${euro(d.prezzo)}` : ""}. Dettagli in Supabase (tabella segnalazioni_lavoro).`;
+  }
   if (!testo) return;
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -260,6 +266,7 @@ exports.handler = async (event) => {
   let d;
   try { d = JSON.parse(event.body || "{}"); } catch { return risposta(400, "JSON non valido"); }
   await avvisaTelegram(d);
+  if (d.tipo === "problema") return risposta(200, "Avviso inviato"); // solo Telegram, nessuna email
   const m = componiEmail(d);
   if (!m) return risposta(400, "Tipo sconosciuto");
   const a = m.a.filter(emailValida);
