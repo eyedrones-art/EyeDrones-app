@@ -11006,30 +11006,38 @@ function TrovaPilota() {
         .tp-esempi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         .tp-domande details { background: #fff; border: 1px solid #ece4da; border-radius: 14px; padding: 14px 16px; }
         .tp-domande summary { font-weight: 700; font-size: 15px; cursor: pointer; }
+        @media (min-width: 900px) {
+          .tp-hero.divisa { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); align-items: center; gap: 44px; min-height: 0; padding: 56px max(24px, calc((100vw - 1120px) / 2)); background: radial-gradient(120% 90% at 85% 40%, #3a2412 0%, #1c140e 60%); }
+          .tp-hero.divisa::after { display: none; }
+          .tp-hero.divisa > img { position: relative; inset: auto; order: 2; height: 540px; border-radius: 26px; object-position: 50% 35%; box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+          .tp-hero.divisa .tp-hero-testo { order: 1; max-width: none; margin: 0; padding: 0; }
+        }
         @media (max-width: 640px) { .tp-scelte { grid-template-columns: repeat(2, 1fr); } .tp-scelte a { height: 130px; } .tp-scelte a:first-child { grid-column: span 2; height: 160px; } .tp-hero img.sez { object-position: var(--pos); } .tp-hero.larga { min-height: 0; } .tp-hero.larga img { height: 300px; } .tp-cat { grid-template-columns: repeat(2, 1fr); } .tp-esempi { grid-template-columns: repeat(2, 1fr); } .tp-passi { grid-template-columns: 1fr; } .tp-hero { min-height: 700px; } }
       `}</style>
 
-      <header className={`tp-hero${sezione?.immagineLarga ? " larga" : ""}`} style={sezione && !sezione.immagine ? { background: sezione.sfondo, minHeight: 520 } : undefined}>
+      <header className={`tp-hero${sezione?.immagineLarga ? " larga" : ""}${sezione ? "" : " divisa"}`} style={sezione && !sezione.immagine ? { background: sezione.sfondo, minHeight: 520 } : undefined}>
         {sezione ? (sezione.immagine && <img src={sezione.immagine} alt={sezione.immagineAlt || ""} className="sez" style={{ "--pos": sezione.immaginePosizione || "50% 12%", "--pos-pc": sezione.immaginePosizionePc || sezione.immaginePosizione || "50% 12%" }} />) : <img src="/trova-pilota/pilota-cliente.webp" alt="Una pilota mostra a una cliente le riprese aeree della sua casa" />}
         {sezione && !sezione.immagine && <span aria-hidden="true" style={{ position: "absolute", right: "6%", top: 40, fontSize: "clamp(90px, 22vw, 170px)", opacity: 0.22, lineHeight: 1 }}>{sezione.emoji}</span>}
         <div className="tp-hero-testo">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#fff", fontSize: 13.5, fontWeight: 700, textDecoration: "none", background: "rgba(0,0,0,.35)", padding: "6px 10px", borderRadius: 20 }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20, position: "static" }} /> EyeDrones</a>
-            <a href="/miei-lavori" style={{ color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none", background: "rgba(0,0,0,.35)", padding: "6px 10px", borderRadius: 20 }}>📨 I miei lavori</a>
+            <a href="/miei-lavori" style={{ color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none", background: "rgba(0,0,0,.35)", padding: "6px 10px", borderRadius: 20 }}>I miei lavori ›</a>
           </div>
           <div className="mono" style={{ fontSize: 12, letterSpacing: ".16em", color: "#ffd7bf", marginBottom: 8, textShadow: "0 1px 8px rgba(0,0,0,.6)" }}>EYEDRONES · TROVA UN PILOTA</div>
           <h1 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "118%", fontSize: "clamp(30px, 6.4vw, 48px)", lineHeight: 1.04, margin: "0 0 12px 0", fontWeight: 900, letterSpacing: 0, textShadow: "0 2px 18px rgba(0,0,0,.35)" }}>
             {sezione ? (nomeProvincia ? sezione.titoloProvincia(nomeProvincia) : sezione.titolo) : nomeProvincia ? <>Il tuo pilota di droni<br />in provincia di {nomeProvincia}</> : <>Il tuo momento,<br />visto dall'alto.</>}
           </h1>
           {sezione
-            ? <p style={{ fontSize: 16.5, lineHeight: 1.5, margin: "0 0 18px 0", maxWidth: 560, color: "#fbeee2" }}>{sezione.sottotitolo} <strong>Gratis e senza impegno.</strong></p>
-            : <p style={{ fontSize: 16.5, lineHeight: 1.5, margin: "0 0 18px 0", maxWidth: 560, color: "#fbeee2" }}>Matrimoni, case, eventi, ispezioni, rilievi e agricoltura. Racconta cosa ti serve: i piloti della tua zona ti mandano un'offerta e <strong>scegli tu</strong>. Gratis e senza impegno.</p>}
+            ? <p style={{ fontSize: 16.5, lineHeight: 1.5, margin: "0 0 18px 0", maxWidth: 560, color: "#fbeee2" }}>{sezione.sottotitolo}</p>
+            : <p style={{ fontSize: 16.5, lineHeight: 1.5, margin: "0 0 18px 0", maxWidth: 560, color: "#fbeee2" }}>Matrimoni, case, eventi, ispezioni, rilievi e agricoltura. Racconta cosa ti serve: i piloti della tua zona ti mandano un'offerta e <strong>scegli tu</strong>.</p>}
           <button type="button" onClick={vaiAlModulo} style={CLIENTE.bottone}>Ricevi le offerte →</button>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 16, fontSize: 13, color: "#fbeee2" }}>
             {sezione?.voi
-              ? <><span>✓ Confrontate le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Nessun costo per voi</span></>
-              : <><span>✓ Confronti le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Nessun costo per te</span></>}
+              ? <><span>✓ Confrontate le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Gratis e senza impegno</span></>
+              : <><span>✓ Confronti le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Gratis e senza impegno</span></>}
           </div>
+          {/* 2. un motivo per fidarsi: il cliente vede chi sceglie */}
+          <p style={{ margin: "12px 0 0 0", fontSize: 13.5, color: "#ffd7bf", lineHeight: 1.5 }}>👤 Prima di scegliere guardi la pagina di ogni pilota: lavori fatti, droni e recensioni dei clienti.</p>
         </div>
       </header>
 
