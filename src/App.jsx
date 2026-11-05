@@ -2667,8 +2667,10 @@ function RiquadroNovita({ onVai }) {
 const FUNZIONI_PRESENTAZIONE = [
   { emoji: "🌅", titolo: "Pianificazione e ora d'oro", testo: "Meteo ora per ora con le ore migliori, vento rispetto al tuo drone, indice Kp, alba, tramonto, ora d'oro, direzione del sole e filtri ND." },
   { emoji: "🛡️", titolo: "Zona di volo e regole", testo: "Scrivi la via: con il file ufficiale D-Flight vedi se la zona è libera, fino a che altezza e chi contattare, più le regole della classe del tuo drone. In più quello che nel file non c'è: aree militari a bassa quota, parchi, riserve e siti Natura 2000." },
+  { emoji: "📝", titolo: "Permessi già compilati", testo: "Dici dove voli: l'app ti dice se serve un permesso, a chi chiederlo, quanti giorni prima e con quale modulo. Poi prepara la richiesta con i tuoi dati e quelli del drone." },
   { emoji: "✈️", titolo: "Il prossimo volo in primo piano", testo: "Il giorno del volo lo trovi in apertura: meteo dell'ora prevista, zona, avviso batterie col freddo, le riprese da fare con gli stick e il promemoria nel calendario." },
   { emoji: "🎓", titolo: "Lezioni e quiz A1/A3 e A2", testo: "Le regole spiegate semplici, quiz con la spiegazione di ogni risposta e la simulazione d'esame con tempo e punteggio come all'ENAC. Più la guida per volare in zona rossa." },
+  { emoji: "🎮", titolo: "Simulatore di volo", testo: "Nel browser, senza rischiare il drone: riprese GPS e FPV, missioni per clienti veri (matrimoni, immobili, termografia) e la prova d'esame A1/A3.", link: "/simulatore-drone/" },
   { emoji: "📍", titolo: "Posti belli vicino a te", testo: "Scrivi dove sei o usa la posizione: punti panoramici, castelli, laghi e i posti consigliati dagli altri piloti, con la zona di volo già controllata." },
   { emoji: "🎬", titolo: "Consigli, manovre e camera", testo: "Per ogni tipo di volo e per il tuo drone: le manovre per video belli con gli stick, le scalette per lavoro e come impostare ISO, tempo e filtri ND in base alla luce." },
   { emoji: "📒", titolo: "Registro voli", testo: "Data, luogo, drone, batterie, durata, foto e video. Con il registro automatico i voli si creano da soli dalle foto e dai video della scheda SD." },
@@ -2680,7 +2682,15 @@ const FUNZIONI_PRESENTAZIONE = [
   { emoji: "💶", titolo: "Preventivi con il prezzo giusto", testo: "Pacchetti pronti, fascia di prezzo del mercato e il tuo prezzo minimo calcolato dai costi, poi il PDF da mandare. Rubrica clienti con WhatsApp a un tocco e lavori pagati o da incassare." },
   { emoji: "🔋", titolo: "Batterie e manutenzione", testo: "Cicli e stato di carica delle batterie, registro di eliche, firmware e riparazioni di ogni drone." },
   { emoji: "🔍", titolo: "Ispezioni e report", testo: "Fotovoltaico, edifici, danni: anomalie sulle foto termiche e report PDF professionali per il cliente." },
+  { emoji: "📐", titolo: "Calcolatore per la fotogrammetria", testo: "Scegli drone e camera (anche la termica del Mavic 3T) e parti dall'altezza o dal dettaglio che vuoi: GSD, sovrapposizioni, numero di foto, strisciate, tempo e batterie." },
+  { emoji: "🌾", titolo: "Agricoltura e droni Agras", testo: "Appezzamenti con i confini sulla mappa, registro dei trattamenti in PDF e meteo per irrorare con le soglie di vento e Delta T." },
   { emoji: "📦", titolo: "Report di consegna", testo: "Per fotogrammetria e agricoltura: un PDF con mappa dell'area, file consegnati, sistema di riferimento e dati del lavoro, pronto da dare al cliente." },
+];
+
+// le funzioni con l'intelligenza artificiale: un riquadro a parte nella presentazione
+const FUNZIONI_AI = [
+  { emoji: "💬", titolo: "Chiedi all'Esperto", testo: "Carichi una foto o un video: l'AI ti dice cosa non va e come sistemarlo. Esposizione e colore per le riprese, punti caldi e anomalie per le foto termiche." },
+  { emoji: "🔎", titolo: "Ispezione con AI e report", testo: "Carichi tutte le foto di un'ispezione (fotovoltaico, tetti, facciate, campi): l'AI propone i difetti foto per foto, tu confermi o correggi, e ne esce il report PDF per il cliente." },
 ];
 
 function Presentazione({ onAccedi, onRegistrati }) {
@@ -2796,8 +2806,26 @@ function Presentazione({ onAccedi, onRegistrati }) {
                 <div style={{ fontSize: 26, marginBottom: 8 }}>{f.emoji}</div>
                 <h3 style={{ fontSize: 16, margin: "0 0 6px 0" }}>{f.titolo}</h3>
                 <p style={{ fontSize: 14, lineHeight: 1.5, color: "#aab3bf", margin: 0 }}>{f.testo}</p>
+                {f.link && <a href={f.link} style={{ display: "inline-block", marginTop: 10, color: "#ff8c42", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>Provalo subito ›</a>}
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="lp-wrap" style={{ paddingBottom: 56 }}>
+          <div style={{ ...riquadro, padding: "26px 22px", background: "linear-gradient(135deg, rgba(126, 58, 242, 0.18), rgba(61, 139, 253, 0.10)), #151b2b", border: "1px solid #3b3463" }}>
+            <div className="mono" style={{ fontSize: 12, letterSpacing: ".16em", color: "#c4b5fd", marginBottom: 8 }}>✨ CON L'INTELLIGENZA ARTIFICIALE <span style={{ marginLeft: 8, padding: "2px 8px", borderRadius: 999, background: "#2e2a4f", color: "#e9e3ff", letterSpacing: ".08em" }}>IN ARRIVO PER TUTTI</span></div>
+            <h2 style={{ fontSize: 24, margin: "0 0 6px 0" }}>L'AI guarda le tue foto e ti aiuta a lavorare</h2>
+            <p style={{ color: "#aab3bf", margin: "0 0 18px 0", fontSize: 15 }}>L'ultima parola è sempre tua: l'AI propone, tu controlli prima di consegnare.</p>
+            <div className="lp-griglia" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+              {FUNZIONI_AI.map((f) => (
+                <div key={f.titolo} style={{ background: "#10141f", border: "1px solid #2e2a4f", borderRadius: 12, padding: 20 }}>
+                  <div style={{ fontSize: 26, marginBottom: 8 }}>{f.emoji}</div>
+                  <h3 style={{ fontSize: 16, margin: "0 0 6px 0" }}>{f.titolo}</h3>
+                  <p style={{ fontSize: 14, lineHeight: 1.5, color: "#aab3bf", margin: 0 }}>{f.testo}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
