@@ -46,12 +46,26 @@
         background-attachment: fixed;
       }
       #root { min-height: 100vh; min-height: 100dvh; }
+      /* mentre l'app si carica: il logo; il testo per Google resta nella pagina ma non si vede */
+      .avvio { display: none; }
+      .js .avvio { display: grid; place-items: center; align-content: center; gap: 14px; min-height: 100vh; min-height: 100dvh; color: #e7eaee; font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+      .js #testo-google { display: none; }
+      .avvio img { width: 84px; height: 84px; border-radius: 22px; animation: avvio-pulsa 1.4s ease-in-out infinite; }
+      .avvio span { font-weight: 700; font-size: 18px; letter-spacing: .02em; opacity: .85; }
+      @keyframes avvio-pulsa { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.92); opacity: .7; } }
+      @media (prefers-reduced-motion: reduce) { .avvio img { animation: none; } }
     </style>
+    <script>
+      // con JavaScript acceso si vede il logo di avvio; se l'app non parte entro 10 secondi torna il testo
+      document.documentElement.classList.add("js");
+      setTimeout(function () { if (document.querySelector(".avvio")) document.documentElement.classList.remove("js"); }, 10000);
+    </script>
   </head>
   <body>
     <!-- testo per Google e per chi ha JavaScript spento: l'app lo sostituisce appena parte -->
     <div id="root">
-      <main style="max-width: 640px; margin: 0 auto; padding: 48px 20px; color: #e7eaee; font-family: 'IBM Plex Sans', system-ui, sans-serif; line-height: 1.55;">
+      <div class="avvio" aria-hidden="true"><img src="/icon-192.png" alt="" /><span>EyeDrones</span></div>
+      <main id="testo-google" style="max-width: 640px; margin: 0 auto; padding: 48px 20px; color: #e7eaee; font-family: 'IBM Plex Sans', system-ui, sans-serif; line-height: 1.55;">
         <h1 style="font-size: 26px; margin: 0 0 10px 0;">EyeDrones — l'app per piloti di droni</h1>
         <p style="color: #9aa4b1; margin: 0 0 16px 0;">L'app italiana che accompagna il pilota di droni dall'inizio alla fine: registro voli, batterie e attestati, zone D-Flight e permessi, meteo e vento in quota, preventivi e fatture, consegna di foto e video ai clienti, report di ispezione, rilievi e trattamenti agricoli con drone.</p>
         <ul style="color: #c3cad4; padding-left: 20px; margin: 0 0 16px 0;">
