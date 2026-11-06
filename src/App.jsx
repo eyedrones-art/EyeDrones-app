@@ -3122,6 +3122,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
     { key: "impara", label: "Impara e quiz", icon: GraduationCap },
+    { key: "simulatore", label: "Simulatore di volo", icon: Gamepad2, esterno: "/simulatore/", stessaScheda: true },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ClipboardCheck },
     { key: "attestati", label: "Attestati", icon: Award },
@@ -3156,6 +3157,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
     { key: "impara", label: "Impara e quiz", icon: GraduationCap },
+    { key: "simulatore", label: "Simulatore di volo", icon: Gamepad2, esterno: "/simulatore/", stessaScheda: true },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ClipboardCheck },
     { key: "attestati", label: "Attestati", icon: Award },
@@ -3211,7 +3213,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
             <a
               key={it.key}
               href={it.esterno}
-              target="_blank"
+              target={it.stessaScheda ? undefined : "_blank"}
               rel="noreferrer"
               className="nav-item"
               style={{
@@ -3450,7 +3452,7 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
               const Icon = it.icon;
               const numero = String(arr.slice(0, idx + 1).filter((x) => !x.intestazione).length).padStart(2, "0");
               if (it.esterno) {
-                return <a key={it.key} href={it.esterno} target="_blank" rel="noreferrer" className="mr-voce"><span className="mr-num">{numero}</span><Icon size={18} /> {it.label} <span style={{ marginLeft: "auto", color: "#8f9bb2", fontSize: 12 }}>↗</span></a>;
+                return <a key={it.key} href={it.esterno} target={it.stessaScheda ? undefined : "_blank"} rel="noreferrer" className="mr-voce"><span className="mr-num">{numero}</span><Icon size={18} /> {it.label} <span style={{ marginLeft: "auto", color: "#8f9bb2", fontSize: 12 }}>{it.stessaScheda ? "›" : "↗"}</span></a>;
               }
               return (
                 <button key={it.key} onClick={() => scegli(it.key)} className={`mr-voce${page === it.key ? " on" : ""}`}>
