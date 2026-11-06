@@ -3915,7 +3915,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
     ...droni.filter((d) => d.prossima_manutenzione).map((d) => ({ id: "d" + d.id, nome: `Manutenzione — ${d.nome}`, stato: statoManutenzione(d.prossima_manutenzione), vai: "droni" })),
     ...(batterie || []).flatMap((b) => avvisiBatteria(b).map((a, i) => ({ id: `b${b.id}-${i}`, nome: `Batteria — ${b.nome}`, stato: a, vai: "batterie" }))),
     ...(eventiVolo || []).filter((e) => !e.segnalato).map((e) => ({ id: "e" + e.id, nome: `Segnalazione evento — ${etichettaEvento(e.tipo)}`, stato: statoEvento(e), vai: "registro-voli" })),
-    ...preventivi.filter((p) => giorniRitardo(p) > 0).map((p) => ({ id: "pag" + p.id, nome: `Pagamento — ${p.cliente} (${euro(Number(p.prezzo) || 0)})`, stato: { livello: "scaduto", colore: "#ff6b6b", testo: `In ritardo di ${giorniRitardo(p)} giorni` }, vai: "preventivi" })),
+    ...preventivi.filter((p) => giorniRitardo(p) > 0).map((p) => ({ id: "pag" + p.id, nome: `Pagamento — ${p.cliente} (${euro(Number(p.prezzo) || 0)})`, pagamento: true, breve: `${p.cliente} · ${euro(Number(p.prezzo) || 0)} · in ritardo di ${giorniRitardo(p)} ${giorniRitardo(p) === 1 ? "giorno" : "giorni"}`, stato: { livello: "scaduto", colore: "#ff6b6b", testo: `In ritardo di ${giorniRitardo(p)} ${giorniRitardo(p) === 1 ? "giorno" : "giorni"}` }, vai: "preventivi" })),
     ...(dflightScadenza ? [{ id: "dflight", nome: "Abbonamento D-Flight (QR code operatore)", stato: statoScadenza(dflightScadenza), vai: "droni" }] : []),
     ...droni.filter((d) => d.qr_dflight_nuovo === false).map((d) => ({ id: "q" + d.id, nome: `QR code D-Flight — ${d.nome}`, stato: { livello: "in_scadenza", colore: "#f5b942", testo: "Stampa e applica il nuovo QR code" }, vai: "droni" })),
   ];
@@ -3929,14 +3929,21 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
       .then(({ data }) => setMedia((data || []).filter(mediaSicuro)), () => {});
   }, [usaRiprese]);
 
-  // le scadenze da sistemare: un solo riquadro, si apre se lo tocchi
+  // le scadenze da sistemare: un solo riquadro, si apre se lo tocchi. Il titolo dice subito di cosa si tratta.
+  const soloPagamenti = urgenti.length > 0 && urgenti.every((v) => v.pagamento);
+  const titoloScadenze = soloPagamenti
+    ? (urgenti.length === 1 ? "Un cliente deve ancora pagarti" : `${urgenti.length} clienti devono ancora pagarti`)
+    : urgenti.length === 1 ? urgenti[0].nome : `${urgenti.length} cose da controllare`;
+  const dettaglioScadenze = urgenti.length === 1
+    ? (urgenti[0].breve || urgenti[0].stato.testo)
+    : urgenti.map((v) => (v.pagamento ? `Pagamento da ${v.nome.split(" — ")[1].replace(/ \(.*\)$/, "")}` : v.nome.split(" — ")[0])).filter((x, i, a) => a.indexOf(x) === i).join(" · ");
   const bloccoScadenze = urgenti.length > 0 && (
     <section style={{ marginBottom: 22 }}>
       <button type="button" onClick={() => setTutteScadenze(!tutteScadenze)} aria-expanded={tutteScadenze} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "#151b2b", border: `1px solid ${urgenti.some((v) => v.stato.livello === "scaduto") ? "#ff6b6b66" : "#f5b94266"}`, borderRadius: 12, padding: "12px 16px", color: "#e7eaee" }}>
-        <span style={{ fontSize: 22 }}>⚠️</span>
+        <span style={{ fontSize: 22 }}>{soloPagamenti ? "💶" : "⚠️"}</span>
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "block", fontSize: 14, fontWeight: 700 }}>{urgenti.length === 1 ? "1 cosa da sistemare" : `${urgenti.length} cose da sistemare`}</span>
-          <span style={{ display: "block", fontSize: 12, color: "#8b95a3", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: tutteScadenze ? "normal" : "nowrap" }}>{urgenti.map((v) => v.nome.split(" — ")[0]).filter((x, i, a) => a.indexOf(x) === i).join(" · ")}</span>
+          <span style={{ display: "block", fontSize: 14, fontWeight: 700 }}>{titoloScadenze}</span>
+          <span style={{ display: "block", fontSize: 12, color: "#8b95a3", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: tutteScadenze ? "normal" : "nowrap" }}>{dettaglioScadenze}</span>
         </span>
         <span style={{ color: "#8b95a3", fontSize: 18, transform: tutteScadenze ? "rotate(90deg)" : "none", transition: "transform .2s" }}>›</span>
       </button>
