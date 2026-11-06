@@ -37,6 +37,9 @@ body { margin: 0; background: var(--fondo); color: var(--testo); font-family: va
 #cornice, #osd { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 @media (max-width: 430px) { #barra { gap: 3px; padding: 6px 5px; font-size: 11.5px; } #barra .tasto { padding: 4px 6px; font-size: 11.5px; } #rec { min-width: 50px; } #barra .dato { padding: 2px 4px; } }
 @media (max-width: 370px) { #d2 { display: none; } }
+#tastiera { position: absolute; left: 50%; bottom: 130px; transform: translateX(-50%); z-index: 6; background: rgba(10,14,19,.82); border: 1px solid var(--bordo); border-radius: 12px; padding: 10px 14px; font-family: var(--display); font-size: 12.5px; line-height: 1.7; color: var(--testo); pointer-events: none; transition: opacity .6s; text-align: center; width: min(780px, 92vw); }
+#tastiera kbd { display: inline-block; min-width: 22px; padding: 1px 6px; margin: 0 2px; border: 1px solid var(--bordo); border-bottom-width: 2px; border-radius: 5px; background: rgba(255,255,255,.06); font-family: inherit; font-weight: 700; }
+@media (max-width: 600px) { #barra .largo { display: none; } }
 #barra { position: absolute; left: 0; right: 0; top: 0; display: flex; gap: 5px; align-items: center; padding: 6px 8px; background: linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,0)); font-family: var(--display); font-size: 12.5px; font-variant-numeric: tabular-nums; pointer-events: none; z-index: 2; }
 #barra .dato { background: rgba(10, 14, 19, .55); border-radius: 5px; padding: 2px 6px; white-space: nowrap; }
 #barra .dato b { color: var(--tenue); font-weight: 500; margin-right: 3px; }
@@ -251,7 +254,8 @@ body { margin: 0; background: var(--fondo); color: var(--testo); font-family: va
     <canvas id="cornice"></canvas>
     <canvas id="osd"></canvas>
     <div id="barra">
-      <button class="tasto" id="menu" type="button" aria-label="Menu">☰</button>
+      <a class="tasto" id="tornaApp" href="/" hidden style="text-decoration:none" aria-label="Torna all'app">‹<span class="largo"> App</span></a>
+      <button class="tasto" id="menu" type="button" aria-label="Menu">☰<span class="largo"> Menu</span></button>
       <button class="tasto" id="velocita" type="button" title="Modalità di volo">C</button>
       <span class="dato" id="d1"><b>H</b><span id="altezza">0 m</span></span>
       <span class="dato" id="d2"><b>D</b><span id="distanza">0 m</span></span>
@@ -261,6 +265,7 @@ body { margin: 0; background: var(--fondo); color: var(--testo); font-family: va
       <button class="tasto" id="rec" type="button">● REC</button>
     </div>
     <div id="avviso" style="opacity:0"></div>
+    <div id="tastiera" hidden></div>
     <div id="missione"></div>
     <div id="pro" hidden><div class="riga-pro"><button class="tasto" id="ir" type="button">🌡 IR</button><button class="tasto" id="segna" type="button">📍 Segna</button><button class="tasto" id="spruzza" type="button">💧 Spruzza</button></div><div id="proInfo"></div></div>
     <canvas id="mappa" width="148" height="148"></canvas>
@@ -675,11 +680,31 @@ body { margin: 0; background: var(--fondo); color: var(--testo); font-family: va
   let riprese = [], proiezione = null, portaliMesh = [];
 
   const expo = (v, e = 0.55) => { const a = Math.abs(v) < 0.05 ? 0 : v; return (1 - e) * a + e * a * a * a; };
+  // tastiera graduale: tenendo premuto il tasto lo stick arriva in fondo in circa mezzo secondo (non di colpo)
+  const kb = { lx: 0, ly: 0, rx: 0, ry: 0, t: 0 };
+  let padVisto = false;
+  // controller (Xbox, PlayStation) o radiocomando collegato via USB: stick sinistro gas e rotazione, destro avanti e lato (Modo 2)
+  function leggiPad() {
+    const ps = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const p of ps) {
+      if (p && p.connected && p.axes && p.axes.length >= 4) {
+        const z = (v) => (Math.abs(v) < 0.07 ? 0 : Math.max(-1, Math.min(1, v)));
+        return { lx: z(p.axes[0]), ly: z(p.axes[1]), rx: z(p.axes[2]), ry: z(p.axes[3]) };
+      }
+    }
+    return null;
+  }
   function comandi() {
     const k = (a, b) => (tasti[a] ? 1 : 0) - (tasti[b] ? 1 : 0);
-    const ly = stick.S.y || -k("w", "s"), lx = stick.S.x || k("d", "a");
-    const ry = stick.D.y || -k("ArrowUp", "ArrowDown"), rx = stick.D.x || k("ArrowRight", "ArrowLeft");
-    return { su: -ly, ruota: lx, avanti: -ry, lato: rx };
+    const ora = performance.now(), dt = Math.min(0.1, (ora - (kb.t || ora)) / 1000); kb.t = ora;
+    const passo = (v, t) => { const r = (t === 0 ? 4 : 2.2) * dt; return v + Math.max(-r, Math.min(r, t - v)); };
+    kb.ly = passo(kb.ly, -k("w", "s")); kb.lx = passo(kb.lx, k("d", "a"));
+    kb.ry = passo(kb.ry, -k("ArrowUp", "ArrowDown")); kb.rx = passo(kb.rx, k("ArrowRight", "ArrowLeft"));
+    const pad = leggiPad();
+    if (pad && !padVisto) { padVisto = true; avviso("🎮 Controller collegato: stick sinistro sali, scendi e ruoti; destro avanti e di lato", 4500); }
+    const ly = stick.S.y || (pad && pad.ly) || kb.ly, lx = stick.S.x || (pad && pad.lx) || kb.lx;
+    const ry = stick.D.y || (pad && pad.ry) || kb.ry, rx = stick.D.x || (pad && pad.rx) || kb.rx;
+    return { su: -ly, ruota: lx, avanti: -ry, lato: rx, pad };
   }
 
   // ---------- drone con GPS: resta fermo quando lasci gli stick ----------
@@ -725,7 +750,8 @@ body { margin: 0; background: var(--fondo); color: var(--testo); font-family: va
     if (fpv.crash) return;
     const c = comandi();
     // il gas: con il dito resta dove lo lasci; da tastiera W e S lo spostano piano
-    if (stickGasDito) fpv.gas = Math.max(0, Math.min(1, (1 - stick.S.y) / 2));
+    if (c.pad && !stickGasDito) fpv.gas = Math.max(0, Math.min(1, (1 - c.pad.ly) / 2)); // col controller: stick al centro = sospeso
+    else if (stickGasDito) fpv.gas = Math.max(0, Math.min(1, (1 - stick.S.y) / 2));
     else if (tasti.w || tasti.s) {
       fpv.gas = Math.max(0, Math.min(1, fpv.gas + (tasti.w ? 0.32 : 0) * dt - (tasti.s ? 0.32 : 0) * dt));
       stick.S.y = 1 - 2 * fpv.gas; const r = $("stickS").clientWidth / 2 - 22;
@@ -1794,6 +1820,7 @@ body { margin: 0; background: var(--fondo); color: var(--testo); font-family: va
   }
   function inizia(k) {
     if (salaAperta) chiudiSala();
+    setTimeout(() => mostraTastiera(false), 0);
     applicaLook(false);
     manovra = k; const m = comuni[k];
     modoFpv = !!m.fpv;
@@ -2178,7 +2205,7 @@ body { margin: 0; background: var(--fondo); color: var(--testo); font-family: va
     const lista = Object.entries(comuni).filter(([k, m]) => proSc ? [].concat(m.solo || []).includes(scenario) || k === "libero" : (schedaMenu === "fpv") === !!m.fpv && !m.pro && (!m.solo || [].concat(m.solo).includes(scenario)));
     // dentro l'app: il tasto per tornare all'app, nella stessa scheda
     const nellApp = location.pathname.startsWith("/simulatore");
-    finestra(`<div class="carta">${nellApp ? `<a href="/" style="display:inline-block;margin:0 0 10px;font-family:var(--display);font-size:13px;color:var(--ambra);text-decoration:none">‹ Torna all'app EyeDrones</a>` : ""}<div class="occhiello">EyeDrones · simulatore</div><h1>Vola in regola</h1>
+    finestra(`<div class="carta">${nellApp ? `<a href="/" class="secondario" style="display:inline-block;margin:0 0 12px;padding:8px 14px;border:1px solid var(--ambra);border-radius:8px;font-family:var(--display);font-size:14px;font-weight:700;color:var(--ambra);text-decoration:none">‹ Torna all'app EyeDrones</a>` : ""}<div class="occhiello">EyeDrones · simulatore</div><h1>Vola in regola</h1>
       <p>Due stick come sul radiocomando (Modo 2). Scegli il posto e il tipo di volo, gira le tue riprese e poi montale tu, alla scrivania: colori con le LUT, ordine, tagli e musica.</p>
       <div class="riga" style="margin-bottom:4px"><button class="grande" id="vaiMissioni" type="button">🏆 Missioni · ${MISSIONI.filter((m) => fatte[m.id]).length}/${MISSIONI.length}</button><button class="secondario" id="vaiEsame" type="button">🎓 Prova d'esame</button></div>
       <h3>Dove voli</h3>
@@ -2267,7 +2294,22 @@ body { margin: 0; background: var(--fondo); color: var(--testo); font-family: va
     if (k === "e") { drone.gimbal = Math.max(-90, drone.gimbal - 3); window.mostraGimbal(); }
     if (e.key === " " && inVolo) $("rec").click();
     if (k === "m") avviso(musicaGioco.cambia() ? "🔇 Musica spenta" : "🔊 Musica accesa", 1500);
+    if (e.key === "Escape" && $("finestra").hidden) menu();
+    if (k === "h" && inVolo) { const t = $("tastiera"); if (t.hidden || t.style.opacity === "0") mostraTastiera(true); else t.style.opacity = "0"; }
   });
+  if (location.pathname.startsWith("/simulatore")) $("tornaApp").hidden = false;
+  // al computer: il promemoria dei tasti all'inizio di ogni volo
+  const alComputer = matchMedia("(pointer: fine)").matches;
+  function mostraTastiera(sempre) {
+    const t = $("tastiera");
+    if (!alComputer) { t.hidden = true; return; }
+    t.innerHTML = modoFpv
+      ? `<b>Tastiera</b> · <kbd>W</kbd><kbd>S</kbd> gas (resta dove lo lasci) · <kbd>A</kbd><kbd>D</kbd> ruoti · <kbd>↑</kbd><kbd>↓</kbd> avanti e indietro · <kbd>←</kbd><kbd>→</kbd> inclini di lato<br><kbd>Spazio</kbd> REC · <kbd>Esc</kbd> menu · <kbd>H</kbd> nascondi · con un controller o un radiocomando USB voli con gli stick veri`
+      : `<b>Tastiera</b> · <kbd>W</kbd><kbd>S</kbd> sali e scendi · <kbd>A</kbd><kbd>D</kbd> ruoti · <kbd>↑</kbd><kbd>↓</kbd> avanti e indietro · <kbd>←</kbd><kbd>→</kbd> di lato · <kbd>Q</kbd><kbd>E</kbd> camera<br>Tieni premuto per andare più veloce · <kbd>Spazio</kbd> REC · <kbd>Esc</kbd> menu · <kbd>H</kbd> nascondi · funziona anche con un controller o un radiocomando USB`;
+    t.hidden = false; t.style.opacity = "1";
+    clearTimeout(mostraTastiera.t);
+    if (!sempre) mostraTastiera.t = setTimeout(() => { t.style.opacity = "0"; }, 12000);
+  }
   window.addEventListener("keyup", (e) => { tasti[e.key.length === 1 ? e.key.toLowerCase() : e.key] = false; });
   $("rec").onclick = () => { if (!inVolo) return; registra ? fermaRegistrazione(modoFpv && fpv.crash ? "crash" : null) : avviaRegistrazione(); };
   $("velocita").onclick = () => {
@@ -2278,7 +2320,7 @@ body { margin: 0; background: var(--fondo); color: var(--testo); font-family: va
   $("menu").onclick = menu;
   $("riprese").onclick = elencoRiprese;
 
-  function finestra(html) { $("finestra").innerHTML = html; $("finestra").hidden = false; $("finestra").scrollTop = 0; inVolo = false; }
+  function finestra(html) { const tt = $("tastiera"); if (tt) tt.hidden = true; $("finestra").innerHTML = html; $("finestra").hidden = false; $("finestra").scrollTop = 0; inVolo = false; }
   function chiudiFinestra() { $("finestra").hidden = true; }
   function avviso(t, ms = 2400, raro) {
     if (raro && performance.now() - ultimoAvv < 1500) return;
