@@ -5,11 +5,14 @@ const visti = new Set();
 const pulisci = (t, max) => String(t || "").replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]").slice(0, max);
 // errori del browser, di estensioni o dei browser interni delle app (Instagram, Facebook, traduttori) che non dipendono dall'app
 const DA_IGNORARE = /ResizeObserver loop|Script error\.?$|extension:\/\/|Non-Error promise rejection|AbortError|The user aborted|Load failed$|__KVARS__|__gCrWeb|webkit\.messageHandlers|No Listener: tabs:/i;
+const DA_FILE_ESTERNI = /^(iabjs|chrome-extension|moz-extension|safari-(web-)?extension):/i;
 
 export function installaSegnalazioneErrori(supabase) {
   const segnala = (errore, extra = "") => {
     try {
       const messaggio = pulisci(errore?.message || errore, 500);
+      // script aggiunti dal browser interno di altre app (es. iabjs://browser_declutter): non sono errori nostri
+      if (DA_FILE_ESTERNI.test(String(extra || "").trim()) || /iabjs:\/\//i.test(String(errore?.stack || ""))) return;
       // durante la ricarica dopo un aggiornamento i pezzi vecchi falliscono di sicuro: non è un errore vero
       if (window.__eyedronesInRicarica) return;
       if (!messaggio || DA_IGNORARE.test(messaggio) || visti.has(messaggio) || inviati >= 10) return;
