@@ -2021,6 +2021,8 @@ function AppShell({ session }) {
   const [batterie, setBatterie] = useState([]);
   const [eventiVolo, setEventiVolo] = useState([]);
   const [dflightScadenza, setDflightScadenza] = useState(undefined); // undefined = colonna non ancora creata dallo script SQL
+  const [lavoriAperti, setLavoriAperti] = useState(0); // lavori di «Trova un pilota» nella sua provincia senza la sua offerta
+  const [schedaPagina, setSchedaPagina] = useState(vaiARichieste ? "richieste" : "pagina");
   const [richiesteNuove, setRichiesteNuove] = useState(0); // richieste di preventivo arrivate dalla pagina pubblica e non ancora aperte
   const [bozzaPreventivo, setBozzaPreventivo] = useState(null); // richiesta da trasformare in preventivo
   const [loading, setLoading] = useState(true);
@@ -2103,6 +2105,10 @@ function AppShell({ session }) {
   const caricaRichiesteNuove = async () => {
     const { count } = await supabase.from("richieste_preventivo").select("id", { count: "exact", head: true }).eq("stato", "nuova");
     setRichiesteNuove(count || 0);
+    // lavori di «Trova un pilota» nella sua provincia ancora aperti e senza la sua offerta (se non ha la pagina: lista vuota)
+    supabase.rpc("lavori_in_zona").then(({ data, error }) => {
+      setLavoriAperti(!error && Array.isArray(data) ? data.filter((l) => l.stato === "aperta" && !l.mia).length : 0);
+    }, () => {});
   };
 
   const [clienti, setClienti] = useState([]);
@@ -2218,6 +2224,8 @@ function AppShell({ session }) {
   const vai = (chiave) => {
     if (chiave === "galleria") { setVistaVoli("galleria"); setPage("registro-voli"); return; }
     if (chiave === "registro-voli") setVistaVoli("voli");
+    // «La mia pagina» dal menu: se ci sono richieste nuove apre subito quelle
+    if (chiave === "pagina-pilota") setSchedaPagina(richiesteNuove > 0 || lavoriAperti > 0 ? "richieste" : "pagina");
     setPage(chiave);
   };
   const paginaMenu = page === "registro-voli" && vistaVoli === "galleria" ? "galleria" : page;
@@ -2400,7 +2408,7 @@ function AppShell({ session }) {
           </div>
         )}
         {page !== "dashboard" && <BarraPrimiPassi pagina={page} droni={droni} attestati={attestati} voli={voliDashboard} preventivi={preventivi} onNav={vai} />}
-        {page === "dashboard" && <Dashboard spazio={spazioAperto} cartelle={allaRadice ? spazi : null} onEntraSpazio={entraNelloSpazio} impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} nomeSaluto={azienda.nomeImpostato ? azienda.nome : ""} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "dashboard" && <Dashboard spazio={spazioAperto} cartelle={allaRadice ? spazi : null} onEntraSpazio={entraNelloSpazio} impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} nomeSaluto={azienda.nomeImpostato ? azienda.nome : ""} richiesteNuove={richiesteNuove} lavoriAperti={lavoriAperti} onApriRichieste={() => { setSchedaPagina("richieste"); setPage("pagina-pilota"); window.scrollTo(0, 0); }} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
@@ -2457,7 +2465,7 @@ function AppShell({ session }) {
         {page === "clienti" && <Clienti clienti={clienti} preventivi={preventivi} onCambiati={caricaClienti} onApriPreventivi={() => setPage("preventivi")} />}
         <datalist id="rubrica-clienti">{clienti.map((c) => <option key={c.id} value={c.nome} />)}</datalist>
         {page === "preventivi" && <Preventivi preventivi={preventivi} clienti={clienti} onClientiCambiati={caricaClienti} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
-        {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} onPermessi={() => setPage("permessi")} onVai={(x) => { setPage(x); window.scrollTo(0, 0); }} />}
+        {page === "pagina-pilota" && <LaMiaPagina key={schedaPagina} schedaIniziale={schedaPagina} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} onPermessi={() => setPage("permessi")} onVai={(x) => { setPage(x); window.scrollTo(0, 0); }} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} droni={droni} emailUtente={session.user.email} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} obiettivoFormativo={obiettivoFormativo} onSalvaObiettivo={salvaObiettivoFormativo} />}
@@ -3900,7 +3908,7 @@ function ConsiglioDelGiorno() {
   );
 }
 
-function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [], nomeSaluto }) {
+function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [], nomeSaluto, richiesteNuove = 0, lavoriAperti = 0, onApriRichieste }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
 
@@ -3991,6 +3999,23 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         <VoloHero data={oggi} titolo={<>{saluto}{nomeSaluto ? <>,<br />{nomeSaluto}</> : ""}.</>} sottotitolo={sottotitolo}>
           <SiVolaQui />
         </VoloHero>
+
+        {/* richieste dei clienti e lavori nella sua provincia: la prima cosa che vede */}
+        {onApriRichieste && (richiesteNuove > 0 || lavoriAperti > 0) && (
+          <button type="button" onClick={onApriRichieste} className="home-richieste" style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "linear-gradient(90deg, #e0552f26, #ff8c421a)", border: "1px solid #ff8c42", borderRadius: 12, padding: "14px 16px", marginBottom: 18, color: "#e7eaee", cursor: "pointer" }}>
+            <span style={{ fontSize: 26 }}>{richiesteNuove > 0 ? "📩" : "📍"}</span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>
+                {[richiesteNuove > 0 && (richiesteNuove === 1 ? "Hai una richiesta di preventivo nuova" : `Hai ${richiesteNuove} richieste di preventivo nuove`),
+                  lavoriAperti > 0 && (richiesteNuove > 0
+                    ? (lavoriAperti === 1 ? "un lavoro nella tua provincia" : `${lavoriAperti} lavori nella tua provincia`)
+                    : (lavoriAperti === 1 ? "C'è un lavoro nella tua provincia" : `Ci sono ${lavoriAperti} lavori nella tua provincia`))].filter(Boolean).join(" e ")}
+              </span>
+              <span style={{ display: "block", fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{richiesteNuove > 0 ? "Un cliente aspetta la tua risposta: apri e prepara il preventivo." : "Guarda il lavoro e manda la tua offerta prima degli altri."}</span>
+            </span>
+            <span style={{ background: "#ff8c42", color: "#10141f", fontWeight: 800, fontSize: 13, borderRadius: 8, padding: "7px 10px", whiteSpace: "nowrap" }}>Apri ›</span>
+          </button>
+        )}
 
         {/* la missione del giorno (o il prossimo volo) */}
         {onApriPiano && <ProssimoVolo droni={droni} batterie={batterie} onApriPiano={onApriPiano} onDocumenti={onDocumentiPiano} onRegistra={onRegistraDaPiano} />}
