@@ -12877,6 +12877,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
           <div ref={campi.servizi} style={{ ...sezione, ...bordoErrore("servizi") }}>
             <h2 style={titoloSezione}>Servizi che offri</h2>
             {avvisoCampo("servizi", "Tocca almeno un servizio che offri.")}
+            <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "0 0 8px" }}>Spunta tutti i servizi che fai: da «Trova un pilota» ti arrivano i lavori di questi servizi.</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {[...SERVIZI_PILOTA, ...f.servizi.filter((s) => !SERVIZI_PILOTA.includes(s))].map((s) => (
                 <button key={s} type="button" aria-pressed={f.servizi.includes(s)} onClick={() => alterna("servizi", s)} style={chip(f.servizi.includes(s))}>{f.servizi.includes(s) ? "✓ " : ""}{s}</button>
@@ -16418,7 +16419,7 @@ function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "" }) {
             <label style={{ fontSize: 12, color: "#8b95a3", display: "grid", gap: 4, flex: "1 1 150px" }}>Provincia<select id="attiva-provincia" value={f.provincia} onChange={(e) => setF({ ...f, provincia: e.target.value })} style={sc}><option value="">Scegli…</option>{PROVINCE_IN_ORDINE.map(([sg, n]) => <option key={sg} value={sg}>{n}</option>)}</select></label>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 6 }}>Cosa fai</div>
+            <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 6 }}>Cosa fai <span style={{ opacity: .8 }}>· ti arrivano i lavori di questi servizi</span></div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {SERVIZI_PILOTA.map((sv) => <button key={sv} type="button" onClick={() => alterna(sv)} aria-pressed={f.servizi.includes(sv)} style={{ background: f.servizi.includes(sv) ? "#ff8c4222" : "none", border: `1px solid ${f.servizi.includes(sv) ? "#ff8c42" : "#343e57"}`, color: f.servizi.includes(sv) ? "#ffb48f" : "#c3cad4", borderRadius: 14, padding: "5px 10px", fontSize: 12 }}>{sv}</button>)}
             </div>

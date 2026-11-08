@@ -272,6 +272,28 @@ begin
 end; $$;
 revoke all on function privato.scadi_scelte() from public, anon, authenticated;
 
+-- il lavoro va ai piloti che fanno quel servizio (stessa lista per cliente e pilota). Chi ha «Riprese aeree foto e video»
+-- riceve anche matrimoni, case, video per aziende ed FPV. «Altro», servizio vuoto o pilota senza servizi: va a tutti.
+-- Se in provincia nessuno fa quel servizio, va a tutti i piloti della provincia (nessun cliente resta senza risposta).
+create or replace function privato.fa_servizio(p_servizi text[], p_servizio text)
+returns boolean language sql immutable as $$
+  select p_servizio = any(coalesce(p_servizi, '{}'))
+    or ('Riprese aeree foto e video' = any(coalesce(p_servizi, '{}'))
+        and p_servizio in ('Matrimoni ed eventi', 'Immobiliare e turismo', 'Video per aziende', 'Riprese FPV'));
+$$;
+revoke all on function privato.fa_servizio(text[], text) from public, anon, authenticated;
+
+create or replace function privato.pilota_adatto(p_servizi text[], p_servizio text, p_provincia text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce(btrim(p_servizio), '') in ('', 'Altro')
+    or cardinality(coalesce(p_servizi, '{}')) = 0
+    or privato.fa_servizio(p_servizi, p_servizio)
+    or not exists (select 1 from public.pagine_pilota x
+                   where x.attiva and x.in_elenco and x.scelte_decadute < 2 and not x.escluso_trova
+                     and x.provincia = p_provincia and privato.fa_servizio(x.servizi, p_servizio));
+$$;
+revoke all on function privato.pilota_adatto(text[], text, text) from public, anon, authenticated;
+
 -- 4) i piloti di una provincia: solo i dati pubblici, senza contatti né indirizzo della pagina
 create or replace function public.piloti_in_zona(p_provincia text)
 returns json
@@ -350,7 +372,8 @@ begin
   select coalesce(jsonb_agg(privato.pilota_contatto(g.user_id)->>'email') filter (where privato.pilota_contatto(g.user_id)->>'email' is not null), '[]'::jsonb)
     into v_piloti
   from public.pagine_pilota g
-  where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and g.provincia = v_prov and coalesce(g.avviso_email, true);
+  where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and g.provincia = v_prov and coalesce(g.avviso_email, true)
+    and privato.pilota_adatto(g.servizi, v_z.servizio, v_prov);
 
   perform privato.avvisa_lavori(jsonb_build_object('tipo', 'nuovo_lavoro', 'piloti', v_piloti,
     'servizio', v_z.servizio, 'luogo', v_z.luogo, 'data_desiderata', v_z.data_desiderata,
@@ -507,6 +530,7 @@ begin
       and (
         -- aperte: se non è stato escluso, la data non è passata e c'è ancora posto (o ha già offerto)
         (z.stato = 'aperta' and g.scelte_decadute < 2 and not g.escluso_trova and (z.data_desiderata is null or z.data_desiderata >= current_date)
+          and (z.pilota_diretto = v_uid or privato.pilota_adatto(g.servizi, z.servizio, z.provincia))
           and ((select count(*) from public.offerte_zona x where x.richiesta_id = z.id and x.stato <> 'decaduta') < 8
                or exists (select 1 from public.offerte_zona x where x.richiesta_id = z.id and x.user_id = v_uid)))
         -- e tutte quelle dove ha fatto un'offerta, per sapere com'è andata
