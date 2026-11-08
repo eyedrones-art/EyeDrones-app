@@ -124,9 +124,11 @@ function componiEmail(d) {
       titolo: `Ciao ${nome || ""}, ci siamo!`,
       sottotitolo: d.diretto_pilota
         ? `La tua richiesta è arrivata a ${pulisci(d.diretto_pilota, 80)}. Ti scriviamo appena manda l'offerta.`
-        : n > 0
+        : n > 0 && d.regione
+          ? `Nella tua provincia non ci sono ancora piloti: l'abbiamo girata a ${n === 1 ? "1 pilota" : `${n} piloti`} della regione ${pulisci(d.regione, 40)}. Ti scriviamo appena arriva un'offerta.`
+          : n > 0
           ? `La tua richiesta è arrivata a ${n === 1 ? "1 pilota" : `${n} piloti`} della tua provincia. Ti scriviamo appena arriva un'offerta.`
-          : "Nella tua provincia i piloti stanno arrivando ora: ti scriviamo appena arriva la prima offerta.",
+          : "Nella tua zona non ci sono ancora piloti iscritti per questo lavoro: cerchiamo noi un pilota per te e ti scriviamo appena arriva un'offerta.",
       bottone: { href: linkOfferte, testo: "Vedi le offerte" },
       secondo: miei,
       nota: "Conserva questa email: il link è solo tuo. Confronti le offerte, scegli il pilota che preferisci e solo allora vi scambiate i contatti. È gratis e senza impegno.",
@@ -243,7 +245,7 @@ async function avvisaTelegram(d) {
   if (!token || !chat) return;
   const prov = pulisci(d.provincia, 4).toUpperCase();
   let testo = null;
-  if (d.tipo === "richiesta_inviata") testo = `📍 Nuova richiesta su «Trova un pilota» in provincia di ${prov || "?"} · piloti avvisati: ${Number(d.piloti) || 0}${Number(d.piloti) ? "" : " ⚠️ nessun pilota in zona"}`;
+  if (d.tipo === "richiesta_inviata") testo = `📍 Nuova richiesta su «Trova un pilota» in provincia di ${prov || "?"} · piloti avvisati: ${Number(d.piloti) || 0}${d.regione ? ` (girata alla regione ${pulisci(d.regione, 40)})` : ""}${Number(d.piloti) ? "" : " ⚠️ nessun pilota in zona"}`;
   else if (d.tipo === "confermato") testo = `✅ Lavoro confermato su «Trova un pilota»${Number(d.prezzo) ? ` · ${euro(d.prezzo)}` : ""}`;
   else if (d.tipo === "problema") {
     const MOTIVI = { non_paga: "il cliente non paga", sparito: "il cliente è sparito", non_presentato: "il pilota non si è presentato", non_consegna: "il pilota non consegna", altro: "altro" };

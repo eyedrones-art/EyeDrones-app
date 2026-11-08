@@ -2021,6 +2021,8 @@ function AppShell({ session }) {
   const [batterie, setBatterie] = useState([]);
   const [eventiVolo, setEventiVolo] = useState([]);
   const [dflightScadenza, setDflightScadenza] = useState(undefined); // undefined = colonna non ancora creata dallo script SQL
+  const [lavoriAperti, setLavoriAperti] = useState(0); // lavori di «Trova un pilota» nella sua provincia senza la sua offerta
+  const [schedaPagina, setSchedaPagina] = useState(vaiARichieste ? "richieste" : "pagina");
   const [richiesteNuove, setRichiesteNuove] = useState(0); // richieste di preventivo arrivate dalla pagina pubblica e non ancora aperte
   const [bozzaPreventivo, setBozzaPreventivo] = useState(null); // richiesta da trasformare in preventivo
   const [loading, setLoading] = useState(true);
@@ -2103,6 +2105,12 @@ function AppShell({ session }) {
   const caricaRichiesteNuove = async () => {
     const { count } = await supabase.from("richieste_preventivo").select("id", { count: "exact", head: true }).eq("stato", "nuova");
     setRichiesteNuove(count || 0);
+    // lavori di «Trova un pilota» nella sua provincia ancora aperti e senza la sua offerta (se non ha la pagina: lista vuota)
+    supabase.rpc("lavori_in_zona").then(({ data, error }) => {
+      let visti = [];
+      try { visti = JSON.parse(localStorage.getItem(CHIAVE_LAVORI_VISTI) || "[]"); } catch { /* niente */ }
+      setLavoriAperti(!error && Array.isArray(data) ? data.filter((l) => l.stato === "aperta" && !l.mia && !visti.includes(l.id)).length : 0);
+    }, () => {});
   };
 
   const [clienti, setClienti] = useState([]);
@@ -2171,6 +2179,11 @@ function AppShell({ session }) {
     setLoading(false);
   };
 
+  useEffect(() => {
+    const aggiorna = () => caricaRichiesteNuove();
+    window.addEventListener("eyedrones-lavori-visti", aggiorna);
+    return () => window.removeEventListener("eyedrones-lavori-visti", aggiorna);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { caricaProfilo(); loadData(); caricaVoli(); caricaBatterie(); caricaEventiVolo(); caricaRichiesteNuove(); caricaClienti(); }, []);
 
   // un segno al giorno quando l'app viene usata (tabella uso_giornaliero, script supabase/uso-giornaliero.sql):
@@ -2218,6 +2231,8 @@ function AppShell({ session }) {
   const vai = (chiave) => {
     if (chiave === "galleria") { setVistaVoli("galleria"); setPage("registro-voli"); return; }
     if (chiave === "registro-voli") setVistaVoli("voli");
+    // «La mia pagina» dal menu: se ci sono richieste nuove apre subito quelle
+    if (chiave === "pagina-pilota") setSchedaPagina(richiesteNuove > 0 || lavoriAperti > 0 ? "richieste" : "pagina");
     setPage(chiave);
   };
   const paginaMenu = page === "registro-voli" && vistaVoli === "galleria" ? "galleria" : page;
@@ -2400,7 +2415,7 @@ function AppShell({ session }) {
           </div>
         )}
         {page !== "dashboard" && <BarraPrimiPassi pagina={page} droni={droni} attestati={attestati} voli={voliDashboard} preventivi={preventivi} onNav={vai} />}
-        {page === "dashboard" && <Dashboard spazio={spazioAperto} cartelle={allaRadice ? spazi : null} onEntraSpazio={entraNelloSpazio} impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} nomeSaluto={azienda.nomeImpostato ? azienda.nome : ""} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "dashboard" && <Dashboard spazio={spazioAperto} cartelle={allaRadice ? spazi : null} onEntraSpazio={entraNelloSpazio} impianti={impiantiConStat} loading={loading} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} onNuova={() => setPage("nuova")} numIspezioni={ispezioni.length} usaIspezioni={usaIspezioni} usaRiprese={usaRiprese} moduli={moduli} onSalvaModuli={salvaModuli} voli={voliDashboard} attestati={attestati} droni={droni} batterie={batterie} onNav={vai} onNuovoVolo={() => { setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} onAggiungiFile={(files) => { setFileRapidi(files); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} eventiVolo={eventiVolo} dflightScadenza={dflightScadenza} onApriPiano={(id) => { setPianoDaAprire(id); setPage("pianificazione"); }} onDocumentiPiano={(id) => { setPianoDaAprire(id); setPage("documenti-controllo"); }} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} preventivi={preventivi} nomeSaluto={azienda.nomeImpostato ? azienda.nome : ""} richiesteNuove={richiesteNuove} lavoriAperti={lavoriAperti} onApriRichieste={() => { setSchedaPagina("richieste"); setPage("pagina-pilota"); window.scrollTo(0, 0); }} onRegistraDaPiano={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "impianti" && <ListaImpianti impianti={impiantiConStat} loading={loading} onReload={loadData} onOpenImpianto={(i) => { setImpiantoAttivo(i); setPage("impianto"); }} ispezioni={ispezioni} fotoAll={fotoAll} />}
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
@@ -2457,7 +2472,7 @@ function AppShell({ session }) {
         {page === "clienti" && <Clienti clienti={clienti} preventivi={preventivi} onCambiati={caricaClienti} onApriPreventivi={() => setPage("preventivi")} />}
         <datalist id="rubrica-clienti">{clienti.map((c) => <option key={c.id} value={c.nome} />)}</datalist>
         {page === "preventivi" && <Preventivi preventivi={preventivi} clienti={clienti} onClientiCambiati={caricaClienti} azienda={azienda} piano={piano} onReload={loadData} onVaiAbbonamento={() => setPage("abbonamento")} bozza={bozzaPreventivo} onBozzaUsata={() => setBozzaPreventivo(null)} />}
-        {page === "pagina-pilota" && <LaMiaPagina schedaIniziale={vaiARichieste ? "richieste" : "pagina"} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} onPermessi={() => setPage("permessi")} onVai={(x) => { setPage(x); window.scrollTo(0, 0); }} />}
+        {page === "pagina-pilota" && <LaMiaPagina key={schedaPagina} schedaIniziale={schedaPagina} azienda={azienda} attestati={attestati} piano={piano} onRichiesteCambiate={caricaRichiesteNuove} onCreaPreventivo={(r) => { setBozzaPreventivo(r); setPage("preventivi"); }} onPermessi={() => setPage("permessi")} onVai={(x) => { setPage(x); window.scrollTo(0, 0); }} />}
         {page === "batterie" && <Batterie batterie={batterie} droni={droni} piano={piano} onReload={caricaBatterie} onVaiAbbonamento={() => setPage("abbonamento")} />}
         {page === "permessi" && <Permessi permessi={permessi} impianti={impianti} azienda={azienda} piano={piano} onReload={loadData} droni={droni} emailUtente={session.user.email} />}
         {page === "attestati" && <Attestati attestati={attestati} azienda={azienda} onReload={loadData} obiettivoFormativo={obiettivoFormativo} onSalvaObiettivo={salvaObiettivoFormativo} />}
@@ -2478,6 +2493,7 @@ const CHIAVE_PRIMI_PASSI_VECCHIA = "eyedrones_primi_passi_chiuso";
 const CHIAVE_PRIMI_PASSI_RIMANDA = "eyedrones_primi_passi_rimanda"; // data fino a cui resta nascosto
 const CHIAVE_GUIDA = "eyedrones_guida_passo"; // il passo aperto dalla guida (per la barra nelle altre pagine)
 const CHIAVE_CONTROLLO_PROVATO = "eyedrones_controllo_provato";
+const CHIAVE_LAVORI_VISTI = "eyedrones_lavori_visti"; // lavori di «Trova un pilota» già visti dal pilota
 const leggiLocale = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const scriviLocale = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* niente */ } };
 
@@ -3900,10 +3916,12 @@ function ConsiglioDelGiorno() {
   );
 }
 
-function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [], nomeSaluto }) {
+function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenImpianto, onNuova, numIspezioni, usaIspezioni, usaRiprese, moduli, onSalvaModuli, voli, attestati, droni, batterie, onNav, onNuovoVolo, onAggiungiFile, eventiVolo, dflightScadenza, onApriPiano, onDocumentiPiano, onRegistraDaPiano, onControllo, preventivi = [], nomeSaluto, richiesteNuove = 0, lavoriAperti = 0, onApriRichieste }) {
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
 
+  // chi è appena arrivato (nessun drone e nessun volo) vede una Home corta: primi passi, pagina pilota e poco altro
+  const appenaArrivato = (voli || []).length === 0 && (droni || []).length === 0;
   const minutiVoli = voli.reduce((s, v) => s + (Number(v.durata_minuti) || 0), 0);
   const annoCorrente = String(new Date().getFullYear());
   const voliAnno = voli.filter((v) => (v.data || "").startsWith(annoCorrente)).length;
@@ -3992,6 +4010,23 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
           <SiVolaQui />
         </VoloHero>
 
+        {/* richieste dei clienti e lavori nella sua provincia: la prima cosa che vede */}
+        {onApriRichieste && (richiesteNuove > 0 || lavoriAperti > 0) && (
+          <button type="button" onClick={onApriRichieste} className="home-richieste" style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "linear-gradient(90deg, #e0552f26, #ff8c421a)", border: "1px solid #ff8c42", borderRadius: 12, padding: "14px 16px", marginBottom: 18, color: "#e7eaee", cursor: "pointer" }}>
+            <span style={{ fontSize: 26 }}>{richiesteNuove > 0 ? "📩" : "📍"}</span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>
+                {[richiesteNuove > 0 && (richiesteNuove === 1 ? "Hai una richiesta di preventivo nuova" : `Hai ${richiesteNuove} richieste di preventivo nuove`),
+                  lavoriAperti > 0 && (richiesteNuove > 0
+                    ? (lavoriAperti === 1 ? "un lavoro nella tua provincia" : `${lavoriAperti} lavori nella tua provincia`)
+                    : (lavoriAperti === 1 ? "C'è un lavoro nella tua provincia" : `Ci sono ${lavoriAperti} lavori nella tua provincia`))].filter(Boolean).join(" e ")}
+              </span>
+              <span style={{ display: "block", fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{richiesteNuove > 0 ? "Un cliente aspetta la tua risposta: apri e prepara il preventivo." : "Guarda il lavoro e manda la tua offerta prima degli altri."}</span>
+            </span>
+            <span style={{ background: "#ff8c42", color: "#10141f", fontWeight: 800, fontSize: 13, borderRadius: 8, padding: "7px 10px", whiteSpace: "nowrap" }}>Apri ›</span>
+          </button>
+        )}
+
         {/* la missione del giorno (o il prossimo volo) */}
         {onApriPiano && <ProssimoVolo droni={droni} batterie={batterie} onApriPiano={onApriPiano} onDocumenti={onDocumentiPiano} onRegistra={onRegistraDaPiano} />}
 
@@ -4013,9 +4048,10 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         {bloccoScadenze}
         <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
         {(droni || []).length > 0 && <AvvisoWeekend inHome />}
-        {((voli || []).length > 0 || (droni || []).length > 0) && <InvitoPaginaPilota onNav={onNav} nome={nomeSaluto} />}
+        {/* la pagina pilota a tutti: senza pagina non arrivano i lavori di «Trova un pilota» */}
+        <InvitoPaginaPilota onNav={onNav} nome={nomeSaluto} />
         {(voli || []).length > 0 && <CommunityPosti voli={voli} />}
-        <ConsiglioDelGiorno />
+        {!appenaArrivato && <ConsiglioDelGiorno />}
 
         {cartelle && <Cartelle spazi={cartelle} impianti={impianti} voli={voli} onApri={onEntraSpazio} onAggiungi={() => onNav("impostazioni")} />}
 
@@ -4034,7 +4070,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
           </div>
         )}
 
-        <InvitoImpronta />
+        {!appenaArrivato && <InvitoImpronta />}
         <NotamFiniti />
         {/* le novità servono a chi usa già l'app: a chi è appena arrivato è tutto nuovo */}
         {(voli.length > 0 || droni.length > 0) && <RiquadroNovita onVai={onNav} />}
@@ -4043,7 +4079,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
 
         <div className="home-due">
           <div style={{ minWidth: 0 }}>
-            <Suspense fallback={null}><UltimaNotizia onTutte={() => vaiA({ pagina: "impara", scheda: "notizie" })} /></Suspense>
+            {!appenaArrivato && <Suspense fallback={null}><UltimaNotizia onTutte={() => vaiA({ pagina: "impara", scheda: "notizie" })} /></Suspense>}
           </div>
           {(numeri.length > 0 || loading) && <div style={{ ...scheda, minWidth: 0, marginBottom: 22 }}>
             <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 10 }}>📊 In numeri</div>
@@ -10978,7 +11014,7 @@ function TrovaPilota() {
       setInvio(/email non valida/i.test(m) ? "L'indirizzo email non sembra corretto." : /troppe richieste/i.test(m) ? "Hai già inviato diverse richieste: controlla la tua email." : "Invio non riuscito: controlla la connessione e riprova.");
       return;
     }
-    setInvio({ codice: data?.codice || null, piloti: Number(data?.piloti) || 0 });
+    setInvio({ codice: data?.codice || null, piloti: Number(data?.piloti) || 0, regione: data?.regione || null });
     setTimeout(vaiAlModulo, 50);
   };
 
@@ -11103,9 +11139,11 @@ function TrovaPilota() {
               <div style={{ fontSize: 46 }}>🎉</div>
               <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 22, margin: "6px 0 8px 0" }}>Richiesta inviata!</h2>
               <p style={{ fontSize: 15, color: "#4a433c", lineHeight: 1.55, margin: "0 0 16px 0" }}>
-                {invio.piloti > 0
+                {invio.regione && invio.piloti > 0
+                  ? <>In provincia di {nomeProvincia} non ci sono ancora piloti: l'abbiamo girata {invio.piloti === 1 ? "al pilota" : `ai ${invio.piloti} piloti`} della regione <strong>{invio.regione}</strong>. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
+                  : invio.piloti > 0
                   ? <>È arrivata a <strong>{invio.piloti === 1 ? "1 pilota" : `${invio.piloti} piloti`}</strong> della provincia di {nomeProvincia}. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
-                  : <>I piloti della provincia di {nomeProvincia} stanno arrivando: ti scriviamo a <strong>{modulo.email}</strong> appena arriva la prima offerta.</>}
+                  : <>Nella tua zona non ci sono ancora piloti iscritti per questo lavoro: cerchiamo noi un pilota per te e ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>}
               </p>
               {invio.codice && <a href={`/offerte/${invio.codice}`} style={CLIENTE.bottone}>Vai alle tue offerte</a>}
               <p style={{ fontSize: 12.5, color: "#8a8076", margin: "14px 0 0 0" }}>Conserva l'email che ti abbiamo mandato: il link alle offerte è solo tuo.</p>
@@ -12123,6 +12161,10 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   const carica = async () => {
     const { data, error } = await supabase.rpc("lavori_in_zona");
     setLavori(error ? null : Array.isArray(data) ? data : []);
+    // visti: il riquadro in Home non li conta più come nuovi
+    if (!error && Array.isArray(data)) {
+      try { localStorage.setItem(CHIAVE_LAVORI_VISTI, JSON.stringify(data.map((l) => l.id).slice(0, 200))); window.dispatchEvent(new Event("eyedrones-lavori-visti")); } catch { /* niente */ }
+    }
     supabase.rpc("storia_clienti_zona").then(({ data: st }) => st && typeof st === "object" && setStoria(st), () => {});
     return Array.isArray(data) ? data : [];
   };
@@ -12852,6 +12894,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
           <div ref={campi.servizi} style={{ ...sezione, ...bordoErrore("servizi") }}>
             <h2 style={titoloSezione}>Servizi che offri</h2>
             {avvisoCampo("servizi", "Tocca almeno un servizio che offri.")}
+            <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "0 0 8px" }}>Spunta tutti i servizi che fai: da «Trova un pilota» ti arrivano i lavori di questi servizi.</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {[...SERVIZI_PILOTA, ...f.servizi.filter((s) => !SERVIZI_PILOTA.includes(s))].map((s) => (
                 <button key={s} type="button" aria-pressed={f.servizi.includes(s)} onClick={() => alterna("servizi", s)} style={chip(f.servizi.includes(s))}>{f.servizi.includes(s) ? "✓ " : ""}{s}</button>
@@ -16393,7 +16436,7 @@ function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "" }) {
             <label style={{ fontSize: 12, color: "#8b95a3", display: "grid", gap: 4, flex: "1 1 150px" }}>Provincia<select id="attiva-provincia" value={f.provincia} onChange={(e) => setF({ ...f, provincia: e.target.value })} style={sc}><option value="">Scegli…</option>{PROVINCE_IN_ORDINE.map(([sg, n]) => <option key={sg} value={sg}>{n}</option>)}</select></label>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 6 }}>Cosa fai</div>
+            <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 6 }}>Cosa fai <span style={{ opacity: .8 }}>· ti arrivano i lavori di questi servizi</span></div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {SERVIZI_PILOTA.map((sv) => <button key={sv} type="button" onClick={() => alterna(sv)} aria-pressed={f.servizi.includes(sv)} style={{ background: f.servizi.includes(sv) ? "#ff8c4222" : "none", border: `1px solid ${f.servizi.includes(sv) ? "#ff8c42" : "#343e57"}`, color: f.servizi.includes(sv) ? "#ffb48f" : "#c3cad4", borderRadius: 14, padding: "5px 10px", fontSize: 12 }}>{sv}</button>)}
             </div>
