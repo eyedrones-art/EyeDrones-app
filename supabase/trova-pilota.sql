@@ -73,6 +73,130 @@ alter table public.richieste_zona add column if not exists lon_esatta numeric(9,
 alter table public.richieste_zona add column if not exists budget text;
 -- «Richiedi di nuovo»: la richiesta va solo al pilota con cui il cliente ha già lavorato
 alter table public.richieste_zona add column if not exists pilota_diretto uuid references auth.users(id) on delete set null;
+-- provincia senza piloti: la richiesta va ai piloti della stessa regione
+alter table public.richieste_zona add column if not exists in_regione boolean not null default false;
+
+-- province e regioni (per girare la richiesta alla regione quando la provincia non ha piloti)
+create table if not exists privato.regioni (sigla text primary key, regione text not null);
+revoke all on privato.regioni from public, anon, authenticated;
+insert into privato.regioni (sigla, regione) values
+  ('AL', 'Piemonte'),
+  ('AT', 'Piemonte'),
+  ('BI', 'Piemonte'),
+  ('CN', 'Piemonte'),
+  ('NO', 'Piemonte'),
+  ('TO', 'Piemonte'),
+  ('VB', 'Piemonte'),
+  ('VC', 'Piemonte'),
+  ('AO', 'Valle d''Aosta'),
+  ('BG', 'Lombardia'),
+  ('BS', 'Lombardia'),
+  ('CO', 'Lombardia'),
+  ('CR', 'Lombardia'),
+  ('LC', 'Lombardia'),
+  ('LO', 'Lombardia'),
+  ('MB', 'Lombardia'),
+  ('MI', 'Lombardia'),
+  ('MN', 'Lombardia'),
+  ('PV', 'Lombardia'),
+  ('SO', 'Lombardia'),
+  ('VA', 'Lombardia'),
+  ('BZ', 'Trentino-Alto Adige'),
+  ('TN', 'Trentino-Alto Adige'),
+  ('BL', 'Veneto'),
+  ('PD', 'Veneto'),
+  ('RO', 'Veneto'),
+  ('TV', 'Veneto'),
+  ('VE', 'Veneto'),
+  ('VI', 'Veneto'),
+  ('VR', 'Veneto'),
+  ('GO', 'Friuli-Venezia Giulia'),
+  ('PN', 'Friuli-Venezia Giulia'),
+  ('TS', 'Friuli-Venezia Giulia'),
+  ('UD', 'Friuli-Venezia Giulia'),
+  ('GE', 'Liguria'),
+  ('IM', 'Liguria'),
+  ('SP', 'Liguria'),
+  ('SV', 'Liguria'),
+  ('BO', 'Emilia-Romagna'),
+  ('FC', 'Emilia-Romagna'),
+  ('FE', 'Emilia-Romagna'),
+  ('MO', 'Emilia-Romagna'),
+  ('PC', 'Emilia-Romagna'),
+  ('PR', 'Emilia-Romagna'),
+  ('RA', 'Emilia-Romagna'),
+  ('RE', 'Emilia-Romagna'),
+  ('RN', 'Emilia-Romagna'),
+  ('AR', 'Toscana'),
+  ('FI', 'Toscana'),
+  ('GR', 'Toscana'),
+  ('LI', 'Toscana'),
+  ('LU', 'Toscana'),
+  ('MS', 'Toscana'),
+  ('PI', 'Toscana'),
+  ('PO', 'Toscana'),
+  ('PT', 'Toscana'),
+  ('SI', 'Toscana'),
+  ('PG', 'Umbria'),
+  ('TR', 'Umbria'),
+  ('AN', 'Marche'),
+  ('AP', 'Marche'),
+  ('FM', 'Marche'),
+  ('MC', 'Marche'),
+  ('PU', 'Marche'),
+  ('FR', 'Lazio'),
+  ('LT', 'Lazio'),
+  ('RI', 'Lazio'),
+  ('RM', 'Lazio'),
+  ('VT', 'Lazio'),
+  ('AQ', 'Abruzzo'),
+  ('CH', 'Abruzzo'),
+  ('PE', 'Abruzzo'),
+  ('TE', 'Abruzzo'),
+  ('CB', 'Molise'),
+  ('IS', 'Molise'),
+  ('AV', 'Campania'),
+  ('BN', 'Campania'),
+  ('CE', 'Campania'),
+  ('NA', 'Campania'),
+  ('SA', 'Campania'),
+  ('BA', 'Puglia'),
+  ('BR', 'Puglia'),
+  ('BT', 'Puglia'),
+  ('FG', 'Puglia'),
+  ('LE', 'Puglia'),
+  ('TA', 'Puglia'),
+  ('MT', 'Basilicata'),
+  ('PZ', 'Basilicata'),
+  ('CS', 'Calabria'),
+  ('CZ', 'Calabria'),
+  ('KR', 'Calabria'),
+  ('RC', 'Calabria'),
+  ('VV', 'Calabria'),
+  ('AG', 'Sicilia'),
+  ('CL', 'Sicilia'),
+  ('CT', 'Sicilia'),
+  ('EN', 'Sicilia'),
+  ('ME', 'Sicilia'),
+  ('PA', 'Sicilia'),
+  ('RG', 'Sicilia'),
+  ('SR', 'Sicilia'),
+  ('TP', 'Sicilia'),
+  ('CA', 'Sardegna'),
+  ('NU', 'Sardegna'),
+  ('OR', 'Sardegna'),
+  ('SS', 'Sardegna'),
+  ('SU', 'Sardegna')
+on conflict (sigla) do update set regione = excluded.regione;
+
+-- il pilota vede il lavoro? stessa provincia, oppure stessa regione se la richiesta è stata girata alla regione
+create or replace function privato.stessa_zona(p_pilota text, p_lavoro text, p_in_regione boolean)
+returns boolean language sql stable security definer set search_path = public as $$
+  select p_pilota = p_lavoro
+    or (coalesce(p_in_regione, false) and exists (select 1 from privato.regioni a join privato.regioni b on a.regione = b.regione
+                                                  where a.sigla = p_pilota and b.sigla = p_lavoro));
+$$;
+revoke all on function privato.stessa_zona(text, text, boolean) from public, anon, authenticated;
 create index if not exists richieste_zona_email_idx on public.richieste_zona (email, created_at desc);
 alter table public.richieste_zona enable row level security;
 revoke all on public.richieste_zona from anon, authenticated;
@@ -340,6 +464,7 @@ declare
   v_tel text := nullif(left(btrim(coalesce(p_telefono, '')), 30), '');
   v_z public.richieste_zona;
   v_piloti jsonb;
+  v_regione text;
 begin
   if v_prov !~ '^[A-Z]{2}$' then raise exception 'provincia mancante'; end if;
   if length(v_nome) < 2 then raise exception 'nome mancante'; end if;
@@ -375,13 +500,29 @@ begin
   where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and g.provincia = v_prov and coalesce(g.avviso_email, true)
     and privato.pilota_adatto(g.servizi, v_z.servizio, v_prov);
 
+  -- in provincia non c'è nessun pilota: la giro ai piloti della regione (e lo dico al cliente)
+  if not exists (select 1 from public.pagine_pilota g
+                 where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and g.provincia = v_prov) then
+    select regione into v_regione from privato.regioni where sigla = v_prov;
+    if v_regione is not null and exists (select 1 from public.pagine_pilota g join privato.regioni rg on rg.sigla = g.provincia
+                                         where rg.regione = v_regione and g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova) then
+      update public.richieste_zona set in_regione = true where id = v_z.id returning * into v_z;
+      select coalesce(jsonb_agg(privato.pilota_contatto(g.user_id)->>'email') filter (where privato.pilota_contatto(g.user_id)->>'email' is not null), '[]'::jsonb)
+        into v_piloti
+      from public.pagine_pilota g join privato.regioni rg on rg.sigla = g.provincia
+      where rg.regione = v_regione and g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and coalesce(g.avviso_email, true);
+    else
+      v_regione := null;
+    end if;
+  end if;
+
   perform privato.avvisa_lavori(jsonb_build_object('tipo', 'nuovo_lavoro', 'piloti', v_piloti,
     'servizio', v_z.servizio, 'luogo', v_z.luogo, 'data_desiderata', v_z.data_desiderata,
     'descrizione', left(privato.senza_contatti(v_z.descrizione), 400), 'provincia', v_prov));
   perform privato.avvisa_lavori(jsonb_build_object('tipo', 'richiesta_inviata', 'a', v_email, 'nome', v_nome,
-    'codice', v_z.codice, 'piloti', jsonb_array_length(v_piloti), 'provincia', v_prov));
+    'codice', v_z.codice, 'piloti', jsonb_array_length(v_piloti), 'provincia', v_prov, 'regione', v_regione));
 
-  return json_build_object('codice', v_z.codice, 'piloti', jsonb_array_length(v_piloti));
+  return json_build_object('codice', v_z.codice, 'piloti', jsonb_array_length(v_piloti), 'regione', v_regione);
 end;
 $$;
 revoke all on function public.invia_richiesta_zona(text, text, text, text, text, text, date, text, numeric, numeric, text) from public;
@@ -523,7 +664,7 @@ begin
     ) order by z.created_at desc)
     from public.richieste_zona z
     join public.pagine_pilota g on g.user_id = v_uid and g.attiva
-    where ((z.pilota_diretto is null and g.provincia = z.provincia) or z.pilota_diretto = v_uid)
+    where ((z.pilota_diretto is null and privato.stessa_zona(g.provincia, z.provincia, z.in_regione)) or z.pilota_diretto = v_uid)
       and (z.created_at > now() - interval '60 days'
         -- i lavori confermati restano di più, per consegnarli
         or exists (select 1 from public.offerte_zona x where x.richiesta_id = z.id and x.user_id = v_uid and x.stato = 'confermata' and x.confermata_il > now() - interval '120 days'))
@@ -575,7 +716,7 @@ begin
   if p_prezzo is null or p_prezzo < 10 or p_prezzo > 100000 then raise exception 'prezzo non valido'; end if;
   select z.* into v_z from public.richieste_zona z
     join public.pagine_pilota g on g.user_id = v_uid and g.attiva and g.scelte_decadute < 2 and not g.escluso_trova
-    where z.id = p_richiesta and z.stato = 'aperta' and ((z.pilota_diretto is null and g.provincia = z.provincia) or z.pilota_diretto = v_uid)
+    where z.id = p_richiesta and z.stato = 'aperta' and ((z.pilota_diretto is null and privato.stessa_zona(g.provincia, z.provincia, z.in_regione)) or z.pilota_diretto = v_uid)
     for update of z;
   if not found then raise exception 'richiesta non disponibile'; end if;
   v_nuova := not exists (select 1 from public.offerte_zona where richiesta_id = v_z.id and user_id = v_uid);
@@ -824,7 +965,7 @@ begin
   select coalesce(jsonb_agg(privato.pilota_contatto(g.user_id)->>'email') filter (where privato.pilota_contatto(g.user_id)->>'email' is not null), '[]'::jsonb)
     into v_piloti
   from public.pagine_pilota g
-  where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and g.provincia = v_z.provincia and coalesce(g.avviso_email, true)
+  where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and privato.stessa_zona(g.provincia, v_z.provincia, v_z.in_regione) and coalesce(g.avviso_email, true)
     and not exists (select 1 from public.offerte_zona o where o.richiesta_id = v_z.id and o.user_id = g.user_id);
   perform privato.avvisa_lavori(jsonb_build_object('tipo', 'nuovo_lavoro', 'piloti', v_piloti,
     'servizio', v_z.servizio, 'luogo', v_z.luogo, 'data_desiderata', v_z.data_desiderata,

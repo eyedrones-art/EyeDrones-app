@@ -3920,6 +3920,8 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
   const totKwp = impianti.reduce((s, i) => s + (Number(i.kwp) || 0), 0);
   const totAnomalie = impianti.reduce((s, i) => s + i.anomalie, 0);
 
+  // chi è appena arrivato (nessun drone e nessun volo) vede una Home corta: primi passi, pagina pilota e poco altro
+  const appenaArrivato = (voli || []).length === 0 && (droni || []).length === 0;
   const minutiVoli = voli.reduce((s, v) => s + (Number(v.durata_minuti) || 0), 0);
   const annoCorrente = String(new Date().getFullYear());
   const voliAnno = voli.filter((v) => (v.data || "").startsWith(annoCorrente)).length;
@@ -4046,9 +4048,10 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         {bloccoScadenze}
         <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
         {(droni || []).length > 0 && <AvvisoWeekend inHome />}
-        {((voli || []).length > 0 || (droni || []).length > 0) && <InvitoPaginaPilota onNav={onNav} nome={nomeSaluto} />}
+        {/* la pagina pilota a tutti: senza pagina non arrivano i lavori di «Trova un pilota» */}
+        <InvitoPaginaPilota onNav={onNav} nome={nomeSaluto} />
         {(voli || []).length > 0 && <CommunityPosti voli={voli} />}
-        <ConsiglioDelGiorno />
+        {!appenaArrivato && <ConsiglioDelGiorno />}
 
         {cartelle && <Cartelle spazi={cartelle} impianti={impianti} voli={voli} onApri={onEntraSpazio} onAggiungi={() => onNav("impostazioni")} />}
 
@@ -4067,7 +4070,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
           </div>
         )}
 
-        <InvitoImpronta />
+        {!appenaArrivato && <InvitoImpronta />}
         <NotamFiniti />
         {/* le novità servono a chi usa già l'app: a chi è appena arrivato è tutto nuovo */}
         {(voli.length > 0 || droni.length > 0) && <RiquadroNovita onVai={onNav} />}
@@ -4076,7 +4079,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
 
         <div className="home-due">
           <div style={{ minWidth: 0 }}>
-            <Suspense fallback={null}><UltimaNotizia onTutte={() => vaiA({ pagina: "impara", scheda: "notizie" })} /></Suspense>
+            {!appenaArrivato && <Suspense fallback={null}><UltimaNotizia onTutte={() => vaiA({ pagina: "impara", scheda: "notizie" })} /></Suspense>}
           </div>
           {(numeri.length > 0 || loading) && <div style={{ ...scheda, minWidth: 0, marginBottom: 22 }}>
             <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 10 }}>📊 In numeri</div>
@@ -11011,7 +11014,7 @@ function TrovaPilota() {
       setInvio(/email non valida/i.test(m) ? "L'indirizzo email non sembra corretto." : /troppe richieste/i.test(m) ? "Hai già inviato diverse richieste: controlla la tua email." : "Invio non riuscito: controlla la connessione e riprova.");
       return;
     }
-    setInvio({ codice: data?.codice || null, piloti: Number(data?.piloti) || 0 });
+    setInvio({ codice: data?.codice || null, piloti: Number(data?.piloti) || 0, regione: data?.regione || null });
     setTimeout(vaiAlModulo, 50);
   };
 
@@ -11136,9 +11139,11 @@ function TrovaPilota() {
               <div style={{ fontSize: 46 }}>🎉</div>
               <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 22, margin: "6px 0 8px 0" }}>Richiesta inviata!</h2>
               <p style={{ fontSize: 15, color: "#4a433c", lineHeight: 1.55, margin: "0 0 16px 0" }}>
-                {invio.piloti > 0
+                {invio.regione && invio.piloti > 0
+                  ? <>In provincia di {nomeProvincia} non ci sono ancora piloti: l'abbiamo girata {invio.piloti === 1 ? "al pilota" : `ai ${invio.piloti} piloti`} della regione <strong>{invio.regione}</strong>. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
+                  : invio.piloti > 0
                   ? <>È arrivata a <strong>{invio.piloti === 1 ? "1 pilota" : `${invio.piloti} piloti`}</strong> della provincia di {nomeProvincia}. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
-                  : <>I piloti della provincia di {nomeProvincia} stanno arrivando: ti scriviamo a <strong>{modulo.email}</strong> appena arriva la prima offerta.</>}
+                  : <>Nella tua zona non ci sono ancora piloti iscritti: cerchiamo noi un pilota per te e ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>}
               </p>
               {invio.codice && <a href={`/offerte/${invio.codice}`} style={CLIENTE.bottone}>Vai alle tue offerte</a>}
               <p style={{ fontSize: 12.5, color: "#8a8076", margin: "14px 0 0 0" }}>Conserva l'email che ti abbiamo mandato: il link alle offerte è solo tuo.</p>
