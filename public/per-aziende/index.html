@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>EyeDrones per le aziende</title>
+<meta name="description" content="Per wedding planner, agenzie immobiliari, installatori di fotovoltaico e imprese: scrivi il lavoro una volta e ricevi le offerte dei piloti di droni della tua zona.">
+<meta property="og:title" content="EyeDrones per le aziende — il pilota di droni giusto, ogni volta">
+<meta property="og:description" content="Wedding planner, agenzie immobiliari, installatori: i piloti della tua zona ti mandano un'offerta e scegli tu.">
+<meta property="og:image" content="https://app.eyedrones.it/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root {
+  --bg: #12151c; --surface: #1b2028; --surface-2: #161a1f; --line: #2b313d;
+  --fg: #e7eaee; --muted: #9aa4b1; --faint: #6b7480;
+  --accent: #ff8c42; --accent-deep: #e0552f; --violet: #a78bfa; --ok: #4ade80; --on-accent: #161a1f;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+    --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+    --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f6f5f3; --surface: #ffffff; --surface-2: #f1efec; --line: #dedad4;
+  --fg: #1b1f27; --muted: #59616d; --faint: #7d8590;
+  --accent: #d9622a; --accent-deep: #b8461f; --violet: #6d4fd1; --ok: #1f8a4c; --on-accent: #ffffff;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 16px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.12; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(34px, 6vw, 54px); }
+h2 { font-size: clamp(24px, 4vw, 32px); margin-bottom: 14px; }
+h3 { font-size: 19px; margin-bottom: 6px; }
+p { margin: 0; }
+a { color: var(--accent); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 18px; }
+.marchio { font-family: var(--display); font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; }
+.occhio { width: 30px; height: 18px; border-radius: 50%; border: 2.5px solid var(--accent); position: relative; }
+.occhio::after { content: ""; position: absolute; inset: 3px 9px; border-radius: 50%; background: var(--violet); }
+.top a.link { font-family: var(--mono); font-size: 13px; text-decoration: none; }
+.hero { padding-block: 32px 48px; display: grid; gap: 18px; }
+.hero p.lead { font-size: 19px; color: var(--muted); max-width: 640px; }
+.cta { display: inline-block; background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; font-weight: 700; padding: 13px 22px; border-radius: 10px; text-decoration: none; font-size: 16px; }
+section { padding-block: 32px; border-top: 1px solid var(--line); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.card .emoji { font-size: 26px; margin-bottom: 8px; display: block; }
+.numeri { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.numero { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.numero b { display: block; font-family: var(--display); font-size: 38px; color: var(--accent); line-height: 1.1; }
+.esempio { background: var(--surface-2); border: 1px dashed var(--line); border-radius: 12px; padding: 14px 16px; margin-top: 14px; color: var(--muted); }
+ol.passi { margin: 0; padding-left: 22px; display: grid; gap: 10px; }
+ul.regole { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--muted); }
+form { display: grid; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+input, select, textarea { width: 100%; background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; font: inherit; font-weight: 400; min-height: 44px; }
+textarea { min-height: 96px; resize: vertical; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; color: var(--muted); }
+.check input { width: 20px; min-height: 20px; margin-top: 3px; }
+button { background: linear-gradient(135deg, #ff9d5c, var(--accent-deep)); color: #161a1f; border: none; border-radius: 10px; padding: 13px 22px; font-weight: 700; font-size: 16px; cursor: pointer; min-height: 48px; }
+.esito { display: none; padding: 14px 16px; border-radius: 10px; }
+.esito.ok { display: block; background: color-mix(in srgb, var(--ok) 14%, transparent); border: 1px solid var(--ok); }
+.esito.ko { display: block; background: color-mix(in srgb, #ff6b6b 14%, transparent); border: 1px solid #ff6b6b; }
+.nascosto { display: none; }
+.vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.vs .card ul { margin: 8px 0 0 0; padding-left: 20px; color: var(--muted); display: grid; gap: 6px; }
+.prezzo b { color: var(--ok); }
+.card a.vai { display: inline-block; margin-top: 10px; font-weight: 600; text-decoration: none; }
+.vantaggi { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.vantaggi li { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.vantaggi b { display: block; margin-bottom: 2px; }
+.vantaggi span { color: var(--muted); }
+.cta-2 { display: inline-block; margin-left: 10px; color: var(--fg); text-decoration: none; border: 1px solid var(--line); padding: 12px 18px; border-radius: 10px; }
+footer { padding-block: 28px 40px; color: var(--faint); font-size: 13px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="marchio" href="/trova-pilota?ref=aziende"><span class="occhio" aria-hidden="true"></span>EyeDrones</a>
+    <a class="link" href="/trova-pilota?ref=aziende">Trova un pilota ↗</a>
+  </header>
+  <div class="hero">
+    <span class="eyebrow">Per wedding planner, agenzie immobiliari, installatori e imprese</span>
+    <h1>Il pilota di droni giusto,<br>ogni volta che ti serve.</h1>
+    <p class="lead">Scrivi il lavoro una volta: i piloti della tua zona che fanno quel servizio ti mandano un'offerta con prezzo, lavori fatti e recensioni. Scegli tu. Permessi e regole di volo li gestisce il pilota.</p>
+    <p><a class="cta" href="/trova-pilota?ref=aziende">Chiedi un'offerta</a><a class="cta-2" href="#scrivici">Parliamone</a></p>
+    <p class="muted">Chiedere le offerte non costa niente e non ti impegna.</p>
+  </div>
+
+  <section>
+    <h2>Per chi è</h2>
+    <div class="grid">
+      <div class="card"><span class="emoji">💍</span><h3>Wedding planner e location</h3><p class="muted">La chiesa, la villa, gli invitati dall'alto. Un pilota per ogni data, anche quando quello di fiducia è già impegnato.</p><a class="vai" href="/trova-pilota/matrimoni?ref=aziende">Matrimoni ed eventi ›</a></div>
+      <div class="card"><span class="emoji">🏡</span><h3>Agenzie immobiliari</h3><p class="muted">Foto e video dall'alto di case, ville e terreni: si vedono il giardino, i confini e la zona. Sono le foto che fanno aprire l'annuncio.</p><a class="vai" href="/trova-pilota/case?ref=aziende">Case e terreni ›</a></div>
+      <div class="card"><span class="emoji">☀️</span><h3>Installatori e imprese edili</h3><p class="muted">Termografia dei pannelli, controllo di tetti e facciate, avanzamento del cantiere. Senza ponteggi, con il report per il tuo cliente.</p><a class="vai" href="/trova-pilota/ispezioni?ref=aziende">Tetti e fotovoltaico ›</a></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Perché con EyeDrones</h2>
+    <ul class="vantaggi">
+      <li><b>📍 Solo piloti adatti al lavoro</b><span>La richiesta arriva ai piloti della tua zona che fanno quel servizio: chi fa matrimoni riceve i matrimoni, chi fa termografia le ispezioni.</span></li>
+      <li><b>🗺️ Il posto controllato prima dell'offerta</b><span>Segni il punto sulla mappa: il pilota vede subito zone di volo, case vicine e permessi che servono.</span></li>
+      <li><b>⚖️ Più offerte, scegli tu</b><span>Confronti prezzo, cosa comprende, lavori fatti e recensioni degli altri clienti. I contatti si scambiano solo quando scegli.</span></li>
+      <li><b>🔁 Lo stesso pilota, la volta dopo</b><span>In «I miei lavori» ritrovi tutte le richieste e richiedi di nuovo il pilota con cui ti sei trovato bene, con un tocco.</span></li>
+      <li><b>📦 Consegna in un posto solo</b><span>Il pilota ti consegna foto, video o report dall'app: niente file persi tra email e chat.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Come funziona</h2>
+    <ol class="passi">
+      <li><b>Racconti il lavoro</b>: cosa serve, dove e quando. Bastano due minuti.</li>
+      <li><b>Ricevi le offerte</b> dei piloti della zona, per email.</li>
+      <li><b>Scegli</b> l'offerta che ti convince: il pilota conferma e vi scambiate i contatti.</li>
+    </ol>
+    <p style="margin-top:18px"><a class="cta" href="/trova-pilota?ref=aziende">Chiedi un'offerta</a></p>
+  </section>
+
+  <section id="scrivici">
+    <h2>Lavori spesso con i droni? Parliamone</h2>
+    <p class="muted" style="margin-bottom:14px">Se hai lavori ricorrenti (più matrimoni, più immobili, più impianti all'anno) ti seguiamo noi le prime volte e troviamo i piloti giusti per la tua zona.</p>
+    <form name="aziende" method="POST" data-netlify="true" netlify-honeypot="campo-trappola" id="modulo">
+      <input type="hidden" name="form-name" value="aziende">
+      <p class="nascosto"><label>Non compilare: <input name="campo-trappola"></label></p>
+      <label>Nome e cognome<input name="nome" required autocomplete="name"></label>
+      <label>Azienda<input name="azienda" required autocomplete="organization"></label>
+      <label>Email<input name="email" type="email" required autocomplete="email"></label>
+      <label>Telefono (facoltativo)<input name="telefono" type="tel" autocomplete="tel"></label>
+      <label>Di cosa ti occupi
+        <select name="tipo" required>
+          <option value="">— scegli —</option>
+          <option>Wedding planner o location</option>
+          <option>Agenzia immobiliare</option>
+          <option>Installatore fotovoltaico</option>
+          <option>Impresa edile o amministratore di condominio</option>
+          <option>Altro</option>
+        </select>
+      </label>
+      <label>Quanti lavori con il drone all'anno, più o meno
+        <select name="quanti">
+          <option>Non lo so ancora</option>
+          <option>1–5</option>
+          <option>6–20</option>
+          <option>Più di 20</option>
+        </select>
+      </label>
+      <label>Zona (comune o provincia)<input name="zona" placeholder="es. Torino e cintura"></label>
+      <label>Messaggio (facoltativo)<textarea name="messaggio"></textarea></label>
+      <label class="check"><input type="checkbox" name="privacy" value="si" required><span>Ho letto l'<a href="/privacy" target="_blank" rel="noreferrer">informativa privacy</a> e accetto di essere ricontattato.</span></label>
+      <button type="submit">Invia</button>
+      <div class="esito" id="esito" role="status"></div>
+    </form>
+    <p class="muted" style="margin-top:12px">Preferisci l'email? Scrivi a <a href="mailto:info@eyedrones.it?subject=EyeDrones%20per%20le%20aziende">info@eyedrones.it</a>.</p>
+  </section>
+  <footer>EyeDrones · Ivan Ravinale, Grugliasco (TO) · <a href="/termini">Termini</a> · <a href="/privacy">Privacy</a></footer>
+</div>
+<script>
+// invio senza cambiare pagina (Netlify Forms); se qualcosa va storto propongo l'email
+document.getElementById("modulo").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target, esito = document.getElementById("esito"), bottone = f.querySelector("button");
+  bottone.disabled = true; bottone.textContent = "Invio…";
+  try {
+    const r = await fetch("/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(new FormData(f)).toString() });
+    if (!r.ok) throw new Error(r.status);
+    f.reset();
+    esito.className = "esito ok"; esito.textContent = "Grazie! Ti scriviamo entro un giorno lavorativo.";
+  } catch (err) {
+    esito.className = "esito ko"; esito.innerHTML = 'Invio non riuscito. Scrivi a <a href="mailto:info@eyedrones.it?subject=EyeDrones%20per%20le%20aziende">info@eyedrones.it</a>, ti rispondiamo noi.';
+  }
+  bottone.disabled = false; bottone.textContent = "Invia";
+});
+</script>
+</body>
+</html>
