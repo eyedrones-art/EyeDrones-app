@@ -2107,7 +2107,9 @@ function AppShell({ session }) {
     setRichiesteNuove(count || 0);
     // lavori di «Trova un pilota» nella sua provincia ancora aperti e senza la sua offerta (se non ha la pagina: lista vuota)
     supabase.rpc("lavori_in_zona").then(({ data, error }) => {
-      setLavoriAperti(!error && Array.isArray(data) ? data.filter((l) => l.stato === "aperta" && !l.mia).length : 0);
+      let visti = [];
+      try { visti = JSON.parse(localStorage.getItem(CHIAVE_LAVORI_VISTI) || "[]"); } catch { /* niente */ }
+      setLavoriAperti(!error && Array.isArray(data) ? data.filter((l) => l.stato === "aperta" && !l.mia && !visti.includes(l.id)).length : 0);
     }, () => {});
   };
 
@@ -2177,6 +2179,11 @@ function AppShell({ session }) {
     setLoading(false);
   };
 
+  useEffect(() => {
+    const aggiorna = () => caricaRichiesteNuove();
+    window.addEventListener("eyedrones-lavori-visti", aggiorna);
+    return () => window.removeEventListener("eyedrones-lavori-visti", aggiorna);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { caricaProfilo(); loadData(); caricaVoli(); caricaBatterie(); caricaEventiVolo(); caricaRichiesteNuove(); caricaClienti(); }, []);
 
   // un segno al giorno quando l'app viene usata (tabella uso_giornaliero, script supabase/uso-giornaliero.sql):
@@ -2486,6 +2493,7 @@ const CHIAVE_PRIMI_PASSI_VECCHIA = "eyedrones_primi_passi_chiuso";
 const CHIAVE_PRIMI_PASSI_RIMANDA = "eyedrones_primi_passi_rimanda"; // data fino a cui resta nascosto
 const CHIAVE_GUIDA = "eyedrones_guida_passo"; // il passo aperto dalla guida (per la barra nelle altre pagine)
 const CHIAVE_CONTROLLO_PROVATO = "eyedrones_controllo_provato";
+const CHIAVE_LAVORI_VISTI = "eyedrones_lavori_visti"; // lavori di «Trova un pilota» già visti dal pilota
 const leggiLocale = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const scriviLocale = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* niente */ } };
 
@@ -12148,6 +12156,10 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   const carica = async () => {
     const { data, error } = await supabase.rpc("lavori_in_zona");
     setLavori(error ? null : Array.isArray(data) ? data : []);
+    // visti: il riquadro in Home non li conta più come nuovi
+    if (!error && Array.isArray(data)) {
+      try { localStorage.setItem(CHIAVE_LAVORI_VISTI, JSON.stringify(data.map((l) => l.id).slice(0, 200))); window.dispatchEvent(new Event("eyedrones-lavori-visti")); } catch { /* niente */ }
+    }
     supabase.rpc("storia_clienti_zona").then(({ data: st }) => st && typeof st === "object" && setStoria(st), () => {});
     return Array.isArray(data) ? data : [];
   };
