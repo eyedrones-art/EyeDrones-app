@@ -11143,7 +11143,7 @@ function TrovaPilota() {
                   ? <>In provincia di {nomeProvincia} non ci sono ancora piloti: l'abbiamo girata {invio.piloti === 1 ? "al pilota" : `ai ${invio.piloti} piloti`} della regione <strong>{invio.regione}</strong>. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
                   : invio.piloti > 0
                   ? <>È arrivata a <strong>{invio.piloti === 1 ? "1 pilota" : `${invio.piloti} piloti`}</strong> della provincia di {nomeProvincia}. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
-                  : <>Nella tua zona non ci sono ancora piloti iscritti: cerchiamo noi un pilota per te e ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>}
+                  : <>Nella tua zona non ci sono ancora piloti iscritti per questo lavoro: cerchiamo noi un pilota per te e ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>}
               </p>
               {invio.codice && <a href={`/offerte/${invio.codice}`} style={CLIENTE.bottone}>Vai alle tue offerte</a>}
               <p style={{ fontSize: 12.5, color: "#8a8076", margin: "14px 0 0 0" }}>Conserva l'email che ti abbiamo mandato: il link alle offerte è solo tuo.</p>

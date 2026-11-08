@@ -128,7 +128,7 @@ function componiEmail(d) {
           ? `Nella tua provincia non ci sono ancora piloti: l'abbiamo girata a ${n === 1 ? "1 pilota" : `${n} piloti`} della regione ${pulisci(d.regione, 40)}. Ti scriviamo appena arriva un'offerta.`
           : n > 0
           ? `La tua richiesta è arrivata a ${n === 1 ? "1 pilota" : `${n} piloti`} della tua provincia. Ti scriviamo appena arriva un'offerta.`
-          : "Nella tua zona non ci sono ancora piloti iscritti: cerchiamo noi un pilota per te e ti scriviamo appena arriva un'offerta.",
+          : "Nella tua zona non ci sono ancora piloti iscritti per questo lavoro: cerchiamo noi un pilota per te e ti scriviamo appena arriva un'offerta.",
       bottone: { href: linkOfferte, testo: "Vedi le offerte" },
       secondo: miei,
       nota: "Conserva questa email: il link è solo tuo. Confronti le offerte, scegli il pilota che preferisci e solo allora vi scambiate i contatti. È gratis e senza impegno.",

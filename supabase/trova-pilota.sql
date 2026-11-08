@@ -396,9 +396,10 @@ begin
 end; $$;
 revoke all on function privato.scadi_scelte() from public, anon, authenticated;
 
--- il lavoro va ai piloti che fanno quel servizio (stessa lista per cliente e pilota). Chi ha «Riprese aeree foto e video»
--- riceve anche matrimoni, case, video per aziende ed FPV. «Altro», servizio vuoto o pilota senza servizi: va a tutti.
--- Se in provincia nessuno fa quel servizio, va a tutti i piloti della provincia (nessun cliente resta senza risposta).
+-- il lavoro va solo ai piloti che fanno quel servizio (stessa lista per cliente e pilota): prima la provincia, se lì non
+-- c'è nessuno la regione, altrimenti a nessuno (il cliente lo sa, Ivan lo vede su Telegram e cerca lui un pilota).
+-- Chi ha «Riprese aeree foto e video» riceve anche matrimoni, case, video per aziende ed FPV.
+-- «Altro» o servizio vuoto: va a tutti. Pilota senza servizi indicati: riceve tutto (non sappiamo cosa fa).
 create or replace function privato.fa_servizio(p_servizi text[], p_servizio text)
 returns boolean language sql immutable as $$
   select p_servizio = any(coalesce(p_servizi, '{}'))
@@ -409,12 +410,10 @@ revoke all on function privato.fa_servizio(text[], text) from public, anon, auth
 
 create or replace function privato.pilota_adatto(p_servizi text[], p_servizio text, p_provincia text)
 returns boolean language sql stable security definer set search_path = public as $$
+  -- p_provincia non serve più (resta per non cambiare le chiamate)
   select coalesce(btrim(p_servizio), '') in ('', 'Altro')
     or cardinality(coalesce(p_servizi, '{}')) = 0
-    or privato.fa_servizio(p_servizi, p_servizio)
-    or not exists (select 1 from public.pagine_pilota x
-                   where x.attiva and x.in_elenco and x.scelte_decadute < 2 and not x.escluso_trova
-                     and x.provincia = p_provincia and privato.fa_servizio(x.servizi, p_servizio));
+    or privato.fa_servizio(p_servizi, p_servizio);
 $$;
 revoke all on function privato.pilota_adatto(text[], text, text) from public, anon, authenticated;
 
@@ -500,17 +499,20 @@ begin
   where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and g.provincia = v_prov and coalesce(g.avviso_email, true)
     and privato.pilota_adatto(g.servizi, v_z.servizio, v_prov);
 
-  -- in provincia non c'è nessun pilota: la giro ai piloti della regione (e lo dico al cliente)
+  -- in provincia nessun pilota fa quel servizio: la giro ai piloti della regione che lo fanno (e lo dico al cliente)
   if not exists (select 1 from public.pagine_pilota g
-                 where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and g.provincia = v_prov) then
+                 where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and g.provincia = v_prov
+                   and privato.pilota_adatto(g.servizi, v_z.servizio, v_prov)) then
     select regione into v_regione from privato.regioni where sigla = v_prov;
     if v_regione is not null and exists (select 1 from public.pagine_pilota g join privato.regioni rg on rg.sigla = g.provincia
-                                         where rg.regione = v_regione and g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova) then
+                                         where rg.regione = v_regione and g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova
+                                           and privato.pilota_adatto(g.servizi, v_z.servizio, g.provincia)) then
       update public.richieste_zona set in_regione = true where id = v_z.id returning * into v_z;
       select coalesce(jsonb_agg(privato.pilota_contatto(g.user_id)->>'email') filter (where privato.pilota_contatto(g.user_id)->>'email' is not null), '[]'::jsonb)
         into v_piloti
       from public.pagine_pilota g join privato.regioni rg on rg.sigla = g.provincia
-      where rg.regione = v_regione and g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and coalesce(g.avviso_email, true);
+      where rg.regione = v_regione and g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and coalesce(g.avviso_email, true)
+        and privato.pilota_adatto(g.servizi, v_z.servizio, g.provincia);
     else
       v_regione := null;
     end if;
@@ -966,6 +968,7 @@ begin
     into v_piloti
   from public.pagine_pilota g
   where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova and privato.stessa_zona(g.provincia, v_z.provincia, v_z.in_regione) and coalesce(g.avviso_email, true)
+    and privato.pilota_adatto(g.servizi, v_z.servizio, g.provincia)
     and not exists (select 1 from public.offerte_zona o where o.richiesta_id = v_z.id and o.user_id = g.user_id);
   perform privato.avvisa_lavori(jsonb_build_object('tipo', 'nuovo_lavoro', 'piloti', v_piloti,
     'servizio', v_z.servizio, 'luogo', v_z.luogo, 'data_desiderata', v_z.data_desiderata,
