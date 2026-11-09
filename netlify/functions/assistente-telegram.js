@@ -6,7 +6,9 @@
 //   TELEGRAM_CHAT_ID  il numero della chat dell'amministratore (da @userinfobot)
 //   AVVISO_SEGRETO    lo stesso delle email
 //   PARTNER_CSV_URL   facoltativa: il foglio Google «Promemoria partner» pubblicato come CSV (File → Condividi → Pubblica sul web)
-//   PARTNER_CHAT_ID   facoltativa: il gruppo Telegram con Ivan e Stefano; se manca, i partner finiscono nel messaggio di Ivan
+//   PARTNER_CHAT_ID   facoltativa: un gruppo Telegram per i partner; se manca, i partner finiscono nel messaggio di Ivan
+//   PARTNER_EMAIL     facoltativa: indirizzi email (separati da virgola) che ricevono il promemoria partner ogni mattina
+//                     (es. Stefano, che non usa Telegram). Usa RESEND_API_KEY e AVVISO_MITTENTE, come le altre email
 const crypto = require("crypto");
 
 const risposta = (statusCode, testo) => ({ statusCode, headers: { "Content-Type": "text/plain; charset=utf-8" }, body: testo });
@@ -122,6 +124,22 @@ async function inviaTelegram(token, chat, testo) {
   return !!(invio && invio.ok);
 }
 
+// la stessa sezione, per email: dal testo Telegram (HTML semplice) a un'email leggibile
+async function inviaEmailPartner(indirizzi, testoTelegram) {
+  const chiave = process.env.RESEND_API_KEY;
+  const a = indirizzi.split(/[,;\s]+/).map((x) => x.trim()).filter((x) => /^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$/.test(x)).slice(0, 5);
+  if (!chiave || !a.length) return false;
+  const testo = testoTelegram.replace(/<\/?b>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#222;font-size:15px;line-height:1.55">${testoTelegram.split("\n").map((l) => l || "&nbsp;").join("<br>")}<p style="color:#888;font-size:12px;margin-top:18px">Il foglio si aggiorna dall'app Fogli: cambia Stato e Ultimo contatto dopo ogni messaggio.</p></div>`;
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${chiave}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: process.env.AVVISO_MITTENTE || "Eyedrones <avvisi@eyedrones.it>", to: a, subject: "Partner · da fare oggi", html: corpo, text: testo }),
+  }).catch(() => null);
+  if (!r || !r.ok) console.error("Email partner non inviata:", r && r.status);
+  return !!(r && r.ok);
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return risposta(405, "Solo POST");
   const { TELEGRAM_TOKEN: grezzo, TELEGRAM_CHAT_ID: chatGrezza, AVVISO_SEGRETO: segreto } = process.env;
@@ -148,6 +166,8 @@ exports.handler = async (event) => {
   const mattino = messaggioMattino(d.numeri || {}) + (partner && !gruppo ? `\n\n${partner}` : "");
   if (!(await inviaTelegram(token, chat, mattino))) return risposta(502, "Invio non riuscito");
   if (partner && gruppo) await inviaTelegram(token, gruppo, partner);
+  const emailPartner = String(process.env.PARTNER_EMAIL || "").trim();
+  if (partner && emailPartner) await inviaEmailPartner(emailPartner, partner);
   return risposta(200, "Inviato");
 };
 
