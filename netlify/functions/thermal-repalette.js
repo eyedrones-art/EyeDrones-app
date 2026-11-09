@@ -5,6 +5,18 @@ const crypto = require("crypto");
 const { execFileSync } = require("child_process");
 const { PNG } = require("pngjs");
 
+// solo per gli iscritti: chiedo a Supabase di chi è il token (come analisi-foto.js)
+const SUPABASE_URL = "https://kywmesdqemxqjasixpzq.supabase.co";
+const SUPABASE_KEY = "sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ";
+const MAX_FOTO = 5.5 * 1024 * 1024; // byte dopo la decodifica (Netlify accetta al massimo 6 MB)
+async function iscritto(token) {
+  if (!token) return false;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
+    return r.ok;
+  } catch { return false; }
+}
+
 const PALETTE = {
   ironbow: [
     [0.00, [0, 0, 20]], [0.20, [40, 0, 100]], [0.40, [140, 0, 120]],
@@ -45,6 +57,10 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Metodo non consentito" };
   }
+  const token = String(event.headers.authorization || event.headers.Authorization || "").replace(/^Bearer\s+/i, "");
+  if (!(await iscritto(token))) {
+    return { statusCode: 401, body: JSON.stringify({ errore: "Accedi a EyeDrones per elaborare la foto termica." }) };
+  }
 
   const idTemp = crypto.randomBytes(6).toString("hex");
   const inputPath = path.join(os.tmpdir(), `termica-in-${idTemp}.jpg`);
@@ -56,37 +72,33 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ errore: "Manca l'immagine (imageBase64)." }) };
     }
 
-    const buffer = Buffer.from(imageBase64, "base64");
+    const buffer = Buffer.from(String(imageBase64), "base64");
+    if (buffer.length > MAX_FOTO) {
+      return { statusCode: 413, body: JSON.stringify({ errore: "Foto troppo grande." }) };
+    }
     fs.writeFileSync(inputPath, buffer);
 
     const workerPath = path.join(__dirname, "thermal-worker.js");
     let output;
     try {
       output = execFileSync(process.execPath, [workerPath, inputPath], {
-        env: { ...process.env, LD_LIBRARY_PATH: `${__dirname}:${process.env.LD_LIBRARY_PATH || ""}` },
+        // al processo che legge la foto passo solo quello che serve, nessuna chiave segreta
+        env: { PATH: process.env.PATH || "", LD_LIBRARY_PATH: `${__dirname}:${process.env.LD_LIBRARY_PATH || ""}` },
         maxBuffer: 40 * 1024 * 1024,
         timeout: 25000,
       });
     } catch (errEsecuzione) {
-      let elencoCartella = [];
-      try { elencoCartella = fs.readdirSync(__dirname); } catch (e) {}
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          errore: "Il processo di lettura dati termici non è partito correttamente: " +
-            (errEsecuzione?.message || String(errEsecuzione)) +
-            " | stdout=" + (errEsecuzione?.stdout ? errEsecuzione.stdout.toString().slice(0, 500) : "") +
-            " | stderr=" + (errEsecuzione?.stderr ? errEsecuzione.stderr.toString().slice(0, 500) : "") +
-            " | file presenti=" + JSON.stringify(elencoCartella),
-        }),
-      };
+      // i dettagli tecnici restano nei log di Netlify, non vanno a chi chiama
+      console.error("thermal-worker:", errEsecuzione?.message, errEsecuzione?.stderr ? errEsecuzione.stderr.toString().slice(0, 500) : "");
+      return { statusCode: 500, body: JSON.stringify({ errore: "Non sono riuscito a leggere la foto termica, riprova tra poco." }) };
     }
 
     let risultato;
     try {
       risultato = JSON.parse(output.toString());
     } catch (e) {
-      return { statusCode: 500, body: JSON.stringify({ errore: "Risposta del processo dati non valida: " + output.toString().slice(0, 500) }) };
+      console.error("thermal-worker: risposta non valida", output.toString().slice(0, 500));
+      return { statusCode: 500, body: JSON.stringify({ errore: "Non sono riuscito a leggere la foto termica, riprova tra poco." }) };
     }
 
     if (!risultato.ok) {
@@ -129,9 +141,10 @@ exports.handler = async (event) => {
       }),
     };
   } catch (err) {
+    console.error("thermal-repalette:", err?.message || String(err));
     return {
       statusCode: 500,
-      body: JSON.stringify({ errore: "Errore generico durante l'elaborazione. Dettaglio: " + (err?.message || String(err)) }),
+      body: JSON.stringify({ errore: "Errore durante l'elaborazione della foto, riprova." }),
     };
   } finally {
     try { fs.unlinkSync(inputPath); } catch (e) {}

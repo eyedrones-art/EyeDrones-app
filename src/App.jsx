@@ -7452,9 +7452,10 @@ function AnalisiTermica({ piano }) {
     setElaborando(true);
     setErrore(null);
     try {
+      const { data: sessione } = await supabase.auth.getSession();
       const res = await fetch("/.netlify/functions/thermal-repalette", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessione?.session?.access_token || ""}` },
         body: JSON.stringify({ imageBase64: fotoOriginale.base64, palette }),
       });
       const testoRisposta = await res.text();
