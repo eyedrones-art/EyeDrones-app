@@ -6,6 +6,21 @@
 [functions]
   included_files = ["netlify/functions/*.so.1", "netlify/functions/thermal-worker.js", "node_modules/dji-thermal-sdk/**"]
 
+# sicurezza per tutte le pagine dell'app:
+# - nessun altro sito può mostrare l'app dentro una sua pagina (contro le pagine false che la copiano)
+# - il browser usa sempre https e non «indovina» il tipo dei file
+# - agli altri siti arriva solo l'indirizzo base, mai i link privati (offerte, «I miei lavori»)
+# - posizione e fotocamera solo per l'app stessa; microfono, pagamenti nel browser e USB spenti (non servono)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Strict-Transport-Security = "max-age=31536000"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(self), camera=(self), microphone=(), payment=(), usb=()"
+
 # il service worker e il manifest devono essere sempre quelli aggiornati
 [[headers]]
   for = "/sw.js"
@@ -110,4 +125,3 @@
   for = "/miei-lavori*"
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
-    Referrer-Policy = "no-referrer"
