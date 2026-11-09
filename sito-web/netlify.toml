@@ -16,3 +16,14 @@
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# vecchi indirizzi del sito Wix ancora noti a Google: portano alla pagina nuova (301 = spostata per sempre)
+[[redirects]]
+  from = "/servizi"
+  to = "/#servizi"
+  status = 301
+
+[[redirects]]
+  from = "/contatti"
+  to = "/#contatti"
+  status = 301
