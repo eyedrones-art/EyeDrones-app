@@ -330,7 +330,7 @@ function mostraStagione(){const m=new Date().getMonth();
 function mostraProduttori(){
   const lista=BOT.filter(zonaOk);
   $("produttori").innerHTML=lista.length?lista.map(b=>`<button class="prod" data-p="${esc(b.id)}">${foto(colore(b.id),"🌾",b.foto)}<div class="t"><h3>${esc(b.nome)}</h3>
-  <div class="meta">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(b.provincia)})</div>${STELLE[b.id]?`<span class="tag">★ ${String(STELLE[b.id].media).replace(".",",")} (${STELLE[b.id].numero})</span>`:""}${b.bio?'<span class="tag">🌱 bio</span>':""}${b.consegna_casa?'<span class="tag">🚚 a casa</span>':""}${b.ritiro?'<span class="tag">🏡 ritiro</span>':""}${b.spedizione?'<span class="tag">📦 spedisce</span>':""}</div></button>`).join("")
+  <div class="meta">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(b.provincia)})</div>${STELLE[b.id]?`<span class="tag">★ ${String(STELLE[b.id].media).replace(".",",")} (${STELLE[b.id].numero})</span>`:""}${b.bio?'<span class="tag">🌱 bio</span>':""}${b.consegna_casa?'<span class="tag">🚚 a casa</span>':""}${b.ritiro?'<span class="tag">🏡 ritiro</span>':""}${b.pagamento&&b.pagamento!=="consegna"?'<span class="tag">💳 online</span>':""}${b.spedizione?'<span class="tag">📦 spedisce</span>':""}</div></button>`).join("")
   :`<div class="vuoto" style="grid-column:auto;min-width:260px"><b>${zona==="italia"?"Ancora nessuna specialità spedita":"Ancora nessun produttore in provincia di "+esc(PROVINCE[prov]||prov)}</b>Conosci un produttore? Digli di aprire la sua bottega su ortaly.it.</div>`;
 }
 function mostraCategorie(){
@@ -365,6 +365,11 @@ function cambia(id,d){carrello[id]=Math.max(0,Math.min(99,(carrello[id]||0)+d));
 
 function apriSheet(html,tipo,id){const s=$("sheet");s.dataset.tipo=tipo;s.dataset.id=id||"";s.innerHTML=`<div class="sheet-bg" data-chiudi="1"><div class="sheet" role="dialog" aria-modal="true"><div class="testa"><button class="chiudi" data-chiudi="1" aria-label="Chiudi">✕</button></div>${html}</div></div>`;s.hidden=false}
 function chiudiSheet(){$("sheet").hidden=true;if(/^#(bottega|ordine)-/.test(location.hash))try{history.replaceState(null,"",location.pathname)}catch(e){}}
+// pagamento online: link del produttore (con l'importo già scritto per PayPal.me)
+const LINK_OK=/^https:\/\/([a-z0-9-]+\.)*(stripe\.com|paypal\.me|paypal\.com|sumup\.com|sumup\.link|satispay\.com|revolut\.me)(\/[^\s<>"]*)?$/i;
+function linkPaga(link,totale){if(!link||!LINK_OK.test(link))return null;try{const u=new URL(link);if(/(^|\.)paypal\.me$/i.test(u.hostname)&&u.pathname.split("/").filter(Boolean).length===1)return link.replace(/\/$/,"")+"/"+Number(totale).toFixed(2)+"EUR";}catch(e){}return link}
+function bottonePaga(link,totale,codice){const l=linkPaga(link,totale);return l?`<a class="piu" style="text-decoration:none;display:inline-block" href="${esc(l)}" target="_blank" rel="noopener">💳 Paga ora ${euro(totale)}</a><p class="nota" style="margin-top:4px">Paghi direttamente al produttore. Nella causale scrivi il codice <b>${esc(codice)}</b>.</p>`:""}
+let pagScelte={};
 const voto=n=>`<span class="voto" aria-label="${n} su 5">${"★".repeat(n)}${"☆".repeat(5-n)}</span>`;
 function valutazioniBottega(id){
   const l=RECENSIONI[id];
@@ -391,7 +396,9 @@ function apriCarrello(){
     const opz=Object.entries(MODI).filter(([k,m])=>b[m[3]]);if(!scelte[bid]||!b[MODI[scelte[bid]][3]])scelte[bid]=opz[0][0];if(scelte[bid]!=="ritiro")serveIndirizzo=true;
     return `<div class="gruppo"><h3><span>${esc(b.nome)}</span><span style="font-variant-numeric:tabular-nums">${euro(sub)}</span></h3>
     ${arts.map(a=>`<div class="riga"><span>${esc(a.nome)}<br><small style="color:var(--tenue)">${euro(a.prezzo)}/${esc(a.unita)}</small></span>${qtaHtml(a.id)}</div>`).join("")}
-    <div class="scelte" role="radiogroup" aria-label="Come ricevi da ${esc(b.nome)}">${opz.map(([k,m])=>`<label class="scelta"><input type="radio" name="c-${esc(bid)}" value="${k}" data-scelta="${esc(bid)}" ${scelte[bid]===k?"checked":""}><span><b>${m[0]} ${m[2]}</b><small>${esc(b[m[3]])}</small></span></label>`).join("")}</div></div>`}).join("");
+    <div class="scelte" role="radiogroup" aria-label="Come ricevi da ${esc(b.nome)}">${opz.map(([k,m])=>`<label class="scelta"><input type="radio" name="c-${esc(bid)}" value="${k}" data-scelta="${esc(bid)}" ${scelte[bid]===k?"checked":""}><span><b>${m[0]} ${m[2]}</b><small>${esc(b[m[3]])}</small></span></label>`).join("")}</div>
+    ${b.pagamento==="entrambi"?`<div class="scelte" role="radiogroup" aria-label="Come paghi ${esc(b.nome)}">${[["consegna","💶 Pago alla consegna o al ritiro"],["online","💳 Pago subito online"]].map(([k,t])=>`<label class="scelta"><input type="radio" name="p-${esc(bid)}" value="${k}" data-pagscelta="${esc(bid)}" ${(pagScelte[bid]||"consegna")===k?"checked":""}><span><b>${t}</b></span></label>`).join("")}</div>`
+      :b.pagamento==="online"?`<p class="nota">💳 Questo produttore accetta solo il pagamento online: dopo l'ordine trovi il link per pagare.</p>`:`<p class="nota">💶 Paghi al produttore alla consegna o al ritiro.</p>`}</div>`}).join("");
   const n=Object.keys(g).length;
   apriSheet(`<div class="corpo"><h2>Il tuo cestino</h2><p class="storia">${n>1?`Mandi ${n} ordini, uno per produttore: ognuno prepara e consegna i suoi prodotti.`:"Il produttore prepara il tuo ordine e ti scrive nella chat dell'ordine per giorno e ora."}</p>${html}
   <div class="totale"><span>Totale prodotti</span><b>${euro(Math.round(tot*100)/100)}</b></div>
@@ -414,7 +421,7 @@ async function mandaOrdini(e){e.preventDefault();const btn=$("oInvia"),err=$("oE
   btn.disabled=true;btn.textContent="Invio…";
   const fatti=[],errori=[];
   for(const [bid,arts] of Object.entries(gruppiCarrello())){const b=bot(bid);
-    const {data,error}=await sb.rpc("ordina",{p_bottega:bid,p_righe:arts.map(a=>({id:a.id,qta:carrello[a.id]})),p_nome:dati.nome,p_email:dati.email,p_novita:dati.novita,p_modo:scelte[bid],p_indirizzo:scelte[bid]==="ritiro"?null:dati.ind,p_nota:dati.nota||null});
+    const {data,error}=await sb.rpc("ordina",{p_bottega:bid,p_righe:arts.map(a=>({id:a.id,qta:carrello[a.id]})),p_nome:dati.nome,p_email:dati.email,p_novita:dati.novita,p_modo:scelte[bid],p_indirizzo:scelte[bid]==="ritiro"?null:dati.ind,p_nota:dati.nota||null,p_pagamento:pagScelte[bid]||"consegna"});
     if(error){errori.push(`${b.nome}: ${erroreDi(error)}`);continue}
     fatti.push({b,o:data});arts.forEach(a=>delete carrello[a.id]);
     ricordaOrdine({segreto:data.segreto,codice:data.codice,bottega:b.nome,totale:data.totale,creato:new Date().toISOString()});
@@ -423,8 +430,9 @@ async function mandaOrdini(e){e.preventDefault();const btn=$("oInvia"),err=$("oE
   salva("carrello",carrello);mostraGriglia();
   if(!fatti.length){btn.disabled=false;btn.textContent="Riprova";err.textContent=errori.join(" · ");err.hidden=false;return}
   apriSheet(`<div class="corpo fatto"><div class="bollo">Ordinato!</div><h2>Grazie ${esc(dati.nome.split(" ")[0])}, ${fatti.length>1?"i tuoi ordini sono partiti":"il tuo ordine è partito"}</h2>
-  <p class="storia" style="margin-inline:auto">Il produttore ti risponde nella chat dell'ordine per giorno e ora e ti avvisiamo via email. Paghi a lui alla consegna o al ritiro. Ritrovi l'ordine in «I tuoi ordini», qui al banco.</p>
+  <p class="storia" style="margin-inline:auto">Il produttore ti risponde nella chat dell'ordine per giorno e ora e ti avvisiamo via email. Ritrovi l'ordine in «I tuoi ordini», qui al banco.</p>
   ${fatti.map(({b,o})=>`<div class="gruppo" style="text-align:left"><h3><span>${esc(b.nome)}</span><span>${euro(o.totale)}</span></h3><div style="font-size:14px;color:var(--tenue)">Codice ordine <b style="color:var(--inchiostro)">${esc(o.codice)}</b></div>
+    ${o.pagamento==="online"?`<div style="margin-top:8px">${bottonePaga(o.link,o.totale,o.codice)}</div>`:`<p class="nota">💶 Paghi al produttore alla consegna o al ritiro.</p>`}
     <div class="azioni" style="margin-top:8px"><button class="si" data-ordinecliente="${esc(o.segreto)}">💬 Segui l'ordine e scrivi</button></div></div>`).join("")}
   ${errori.length?`<p class="errore">Non partito: ${esc(errori.join(" · "))}. Il resto è ancora nel cestino.</p>`:""}
   <button class="grande" data-chiudi="1">Torna al banco</button></div>`,"fatto");
@@ -490,6 +498,10 @@ function formBottega(b){b=b||{};const pv=b.provincia||prov;
       <input id="t_${k}" maxlength="120" placeholder="${k==="casa"?"Es. Il giovedì in zona Chieri · 4 €, inclusa sopra 40 €":k==="ritiro"?"Es. Sabato 9–12 in cascina":"Es. Corriere in 48 ore · 9 €, inclusa sopra 49 €"}" value="${esc(b[m[3]]||"")}">`).join("")}
     </div>
     <label class="scelta"><input type="checkbox" id="bBio" ${b.bio?"checked":""}><span><b>🌱 Ho la certificazione biologica</b></span></label>
+    <div class="spunte" role="radiogroup" aria-label="Come ti pagano"><b style="font-size:13px">Come ti pagano i clienti</b>
+      ${[["consegna","💶 Solo alla consegna o al ritiro"],["entrambi","💶 💳 Alla consegna o online (sceglie il cliente)"],["online","💳 Solo online, prima della consegna"]].map(([k,t])=>`<label class="scelta"><input type="radio" name="bPag" value="${k}" ${(b.pagamento||"consegna")===k?"checked":""}><span><b>${t}</b></span></label>`).join("")}
+      <label for="bLink">Il tuo link di pagamento <span class="aiuto">(Stripe, PayPal.me, SumUp, Satispay o Revolut: i soldi arrivano a te)</span><input id="bLink" type="url" maxlength="300" placeholder="Es. https://paypal.me/cascinadeinoci" value="${esc(b.link_pagamento||"")}"></label>
+      <p class="nota" style="margin:0">Chi non ha ritirato un ordine in passato deve pagare online, se lo accetti.</p></div>
     ${b.id?"":pianoHtml()}
     <p class="errore" id="bErr" hidden></p>
     <button class="grande" type="submit">${b.id?"Salva la bottega":"Crea la mia bottega · inizia i 3 mesi"}</button>
@@ -514,6 +526,9 @@ async function salvaBottega(e){e.preventDefault();const err=$("bErr"),btn=e.targ
     tipo:$("bTipo").value.trim()||null,storia:$("bStoria").value.trim()||null,bio:$("bBio").checked};
   for(const [k,m] of Object.entries(MODI))v[m[3]]=$("k_"+k).checked?($("t_"+k).value.trim()||m[2]):null;
   if(!v.consegna_casa&&!v.ritiro&&!v.spedizione){err.textContent="Scegli almeno un modo di consegna";err.hidden=false;return}
+  v.pagamento=(document.querySelector('input[name="bPag"]:checked')||{}).value||"consegna";v.link_pagamento=$("bLink").value.trim()||null;
+  if(v.link_pagamento&&!LINK_OK.test(v.link_pagamento)){err.textContent="Il link di pagamento deve essere di Stripe, PayPal.me, SumUp, Satispay o Revolut (inizia con https://)";err.hidden=false;return}
+  if(v.pagamento!=="consegna"&&!v.link_pagamento){err.textContent="Per il pagamento online incolla il tuo link di pagamento";err.hidden=false;return}
   if(!/^\d{11}$/.test(v.piva.replace(/^IT/i,""))){err.textContent="La partita IVA ha 11 cifre";err.hidden=false;return}
   v.piva=v.piva.replace(/^IT/i,"");
   btn.disabled=true;btn.textContent="Salvo…";
@@ -584,6 +599,7 @@ function mostraVendo(){
       <ul class="righe">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)})</span></li>`).join("")}</ul>
       <div style="font-size:13px;color:var(--tenue)">${MODI[o.modo][0]} ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""} · <b style="color:var(--inchiostro)">${euro(o.totale)}</b> · ${new Date(o.creato).toLocaleString("it-IT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${esc(o.codice)}</div>
       ${o.nota?`<div style="font-size:13.5px">📝 ${esc(o.nota)}</div>`:""}
+      ${o.stato==="annullato"?"":o.pagamento==="online"?`<div style="font-size:13.5px">💳 Online · ${o.pagato?"<b>✅ pagato</b>":`<b style="color:var(--pomodoro)">da pagare</b> · <button class="link" data-pagato="${o.id}">Segna pagato</button>`}</div>`:`<div style="font-size:13.5px">💶 Alla consegna</div>`}
       ${o.mancati_precedenti>0&&["nuovo","accettato","pronto"].includes(o.stato)?`<div class="segn"><div>⚠️ Questo cliente non ha ritirato ${o.mancati_precedenti===1?"1 ordine":o.mancati_precedenti+" ordini"} in passato</div></div>`:""}
       ${o.stato==="annullato"&&o.annullato_da==="cliente"?`<div class="segn"><div>✕ <b>Annullato dal cliente</b></div>${o.motivo_annullo?`<div>«${esc(o.motivo_annullo)}»</div>`:""}</div>`:""}
       ${mieSegn.filter(x=>x.ordine===o.id).map(x=>`<div class="segn${x.risolta?" ok":""}"><div>${x.risolta?"✅ Risolta":"⚠️ Segnalazione"} · <b>${esc(TIPI_PROBLEMA[x.tipo]||x.tipo)}</b></div><div>${esc(x.testo)}</div>${x.risolta?"":`<div class="azioni"><button data-chat="${o.id}">💬 Scrivi al cliente</button><button data-risolta="${x.id}">✓ Risolta</button></div>`}</div>`).join("")}
@@ -625,7 +641,7 @@ async function salvaProdotto(e){e.preventDefault();const err=$("nErr"),btn=e.tar
 }
 
 // ── ordine del cliente (link segreto ortaly.it/#ordine-...) ──
-const COL_ORDINI="id,codice,bottega,cliente_nome,modo,indirizzo,nota,righe,totale,stato,creato,annullato_da,motivo_annullo,mancati_precedenti";
+const COL_ORDINI="id,codice,bottega,cliente_nome,modo,indirizzo,nota,righe,totale,stato,creato,annullato_da,motivo_annullo,mancati_precedenti,pagamento,pagato";
 function ricordaOrdine(o){const l=leggi("ordini",[]).filter(x=>x.segreto!==o.segreto);l.unshift(o);salva("ordini",l.slice(0,15));mostraMieiOrdini()}
 function mostraMieiOrdini(){const l=leggi("ordini",[]);const s=$("sezMieiOrdini");if(!s)return;s.hidden=!l.length;
   $("mieiOrdiniCliente").innerHTML=l.map(o=>`<button class="cliente" style="width:100%;text-align:left;border:0;cursor:pointer" data-ordinecliente="${esc(o.segreto)}"><span><b>${esc(o.bottega)}</b><small>Ordine ${esc(o.codice)} · ${new Date(o.creato).toLocaleDateString("it-IT",{day:"numeric",month:"short"})}</small></span><span style="text-align:right"><b>${euro(o.totale)}</b><small>stato e chat ›</small></span></button>`).join("")}
@@ -687,6 +703,7 @@ async function apriOrdineCliente(segreto,aggiorna,forza){
   const passi=o.stato==="non_ritirato"?`<div class="passi"><span class="no">Segnato come non ritirato</span></div><p class="nota">Se è un errore scrivi al produttore qui sotto o a info@ortaly.it.</p>`:o.stato==="annullato"?`<div class="passi"><span class="no">${o.annullato_da==="cliente"?"Annullato da te":"Annullato dal produttore"}</span></div>`:`<div class="passi">${["Inviato","Accettato","Pronto","Consegnato"].map((t,k)=>`<span class="${k<=i?"ok":""}">${t}</span>`).join("")}</div>`;
   apriSheet(`<div class="corpo"><h2>${esc(o.bottega.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">Ordine ${esc(o.codice)} · ${euro(o.totale)} · ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""}</div>
   ${passi}
+  ${o.pagamento==="online"&&!["annullato","non_ritirato"].includes(o.stato)?(o.pagato?`<div class="rec" style="margin-top:10px">✅ <b>Pagamento ricevuto</b> dal produttore</div>`:`<div class="rec" style="margin-top:10px"><b>Da pagare online: ${euro(o.totale)}</b>${bottonePaga(o.bottega.link_pagamento,o.totale,o.codice)}</div>`):o.pagamento==="consegna"&&!["annullato","non_ritirato"].includes(o.stato)?`<p class="nota">💶 Paghi al produttore alla consegna o al ritiro.</p>`:""}
   <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700;font-size:14px">Cosa hai ordinato</summary><ul class="righe" style="margin-top:6px">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)}) · ${euro(r.prezzo*r.qta)}</span></li>`).join("")}</ul></details>
   ${valutazioneHtml(o,segreto)}
   ${o.stato==="annullato"?"":`<div id="boxSegui">${boxSegui(segreto)}</div>`}
@@ -796,11 +813,13 @@ function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro"
   if(v){vendoScheda="ordini";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
   window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":location.pathname)}catch(e){}}
 
-document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui],[data-correggi],[data-rispondi],[data-risolta],[data-contesta]");if(!t)return;
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui],[data-correggi],[data-rispondi],[data-risolta],[data-contesta],[data-pagato]");if(!t)return;
   if(t.dataset.chiudi!==undefined&&t.classList.contains("sheet-bg")&&e.target!==t)return;
   if(t.dataset.installa){installa();return}
   if(t.dataset.chat){apriChatProduttore(t.dataset.chat);return}
   if(t.dataset.correggi){correggoValutazione=t.dataset.correggi;apriOrdineCliente(t.dataset.correggi,true,true);return}
+  if(t.dataset.pagato){t.disabled=true;const {error}=await sb.from("ordini").update({pagato:true}).eq("id",t.dataset.pagato);if(error){toast(erroreDi(error));t.disabled=false;return}
+    mieiOrd.forEach(x=>{if(x.id===t.dataset.pagato)x.pagato=true});mostraVendo();toast("Segnato come pagato");return}
   if(t.dataset.contesta){
     if(t.dataset.sicuro!=="1"){t.dataset.sicuro="1";t.textContent="Tocca ancora per segnalarla a Ortaly";setTimeout(()=>{if(t.isConnected){t.dataset.sicuro="";t.textContent="🚩 Sembra falsa? Segnala a Ortaly"}},5000);return}
     t.disabled=true;const {error}=await sb.from("recensioni").update({contestata:true}).eq("id",t.dataset.contesta);if(error){toast(erroreDi(error));t.disabled=false;return}
@@ -848,7 +867,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu]
     const {error}=await sb.from("prodotti").delete().eq("id",a.id);if(error){toast(erroreDi(error));return}mieiProd=mieiProd.filter(x=>x.id!==a.id);mostraVendo();caricaBanco();toast("Prodotto eliminato")}
   else if(t.dataset.copia){const l=$("linkB").textContent;try{await navigator.clipboard.writeText(l);toast("Link copiato")}catch(x){const r=document.createRange();r.selectNodeContents($("linkB"));getSelection().removeAllRanges();getSelection().addRange(r);toast("Tieni premuto per copiare")}}
 });
-document.addEventListener("change",e=>{if(e.target.dataset.scelta){scelte[e.target.dataset.scelta]=e.target.value;apriCarrello()}});
+document.addEventListener("change",e=>{if(e.target.dataset.scelta){scelte[e.target.dataset.scelta]=e.target.value;apriCarrello()}if(e.target.dataset.pagscelta){pagScelte[e.target.dataset.pagscelta]=e.target.value}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")chiudiSheet()});
 $("cerca").addEventListener("input",e=>{testo=e.target.value;mostraGriglia()});
 $("provincia").innerHTML=Object.entries(PROVINCE).sort((x,y)=>x[1].localeCompare(y[1],"it")).map(([s,n])=>`<option value="${s}" ${s===prov?"selected":""}>${esc(n)}</option>`).join("");
