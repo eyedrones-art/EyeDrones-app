@@ -40,6 +40,23 @@ exports.handler = async (event) => {
   try { d = JSON.parse(event.body || "{}"); } catch { return risposta(400, "JSON non valido"); }
   const id = String(d.id || ""), tipo = d.tipo === "problema" ? "segnalazioni" : "recensioni";
   if (!/^[0-9a-f-]{36}$/i.test(id)) return risposta(400, "Non valido");
+  const admin = emailValida(process.env.ORTALY_ADMIN_EMAIL) ? process.env.ORTALY_ADMIN_EMAIL : "info@ortaly.it";
+
+  // il produttore segnala una valutazione che gli sembra falsa: email a Ortaly, una volta sola
+  if (d.tipo === "contesta") {
+    const c = await fetch(`${ORTALY_SUPABASE_URL}/rest/v1/recensioni?id=eq.${id}&contestata=eq.true&contestata_avvisata=eq.false&select=id,stelle,commento,nome,ordini(codice,cliente_nome,cliente_email,botteghe(nome))`, {
+      method: "PATCH", headers: intestazioni(chiave, { Prefer: "return=representation" }), body: JSON.stringify({ contestata_avvisata: true }),
+    }).catch(() => null);
+    const [x] = c && c.ok ? await c.json() : [];
+    if (!x) return risposta(200, "Già avvisato");
+    const o = x.ordini || {}, nb = (o.botteghe || {}).nome;
+    const righe = [`${"★".repeat(x.stelle)}${"☆".repeat(5 - x.stelle)} da <b>${esc(x.nome)}</b>`, x.commento ? `«${esc(x.commento)}»` : "",
+      `Ordine ${esc(o.codice)} di ${esc(o.cliente_nome)} (${esc(o.cliente_email)}) · bottega ${esc(nb)}`,
+      `Per nasconderla: Supabase Ortaly → Table Editor → recensioni → riga con id ${esc(x.id)} → nascosta = true.`];
+    const ok = resend && await manda(resend, admin, `Valutazione contestata da ${nb}`, pagina(`${nb} segnala una valutazione come falsa`, righe, SITO, "Apri Ortaly"),
+      `${nb} segnala come falsa la valutazione di ${x.nome} (${x.stelle} stelle)${x.commento ? `: «${x.commento}»` : ""}\nOrdine ${o.codice} di ${o.cliente_nome} (${o.cliente_email})\nPer nasconderla: Supabase → recensioni → id ${x.id} → nascosta = true`);
+    return risposta(200, `email ${ok ? 1 : 0}`);
+  }
 
   const recente = encodeURIComponent(new Date(Date.now() - 15 * 60e3).toISOString());
   const campi = tipo === "recensioni" ? "id,stelle,commento,nome,ordini(codice,bottega,botteghe(nome,utente))" : "id,tipo,testo,ordini(codice,cliente_nome,bottega,botteghe(nome,utente))";
@@ -72,7 +89,6 @@ exports.handler = async (event) => {
   if (resend && emailValida(emailProduttore) && await manda(resend, emailProduttore, `Segnalazione sull'ordine ${o.codice} · Ortaly`,
     pagina("Un cliente ha segnalato un problema", [...righe, "Scrivigli nella chat dell'ordine per sistemare: una risposta veloce evita una valutazione negativa."], `${SITO}/#vendo`, "Apri l'ordine"),
     `${testo}\nScrivigli nella chat dell'ordine: ${SITO}/#vendo`)) email++;
-  const admin = emailValida(process.env.ORTALY_ADMIN_EMAIL) ? process.env.ORTALY_ADMIN_EMAIL : "info@ortaly.it";
   if (resend && await manda(resend, admin, `Segnalazione: ${motivo} · ${b.nome}`,
     pagina(`Segnalazione su ${b.nome}`, righe, `${SITO}/#vendo`, "Apri Ortaly"), testo)) email++;
   return risposta(200, `notifiche ${telefoni}, email ${email}`);

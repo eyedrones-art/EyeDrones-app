@@ -2,6 +2,8 @@
 -- Da incollare nel progetto Supabase DI ORTALY, SQL Editor → Run, DOPO ortaly-chat.sql. Si può rieseguire.
 -- • la valutazione si dà una volta per ordine consegnato (si può correggere per 14 giorni); è pubblica con nome e iniziale
 -- • il produttore può rispondere pubblicamente; Ortaly può nascondere una valutazione (colonna nascosta, da Table Editor)
+-- • contro i voti falsi: solo ordini consegnati (lo segna il produttore), una valutazione per cliente per bottega,
+--   nessuna valutazione da chi ha una bottega su Ortaly; il produttore può segnalare a Ortaly una valutazione sospetta
 -- • la segnalazione è privata: la vedono il produttore (nel suo ordine) e Ortaly (email a info@ortaly.it)
 
 create table if not exists public.recensioni (
@@ -17,6 +19,8 @@ create table if not exists public.recensioni (
   creata timestamptz not null default now()
 );
 create index if not exists recensioni_bottega on public.recensioni(bottega, creata desc);
+alter table public.recensioni add column if not exists contestata boolean not null default false;
+alter table public.recensioni add column if not exists contestata_avvisata boolean not null default false;
 
 create table if not exists public.segnalazioni (
   id uuid primary key default gen_random_uuid(),
@@ -44,8 +48,8 @@ drop policy if exists "risolvo segnalazioni" on public.segnalazioni;
 create policy "risolvo segnalazioni" on public.segnalazioni for update to authenticated
   using (ordine in (select o.id from public.ordini o join public.botteghe b on b.id = o.bottega where b.utente = auth.uid()));
 revoke all on public.recensioni, public.segnalazioni from anon, authenticated;
-grant select (id, ordine, bottega, stelle, commento, nome, risposta, nascosta, creata) on public.recensioni to authenticated;
-grant update (risposta) on public.recensioni to authenticated;
+grant select (id, ordine, bottega, stelle, commento, nome, risposta, nascosta, contestata, creata) on public.recensioni to authenticated;
+grant update (risposta, contestata) on public.recensioni to authenticated;
 grant select (id, ordine, tipo, testo, risolta, creata) on public.segnalazioni to authenticated;
 grant update (risolta) on public.segnalazioni to authenticated;
 
@@ -65,8 +69,13 @@ returns json language plpgsql security definer set search_path = public as $$
 declare o record; r record; parti text[]; pubblico text;
 begin
   if p_segreto is null or p_segreto !~ '^[0-9a-f]{64}$' then raise exception 'Ordine non trovato'; end if;
-  select id, bottega, stato, cliente_nome into o from public.ordini where segreto = p_segreto;
+  select id, bottega, stato, cliente_nome, cliente_email into o from public.ordini where segreto = p_segreto;
   if o.id is null then raise exception 'Ordine non trovato'; end if;
+  if exists (select 1 from public.botteghe bb join auth.users u on u.id = bb.utente where lower(u.email) = lower(btrim(o.cliente_email))) then
+    raise exception 'Chi ha una bottega su Ortaly non può lasciare valutazioni'; end if;
+  if exists (select 1 from public.recensioni x join public.ordini y on y.id = x.ordine
+             where x.bottega = o.bottega and x.ordine <> o.id and lower(y.cliente_email) = lower(btrim(o.cliente_email))) then
+    raise exception 'Hai già valutato questa bottega: puoi correggere la valutazione che hai già dato'; end if;
   if o.stato <> 'consegnato' then raise exception 'Puoi valutare l''ordine dopo la consegna'; end if;
   if p_stelle is null or p_stelle not between 1 and 5 then raise exception 'Scegli da 1 a 5 stelle'; end if;
   if char_length(coalesce(p_commento, '')) > 500 then raise exception 'Il commento è troppo lungo (al massimo 500 caratteri)'; end if;

@@ -266,7 +266,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
     <div class="stagione" id="stagione"></div>
     <section class="sez"><h2><span id="titProd">Produttori vicino a te</span> <small>tocca per conoscerli</small></h2>
       <div class="produttori" id="produttori"></div>
-      <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Iscriviti in 2 minuti, metti i tuoi prodotti con le tue foto e ricevi gli ordini dei clienti della tua zona. <span style="font-weight:700">I primi 3 mesi sono inclusi</span>, poi 19 € al mese.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
+      <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Iscriviti in 2 minuti, metti i tuoi prodotti con le tue foto e ricevi gli ordini dei clienti della tua zona.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
     <section class="sez"><h2>Al banco oggi <small id="conta"></small></h2>
       <div class="cat" id="categorie" role="group" aria-label="Categorie"></div>
       <div class="griglia" id="griglia"><div class="attesa">Carico il banco…</div></div></section>
@@ -330,7 +330,7 @@ function mostraProduttori(){
   const lista=BOT.filter(zonaOk);
   $("produttori").innerHTML=lista.length?lista.map(b=>`<button class="prod" data-p="${esc(b.id)}">${foto(colore(b.id),"🌾",b.foto)}<div class="t"><h3>${esc(b.nome)}</h3>
   <div class="meta">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(b.provincia)})</div>${STELLE[b.id]?`<span class="tag">★ ${String(STELLE[b.id].media).replace(".",",")} (${STELLE[b.id].numero})</span>`:""}${b.bio?'<span class="tag">🌱 bio</span>':""}${b.consegna_casa?'<span class="tag">🚚 a casa</span>':""}${b.ritiro?'<span class="tag">🏡 ritiro</span>':""}${b.spedizione?'<span class="tag">📦 spedisce</span>':""}</div></button>`).join("")
-  :`<div class="vuoto" style="grid-column:auto;min-width:260px"><b>${zona==="italia"?"Ancora nessuna specialità spedita":"Ancora nessun produttore in provincia di "+esc(PROVINCE[prov]||prov)}</b>Conosci un produttore? Digli di iscriversi su ortaly.it: i primi 3 mesi sono inclusi.</div>`;
+  :`<div class="vuoto" style="grid-column:auto;min-width:260px"><b>${zona==="italia"?"Ancora nessuna specialità spedita":"Ancora nessun produttore in provincia di "+esc(PROVINCE[prov]||prov)}</b>Conosci un produttore? Digli di aprire la sua bottega su ortaly.it.</div>`;
 }
 function mostraCategorie(){
   const presenti=new Set(ART.filter(a=>{const b=bot(a.bottega);return b&&zonaOk(b)}).map(a=>a.categoria));
@@ -444,7 +444,7 @@ function vistaAccesso(modoReg){
     <button class="grande" type="submit">${modoReg?"Crea il mio account":"Entra"}</button>
     ${modoReg?"":`<button type="button" class="link" id="aDimenticata" style="justify-self:start">Ho dimenticato la password</button>`}
   </form>
-  ${modoReg?pianoHtml():""}<p class="pie-sito">Dopo l'account crei la tua bottega: nome, paese, telefono, partita IVA e come consegni.<br>Iscrivendoti accetti l'<a href="/privacy" target="_blank" rel="noopener" style="color:inherit">informativa privacy</a>.</p></div>`;
+  <p class="pie-sito">Dopo l'account crei la tua bottega: nome, paese, telefono, partita IVA e come consegni.<br>Iscrivendoti accetti l'<a href="/privacy" target="_blank" rel="noopener" style="color:inherit">informativa privacy</a>.</p></div>`;
   $("formAccesso").addEventListener("submit",async e=>{e.preventDefault();const err=$("aErr");err.hidden=true;const btn=e.target.querySelector("[type=submit]");btn.disabled=true;
     const email=$("aEmail").value.trim(),password=$("aPass").value;
     const r=modoReg?await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+"/#vendo"}}):await sb.auth.signInWithPassword({email,password});
@@ -542,7 +542,7 @@ async function aggiornaOrdini(){if(!mia||$("vistaVendo").hidden)return;const {da
     if(!scrive&&(nuovi||msgNuovi>0||mieRec.length>recPrima||mieSegn.length>segnPrima||vendoScheda==="ordini"))mostraVendo()}}
 let mieiMsg=[],mieRec=[],mieSegn=[];
 async function caricaMessaggi(){const [m,r,s]=await Promise.all([sb.from("messaggi").select("id,ordine,da,testo,letto,creato").order("creato",{ascending:true}).limit(2000),
-  sb.from("recensioni").select("id,ordine,stelle,commento,nome,risposta,creata").order("creata",{ascending:false}).limit(500),
+  sb.from("recensioni").select("id,ordine,stelle,commento,nome,risposta,contestata,creata").order("creata",{ascending:false}).limit(500),
   sb.from("segnalazioni").select("id,ordine,tipo,testo,risolta,creata").order("creata",{ascending:false}).limit(500)]);
   if(m.data)mieiMsg=m.data;if(r.data)mieRec=r.data;if(s.data)mieSegn=s.data}
 const nonLetti=id=>mieiMsg.filter(m=>m.da==="cliente"&&!m.letto&&(!id||m.ordine===id)).length;
@@ -582,7 +582,8 @@ function mostraVendo(){
       <div style="font-size:13px;color:var(--tenue)">${MODI[o.modo][0]} ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""} · <b style="color:var(--inchiostro)">${euro(o.totale)}</b> · ${new Date(o.creato).toLocaleString("it-IT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${esc(o.codice)}</div>
       ${o.nota?`<div style="font-size:13.5px">📝 ${esc(o.nota)}</div>`:""}
       ${mieSegn.filter(x=>x.ordine===o.id).map(x=>`<div class="segn${x.risolta?" ok":""}"><div>${x.risolta?"✅ Risolta":"⚠️ Segnalazione"} · <b>${esc(TIPI_PROBLEMA[x.tipo]||x.tipo)}</b></div><div>${esc(x.testo)}</div>${x.risolta?"":`<div class="azioni"><button data-chat="${o.id}">💬 Scrivi al cliente</button><button data-risolta="${x.id}">✓ Risolta</button></div>`}</div>`).join("")}
-      ${mieRec.filter(x=>x.ordine===o.id).map(x=>`<div class="rec"><div>${voto(x.stelle)} <b>${esc(x.nome)}</b></div>${x.commento?`<div>${esc(x.commento)}</div>`:""}${x.risposta?`<div class="risp"><b>La tua risposta:</b> ${esc(x.risposta)}</div>`:`<div id="risp-${x.id}"><button class="link" data-rispondi="${x.id}">Rispondi (la risposta è pubblica)</button></div>`}</div>`).join("")}
+      ${mieRec.filter(x=>x.ordine===o.id).map(x=>`<div class="rec"><div>${voto(x.stelle)} <b>${esc(x.nome)}</b></div>${x.commento?`<div>${esc(x.commento)}</div>`:""}${x.risposta?`<div class="risp"><b>La tua risposta:</b> ${esc(x.risposta)}</div>`:`<div id="risp-${x.id}"><button class="link" data-rispondi="${x.id}">Rispondi (la risposta è pubblica)</button></div>`}
+        ${x.contestata?`<div style="font-size:12.5px;color:var(--tenue)">🚩 Segnalata a Ortaly: la controlliamo</div>`:`<button class="link" style="justify-self:start;color:var(--tenue);font-size:12.5px" data-contesta="${x.id}">🚩 Sembra falsa? Segnala a Ortaly</button>`}</div>`).join("")}
       <div class="azioni"><button data-chat="${o.id}">💬 Chat${nonLetti(o.id)?`<span class="badge">${nonLetti(o.id)}</span>`:""}</button>${o.stato==="nuovo"?`<button class="si" data-stato="accettato" data-o="${o.id}">✓ Accetto</button><button data-stato="annullato" data-o="${o.id}">Non posso</button>`:o.stato==="accettato"?`<button class="si" data-stato="pronto" data-o="${o.id}">È pronto</button><button data-stato="annullato" data-o="${o.id}">Annulla</button>`:o.stato==="pronto"?`<button class="si" data-stato="consegnato" data-o="${o.id}">Consegnato</button>`:""}</div></div>`).join("")
       :`<div class="cliente"><span>Nessun ordine per ora. Metti i tuoi prodotti e condividi il link della tua bottega con i tuoi clienti: lo trovi nella scheda «Bottega».</span></div>`;
   }else if(vendoScheda==="prodotti"){
@@ -780,11 +781,16 @@ function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro"
   if(v){vendoScheda="ordini";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
   window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":location.pathname)}catch(e){}}
 
-document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui],[data-correggi],[data-rispondi],[data-risolta]");if(!t)return;
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui],[data-correggi],[data-rispondi],[data-risolta],[data-contesta]");if(!t)return;
   if(t.dataset.chiudi!==undefined&&t.classList.contains("sheet-bg")&&e.target!==t)return;
   if(t.dataset.installa){installa();return}
   if(t.dataset.chat){apriChatProduttore(t.dataset.chat);return}
   if(t.dataset.correggi){correggoValutazione=t.dataset.correggi;apriOrdineCliente(t.dataset.correggi,true,true);return}
+  if(t.dataset.contesta){
+    if(t.dataset.sicuro!=="1"){t.dataset.sicuro="1";t.textContent="Tocca ancora per segnalarla a Ortaly";setTimeout(()=>{if(t.isConnected){t.dataset.sicuro="";t.textContent="🚩 Sembra falsa? Segnala a Ortaly"}},5000);return}
+    t.disabled=true;const {error}=await sb.from("recensioni").update({contestata:true}).eq("id",t.dataset.contesta);if(error){toast(erroreDi(error));t.disabled=false;return}
+    fetch("/.netlify/functions/ortaly-recensione",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tipo:"contesta",id:t.dataset.contesta}),keepalive:true}).catch(()=>{});
+    mieRec.forEach(x=>{if(x.id===t.dataset.contesta)x.contestata=true});mostraVendo();toast("Segnalata: la controlliamo noi");return}
   if(t.dataset.risolta){t.disabled=true;const {error}=await sb.from("segnalazioni").update({risolta:true}).eq("id",t.dataset.risolta);if(error){toast(erroreDi(error));t.disabled=false;return}
     mieSegn.forEach(x=>{if(x.id===t.dataset.risolta)x.risolta=true});mostraVendo();toast("Segnata come risolta");return}
   if(t.dataset.rispondi){const id=t.dataset.rispondi,box=$("risp-"+id);box.innerHTML=`<form class="scrivi" style="margin-top:4px"><textarea maxlength="500" rows="2" placeholder="Grazie! …" aria-label="Risposta pubblica"></textarea><button type="submit">Pubblica</button></form>`;
