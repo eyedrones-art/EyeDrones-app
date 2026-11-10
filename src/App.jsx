@@ -10970,7 +10970,7 @@ function TrovaPilota() {
   useEffect(() => {
     document.title = sezione ? sezione.titoloPagina(nomeProvincia) : nomeProvincia ? `Pilota di droni in provincia di ${nomeProvincia} — EyeDrones` : "Trova un pilota di droni — EyeDrones";
     const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", sezione ? sezione.descrizionePagina(nomeProvincia) : `Cerchi un pilota di droni${nomeProvincia ? ` in provincia di ${nomeProvincia}` : ""}? Matrimoni, eventi, case, ispezioni e riprese aeree: descrivi cosa ti serve, ricevi le offerte dei piloti della zona e scegli tu. Gratis e senza impegno.`);
+    if (meta) meta.setAttribute("content", sezione ? sezione.descrizionePagina(nomeProvincia) : `Cerchi un pilota di droni${nomeProvincia ? ` in provincia di ${nomeProvincia}` : ""}? Matrimoni, eventi, case, ispezioni e riprese aeree: descrivi cosa ti serve, ricevi le offerte dei piloti della zona e scegli tu. Senza impegno.`);
     const base = sezione ? `/trova-pilota/${sezione.chiave}` : "/trova-pilota";
     if (!provincia) { setPiloti(null); return; }
     let annullato = false;
@@ -11079,11 +11079,11 @@ function TrovaPilota() {
           <button type="button" onClick={vaiAlModulo} style={CLIENTE.bottone}>Ricevi le offerte →</button>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 16, fontSize: 13, color: "#fbeee2" }}>
             {sezione?.voi
-              ? <><span>✓ Confrontate le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Gratis e senza impegno</span></>
-              : <><span>✓ Confronti le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Gratis e senza impegno</span></>}
+              ? <><span>✓ Confrontate le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Nessun impegno: scegliete voi se accettare</span></>
+              : <><span>✓ Confronti le offerte</span><span>✓ Permessi a carico del pilota</span><span>✓ Nessun impegno: scegli tu se accettare</span></>}
           </div>
           {/* 2. un motivo per fidarsi: il cliente vede chi sceglie */}
-          <p style={{ margin: "12px 0 0 0", fontSize: 13.5, color: "#ffd7bf", lineHeight: 1.5 }}>👤 Prima di scegliere guardi la pagina di ogni pilota: lavori fatti, droni e recensioni dei clienti.</p>
+          <p style={{ margin: "12px 0 0 0", fontSize: 13.5, color: "#ffd7bf", lineHeight: 1.5 }}>👤 {sezione?.voi ? "Ogni offerta ha la pagina del pilota: prima di scegliere vedete i suoi lavori, i droni e le recensioni." : "Ogni offerta ha la pagina del pilota: prima di scegliere vedi i suoi lavori, i droni e le recensioni."}</p>
         </div>
       </header>
 

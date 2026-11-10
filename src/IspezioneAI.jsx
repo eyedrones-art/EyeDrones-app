@@ -130,6 +130,8 @@ export default function IspezioneAI({ supabase, azienda, inputStyle, admin }) {
           body: JSON.stringify({ tipo, immagine: f.url, nota }),
         });
         const j = await r.json().catch(() => null);
+        // 503 con un messaggio (es. «manca la chiave sul server») non passa riprovando: lo mostro subito
+        if (r.status === 503 && j?.errore) { stop.current = true; aggiorna(f.id, { stato: "errore", errore: j.errore }); setErrore(j.errore); return; }
         if (r.status === 429 || r.status >= 500) { await new Promise((ok) => setTimeout(ok, 4000 * (prova + 1))); continue; }
         if (r.status === 402) { stop.current = true; aggiorna(f.id, { stato: "attesa" }); setErrore("Hai finito i crediti: scegli un pacchetto e poi tocca «Continua l'analisi»."); setCrediti(0); return; }
         if (!r.ok || !j?.esito) { aggiorna(f.id, { stato: "errore", errore: j?.errore || `Errore ${r.status}` }); return; }
