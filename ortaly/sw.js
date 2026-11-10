@@ -4,14 +4,17 @@ self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 
 self.addEventListener("push", (e) => {
-  e.waitUntil(self.registration.showNotification("Nuovo ordine su Ortaly", {
-    body: "Un cliente ti ha mandato un ordine: tocca per vederlo e accettarlo.",
+  let m = {};
+  try { m = e.data ? e.data.json() : {}; } catch (x) { m = {}; }
+  const url = typeof m.url === "string" && /^\/(?!\/)/.test(m.url) ? m.url : "/#vendo";
+  e.waitUntil(self.registration.showNotification(m.titolo || "Novità su Ortaly", {
+    body: m.testo || "Hai un nuovo ordine o un messaggio: tocca per vederlo.",
     icon: "/icona-192.png",
     badge: "/badge-96.png",
-    tag: "ortaly-ordine",
+    tag: "ortaly-" + url,
     renotify: true,
     vibrate: [180, 80, 180],
-    data: { url: "/#vendo" },
+    data: { url },
   }));
 });
 
@@ -21,7 +24,7 @@ self.addEventListener("notificationclick", (e) => {
   e.waitUntil((async () => {
     const finestre = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const f of finestre) {
-      if (new URL(f.url).origin === self.location.origin) { await f.focus(); f.postMessage({ tipo: "apri-ordini" }); return; }
+      if (new URL(f.url).origin === self.location.origin) { await f.focus(); f.postMessage({ tipo: "apri", url }); return; }
     }
     await self.clients.openWindow(url);
   })());
