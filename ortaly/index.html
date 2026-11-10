@@ -246,7 +246,7 @@ form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
 <div id="sheet" hidden></div>
 <div id="toast" class="toast" role="status" hidden></div>
 
-<script src="supabase.js"></script>
+<script src="/supabase.js"></script>
 <script>
 // ── configurazione: progetto Supabase di Ortaly (chiave pubblicabile: si può mostrare) ──
 const CONF={url:"https://qqxzqiwxhyyzylmkvdew.supabase.co",chiave:"sb_publishable_0mJhOzqQ8XgCT7T5axuGlw_6Lm5eq6j"};
@@ -373,7 +373,7 @@ async function mandaOrdini(e){e.preventDefault();const btn=$("oInvia"),err=$("oE
     const {data,error}=await sb.rpc("ordina",{p_bottega:bid,p_righe:arts.map(a=>({id:a.id,qta:carrello[a.id]})),p_nome:dati.nome,p_telefono:dati.tel,p_email:dati.email||null,p_modo:scelte[bid],p_indirizzo:scelte[bid]==="ritiro"?null:dati.ind,p_nota:dati.nota||null});
     if(error){errori.push(`${b.nome}: ${erroreDi(error)}`);continue}
     fatti.push({b,o:data});arts.forEach(a=>delete carrello[a.id]);
-    fetch(location.hostname.endsWith("ortaly.it")?"/ortaly-avviso":"/.netlify/functions/ortaly-avviso",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:data.id}),keepalive:true}).catch(()=>{});
+    fetch("/.netlify/functions/ortaly-avviso",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:data.id}),keepalive:true}).catch(()=>{});
   }
   salva("carrello",carrello);mostraGriglia();
   if(!fatti.length){btn.disabled=false;btn.textContent="Riprova";err.textContent=errori.join(" · ");err.hidden=false;return}
