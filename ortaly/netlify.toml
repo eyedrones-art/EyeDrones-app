@@ -32,6 +32,11 @@
   [headers.values]
     Cache-Control = "no-cache"
 
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 200
+
 # qualunque altro indirizzo apre l'app
 [[redirects]]
   from = "/*"
