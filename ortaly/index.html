@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ortaly · dal campo a casa tua</title>
+<meta name="description" content="Frutta, verdura, formaggi, miele e vino dei produttori della tua zona: ordini su Ortaly e paghi al produttore alla consegna o al ritiro.">
+<meta name="theme-color" content="#22382a">
+<meta property="og:title" content="Ortaly · dal campo a casa tua">
+<meta property="og:description" content="I prodotti dei contadini della tua zona: ordini qui, prepara tutto chi coltiva.">
+<meta property="og:url" content="https://ortaly.it/">
+<link rel="canonical" href="https://ortaly.it/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2048%2048%22%3E%3Crect%20width%3D%2248%22%20height%3D%2248%22%20rx%3D%2213%22%20fill%3D%22%23e9a514%22/%3E%3Cpath%20d%3D%22M24%2025V13%22%20stroke%3D%22%2322382a%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M24%2017c-1-5-5-7-10-6%200%205%204%208%2010%206zM24%2015c1-5%205-7%2010-6%200%205-4%208-10%206z%22%20fill%3D%22%233c6a2c%22/%3E%3Cpath%20d%3D%22M9%2024h30l-3%2015H12z%22%20fill%3D%22%2322382a%22/%3E%3Cpath%20d%3D%22M11%2029.5h26M12%2034.5h24%22%20stroke%3D%22%23e9a514%22%20stroke-width%3D%222%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=Caveat+Brush&display=swap">
+<style>
+/* Layout: un banco di mercato sul telefono — lavagna verde in alto, cassette di prodotti sotto, prezzi scritti col gesso */
+:root{
+  --carta:#f1f3ea; --carta2:#e6eadb; --bianco:#fffefa; --inchiostro:#1e2a1d; --tenue:#5d6a57;
+  --foglia:#3c6a2c; --foglia-chiara:#e1ecd3; --lavagna:#22382a; --gesso:#f4f1e4; --tuorlo:#e9a514; --pomodoro:#c8412e; --bordo:#d5dbc7;
+  --ombra:0 1px 0 rgba(30,42,29,.06),0 8px 24px -14px rgba(30,42,29,.35);
+  --titoli:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --testo:"Figtree","Segoe UI",system-ui,sans-serif;
+  --gessetto:"Caveat Brush","Comic Sans MS",cursive;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --carta:#151c15; --carta2:#1d261c; --bianco:#1f2a1e; --inchiostro:#eef1e6; --tenue:#a7b39d;
+  --foglia:#8fc46d; --foglia-chiara:#2a3a24; --lavagna:#0f1a12; --gesso:#f1eedf; --tuorlo:#f2b937; --pomodoro:#ef7560; --bordo:#33402f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --carta:#151c15; --carta2:#1d261c; --bianco:#1f2a1e; --inchiostro:#eef1e6; --tenue:#a7b39d;
+  --foglia:#8fc46d; --foglia-chiara:#2a3a24; --lavagna:#0f1a12; --gesso:#f1eedf; --tuorlo:#f2b937; --pomodoro:#ef7560; --bordo:#33402f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--carta);color:var(--inchiostro);font:15px/1.5 var(--testo);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--lavagna)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--tuorlo);outline-offset:2px}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--titoli);margin:0;line-height:1.1;text-wrap:balance}
+.esempio{font-size:12px;color:var(--tenue);text-align:center;padding-block:10px 0}
+
+/* lavagna */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--lavagna);color:var(--gesso);
+  background-image:radial-gradient(120% 80% at 20% 0%,rgba(255,255,255,.06),transparent 60%)}
+.top .wrap{display:flex;align-items:center;gap:12px;padding-block:12px}
+.marchio{font:800 21px var(--titoli);letter-spacing:-.4px;display:flex;align-items:center;gap:8px}
+.marchio .logo{width:34px;height:34px;flex:none}
+.zone{display:flex;gap:6px;margin-top:16px;background:rgba(255,255,255,.08);border-radius:16px;padding:4px}
+.zone button{flex:1;border:0;background:none;color:var(--gesso);border-radius:12px;padding:10px 8px;font-weight:700;font-size:14px;opacity:.75}
+.zone button[aria-pressed="true"]{background:var(--gesso);color:var(--lavagna);opacity:1}
+.zone small{display:block;font-weight:500;font-size:11.5px;opacity:.8}
+.marchio i{font-style:normal;font-family:var(--gessetto);font-weight:400;color:var(--tuorlo);font-size:26px;transform:rotate(-4deg);display:inline-block}
+.modo{margin-left:auto;display:flex;background:rgba(255,255,255,.08);border-radius:99px;padding:3px}
+.modo button{border:0;background:none;color:var(--gesso);padding:7px 14px;border-radius:99px;font-weight:700;font-size:13.5px;opacity:.75}
+.modo button[aria-pressed="true"]{background:var(--gesso);color:var(--lavagna);opacity:1}
+.carrello{position:relative;border:0;background:var(--tuorlo);color:#1e2a1d;border-radius:12px;padding:8px 11px;font-weight:800;font-size:14px;display:flex;gap:6px;align-items:center}
+.carrello b{background:#1e2a1d;color:var(--tuorlo);border-radius:99px;min-width:20px;height:20px;font-size:12px;display:grid;place-items:center;padding:0 5px}
+
+.cartello{background:var(--lavagna);color:var(--gesso);padding-block:6px 26px}
+.cartello h1{font-size:clamp(30px,8vw,46px);letter-spacing:-1px;font-weight:800}
+.cartello h1 span{font-family:var(--gessetto);font-weight:400;color:var(--tuorlo);letter-spacing:0}
+.cartello p{margin:8px 0 0;max-width:52ch;color:#cdd6c4}
+.dove{display:inline-flex;gap:6px;align-items:center;margin-top:14px;background:rgba(255,255,255,.08);border:1px dashed rgba(244,241,228,.35);border-radius:99px;padding:6px 12px;font-size:13.5px}
+.cerca{margin-top:14px;display:flex;gap:8px}
+.cerca input{flex:1;min-width:0;border:0;border-radius:14px;padding:13px 14px;font:inherit;background:var(--gesso);color:#1e2a1d}
+
+/* sezioni */
+.sez{padding-block:22px 4px}
+.sez h2{font-size:21px;display:flex;align-items:baseline;gap:10px;justify-content:space-between}
+.sez h2 small{font:600 12.5px var(--testo);color:var(--tenue)}
+.cat{display:flex;gap:8px;overflow-x:auto;padding-block:12px 4px;scrollbar-width:none}
+.cat button{flex:none;border:1px solid var(--bordo);background:var(--bianco);border-radius:99px;padding:8px 13px;font-weight:600;font-size:13.5px;white-space:nowrap}
+.cat button[aria-pressed="true"]{background:var(--foglia);border-color:var(--foglia);color:var(--bianco)}
+
+.piano{text-align:left;margin-top:12px;border:2px solid var(--tuorlo);border-radius:16px;padding:12px 14px;background:var(--bianco);display:grid;gap:6px;font-size:13.5px}
+.piano .ptesta{display:flex;justify-content:space-between;width:100%;align-items:baseline;gap:10px;flex-wrap:wrap}
+.piano .ptesta b{font-size:15px}
+.piano .costo{font-weight:800;font-size:17px;font-variant-numeric:tabular-nums}
+.piano .costo small{font-weight:600;font-size:12px;color:var(--tenue)}
+.piano ul{margin:0;padding-left:18px;color:var(--tenue);display:grid;gap:2px}
+.piano .prova{display:inline-block;background:var(--tuorlo);color:var(--lavagna);font-weight:800;font-size:12px;border-radius:8px;padding:2px 8px;justify-self:start}
+.stagione{margin-top:14px;display:flex;gap:10px;align-items:center;background:var(--foglia-chiara);border-radius:16px;padding:12px 14px;font-size:14px}
+.stagione b{font-family:var(--gessetto);font-weight:400;font-size:22px;color:var(--foglia)}
+
+.produttori{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(230px,72%);gap:12px;overflow-x:auto;padding-block:12px 6px;scroll-snap-type:x mandatory;scrollbar-width:none}
+@media (min-width:640px){.produttori{grid-auto-columns:calc(33.33% - 8px)}}
+.prod{scroll-snap-align:start;border:0;text-align:left;background:var(--bianco);border-radius:18px;overflow:hidden;box-shadow:var(--ombra);padding:0;display:flex;flex-direction:column}
+.prod .foto{height:110px}
+.prod div.t{padding:11px 13px 13px}
+.prod h3{font-size:16.5px}
+.prod .meta{font-size:12.5px;color:var(--tenue);margin-top:3px}
+.tag{display:inline-flex;gap:4px;align-items:center;font-size:11.5px;font-weight:700;border-radius:8px;padding:2px 7px;background:var(--foglia-chiara);color:var(--foglia);margin-top:7px;margin-right:4px}
+
+/* foto: riquadri pronti per le foto vere */
+.foto{position:relative;display:grid;place-items:center;font-size:52px;overflow:hidden;background:var(--carta2)}
+.foto::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 34px,rgba(0,0,0,.035) 34px 36px)}
+.foto img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.f1{background:linear-gradient(160deg,#9cc27a,#5e8f3d)}.f2{background:linear-gradient(160deg,#f0c36a,#d98a2b)}.f3{background:linear-gradient(160deg,#d8b98a,#a8794a)}
+.f4{background:linear-gradient(160deg,#b9d7a0,#7aa65c)}.f5{background:linear-gradient(160deg,#e8a28c,#c8573f)}.f6{background:linear-gradient(160deg,#c7b7e0,#8b72b8)}
+
+.griglia{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-block:12px}
+@media (min-width:640px){.griglia{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.art{background:var(--bianco);border-radius:18px;overflow:hidden;box-shadow:var(--ombra);display:flex;flex-direction:column;min-width:0}
+.art .foto{aspect-ratio:4/3;max-width:100%}
+.prezzo{position:absolute;right:8px;bottom:8px;z-index:2;background:var(--lavagna);color:var(--gesso);border-radius:10px 10px 10px 2px;padding:3px 9px 4px;font:400 21px/1 var(--gessetto);transform:rotate(-3deg);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.prezzo small{font:600 11px var(--testo);opacity:.85;margin-left:2px}
+.art .t{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
+.art h3{font-size:15.5px;font-weight:700}
+.art .chi{font-size:12.5px;color:var(--tenue);border:0;background:none;padding:0;text-align:left;text-decoration:underline;text-decoration-color:var(--bordo);text-underline-offset:3px}
+.art .pie{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:6px;padding-top:6px}
+.km{font-size:12px;font-weight:700;color:var(--foglia)}
+.piu{border:0;background:var(--foglia);color:var(--bianco);border-radius:11px;padding:7px 12px;font-weight:700;font-size:13.5px}
+.qta{display:flex;align-items:center;gap:8px;background:var(--foglia-chiara);border-radius:11px;padding:3px}
+.qta button{border:0;background:var(--bianco);border-radius:8px;width:28px;height:28px;font-weight:800;color:var(--foglia)}
+.qta span{font-weight:800;min-width:16px;text-align:center;font-variant-numeric:tabular-nums}
+.vuoto{grid-column:1/-1;text-align:center;color:var(--tenue);padding:30px 10px}
+
+/* scheda produttore */
+.sheet-bg{position:fixed;inset:0;z-index:40;background:rgba(15,22,14,.5);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--carta);width:100%;max-width:760px;max-height:92%;overflow:auto;border-radius:22px 22px 0 0;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+.sheet .testa{position:sticky;top:0;z-index:2;display:flex;justify-content:flex-end;padding:10px 12px 0}
+.chiudi{border:0;background:var(--bianco);border-radius:99px;width:36px;height:36px;font-size:18px;box-shadow:var(--ombra)}
+.banner{height:150px;margin-top:-46px}
+.sheet .corpo{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 0}
+.sheet h2{font-size:25px}
+.storia{color:var(--tenue);margin:6px 0 0;max-width:60ch}
+.consegne{display:grid;gap:8px;margin-top:14px}
+.cons{display:flex;gap:10px;align-items:flex-start;background:var(--bianco);border:1px solid var(--bordo);border-radius:14px;padding:10px 12px;font-size:14px}
+.cons b{display:block}
+
+/* carrello */
+.gruppo{background:var(--bianco);border-radius:18px;padding:14px;margin-top:12px;box-shadow:var(--ombra)}
+.gruppo h3{font-size:16px;display:flex;justify-content:space-between;gap:8px}
+.riga{display:flex;justify-content:space-between;gap:10px;align-items:center;padding-block:8px;border-bottom:1px dashed var(--bordo);font-size:14px}
+.riga:last-of-type{border-bottom:0}
+.scelte{display:grid;gap:6px;margin-top:10px}
+.scelta{display:flex;gap:10px;align-items:center;border:1.5px solid var(--bordo);border-radius:12px;padding:9px 11px;font-size:13.5px;background:var(--carta)}
+.scelta input{accent-color:var(--foglia);width:18px;height:18px;margin:0}
+.scelta:has(input:checked){border-color:var(--foglia);background:var(--foglia-chiara)}
+.scelta small{color:var(--tenue);display:block}
+.totale{display:flex;justify-content:space-between;align-items:baseline;margin-top:16px;font-weight:700}
+.totale b{font:400 34px var(--gessetto);color:var(--foglia)}
+.grande{width:100%;border:0;background:var(--foglia);color:var(--bianco);border-radius:16px;padding:15px;font-weight:800;font-size:16px;margin-top:12px}
+.nota{font-size:12.5px;color:var(--tenue);margin-top:8px}
+.fatto{text-align:center;padding:30px 10px}
+.fatto .bollo{font:400 44px var(--gessetto);color:var(--foglia);transform:rotate(-6deg);border:3px solid var(--foglia);border-radius:16px;display:inline-block;padding:2px 18px;margin-bottom:12px}
+
+/* lato produttore */
+.numeri{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding-block:12px}
+.num{background:var(--bianco);border-radius:16px;padding:12px;box-shadow:var(--ombra)}
+.num b{display:block;font:400 30px/1 var(--gessetto);color:var(--foglia)}
+.num span{font-size:12px;color:var(--tenue)}
+.ordine{background:var(--bianco);border-radius:16px;padding:12px 14px;box-shadow:var(--ombra);margin-top:10px;display:grid;gap:6px}
+.ordine .su{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.stato{font-size:12px;font-weight:800;border-radius:8px;padding:2px 8px}
+.s-nuovo{background:color-mix(in srgb,var(--tuorlo) 25%,transparent);color:var(--inchiostro)}
+.s-pronto{background:var(--foglia-chiara);color:var(--foglia)}
+.azioni{display:flex;gap:8px;flex-wrap:wrap}
+.azioni button{border:1px solid var(--bordo);background:var(--carta);border-radius:10px;padding:7px 12px;font-weight:700;font-size:13px}
+.azioni .si{background:var(--foglia);border-color:var(--foglia);color:var(--bianco)}
+.mioart{display:flex;gap:12px;align-items:center;background:var(--bianco);border-radius:16px;padding:10px;margin-top:10px;box-shadow:var(--ombra)}
+.mioart .foto{width:58px;height:58px;border-radius:12px;font-size:28px;flex:none}
+.mioart .t{flex:1;min-width:0}
+.mioart .t div{font-size:12.5px;color:var(--tenue)}
+.inter{position:relative;width:46px;height:28px;border-radius:99px;border:0;background:var(--bordo);flex:none}
+.inter::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--bianco);transition:transform .2s}
+.inter[aria-pressed="true"]{background:var(--foglia)}.inter[aria-pressed="true"]::after{transform:translateX(18px)}
+form.nuovo{background:var(--bianco);border-radius:18px;padding:14px;margin-top:12px;box-shadow:var(--ombra);display:grid;gap:10px}
+form.nuovo label{font-size:13px;font-weight:700;display:grid;gap:5px}
+form.nuovo input,form.nuovo select{border:1px solid var(--bordo);border-radius:12px;padding:11px 12px;font:inherit;background:var(--carta);color:var(--inchiostro);min-width:0;width:100%}
+.due{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.invito{margin-top:14px;display:flex;gap:14px;align-items:center;background:var(--lavagna);color:var(--gesso);border-radius:18px;padding:16px;box-shadow:var(--ombra)}
+.invito b{font:400 25px/1.05 var(--gessetto);color:var(--tuorlo);display:block}
+.invito p{margin:4px 0 0;font-size:13.5px;color:#cdd6c4}
+.invito button{flex:none;border:0;background:var(--tuorlo);color:#1e2a1d;border-radius:12px;padding:10px 14px;font-weight:800}
+.spunte{display:grid;gap:6px}
+form.nuovo label.scelta{display:flex;font-weight:600}
+form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
+.cliente{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--bianco);border-radius:14px;padding:10px 12px;margin-top:8px;box-shadow:var(--ombra);font-size:14px}
+.cliente small{color:var(--tenue);display:block}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--lavagna);color:var(--gesso);border-radius:14px;padding:11px 16px;font-weight:700;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>
+/* aggiunte dell'app vera */
+.dove select{border:0;background:none;color:var(--gesso);font:inherit;font-weight:700;padding:0 2px;max-width:60vw}
+.dove select option{color:#1e2a1d}
+form.nuovo textarea{border:1px solid var(--bordo);border-radius:12px;padding:11px 12px;font:inherit;background:var(--carta);color:var(--inchiostro);min-width:0;width:100%;resize:vertical;min-height:70px}
+form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
+.blocco{background:var(--bianco);border-radius:18px;padding:16px;margin-top:12px;box-shadow:var(--ombra)}
+.blocco h2{font-size:21px}
+.link{border:0;background:none;padding:0;color:var(--foglia);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.errore{color:var(--pomodoro);font-weight:700;font-size:13.5px}
+.schede{display:flex;gap:6px;background:var(--carta2);border-radius:14px;padding:4px;margin-bottom:12px}
+.schede button{flex:1;border:0;background:none;border-radius:10px;padding:9px;font-weight:700}
+.schede button[aria-pressed="true"]{background:var(--bianco);box-shadow:var(--ombra)}
+.ordine .righe{font-size:14px;margin:0;padding-left:18px}
+.ordine a{color:var(--foglia);font-weight:700}
+.s-accettato{background:color-mix(in srgb,var(--foglia) 18%,transparent);color:var(--foglia)}
+.s-consegnato{background:var(--carta2);color:var(--tenue)}
+.s-annullato{background:color-mix(in srgb,var(--pomodoro) 18%,transparent);color:var(--pomodoro)}
+.mioart .azioni button{padding:5px 9px;font-size:12px}
+.mioart input.pz{width:84px;border:1px solid var(--bordo);border-radius:10px;padding:6px 8px;font:inherit;background:var(--carta);color:var(--inchiostro)}
+.scaduta{border-color:var(--pomodoro)}
+.condividi{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.condividi code{background:var(--carta2);border-radius:8px;padding:4px 8px;font-size:13px;word-break:break-all}
+.pie-sito{padding-block:26px 34px;text-align:center;color:var(--tenue);font-size:12.5px}
+.vuoto b{display:block;color:var(--inchiostro);font-size:16px;margin-bottom:4px}
+.attesa{text-align:center;color:var(--tenue);padding:40px 10px}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="marchio"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="13" fill="var(--tuorlo)"/><path d="M24 25V13" stroke="#22382a" stroke-width="3" stroke-linecap="round"/><path d="M24 17c-1-5-5-7-10-6 0 5 4 8 10 6zM24 15c1-5 5-7 10-6 0 5-4 8-10 6z" fill="#3c6a2c"/><path d="M9 24h30l-3 15H12z" fill="#22382a"/><path d="M11 29.5h26M12 34.5h24" stroke="var(--tuorlo)" stroke-width="2"/></svg>ortaly</div>
+  <div class="modo" role="group" aria-label="Modalità">
+    <button id="mCompro" aria-pressed="true">Compro</button>
+    <button id="mVendo" aria-pressed="false">Vendo</button>
+  </div>
+  <button class="carrello" id="apriCarrello" aria-label="Apri il cestino">🧺 <b id="nCarrello">0</b></button>
+</div></header>
+
+<main id="vistaCompro">
+  <section class="cartello"><div class="wrap">
+    <h1>Dal campo <span>a casa tua</span></h1>
+    <p>Frutta, verdura, formaggi, miele e vino dei produttori della tua zona. Ordini qui, prepara tutto chi coltiva, paghi a lui alla consegna o al ritiro.</p>
+    <label class="dove">📍 Sei in provincia di <select id="provincia" aria-label="La tua provincia"></select></label>
+    <div class="zone" role="group" aria-label="Da dove">
+      <button id="zVicino" aria-pressed="true">📍 Vicino a te<small>fresco, dalla tua provincia</small></button>
+      <button id="zItalia" aria-pressed="false">🇮🇹 Dall'Italia<small>specialità spedite</small></button>
+    </div>
+    <div class="cerca"><input id="cerca" type="search" placeholder="Cerca: zucca, toma, miele…" aria-label="Cerca un prodotto"></div>
+  </div></section>
+  <div class="wrap">
+    <div class="stagione" id="stagione"></div>
+    <section class="sez"><h2><span id="titProd">Produttori vicino a te</span> <small>tocca per conoscerli</small></h2>
+      <div class="produttori" id="produttori"></div>
+      <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Iscriviti in 2 minuti, metti i tuoi prodotti con le tue foto e ricevi gli ordini dei clienti della tua zona. <span style="font-weight:700">I primi 3 mesi sono inclusi</span>, poi 19 € al mese.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
+    <section class="sez"><h2>Al banco oggi <small id="conta"></small></h2>
+      <div class="cat" id="categorie" role="group" aria-label="Categorie"></div>
+      <div class="griglia" id="griglia"><div class="attesa">Carico il banco…</div></div></section>
+    <p class="pie-sito">Ortaly mette in contatto clienti e produttori: ogni produttore vende, consegna e incassa da sé.</p>
+  </div>
+</main>
+
+<main id="vistaVendo" hidden><div id="vendo"></div></main>
+
+<div id="sheet" hidden></div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script src="/supabase.js"></script>
+<script>
+// ── configurazione: progetto Supabase di Ortaly (chiave pubblicabile: si può mostrare) ──
+const CONF={url:"https://qqxzqiwxhyyzylmkvdew.supabase.co",chiave:"sb_publishable_0mJhOzqQ8XgCT7T5axuGlw_6Lm5eq6j"};
+const PROVINCE={"AG":"Agrigento","AL":"Alessandria","AN":"Ancona","AO":"Aosta","AP":"Ascoli Piceno","AQ":"L'Aquila","AR":"Arezzo","AT":"Asti","AV":"Avellino","BA":"Bari","BG":"Bergamo","BI":"Biella","BL":"Belluno","BN":"Benevento","BO":"Bologna","BR":"Brindisi","BS":"Brescia","BT":"Barletta-Andria-Trani","BZ":"Bolzano","CA":"Cagliari","CB":"Campobasso","CE":"Caserta","CH":"Chieti","CL":"Caltanissetta","CN":"Cuneo","CO":"Como","CR":"Cremona","CS":"Cosenza","CT":"Catania","CZ":"Catanzaro","EN":"Enna","FC":"Forlì-Cesena","FE":"Ferrara","FG":"Foggia","FI":"Firenze","FM":"Fermo","FR":"Frosinone","GE":"Genova","GO":"Gorizia","GR":"Grosseto","IM":"Imperia","IS":"Isernia","KR":"Crotone","LC":"Lecco","LE":"Lecce","LI":"Livorno","LO":"Lodi","LT":"Latina","LU":"Lucca","MB":"Monza e Brianza","MC":"Macerata","ME":"Messina","MI":"Milano","MN":"Mantova","MO":"Modena","MS":"Massa-Carrara","MT":"Matera","NA":"Napoli","NO":"Novara","NU":"Nuoro","OR":"Oristano","PA":"Palermo","PC":"Piacenza","PD":"Padova","PE":"Pescara","PG":"Perugia","PI":"Pisa","PN":"Pordenone","PO":"Prato","PR":"Parma","PT":"Pistoia","PU":"Pesaro e Urbino","PV":"Pavia","PZ":"Potenza","RA":"Ravenna","RC":"Reggio Calabria","RE":"Reggio Emilia","RG":"Ragusa","RI":"Rieti","RM":"Roma","RN":"Rimini","RO":"Rovigo","SA":"Salerno","SI":"Siena","SO":"Sondrio","SP":"La Spezia","SR":"Siracusa","SS":"Sassari","SU":"Sud Sardegna","SV":"Savona","TA":"Taranto","TE":"Teramo","TN":"Trento","TO":"Torino","TP":"Trapani","TR":"Terni","TS":"Trieste","TV":"Treviso","UD":"Udine","VA":"Varese","VB":"Verbano-Cusio-Ossola","VC":"Vercelli","VE":"Venezia","VI":"Vicenza","VR":"Verona","VT":"Viterbo","VV":"Vibo Valentia"};
+const CAT=["Verdura","Frutta","Uova e latticini","Formaggi","Carne e salumi","Miele e conserve","Vino e olio","Pane e farine","Altro"];
+const EMOJI={"Verdura":"🥬","Frutta":"🍎","Uova e latticini":"🥚","Formaggi":"🧀","Carne e salumi":"🥩","Miele e conserve":"🍯","Vino e olio":"🍷","Pane e farine":"🌾","Altro":"🧺"};
+const COLORI=["f1","f2","f3","f4","f5","f6"];
+const STAGIONI=["cavolo nero, porri, arance, mandarini e radicchio","cavoli, finocchi, arance e topinambur","asparagi selvatici, spinaci, carciofi e uova fresche","asparagi, fave, piselli e le prime fragole","fragole, ciliegie, piselli e zucchine","albicocche, zucchine, fagiolini e i primi pomodori","pesche, pomodori, peperoni, melanzane e meloni","pesche, fichi, pomodori e angurie","uva, fichi, peperoni e i primi funghi","uva, castagne, zucca, mele e pere","zucca, castagne, cachi, mele, porri e cavolo nero","cavoli, porri, arance, mandarini e miele"];
+const MESI=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+const MODI={casa:["🚚","A casa","Consegna a casa","consegna_casa"],ritiro:["🏡","Ritiro","Ritiro in azienda","ritiro"],spedizione:["📦","Spedizione","Spedizione con corriere","spedizione"]};
+const STATI={nuovo:"Nuovo",accettato:"Accettato",pronto:"Pronto",consegnato:"Consegnato",annullato:"Annullato"};
+
+const $=id=>document.getElementById(id);
+const esc=t=>String(t??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+const euro=n=>Number(n).toLocaleString("it-IT",{minimumFractionDigits:Number(n)%1?2:0,maximumFractionDigits:2})+" €";
+const leggi=(k,d)=>{try{const v=localStorage.getItem("ortaly-"+k);return v?JSON.parse(v):d}catch(e){return d}};
+const salva=(k,v)=>{try{localStorage.setItem("ortaly-"+k,JSON.stringify(v))}catch(e){}};
+const colore=id=>COLORI[[...String(id)].reduce((s,c)=>s+c.charCodeAt(0),0)%COLORI.length];
+const fotoOk=u=>typeof u==="string"&&CONF.url&&u.startsWith(CONF.url+"/storage/v1/object/public/foto/");
+const foto=(cls,e,img)=>`<div class="foto ${cls}">${fotoOk(img)?`<img src="${esc(img)}" alt="" loading="lazy">`:`<span aria-hidden="true">${e}</span>`}</div>`;
+const numeroTel=t=>String(t||"").replace(/[^\d+]/g,"");
+const numeroWa=t=>{let n=String(t||"").replace(/\D/g,"");if(n.startsWith("00"))n=n.slice(2);else if(n.length<=10)n="39"+n;return n};
+function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2800)}
+function erroreDi(e){const m=(e&&(e.message||e.error_description))||"";
+  if(/Invalid login/i.test(m))return"Email o password sbagliate";
+  if(/already registered|already been registered/i.test(m))return"Questa email è già iscritta: tocca «Entra»";
+  if(/Password should be/i.test(m))return"La password deve avere almeno 8 caratteri";
+  if(/rate limit|too many/i.test(m))return"Troppi tentativi: riprova tra qualche minuto";
+  if(/piva|partita/i.test(m))return"Controlla la partita IVA: 11 cifre";
+  if(/telefono/i.test(m))return"Controlla il numero di telefono";
+  if(/check constraint/i.test(m))return"Controlla i campi: qualcosa è troppo corto o troppo lungo";
+  if(/Failed to fetch|NetworkError/i.test(m))return"Connessione assente: riprova";
+  return m||"Qualcosa non ha funzionato: riprova"}
+
+const pronto=!!(CONF.url&&CONF.chiave&&window.supabase);
+const sb=pronto?window.supabase.createClient(CONF.url,CONF.chiave,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
+
+// ── stato ──
+let BOT=[],ART=[],zona="vicino",cat="Tutto",testo="",prov=leggi("provincia","TO"),carrello=leggi("carrello",{}),scelte={},cliente=leggi("cliente",{});
+let utente=null,mia=null,mieiProd=[],mieiOrd=[],vendoScheda="ordini",recupero=false,timerOrdini=null;
+const bot=id=>BOT.find(b=>b.id===id);
+const zonaOk=b=>zona==="italia"?!!b.spedizione&&b.provincia!==prov:b.provincia===prov;
+
+// ── COMPRO ──
+function mostraStagione(){const m=new Date().getMonth();
+  $("stagione").innerHTML=zona==="italia"?`<b>Dall'Italia</b><span>Specialità spedite dai produttori di tutta Italia: arrivano con il corriere in pochi giorni.</span>`:`<b>${MESI[m]}</b><span>È il momento di ${STAGIONI[m]}.</span>`}
+function mostraProduttori(){
+  const lista=BOT.filter(zonaOk);
+  $("produttori").innerHTML=lista.length?lista.map(b=>`<button class="prod" data-p="${esc(b.id)}">${foto(colore(b.id),"🌾",b.foto)}<div class="t"><h3>${esc(b.nome)}</h3>
+  <div class="meta">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(b.provincia)})</div>${b.bio?'<span class="tag">🌱 bio</span>':""}${b.consegna_casa?'<span class="tag">🚚 a casa</span>':""}${b.ritiro?'<span class="tag">🏡 ritiro</span>':""}${b.spedizione?'<span class="tag">📦 spedisce</span>':""}</div></button>`).join("")
+  :`<div class="vuoto" style="grid-column:auto;min-width:260px"><b>${zona==="italia"?"Ancora nessuna specialità spedita":"Ancora nessun produttore in provincia di "+esc(PROVINCE[prov]||prov)}</b>Conosci un produttore? Digli di iscriversi su ortaly.it: i primi 3 mesi sono inclusi.</div>`;
+}
+function mostraCategorie(){
+  const presenti=new Set(ART.filter(a=>{const b=bot(a.bottega);return b&&zonaOk(b)}).map(a=>a.categoria));
+  $("categorie").innerHTML=["Tutto",...CAT.filter(c=>presenti.has(c))].map(c=>`<button aria-pressed="${c===cat}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
+}
+function qtaHtml(id){const q=carrello[id]||0;return q?`<div class="qta"><button data-meno="${esc(id)}" aria-label="Togli uno">−</button><span>${q}</span><button data-piu="${esc(id)}" aria-label="Aggiungi uno">+</button></div>`:`<button class="piu" data-piu="${esc(id)}">Aggiungi</button>`}
+function mostraGriglia(){
+  if(!pronto){$("griglia").innerHTML=`<div class="vuoto"><b>Ortaly sta per aprire</b>Stiamo preparando il banco con i primi produttori.</div>`;$("conta").textContent="";return}
+  const t=testo.trim().toLowerCase();
+  const lista=ART.filter(a=>{const b=bot(a.bottega);return b&&zonaOk(b)&&(cat==="Tutto"||a.categoria===cat)&&(!t||(a.nome+" "+b.nome+" "+(a.nota||"")).toLowerCase().includes(t))});
+  $("conta").textContent=lista.length?lista.length+" prodotti":"";
+  $("griglia").innerHTML=lista.length?lista.map(a=>{const b=bot(a.bottega);return `<article class="art">
+    <div style="position:relative">${foto(colore(b.id),EMOJI[a.categoria]||"🧺",a.foto)}<div class="prezzo">${euro(a.prezzo)}<small>/${esc(a.unita)}</small></div></div>
+    <div class="t"><h3>${esc(a.nome)}</h3><button class="chi" data-p="${esc(b.id)}">${esc(b.nome)}</button>${a.nota?`<div class="km" style="color:var(--tenue);font-weight:600">${esc(a.nota)}</div>`:""}
+    <div class="pie"><span class="km">${zona==="italia"?"📦 "+esc(b.provincia):"📍 "+esc(b.paese)}</span>${qtaHtml(a.id)}</div></div></article>`}).join("")
+    :`<div class="vuoto"><b>${t||cat!=="Tutto"?"Nessun prodotto trovato":"Il banco è ancora vuoto qui"}</b>${t||cat!=="Tutto"?"Prova un'altra parola o un'altra categoria.":"Prova «Dall'Italia» o un'altra provincia."}</div>`;
+  $("nCarrello").textContent=Object.values(carrello).reduce((s,q)=>s+q,0);
+}
+function aggiornaCompro(){mostraStagione();mostraProduttori();mostraCategorie();mostraGriglia()}
+async function caricaBanco(){
+  if(!pronto){aggiornaCompro();return}
+  const [b,p]=await Promise.all([sb.from("vetrina_botteghe").select("*").order("creata",{ascending:false}),sb.from("vetrina_prodotti").select("*").order("creato",{ascending:false}).limit(2000)]);
+  if(b.error||p.error){$("griglia").innerHTML=`<div class="vuoto"><b>Non riesco a caricare il banco</b>Controlla la connessione e ricarica la pagina.</div>`;return}
+  BOT=b.data;ART=p.data;
+  for(const id of Object.keys(carrello))if(!ART.find(a=>a.id===id))delete carrello[id];salva("carrello",carrello);
+  aggiornaCompro();apriDaIndirizzo();
+}
+function cambia(id,d){carrello[id]=Math.max(0,Math.min(99,(carrello[id]||0)+d));if(!carrello[id])delete carrello[id];salva("carrello",carrello);mostraGriglia();
+  const s=$("sheet");if(!s.hidden&&s.dataset.tipo==="carrello")apriCarrello();else if(!s.hidden&&s.dataset.tipo==="prod")apriProduttore(s.dataset.id)}
+
+function apriSheet(html,tipo,id){const s=$("sheet");s.dataset.tipo=tipo;s.dataset.id=id||"";s.innerHTML=`<div class="sheet-bg" data-chiudi="1"><div class="sheet" role="dialog" aria-modal="true"><div class="testa"><button class="chiudi" data-chiudi="1" aria-label="Chiudi">✕</button></div>${html}</div></div>`;s.hidden=false}
+function chiudiSheet(){$("sheet").hidden=true;if(/^#bottega-/.test(location.hash))try{history.replaceState(null,"",location.pathname)}catch(e){}}
+function apriProduttore(id){const b=bot(id);if(!b)return;const suoi=ART.filter(a=>a.bottega===id);
+  apriSheet(`${foto(colore(b.id)+" banner","🌾",b.foto)}<div class="corpo"><h2>${esc(b.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(PROVINCE[b.provincia]||b.provincia)})${b.bio?" · 🌱 bio":""}</div>
+  ${b.storia?`<p class="storia">${esc(b.storia)}</p>`:""}<div class="consegne">${Object.entries(MODI).filter(([k,m])=>b[m[3]]).map(([k,m])=>`<div class="cons"><span>${m[0]}</span><div><b>${m[2]}</b>${esc(b[m[3]])}</div></div>`).join("")}</div>
+  <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.length?suoi.map(a=>`<div class="riga"><span>${EMOJI[a.categoria]||"🧺"} ${esc(a.nome)}${a.nota?`<br><small style="color:var(--tenue)">${esc(a.nota)}</small>`:""}</span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${esc(a.unita)}</b>${qtaHtml(a.id)}</span></div>`).join(""):`<p class="storia">Nessun prodotto al banco in questo momento.</p>`}</div>`,"prod",id);
+  try{history.replaceState(null,"","#bottega-"+id)}catch(e){}}
+function apriDaIndirizzo(){const m=location.hash.match(/^#bottega-([0-9a-f-]{36})$/);if(m&&bot(m[1])){const b=bot(m[1]);if(b.provincia!==prov&&!b.spedizione){prov=b.provincia;$("provincia").value=prov;salva("provincia",prov)}scegliZona(b.provincia===prov?"vicino":"italia",true);apriProduttore(m[1])}}
+
+function gruppiCarrello(){const g={};for(const id of Object.keys(carrello)){const a=ART.find(x=>x.id===id);if(a)(g[a.bottega]=g[a.bottega]||[]).push(a)}return g}
+function apriCarrello(){
+  const g=gruppiCarrello();
+  if(!Object.keys(g).length){apriSheet(`<div class="corpo fatto"><div style="font-size:54px">🧺</div><h2>Il cestino è vuoto</h2><p class="storia" style="margin-inline:auto">Aggiungi qualcosa dal banco: ogni produttore prepara e consegna i suoi prodotti.</p></div>`,"carrello");return}
+  let tot=0,serveIndirizzo=false;
+  const html=Object.entries(g).map(([bid,arts])=>{const b=bot(bid);const sub=arts.reduce((s,a)=>s+a.prezzo*carrello[a.id],0);tot+=sub;
+    const opz=Object.entries(MODI).filter(([k,m])=>b[m[3]]);if(!scelte[bid]||!b[MODI[scelte[bid]][3]])scelte[bid]=opz[0][0];if(scelte[bid]!=="ritiro")serveIndirizzo=true;
+    return `<div class="gruppo"><h3><span>${esc(b.nome)}</span><span style="font-variant-numeric:tabular-nums">${euro(sub)}</span></h3>
+    ${arts.map(a=>`<div class="riga"><span>${esc(a.nome)}<br><small style="color:var(--tenue)">${euro(a.prezzo)}/${esc(a.unita)}</small></span>${qtaHtml(a.id)}</div>`).join("")}
+    <div class="scelte" role="radiogroup" aria-label="Come ricevi da ${esc(b.nome)}">${opz.map(([k,m])=>`<label class="scelta"><input type="radio" name="c-${esc(bid)}" value="${k}" data-scelta="${esc(bid)}" ${scelte[bid]===k?"checked":""}><span><b>${m[0]} ${m[2]}</b><small>${esc(b[m[3]])}</small></span></label>`).join("")}</div></div>`}).join("");
+  const n=Object.keys(g).length;
+  apriSheet(`<div class="corpo"><h2>Il tuo cestino</h2><p class="storia">${n>1?`Mandi ${n} ordini, uno per produttore: ognuno prepara e consegna i suoi prodotti.`:"Il produttore prepara il tuo ordine e ti contatta per confermare."}</p>${html}
+  <div class="totale"><span>Totale prodotti</span><b>${euro(Math.round(tot*100)/100)}</b></div>
+  <p class="nota" style="margin-top:2px">Le spese di consegna o spedizione, se ci sono, sono scritte sopra sotto ogni produttore.</p>
+  <form class="nuovo" id="formOrdine">
+    <label for="oNome">Nome e cognome<input id="oNome" required minlength="2" maxlength="60" autocomplete="name" value="${esc(cliente.nome||"")}"></label>
+    <div class="due"><label for="oTel">Telefono<input id="oTel" required type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="333 1234567" value="${esc(cliente.tel||"")}"></label>
+    <label for="oEmail">Email <span class="aiuto">(facoltativa)</span><input id="oEmail" type="email" maxlength="120" autocomplete="email" value="${esc(cliente.email||"")}"></label></div>
+    ${serveIndirizzo?`<label for="oInd">Indirizzo di consegna<input id="oInd" required minlength="8" maxlength="200" autocomplete="street-address" placeholder="Via, numero, città" value="${esc(cliente.ind||"")}"></label>`:""}
+    <label for="oNota">Nota per il produttore <span class="aiuto">(facoltativa)</span><textarea id="oNota" maxlength="300" placeholder="Es. citofono Rossi, meglio dopo le 18"></textarea></label>
+    <p class="errore" id="oErr" hidden></p>
+    <button class="grande" type="submit" id="oInvia">Manda ${n>1?"gli ordini":"l'ordine"}</button>
+    <p class="nota">Paghi direttamente al produttore alla consegna o al ritiro. Il tuo nome e il telefono arrivano solo ai produttori a cui ordini.</p>
+  </form></div>`,"carrello");
+  $("formOrdine").addEventListener("submit",mandaOrdini);
+}
+async function mandaOrdini(e){e.preventDefault();const btn=$("oInvia"),err=$("oErr");err.hidden=true;
+  const dati={nome:$("oNome").value.trim(),tel:$("oTel").value.trim(),email:$("oEmail").value.trim(),ind:$("oInd")?$("oInd").value.trim():(cliente.ind||""),nota:$("oNota").value.trim()};
+  if(String(dati.tel).replace(/\D/g,"").length<6){err.textContent="Scrivi un numero di telefono valido";err.hidden=false;return}
+  cliente={nome:dati.nome,tel:dati.tel,email:dati.email,ind:dati.ind};salva("cliente",cliente);
+  btn.disabled=true;btn.textContent="Invio…";
+  const fatti=[],errori=[];
+  for(const [bid,arts] of Object.entries(gruppiCarrello())){const b=bot(bid);
+    const {data,error}=await sb.rpc("ordina",{p_bottega:bid,p_righe:arts.map(a=>({id:a.id,qta:carrello[a.id]})),p_nome:dati.nome,p_telefono:dati.tel,p_email:dati.email||null,p_modo:scelte[bid],p_indirizzo:scelte[bid]==="ritiro"?null:dati.ind,p_nota:dati.nota||null});
+    if(error){errori.push(`${b.nome}: ${erroreDi(error)}`);continue}
+    fatti.push({b,o:data});arts.forEach(a=>delete carrello[a.id]);
+    fetch("/.netlify/functions/ortaly-avviso",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:data.id}),keepalive:true}).catch(()=>{});
+  }
+  salva("carrello",carrello);mostraGriglia();
+  if(!fatti.length){btn.disabled=false;btn.textContent="Riprova";err.textContent=errori.join(" · ");err.hidden=false;return}
+  apriSheet(`<div class="corpo fatto"><div class="bollo">Ordinato!</div><h2>Grazie ${esc(dati.nome.split(" ")[0])}, ${fatti.length>1?"i tuoi ordini sono partiti":"il tuo ordine è partito"}</h2>
+  <p class="storia" style="margin-inline:auto">Il produttore ti contatta per confermare giorno e ora. Paghi a lui alla consegna o al ritiro.</p>
+  ${fatti.map(({b,o})=>`<div class="gruppo" style="text-align:left"><h3><span>${esc(b.nome)}</span><span>${euro(o.totale)}</span></h3><div style="font-size:14px;color:var(--tenue)">Codice ordine <b style="color:var(--inchiostro)">${esc(o.codice)}</b></div>
+    <div class="azioni" style="margin-top:8px"><a class="link" href="tel:${esc(numeroTel(o.telefono))}">📞 ${esc(o.telefono)}</a> · <a class="link" href="https://wa.me/${esc(numeroWa(o.telefono))}?text=${encodeURIComponent("Ciao, ho appena fatto l'ordine "+o.codice+" su Ortaly")}" target="_blank" rel="noopener">WhatsApp</a></div></div>`).join("")}
+  ${errori.length?`<p class="errore">Non partito: ${esc(errori.join(" · "))}. Il resto è ancora nel cestino.</p>`:""}
+  <button class="grande" data-chiudi="1">Torna al banco</button></div>`,"fatto");
+}
+function scegliZona(z,senzaChiudere){zona=z;cat="Tutto";$("zVicino").setAttribute("aria-pressed",z==="vicino");$("zItalia").setAttribute("aria-pressed",z==="italia");
+  $("titProd").textContent=z==="italia"?"Produttori da tutta Italia":"Produttori vicino a te";aggiornaCompro()}
+
+// ── VENDO ──
+const V=()=>$("vendo");
+function vendoCartello(titolo,sotto){return `<section class="cartello"><div class="wrap"><h1>${titolo}</h1><p>${sotto}</p></div></section>`}
+function vistaAccesso(modoReg){
+  V().innerHTML=vendoCartello(modoReg?"Vendi <span>con Ortaly</span>":"Bentornato <span>al banco</span>",modoReg?"Ti iscrivi tu, metti i tuoi prodotti con le tue foto e decidi prezzi e consegne. I clienti della tua zona ti trovano e ordinano.":"Entra per vedere gli ordini e i tuoi prodotti.")+`<div class="wrap">
+  <form class="nuovo" id="formAccesso" style="margin-top:16px">
+    <div class="schede" role="group"><button type="button" aria-pressed="${!!modoReg}" data-reg="1">Mi iscrivo</button><button type="button" aria-pressed="${!modoReg}" data-reg="">Entra</button></div>
+    <label for="aEmail">Email<input id="aEmail" type="email" required autocomplete="email" maxlength="120"></label>
+    <label for="aPass">Password${modoReg?' <span class="aiuto">(almeno 8 caratteri)</span>':""}<input id="aPass" type="password" required minlength="${modoReg?8:6}" autocomplete="${modoReg?"new-password":"current-password"}"></label>
+    <p class="errore" id="aErr" hidden></p>
+    <button class="grande" type="submit">${modoReg?"Crea il mio account":"Entra"}</button>
+    ${modoReg?"":`<button type="button" class="link" id="aDimenticata" style="justify-self:start">Ho dimenticato la password</button>`}
+  </form>
+  ${modoReg?pianoHtml():""}<p class="pie-sito">Dopo l'account crei la tua bottega: nome, paese, telefono, partita IVA e come consegni.</p></div>`;
+  $("formAccesso").addEventListener("submit",async e=>{e.preventDefault();const err=$("aErr");err.hidden=true;const btn=e.target.querySelector("[type=submit]");btn.disabled=true;
+    const email=$("aEmail").value.trim(),password=$("aPass").value;
+    const r=modoReg?await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+"/#vendo"}}):await sb.auth.signInWithPassword({email,password});
+    btn.disabled=false;
+    if(r.error){err.textContent=erroreDi(r.error);err.hidden=false;return}
+    if(modoReg&&!r.data.session){V().innerHTML=vendoCartello("Controlla <span>la tua email</span>","Ti abbiamo mandato un link a "+esc(email)+": aprilo per confermare l'account, poi torna qui.");return}
+  });
+  const d=$("aDimenticata");if(d)d.onclick=async()=>{const email=$("aEmail").value.trim();const err=$("aErr");if(!email){err.textContent="Scrivi prima la tua email";err.hidden=false;return}
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+"/#vendo"});
+    err.textContent=error?erroreDi(error):"Ti abbiamo mandato un'email per scegliere una nuova password";err.hidden=false};
+}
+function vistaNuovaPassword(){
+  V().innerHTML=vendoCartello("Nuova <span>password</span>","Scegli la nuova password per entrare nella tua bottega.")+`<div class="wrap"><form class="nuovo" id="formNP" style="margin-top:16px">
+  <label for="npPass">Nuova password <span class="aiuto">(almeno 8 caratteri)</span><input id="npPass" type="password" required minlength="8" autocomplete="new-password"></label>
+  <p class="errore" id="npErr" hidden></p><button class="grande" type="submit">Salva la password</button></form></div>`;
+  $("formNP").addEventListener("submit",async e=>{e.preventDefault();const {error}=await sb.auth.updateUser({password:$("npPass").value});
+    if(error){$("npErr").textContent=erroreDi(error);$("npErr").hidden=false;return}recupero=false;toast("Password cambiata");caricaMia()});
+}
+function pianoHtml(b){
+  if(!b)return `<div class="piano"><div class="ptesta"><b>Abbonamento bottega</b><span class="costo">19 € <small>al mese</small></span></div>
+    <span class="prova">Primi 3 mesi: 0 €</span>
+    <ul><li>Nessuna percentuale sulle tue vendite</li><li>Prodotti e clienti senza limiti</li><li>Disdici quando vuoi, anche durante i 3 mesi</li><li>Ti avvisiamo 7 giorni prima della fine dei 3 mesi</li></ul></div>`;
+  const fine=new Date(b.prova_fino+"T12:00:00"),giorni=Math.ceil((fine-new Date())/864e5),data=fine.toLocaleDateString("it-IT",{day:"numeric",month:"long",year:"numeric"});
+  if(b.abbonamento==="attivo")return `<div class="piano"><div class="ptesta"><b>Il tuo abbonamento</b><span class="prova">Attivo</span></div><span>19 € al mese. Grazie di vendere con Ortaly!</span></div>`;
+  if(b.abbonamento==="prova"&&giorni>=0)return `<div class="piano"><div class="ptesta"><b>Il tuo abbonamento</b><span class="prova">In prova</span></div>
+    <span>Periodo di prova fino al <b>${data}</b> (${giorni===0?"ultimo giorno":giorni===1?"ancora 1 giorno":"ancora "+giorni+" giorni"}). Dopo: <b>19 € al mese</b>, solo se lo confermi tu.</span></div>`;
+  return `<div class="piano scaduta"><div class="ptesta"><b>Il tuo abbonamento</b><span class="prova" style="background:var(--pomodoro);color:#fff">${b.abbonamento==="disdetto"?"Disdetto":"Prova finita"}</span></div>
+    <span>La tua bottega non è visibile ai clienti. Per riaprirla con l'abbonamento da 19 € al mese scrivi a <b>info@eyedrones.it</b>.</span></div>`;
+}
+function formBottega(b){b=b||{};const pv=b.provincia||prov;
+  return `<form class="nuovo" id="formBottega">
+    <label for="bNome">Nome dell'azienda<input id="bNome" required minlength="2" maxlength="60" placeholder="Es. Cascina dei Noci" value="${esc(b.nome||"")}"></label>
+    <div class="due"><label for="bPaese">Paese<input id="bPaese" required minlength="2" maxlength="40" placeholder="Es. Chieri" value="${esc(b.paese||"")}"></label>
+    <label for="bProv">Provincia<select id="bProv">${Object.entries(PROVINCE).sort((x,y)=>x[1].localeCompare(y[1],"it")).map(([s,n])=>`<option value="${s}" ${s===pv?"selected":""}>${esc(n)}</option>`).join("")}</select></label></div>
+    <div class="due"><label for="bTel">Telefono per i clienti<input id="bTel" required type="tel" inputmode="tel" maxlength="20" placeholder="333 1234567" value="${esc(b.telefono||"")}"></label>
+    <label for="bPiva">Partita IVA<input id="bPiva" required inputmode="numeric" maxlength="13" placeholder="11 cifre" value="${esc(b.piva||"")}"></label></div>
+    <label for="bTipo">Cosa produci<input id="bTipo" maxlength="60" placeholder="Es. Verdura e uova" value="${esc(b.tipo||"")}"></label>
+    <label for="bStoria">Due righe su di te <span class="aiuto">(i clienti le leggono nella tua bottega)</span><textarea id="bStoria" maxlength="400" placeholder="Es. Coltiviamo senza serre da 20 anni, a 2 km dal Po">${esc(b.storia||"")}</textarea></label>
+    <label for="bFoto">Foto della tua azienda ${b.foto?'<span class="aiuto">(lascia vuoto per tenere quella di adesso)</span>':""}<input id="bFoto" type="file" accept="image/*"></label>
+    <div class="spunte" role="group" aria-label="Come consegni"><b style="font-size:13px">Come consegni <span class="aiuto">(almeno uno; scrivi giorni e costi)</span></b>
+      ${Object.entries(MODI).map(([k,m])=>`<label class="scelta"><input type="checkbox" id="k_${k}" ${b[m[3]]||(!b.id&&k!=="spedizione")?"checked":""}><span><b>${m[0]} ${m[2]}</b></span></label>
+      <input id="t_${k}" maxlength="120" placeholder="${k==="casa"?"Es. Il giovedì in zona Chieri · 4 €, inclusa sopra 40 €":k==="ritiro"?"Es. Sabato 9–12 in cascina":"Es. Corriere in 48 ore · 9 €, inclusa sopra 49 €"}" value="${esc(b[m[3]]||"")}">`).join("")}
+    </div>
+    <label class="scelta"><input type="checkbox" id="bBio" ${b.bio?"checked":""}><span><b>🌱 Ho la certificazione biologica</b></span></label>
+    ${b.id?"":pianoHtml()}
+    <p class="errore" id="bErr" hidden></p>
+    <button class="grande" type="submit">${b.id?"Salva la bottega":"Crea la mia bottega · inizia i 3 mesi"}</button>
+    ${b.id?"":`<p class="nota">Controlliamo la partita IVA prima di tenere la bottega aperta. Dopo i 3 mesi l'abbonamento parte solo se lo confermi tu.</p>`}
+  </form>`}
+function vistaNuovaBottega(){
+  V().innerHTML=vendoCartello("La tua <span>bottega</span>","Ultimo passo: come ti chiami, dove sei e come consegni. Poi metti i tuoi prodotti.")+`<div class="wrap">${formBottega()}<p class="pie-sito"><button class="link" data-esci="1">Esci</button></p></div>`;
+  $("formBottega").addEventListener("submit",salvaBottega);
+}
+async function caricaFoto(file,cartella){
+  const img=await new Promise((ok,ko)=>{const u=URL.createObjectURL(file);const i=new Image();i.onload=()=>{URL.revokeObjectURL(u);ok(i)};i.onerror=ko;i.src=u});
+  const lato=1400,sc=Math.min(1,lato/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+  c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+  const blob=await new Promise(ok=>c.toBlob(ok,"image/jpeg",.82));
+  const percorso=`${utente.id}/${cartella}-${Date.now()}.jpg`;
+  const {error}=await sb.storage.from("foto").upload(percorso,blob,{contentType:"image/jpeg",cacheControl:"31536000"});
+  if(error)throw error;
+  return sb.storage.from("foto").getPublicUrl(percorso).data.publicUrl;
+}
+async function salvaBottega(e){e.preventDefault();const err=$("bErr"),btn=e.target.querySelector("[type=submit]");err.hidden=true;
+  const v={nome:$("bNome").value.trim(),paese:$("bPaese").value.trim(),provincia:$("bProv").value,telefono:$("bTel").value.trim(),piva:$("bPiva").value.replace(/\s/g,""),
+    tipo:$("bTipo").value.trim()||null,storia:$("bStoria").value.trim()||null,bio:$("bBio").checked};
+  for(const [k,m] of Object.entries(MODI))v[m[3]]=$("k_"+k).checked?($("t_"+k).value.trim()||m[2]):null;
+  if(!v.consegna_casa&&!v.ritiro&&!v.spedizione){err.textContent="Scegli almeno un modo di consegna";err.hidden=false;return}
+  if(!/^\d{11}$/.test(v.piva.replace(/^IT/i,""))){err.textContent="La partita IVA ha 11 cifre";err.hidden=false;return}
+  v.piva=v.piva.replace(/^IT/i,"");
+  btn.disabled=true;btn.textContent="Salvo…";
+  try{const f=$("bFoto").files[0];if(f)v.foto=await caricaFoto(f,"bottega");
+    const r=mia?await sb.from("botteghe").update(v).eq("id",mia.id):await sb.from("botteghe").insert(v);
+    if(r.error)throw r.error;
+    toast(mia?"Bottega salvata":"Benvenuto! Ora metti il tuo primo prodotto");vendoScheda=mia?"bottega":"prodotti";await caricaMia();caricaBanco();
+  }catch(x){err.textContent=erroreDi(x);err.hidden=false;btn.disabled=false;btn.textContent="Riprova"}
+}
+async function caricaMia(){
+  if(!utente){vistaAccesso(leggi("registrato",false)?false:true);return}
+  if(recupero){vistaNuovaPassword();return}
+  const {data,error}=await sb.from("botteghe").select("*").eq("utente",utente.id).maybeSingle();
+  if(error){V().innerHTML=vendoCartello("Ops","Non riesco a caricare la tua bottega: controlla la connessione e riprova.");return}
+  salva("registrato",true);
+  mia=data;if(!mia){vistaNuovaBottega();return}
+  const [p,o]=await Promise.all([sb.from("prodotti").select("*").eq("bottega",mia.id).order("creato",{ascending:false}),sb.from("ordini").select("*").eq("bottega",mia.id).order("creato",{ascending:false}).limit(200)]);
+  mieiProd=p.data||[];mieiOrd=o.data||[];mostraVendo();
+  clearInterval(timerOrdini);timerOrdini=setInterval(aggiornaOrdini,60000);
+}
+async function aggiornaOrdini(){if(!mia||$("vistaVendo").hidden)return;const {data}=await sb.from("ordini").select("*").eq("bottega",mia.id).order("creato",{ascending:false}).limit(200);
+  if(data){const nuovi=data.filter(o=>o.stato==="nuovo"&&!mieiOrd.find(x=>x.id===o.id)).length;mieiOrd=data;if(nuovi){toast(nuovi===1?"È arrivato un ordine nuovo":`Sono arrivati ${nuovi} ordini nuovi`)}if(nuovi||vendoScheda==="ordini")mostraVendo()}}
+function mostraVendo(){
+  const b=mia,inizioSett=new Date();inizioSett.setDate(inizioSett.getDate()-7);
+  const nuovi=mieiOrd.filter(o=>o.stato==="nuovo").length,sett=mieiOrd.filter(o=>o.stato!=="annullato"&&new Date(o.creato)>inizioSett).reduce((s,o)=>s+Number(o.totale),0);
+  const link=location.origin+"/#bottega-"+b.id;
+  const schede=[["ordini","Ordini"+(nuovi?` (${nuovi})`:"")],["prodotti","Prodotti"],["bottega","Bottega"]];
+  V().innerHTML=vendoCartello(`Ciao, <span>${esc(b.nome)}</span>`,nuovi?`Hai ${nuovi===1?"un ordine nuovo":nuovi+" ordini nuovi"} da guardare.`:"Metti i tuoi prodotti e decidi tu prezzi e quantità.")+`<div class="wrap">
+  <div class="numeri"><div class="num"><b>${nuovi}</b><span>ordini nuovi</span></div><div class="num"><b>${euro(Math.round(sett))}</b><span>ultimi 7 giorni</span></div><div class="num"><b>${mieiProd.filter(a=>a.disponibile).length}</b><span>prodotti al banco</span></div></div>
+  ${pianoHtml(b)}
+  <div class="schede" role="group" aria-label="Sezioni" style="margin-top:16px">${schede.map(([k,t])=>`<button aria-pressed="${vendoScheda===k}" data-scheda="${k}">${t}</button>`).join("")}</div>
+  <div id="vCorpo"></div>
+  <p class="pie-sito"><button class="link" data-esci="1">Esci</button></p></div>`;
+  const c=$("vCorpo");
+  if(vendoScheda==="ordini"){
+    c.innerHTML=mieiOrd.length?mieiOrd.map(o=>`<div class="ordine"><div class="su"><b>${esc(o.cliente_nome)}</b><span class="stato s-${o.stato}">${STATI[o.stato]}</span></div>
+      <ul class="righe">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)})</span></li>`).join("")}</ul>
+      <div style="font-size:13px;color:var(--tenue)">${MODI[o.modo][0]} ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""} · <b style="color:var(--inchiostro)">${euro(o.totale)}</b> · ${new Date(o.creato).toLocaleString("it-IT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${esc(o.codice)}</div>
+      ${o.nota?`<div style="font-size:13.5px">📝 ${esc(o.nota)}</div>`:""}
+      <div style="font-size:13.5px"><a href="tel:${esc(numeroTel(o.cliente_telefono))}">📞 ${esc(o.cliente_telefono)}</a> · <a href="https://wa.me/${esc(numeroWa(o.cliente_telefono))}?text=${encodeURIComponent("Ciao "+o.cliente_nome+", sono "+b.nome+": ho ricevuto il tuo ordine "+o.codice+" su Ortaly.")}" target="_blank" rel="noopener">WhatsApp</a>${o.cliente_email?` · ${esc(o.cliente_email)}`:""}</div>
+      <div class="azioni">${o.stato==="nuovo"?`<button class="si" data-stato="accettato" data-o="${o.id}">✓ Accetto</button><button data-stato="annullato" data-o="${o.id}">Non posso</button>`:o.stato==="accettato"?`<button class="si" data-stato="pronto" data-o="${o.id}">È pronto</button><button data-stato="annullato" data-o="${o.id}">Annulla</button>`:o.stato==="pronto"?`<button class="si" data-stato="consegnato" data-o="${o.id}">Consegnato</button>`:""}</div></div>`).join("")
+      :`<div class="cliente"><span>Nessun ordine per ora. Metti i tuoi prodotti e condividi il link della tua bottega con i tuoi clienti: lo trovi nella scheda «Bottega».</span></div>`;
+  }else if(vendoScheda==="prodotti"){
+    c.innerHTML=`<form class="nuovo" id="formProdotto"><h3 style="font-size:18px">Metti un prodotto</h3>
+        <label for="nNome">Prodotto<input id="nNome" required minlength="2" maxlength="50" placeholder="Es. Topinambur"></label>
+        <div class="due"><label for="nCat">Categoria<select id="nCat">${CAT.map(x=>`<option>${x}</option>`).join("")}</select></label>
+          <label for="nUnita">Venduto a<input id="nUnita" required maxlength="30" list="unita" placeholder="kg"><datalist id="unita"><option>kg</option><option>pezzo</option><option>mazzo</option><option>confezione</option><option>vasetto 500 g</option><option>bottiglia 0,75 l</option><option>cassetta 5 kg</option></datalist></label></div>
+        <div class="due"><label for="nPrezzo">Prezzo (€)<input id="nPrezzo" required inputmode="decimal" placeholder="3,20"></label>
+          <label for="nNota">Nota <span class="aiuto">(facoltativa)</span><input id="nNota" maxlength="60" placeholder="Es. raccolta ieri"></label></div>
+        <label for="nFoto">Foto del prodotto <span class="aiuto">(scattala tu, dal telefono)</span><input id="nFoto" type="file" accept="image/*"></label>
+        <p class="errore" id="nErr" hidden></p><button class="grande" type="submit">Metti al banco</button></form>
+      <h3 style="font-size:18px;margin-top:20px">I miei prodotti <small style="font:600 12.5px var(--testo);color:var(--tenue)">accendi o spegni</small></h3>
+      ${mieiProd.length?mieiProd.map(a=>`<div class="mioart">${foto(colore(b.id),EMOJI[a.categoria]||"🧺",a.foto)}<div class="t"><b>${esc(a.nome)}</b><div>${euro(a.prezzo)} / ${esc(a.unita)}${a.disponibile?"":" · non al banco"}</div>
+        <div class="azioni" style="margin-top:6px"><button data-prezzo="${a.id}">Prezzo</button><button data-elimina="${a.id}">Elimina</button></div></div>
+        <button class="inter" aria-pressed="${a.disponibile}" data-attiva="${a.id}" aria-label="${a.disponibile?"Togli dal banco":"Metti al banco"} ${esc(a.nome)}"></button></div>`).join(""):`<div class="cliente"><span>Non hai ancora prodotti al banco: mettine uno qui sopra.</span></div>`}`;
+    $("formProdotto").addEventListener("submit",salvaProdotto);
+  }else{
+    c.innerHTML=`<div class="blocco"><b>Il link della tua bottega</b><p class="nota" style="margin-top:2px">Mandalo ai tuoi clienti su WhatsApp o mettilo sul cartello al banco: lo aprono e ordinano da te.</p>
+      <div class="condividi"><code id="linkB">${esc(link)}</code><button class="piu" data-copia="1">Copia</button><a class="piu" style="text-decoration:none" href="https://wa.me/?text=${encodeURIComponent("Ordina i miei prodotti su Ortaly: "+link)}" target="_blank" rel="noopener">WhatsApp</a></div></div>
+      ${formBottega(b)}`;
+    $("formBottega").addEventListener("submit",salvaBottega);
+  }
+}
+async function salvaProdotto(e){e.preventDefault();const err=$("nErr"),btn=e.target.querySelector("[type=submit]");err.hidden=true;
+  const prezzo=Number($("nPrezzo").value.replace(",","."));if(!(prezzo>0&&prezzo<10000)){err.textContent="Scrivi un prezzo, per esempio 3,20";err.hidden=false;return}
+  const v={bottega:mia.id,nome:$("nNome").value.trim(),categoria:$("nCat").value,unita:$("nUnita").value.trim()||"pezzo",prezzo:Math.round(prezzo*100)/100,nota:$("nNota").value.trim()||null};
+  btn.disabled=true;btn.textContent="Salvo…";
+  try{const f=$("nFoto").files[0];if(f)v.foto=await caricaFoto(f,"prodotto");
+    const {data,error}=await sb.from("prodotti").insert(v).select().single();if(error)throw error;
+    mieiProd.unshift(data);toast(data.nome+" è al banco");mostraVendo();caricaBanco();
+  }catch(x){err.textContent=erroreDi(x);err.hidden=false;btn.disabled=false;btn.textContent="Riprova"}
+}
+
+function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro").setAttribute("aria-pressed",!v);$("mVendo").setAttribute("aria-pressed",v);$("apriCarrello").hidden=v;
+  if(v){vendoScheda="ordini";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
+  window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":location.pathname)}catch(e){}}
+
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia]");if(!t)return;
+  if(t.dataset.chiudi!==undefined&&t.classList.contains("sheet-bg")&&e.target!==t)return;
+  if(t.dataset.iscrivi){chiudiSheet();modo(true)}
+  else if(t.dataset.piu)cambia(t.dataset.piu,1);
+  else if(t.dataset.meno)cambia(t.dataset.meno,-1);
+  else if(t.dataset.p)apriProduttore(t.dataset.p);
+  else if(t.dataset.c!==undefined){cat=t.dataset.c;mostraCategorie();mostraGriglia()}
+  else if(t.dataset.chiudi)chiudiSheet();
+  else if(t.dataset.reg!==undefined)vistaAccesso(!!t.dataset.reg);
+  else if(t.dataset.esci){await sb.auth.signOut();mia=null;clearInterval(timerOrdini);toast("Sei uscito")}
+  else if(t.dataset.scheda){vendoScheda=t.dataset.scheda;mostraVendo()}
+  else if(t.dataset.stato){t.disabled=true;const {error}=await sb.from("ordini").update({stato:t.dataset.stato}).eq("id",t.dataset.o);
+    if(error){toast(erroreDi(error));t.disabled=false;return}mieiOrd.find(o=>o.id===t.dataset.o).stato=t.dataset.stato;mostraVendo();
+    toast({accettato:"Accettato: chiama o scrivi al cliente per giorno e ora",pronto:"Segnato come pronto",consegnato:"Consegnato",annullato:"Ordine annullato: avvisa il cliente"}[t.dataset.stato])}
+  else if(t.dataset.attiva){const a=mieiProd.find(x=>x.id===t.dataset.attiva);const {error}=await sb.from("prodotti").update({disponibile:!a.disponibile}).eq("id",a.id);
+    if(error){toast(erroreDi(error));return}a.disponibile=!a.disponibile;mostraVendo();caricaBanco();toast(a.disponibile?"Di nuovo al banco":"Tolto dal banco")}
+  else if(t.dataset.prezzo){const a=mieiProd.find(x=>x.id===t.dataset.prezzo);const riga=t.closest(".t");
+    riga.querySelector(".azioni").innerHTML=`<input class="pz" inputmode="decimal" value="${String(a.prezzo).replace(".",",")}" aria-label="Nuovo prezzo"><button class="si" data-salvaprezzo="${a.id}">Salva</button>`;riga.querySelector(".pz").focus();
+    riga.querySelector("[data-salvaprezzo]").onclick=async()=>{const p=Number(riga.querySelector(".pz").value.replace(",","."));if(!(p>0&&p<10000)){toast("Prezzo non valido");return}
+      const {error}=await sb.from("prodotti").update({prezzo:Math.round(p*100)/100}).eq("id",a.id);if(error){toast(erroreDi(error));return}a.prezzo=Math.round(p*100)/100;mostraVendo();caricaBanco();toast("Prezzo aggiornato")}}
+  else if(t.dataset.elimina){const a=mieiProd.find(x=>x.id===t.dataset.elimina);
+    if(t.dataset.sicuro!=="1"){t.dataset.sicuro="1";t.textContent="Sicuro? Tocca ancora";setTimeout(()=>{if(t.isConnected){t.dataset.sicuro="";t.textContent="Elimina"}},4000);return}
+    const {error}=await sb.from("prodotti").delete().eq("id",a.id);if(error){toast(erroreDi(error));return}mieiProd=mieiProd.filter(x=>x.id!==a.id);mostraVendo();caricaBanco();toast("Prodotto eliminato")}
+  else if(t.dataset.copia){const l=$("linkB").textContent;try{await navigator.clipboard.writeText(l);toast("Link copiato")}catch(x){const r=document.createRange();r.selectNodeContents($("linkB"));getSelection().removeAllRanges();getSelection().addRange(r);toast("Tieni premuto per copiare")}}
+});
+document.addEventListener("change",e=>{if(e.target.dataset.scelta){scelte[e.target.dataset.scelta]=e.target.value;apriCarrello()}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")chiudiSheet()});
+$("cerca").addEventListener("input",e=>{testo=e.target.value;mostraGriglia()});
+$("provincia").innerHTML=Object.entries(PROVINCE).sort((x,y)=>x[1].localeCompare(y[1],"it")).map(([s,n])=>`<option value="${s}" ${s===prov?"selected":""}>${esc(n)}</option>`).join("");
+$("provincia").addEventListener("change",e=>{prov=e.target.value;salva("provincia",prov);cat="Tutto";aggiornaCompro()});
+$("zVicino").onclick=()=>scegliZona("vicino");$("zItalia").onclick=()=>scegliZona("italia");
+$("apriCarrello").onclick=apriCarrello;$("mCompro").onclick=()=>modo(false);$("mVendo").onclick=()=>modo(true);
+
+if(sb)sb.auth.onAuthStateChange((ev,sess)=>{const prima=utente&&utente.id;utente=sess?sess.user:null;
+  if(ev==="PASSWORD_RECOVERY"){recupero=true;modo(true);return}
+  if((utente&&utente.id)!==prima&&!$("vistaVendo").hidden)setTimeout(caricaMia,0)});
+caricaBanco();
+if(location.hash==="#vendo")modo(true);
+</script>
+</body>
+</html>

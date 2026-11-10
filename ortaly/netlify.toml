@@ -1,0 +1,31 @@
+# Ortaly — sito Netlify a parte (Base directory: ortaly). Niente da costruire: pubblica questa cartella così com'è.
+[build]
+  base = "ortaly"
+  publish = "."
+  functions = "funzioni"
+  command = ""
+  # se un push non tocca la cartella ortaly, Netlify non ripubblica Ortaly
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."
+
+# sicurezza: nessun altro sito può mostrare Ortaly dentro una sua pagina, sempre https,
+# agli altri siti arriva solo l'indirizzo base; fotocamera solo per Ortaly (foto dei prodotti)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Strict-Transport-Security = "max-age=31536000"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), camera=(self), microphone=(), payment=(), usb=()"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# qualunque altro indirizzo apre l'app
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
