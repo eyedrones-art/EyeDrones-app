@@ -4,7 +4,6 @@
 // dell'account (app_metadata.benvenuto), che il produttore non può cambiare.
 // Variabili su Netlify: ORTALY_SUPABASE_SECRET, RESEND_API_KEY, ORTALY_ADMIN_EMAIL (facoltativa).
 const ORTALY_SUPABASE_URL = "https://qqxzqiwxhyyzylmkvdew.supabase.co";
-const MITTENTE_PREDEFINITO = "Ortaly <avvisi@eyedrones.it>";
 const ADMIN_PREDEFINITO = "info@ortaly.it";
 const SITO = "https://ortaly.it";
 
@@ -18,14 +17,21 @@ function intestazioni(chiave, extra = {}) {
   return h;
 }
 
+// email: prima da avvisi@ortaly.it; se Resend non ha ancora verificato ortaly.it, riprova dal dominio già verificato
+const MITTENTI = [process.env.ORTALY_MITTENTE, "Ortaly <avvisi@ortaly.it>", "Ortaly <avvisi@eyedrones.it>"].filter(Boolean);
 async function manda(chiaveResend, a, oggetto, html, testo, replyTo) {
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${chiaveResend}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: process.env.ORTALY_MITTENTE || MITTENTE_PREDEFINITO, to: [a], subject: oggetto, html, text: testo, ...(replyTo ? { reply_to: replyTo } : {}) }),
-  }).catch(() => null);
-  if (!r || !r.ok) console.error("Resend ha rifiutato l'email:", r && r.status, r && (await r.text().catch(() => "")).slice(0, 300));
-  return !!(r && r.ok);
+  for (const from of MITTENTI) {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${chiaveResend}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: [a], subject: oggetto, html, text: testo, ...(replyTo ? { reply_to: replyTo } : {}) }),
+    }).catch(() => null);
+    if (r && r.ok) return true;
+    const dettaglio = r ? (await r.text().catch(() => "")).slice(0, 300) : "rete";
+    console.error("Resend ha rifiutato l'email da", from, ":", r && r.status, dettaglio);
+    if (!r || !(r.status === 403 || r.status === 422)) return false; // solo un dominio non verificato fa riprovare
+  }
+  return false;
 }
 
 exports.handler = async (event) => {

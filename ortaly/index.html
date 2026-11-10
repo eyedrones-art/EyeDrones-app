@@ -10,6 +10,11 @@
 <meta property="og:description" content="I prodotti dei contadini della tua zona: ordini qui, prepara tutto chi coltiva.">
 <meta property="og:url" content="https://ortaly.it/">
 <link rel="canonical" href="https://ortaly.it/">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ortaly">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2048%2048%22%3E%3Crect%20width%3D%2248%22%20height%3D%2248%22%20rx%3D%2213%22%20fill%3D%22%23e9a514%22/%3E%3Cpath%20d%3D%22M24%2025V13%22%20stroke%3D%22%2322382a%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M24%2017c-1-5-5-7-10-6%200%205%204%208%2010%206zM24%2015c1-5%205-7%2010-6%200%205-4%208-10%206z%22%20fill%3D%22%233c6a2c%22/%3E%3Cpath%20d%3D%22M9%2024h30l-3%2015H12z%22%20fill%3D%22%2322382a%22/%3E%3Cpath%20d%3D%22M11%2029.5h26M12%2034.5h24%22%20stroke%3D%22%23e9a514%22%20stroke-width%3D%222%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=Caveat+Brush&display=swap">
@@ -206,6 +211,10 @@ form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
 .pie-sito{padding-block:26px 34px;text-align:center;color:var(--tenue);font-size:12.5px}
 .vuoto b{display:block;color:var(--inchiostro);font-size:16px;margin-bottom:4px}
 .attesa{text-align:center;color:var(--tenue);padding:40px 10px}
+.app-box{display:flex;gap:12px;align-items:center;background:var(--bianco);border:1px solid var(--bordo);border-radius:16px;padding:12px 14px;margin-top:12px;box-shadow:var(--ombra)}
+.app-box .t{flex:1;min-width:0;font-size:13.5px}.app-box .t b{display:block;font-size:14.5px}
+.app-box img{width:42px;height:42px;border-radius:11px;flex:none}
+.app-box button{flex:none}
 </style>
 </head>
 <body>
@@ -237,6 +246,7 @@ form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
     <section class="sez"><h2>Al banco oggi <small id="conta"></small></h2>
       <div class="cat" id="categorie" role="group" aria-label="Categorie"></div>
       <div class="griglia" id="griglia"><div class="attesa">Carico il banco…</div></div></section>
+    <div id="boxInstallaCompro"></div>
     <p class="pie-sito">Ortaly mette in contatto clienti e produttori: ogni produttore vende, consegna e incassa da sé.</p>
   </div>
 </main>
@@ -500,9 +510,11 @@ function mostraVendo(){
   V().innerHTML=vendoCartello(`Ciao, <span>${esc(b.nome)}</span>`,nuovi?`Hai ${nuovi===1?"un ordine nuovo":nuovi+" ordini nuovi"} da guardare.`:"Metti i tuoi prodotti e decidi tu prezzi e quantità.")+`<div class="wrap">
   <div class="numeri"><div class="num"><b>${nuovi}</b><span>ordini nuovi</span></div><div class="num"><b>${euro(Math.round(sett))}</b><span>ultimi 7 giorni</span></div><div class="num"><b>${mieiProd.filter(a=>a.disponibile).length}</b><span>prodotti al banco</span></div></div>
   ${pianoHtml(b)}
+  <div id="boxNotifiche"></div><div id="boxInstallaVendo"></div>
   <div class="schede" role="group" aria-label="Sezioni" style="margin-top:16px">${schede.map(([k,t])=>`<button aria-pressed="${vendoScheda===k}" data-scheda="${k}">${t}</button>`).join("")}</div>
   <div id="vCorpo"></div>
   <p class="pie-sito"><button class="link" data-esci="1">Esci</button></p></div>`;
+  mostraBoxApp();
   const c=$("vCorpo");
   if(vendoScheda==="ordini"){
     c.innerHTML=mieiOrd.length?mieiOrd.map(o=>`<div class="ordine"><div class="su"><b>${esc(o.cliente_nome)}</b><span class="stato s-${o.stato}">${STATI[o.stato]}</span></div>
@@ -543,12 +555,66 @@ async function salvaProdotto(e){e.preventDefault();const err=$("nErr"),btn=e.tar
   }catch(x){err.textContent=erroreDi(x);err.hidden=false;btn.disabled=false;btn.textContent="Riprova"}
 }
 
+// ── app sul telefono: installazione e notifiche ──
+let promptInstalla=null,statoNotifiche="?";
+const installata=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const iPhone=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const pushOk=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();promptInstalla=e;mostraBoxApp()});
+window.addEventListener("appinstalled",()=>{promptInstalla=null;toast("Ortaly è sulla schermata Home");mostraBoxApp()});
+function boxInstalla(perProduttore){
+  if(installata()||(!promptInstalla&&!iPhone()))return"";
+  return `<div class="app-box"><img src="/icona-192.png" alt=""><div class="t"><b>Ortaly sul telefono</b>${perProduttore?"Aprila con un tocco e ricevi gli ordini come notifica.":"Un tocco dalla schermata Home per riordinare dai tuoi produttori."}</div><button class="piu" data-installa="1">Installa</button></div>`}
+function boxNotifiche(){
+  if(!mia)return"";
+  if(!pushOk())return iPhone()&&!installata()?`<div class="app-box"><span style="font-size:26px">🔔</span><div class="t"><b>Notifiche dei nuovi ordini</b>Su iPhone prima installa Ortaly (qui sotto), poi aprila dall'icona e attiva le notifiche.</div></div>`:"";
+  if(statoNotifiche==="attive")return `<div class="app-box"><span style="font-size:26px">🔔</span><div class="t"><b>Notifiche attive su questo telefono</b>Ti avvisiamo appena arriva un ordine.</div><button class="link" data-notifiche="spegni">Spegni</button></div>`;
+  if(Notification.permission==="denied")return `<div class="app-box"><span style="font-size:26px">🔕</span><div class="t"><b>Notifiche bloccate</b>Le hai bloccate per Ortaly: riattivale dalle impostazioni del browser (lucchetto accanto all'indirizzo → Notifiche).</div></div>`;
+  return `<div class="app-box"><span style="font-size:26px">🔔</span><div class="t"><b>Avvisami dei nuovi ordini</b>Una notifica sul telefono appena un cliente ordina, anche ad app chiusa.</div><button class="piu" data-notifiche="attiva">Attiva</button></div>`}
+function mostraBoxApp(){
+  const c=$("boxInstallaCompro");if(c)c.innerHTML=boxInstalla(false);
+  const v=$("boxInstallaVendo");if(v)v.innerHTML=boxInstalla(true);
+  const n=$("boxNotifiche");if(n)n.innerHTML=boxNotifiche();
+  if(mia&&pushOk()&&statoNotifiche==="?")controllaNotifiche()}
+async function controllaNotifiche(){statoNotifiche="controllo";
+  try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();statoNotifiche=sub&&Notification.permission==="granted"?"attive":"spente"}catch(e){statoNotifiche="spente"}
+  const n=$("boxNotifiche");if(n)n.innerHTML=boxNotifiche()}
+async function installa(){
+  if(promptInstalla){promptInstalla.prompt();const r=await promptInstalla.userChoice.catch(()=>null);promptInstalla=null;mostraBoxApp();return}
+  apriSheet(`<div class="corpo"><h2>Ortaly sulla schermata Home</h2><p class="storia">Su iPhone bastano tre tocchi:</p>
+  <div class="consegne"><div class="cons"><span>1</span><div>Tocca <b>Condividi</b> (il quadrato con la freccia in su) nella barra di Safari</div></div>
+  <div class="cons"><span>2</span><div>Scorri e scegli <b>Aggiungi alla schermata Home</b></div></div>
+  <div class="cons"><span>3</span><div>Tocca <b>Aggiungi</b>: l'icona di Ortaly compare tra le tue app</div></div></div>
+  <p class="nota">Funziona da Safari. Se hai aperto Ortaly da un'altra app (WhatsApp, Instagram), prima apri il link in Safari.</p></div>`,"installa")}
+const daBase64=t=>{const b=atob(t.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((t.length+3)%4));return Uint8Array.from(b,c=>c.charCodeAt(0))};
+async function attivaNotifiche(){
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=="granted"){toast("Senza il permesso non possiamo avvisarti");mostraBoxApp();return}
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){const r=await fetch("/.netlify/functions/ortaly-push-chiave");if(!r.ok)throw new Error("chiave");const {chiave}=await r.json();
+      sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:daBase64(chiave)})}
+    await sb.from("notifiche").delete().eq("endpoint",sub.endpoint);
+    const {error}=await sb.from("notifiche").insert({bottega:mia.id,endpoint:sub.endpoint});
+    if(error)throw error;
+    statoNotifiche="attive";mostraBoxApp();toast("Fatto: ti avvisiamo a ogni nuovo ordine");
+  }catch(e){console.error(e);toast("Non riesco ad attivare le notifiche su questo telefono");statoNotifiche="spente";mostraBoxApp()}}
+async function spegniNotifiche(){
+  try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
+    if(sub){await sb.from("notifiche").delete().eq("endpoint",sub.endpoint);await sub.unsubscribe()}}catch(e){}
+  statoNotifiche="spente";mostraBoxApp();toast("Notifiche spente su questo telefono")}
+if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{});
+  navigator.serviceWorker.addEventListener("message",e=>{if(e.data&&e.data.tipo==="apri-ordini"){vendoScheda="ordini";modo(true)}})}
+
 function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro").setAttribute("aria-pressed",!v);$("mVendo").setAttribute("aria-pressed",v);$("apriCarrello").hidden=v;
   if(v){vendoScheda="ordini";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
   window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":location.pathname)}catch(e){}}
 
-document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia]");if(!t)return;
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche]");if(!t)return;
   if(t.dataset.chiudi!==undefined&&t.classList.contains("sheet-bg")&&e.target!==t)return;
+  if(t.dataset.installa){installa();return}
+  if(t.dataset.notifiche){t.disabled=true;if(t.dataset.notifiche==="attiva")await attivaNotifiche();else await spegniNotifiche();return}
   if(t.dataset.iscrivi){chiudiSheet();modo(true)}
   else if(t.dataset.piu)cambia(t.dataset.piu,1);
   else if(t.dataset.meno)cambia(t.dataset.meno,-1);
@@ -556,7 +622,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu]
   else if(t.dataset.c!==undefined){cat=t.dataset.c;mostraCategorie();mostraGriglia()}
   else if(t.dataset.chiudi)chiudiSheet();
   else if(t.dataset.reg!==undefined)vistaAccesso(!!t.dataset.reg);
-  else if(t.dataset.esci){await sb.auth.signOut();mia=null;clearInterval(timerOrdini);toast("Sei uscito")}
+  else if(t.dataset.esci){await sb.auth.signOut();mia=null;statoNotifiche="?";clearInterval(timerOrdini);toast("Sei uscito")}
   else if(t.dataset.scheda){vendoScheda=t.dataset.scheda;mostraVendo()}
   else if(t.dataset.stato){t.disabled=true;const {error}=await sb.from("ordini").update({stato:t.dataset.stato}).eq("id",t.dataset.o);
     if(error){toast(erroreDi(error));t.disabled=false;return}mieiOrd.find(o=>o.id===t.dataset.o).stato=t.dataset.stato;mostraVendo();
@@ -583,7 +649,7 @@ $("apriCarrello").onclick=apriCarrello;$("mCompro").onclick=()=>modo(false);$("m
 if(sb)sb.auth.onAuthStateChange((ev,sess)=>{const prima=utente&&utente.id;utente=sess?sess.user:null;
   if(ev==="PASSWORD_RECOVERY"){recupero=true;modo(true);return}
   if((utente&&utente.id)!==prima&&!$("vistaVendo").hidden)setTimeout(caricaMia,0)});
-caricaBanco();
+caricaBanco();mostraBoxApp();
 if(location.hash==="#vendo")modo(true);
 </script>
 </body>
