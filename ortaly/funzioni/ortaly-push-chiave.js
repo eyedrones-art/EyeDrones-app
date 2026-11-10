@@ -1,6 +1,6 @@
 // Ortaly — notifiche sul telefono (Web Push).
 // 1. Come funzione Netlify: dà al telefono la chiave pubblica per attivare le notifiche.
-// 2. Come modulo: ortaly-avviso e ortaly-messaggio lo usano per mandare le notifiche (notificaBottega).
+// 2. Come modulo: ortaly-avviso, ortaly-messaggio e ortaly-stato lo usano per mandare le notifiche (ai produttori e ai clienti).
 // La coppia di chiavi VAPID si ricava da ORTALY_SUPABASE_SECRET: nessuna chiave in più da salvare su Netlify.
 // Se il telefono ha dato le sue chiavi (p256dh, auth) il testo viaggia cifrato (RFC 8291) e lo legge solo lui;
 // altrimenti la notifica arriva vuota e il telefono mostra un testo generico.
@@ -43,9 +43,10 @@ function firmaVapid(endpoint, chiavi) {
   return `vapid t=${testa}.${corpo}.${firma}, k=${chiavi.pubblica.toString("base64url")}`;
 }
 
-// manda { titolo, testo, url } a tutti i telefoni di una bottega; toglie quelli che non esistono più
-async function notificaBottega({ supabaseUrl, chiave, intestazioni, bottega, messaggio }) {
-  const r = await fetch(`${supabaseUrl}/rest/v1/notifiche?bottega=eq.${bottega}&select=id,endpoint,p256dh,auth`, { headers: intestazioni(chiave) }).catch(() => null);
+// manda { titolo, testo, url } ai telefoni di una tabella (notifiche = produttori, notifiche_clienti = clienti);
+// toglie quelli che non esistono più
+async function inviaATelefoni({ supabaseUrl, chiave, intestazioni, tabella, filtro, messaggio }) {
+  const r = await fetch(`${supabaseUrl}/rest/v1/${tabella}?${filtro}&select=id,endpoint,p256dh,auth`, { headers: intestazioni(chiave) }).catch(() => null);
   const lista = r && r.ok ? await r.json() : [];
   if (!lista.length) return 0;
   const chiavi = chiaviVapid(chiave);
@@ -62,15 +63,18 @@ async function notificaBottega({ supabaseUrl, chiave, intestazioni, bottega, mes
     }).catch(() => null);
     if (invio && invio.ok) mandate++;
     else if (invio && (invio.status === 404 || invio.status === 410))
-      await fetch(`${supabaseUrl}/rest/v1/notifiche?id=eq.${n.id}`, { method: "DELETE", headers: intestazioni(chiave) }).catch(() => null);
+      await fetch(`${supabaseUrl}/rest/v1/${tabella}?id=eq.${n.id}`, { method: "DELETE", headers: intestazioni(chiave) }).catch(() => null);
     else console.error("Notifica rifiutata:", invio && invio.status, invio && (await invio.text().catch(() => "")).slice(0, 200));
   }
   return mandate;
 }
+const notificaBottega = ({ bottega, ...resto }) => inviaATelefoni({ ...resto, tabella: "notifiche", filtro: `bottega=eq.${bottega}` });
+const notificaCliente = ({ ordine, ...resto }) => inviaATelefoni({ ...resto, tabella: "notifiche_clienti", filtro: `ordine=eq.${ordine}` });
 
 exports.chiaviVapid = chiaviVapid;
 exports.cifra = cifra;
 exports.notificaBottega = notificaBottega;
+exports.notificaCliente = notificaCliente;
 exports.handler = async () => {
   const segreto = process.env.ORTALY_SUPABASE_SECRET;
   if (!segreto) return { statusCode: 500, body: JSON.stringify({ messaggio: "Manca ORTALY_SUPABASE_SECRET" }) };

@@ -226,6 +226,15 @@ form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
 .passi span.no{background:color-mix(in srgb,var(--pomodoro) 18%,transparent);color:var(--pomodoro)}
 .badge{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:var(--pomodoro);color:#fff;font-size:11.5px;font-weight:800;margin-left:4px}
 .miei-ordini{display:grid;gap:8px;margin-top:12px}
+.stelle{display:flex;gap:4px}
+.stelle button{border:0;background:none;font-size:32px;line-height:1;padding:2px;color:var(--bordo);cursor:pointer}
+.stelle button[aria-pressed="true"]{color:var(--tuorlo)}
+.voto{color:var(--tuorlo);letter-spacing:1px}
+.rec{background:var(--bianco);border:1px solid var(--bordo);border-radius:14px;padding:10px 12px;font-size:14px;display:grid;gap:4px}
+.rec .risp{border-left:3px solid var(--foglia);padding-left:8px;color:var(--tenue);font-size:13.5px}
+.segn{background:color-mix(in srgb,var(--pomodoro) 10%,var(--bianco));border:1px solid color-mix(in srgb,var(--pomodoro) 35%,transparent);border-radius:14px;padding:10px 12px;font-size:14px;display:grid;gap:4px}
+.segn.ok{background:var(--bianco);border-color:var(--bordo);color:var(--tenue)}
+details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--pomodoro)}
 .app-box{display:flex;gap:12px;align-items:center;background:var(--bianco);border:1px solid var(--bordo);border-radius:16px;padding:12px 14px;margin-top:12px;box-shadow:var(--ombra)}
 .app-box .t{flex:1;min-width:0;font-size:13.5px}.app-box .t b{display:block;font-size:14.5px}
 .app-box img{width:42px;height:42px;border-radius:11px;flex:none}
@@ -257,7 +266,7 @@ form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
     <div class="stagione" id="stagione"></div>
     <section class="sez"><h2><span id="titProd">Produttori vicino a te</span> <small>tocca per conoscerli</small></h2>
       <div class="produttori" id="produttori"></div>
-      <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Iscriviti in 2 minuti, metti i tuoi prodotti con le tue foto e ricevi gli ordini dei clienti della tua zona. <span style="font-weight:700">I primi 3 mesi sono inclusi</span>, poi 19 € al mese.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
+      <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Iscriviti in 2 minuti, metti i tuoi prodotti con le tue foto e ricevi gli ordini dei clienti della tua zona.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
     <section class="sez"><h2>Al banco oggi <small id="conta"></small></h2>
       <div class="cat" id="categorie" role="group" aria-label="Categorie"></div>
       <div class="griglia" id="griglia"><div class="attesa">Carico il banco…</div></div></section>
@@ -309,7 +318,7 @@ const pronto=!!(CONF.url&&CONF.chiave&&window.supabase);
 const sb=pronto?window.supabase.createClient(CONF.url,CONF.chiave,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
 
 // ── stato ──
-let BOT=[],ART=[],zona="vicino",cat="Tutto",testo="",prov=leggi("provincia","TO"),carrello=leggi("carrello",{}),scelte={},cliente=leggi("cliente",{});
+let STELLE={},RECENSIONI={},BOT=[],ART=[],zona="vicino",cat="Tutto",testo="",prov=leggi("provincia","TO"),carrello=leggi("carrello",{}),scelte={},cliente=leggi("cliente",{});
 let utente=null,mia=null,mieiProd=[],mieiOrd=[],vendoScheda="ordini",recupero=false,timerOrdini=null;
 const bot=id=>BOT.find(b=>b.id===id);
 const zonaOk=b=>zona==="italia"?!!b.spedizione&&b.provincia!==prov:b.provincia===prov;
@@ -320,8 +329,8 @@ function mostraStagione(){const m=new Date().getMonth();
 function mostraProduttori(){
   const lista=BOT.filter(zonaOk);
   $("produttori").innerHTML=lista.length?lista.map(b=>`<button class="prod" data-p="${esc(b.id)}">${foto(colore(b.id),"🌾",b.foto)}<div class="t"><h3>${esc(b.nome)}</h3>
-  <div class="meta">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(b.provincia)})</div>${b.bio?'<span class="tag">🌱 bio</span>':""}${b.consegna_casa?'<span class="tag">🚚 a casa</span>':""}${b.ritiro?'<span class="tag">🏡 ritiro</span>':""}${b.spedizione?'<span class="tag">📦 spedisce</span>':""}</div></button>`).join("")
-  :`<div class="vuoto" style="grid-column:auto;min-width:260px"><b>${zona==="italia"?"Ancora nessuna specialità spedita":"Ancora nessun produttore in provincia di "+esc(PROVINCE[prov]||prov)}</b>Conosci un produttore? Digli di iscriversi su ortaly.it: i primi 3 mesi sono inclusi.</div>`;
+  <div class="meta">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(b.provincia)})</div>${STELLE[b.id]?`<span class="tag">★ ${String(STELLE[b.id].media).replace(".",",")} (${STELLE[b.id].numero})</span>`:""}${b.bio?'<span class="tag">🌱 bio</span>':""}${b.consegna_casa?'<span class="tag">🚚 a casa</span>':""}${b.ritiro?'<span class="tag">🏡 ritiro</span>':""}${b.spedizione?'<span class="tag">📦 spedisce</span>':""}</div></button>`).join("")
+  :`<div class="vuoto" style="grid-column:auto;min-width:260px"><b>${zona==="italia"?"Ancora nessuna specialità spedita":"Ancora nessun produttore in provincia di "+esc(PROVINCE[prov]||prov)}</b>Conosci un produttore? Digli di aprire la sua bottega su ortaly.it.</div>`;
 }
 function mostraCategorie(){
   const presenti=new Set(ART.filter(a=>{const b=bot(a.bottega);return b&&zonaOk(b)}).map(a=>a.categoria));
@@ -343,7 +352,8 @@ function mostraGriglia(){
 function aggiornaCompro(){mostraStagione();mostraProduttori();mostraCategorie();mostraGriglia()}
 async function caricaBanco(){
   if(!pronto){aggiornaCompro();return}
-  const [b,p]=await Promise.all([sb.from("vetrina_botteghe").select("*").order("creata",{ascending:false}),sb.from("vetrina_prodotti").select("*").order("creato",{ascending:false}).limit(2000)]);
+  const [b,p,st]=await Promise.all([sb.from("vetrina_botteghe").select("*").order("creata",{ascending:false}),sb.from("vetrina_prodotti").select("*").order("creato",{ascending:false}).limit(2000),sb.from("vetrina_stelle").select("bottega,media,numero")]);
+  STELLE={};for(const x of (st.data||[]))STELLE[x.bottega]=x;
   if(b.error||p.error){$("griglia").innerHTML=`<div class="vuoto"><b>Non riesco a caricare il banco</b>Controlla la connessione e ricarica la pagina.</div>`;return}
   BOT=b.data;ART=p.data;
   for(const id of Object.keys(carrello))if(!ART.find(a=>a.id===id))delete carrello[id];salva("carrello",carrello);
@@ -354,9 +364,19 @@ function cambia(id,d){carrello[id]=Math.max(0,Math.min(99,(carrello[id]||0)+d));
 
 function apriSheet(html,tipo,id){const s=$("sheet");s.dataset.tipo=tipo;s.dataset.id=id||"";s.innerHTML=`<div class="sheet-bg" data-chiudi="1"><div class="sheet" role="dialog" aria-modal="true"><div class="testa"><button class="chiudi" data-chiudi="1" aria-label="Chiudi">✕</button></div>${html}</div></div>`;s.hidden=false}
 function chiudiSheet(){$("sheet").hidden=true;if(/^#(bottega|ordine)-/.test(location.hash))try{history.replaceState(null,"",location.pathname)}catch(e){}}
+const voto=n=>`<span class="voto" aria-label="${n} su 5">${"★".repeat(n)}${"☆".repeat(5-n)}</span>`;
+function valutazioniBottega(id){
+  const l=RECENSIONI[id];
+  if(!l){sb.from("vetrina_recensioni").select("stelle,commento,nome,risposta,creata").eq("bottega",id).order("creata",{ascending:false}).limit(20).then(({data})=>{RECENSIONI[id]=data||[];const s=$("sheet");if(!s.hidden&&s.dataset.tipo==="prod"&&s.dataset.id===id)apriProduttore(id)});return""}
+  if(!l.length)return"";
+  const st=STELLE[id];
+  return `<h3 style="margin-top:18px;font-size:18px">Valutazioni ${st?`<span class="voto">★ ${String(st.media).replace(".",",")}</span> <small style="font:600 13px var(--testo);color:var(--tenue)">(${st.numero})</small>`:""}</h3>
+  <div style="display:grid;gap:8px;margin-top:8px">${l.slice(0,6).map(x=>`<div class="rec"><div>${voto(x.stelle)} <b>${esc(x.nome)}</b> <small style="color:var(--tenue)">${new Date(x.creata).toLocaleDateString("it-IT",{month:"short",year:"numeric"})}</small></div>${x.commento?`<div>${esc(x.commento)}</div>`:""}${x.risposta?`<div class="risp"><b>Risposta:</b> ${esc(x.risposta)}</div>`:""}</div>`).join("")}</div>`}
+
 function apriProduttore(id){const b=bot(id);if(!b)return;const suoi=ART.filter(a=>a.bottega===id);
   apriSheet(`${foto(colore(b.id)+" banner","🌾",b.foto)}<div class="corpo"><h2>${esc(b.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(PROVINCE[b.provincia]||b.provincia)})${b.bio?" · 🌱 bio":""}</div>
   ${b.storia?`<p class="storia">${esc(b.storia)}</p>`:""}<div class="consegne">${Object.entries(MODI).filter(([k,m])=>b[m[3]]).map(([k,m])=>`<div class="cons"><span>${m[0]}</span><div><b>${m[2]}</b>${esc(b[m[3]])}</div></div>`).join("")}</div>
+  ${valutazioniBottega(b.id)}
   <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.length?suoi.map(a=>`<div class="riga"><span>${EMOJI[a.categoria]||"🧺"} ${esc(a.nome)}${a.nota?`<br><small style="color:var(--tenue)">${esc(a.nota)}</small>`:""}</span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${esc(a.unita)}</b>${qtaHtml(a.id)}</span></div>`).join(""):`<p class="storia">Nessun prodotto al banco in questo momento.</p>`}</div>`,"prod",id);
   try{history.replaceState(null,"","#bottega-"+id)}catch(e){}}
 function apriDaIndirizzo(){const m=location.hash.match(/^#bottega-([0-9a-f-]{36})$/);if(m&&bot(m[1])){const b=bot(m[1]);if(b.provincia!==prov&&!b.spedizione){prov=b.provincia;$("provincia").value=prov;salva("provincia",prov)}scegliZona(b.provincia===prov?"vicino":"italia",true);apriProduttore(m[1])}}
@@ -424,7 +444,7 @@ function vistaAccesso(modoReg){
     <button class="grande" type="submit">${modoReg?"Crea il mio account":"Entra"}</button>
     ${modoReg?"":`<button type="button" class="link" id="aDimenticata" style="justify-self:start">Ho dimenticato la password</button>`}
   </form>
-  ${modoReg?pianoHtml():""}<p class="pie-sito">Dopo l'account crei la tua bottega: nome, paese, telefono, partita IVA e come consegni.<br>Iscrivendoti accetti l'<a href="/privacy" target="_blank" rel="noopener" style="color:inherit">informativa privacy</a>.</p></div>`;
+  <p class="pie-sito">Dopo l'account crei la tua bottega: nome, paese, telefono, partita IVA e come consegni.<br>Iscrivendoti accetti l'<a href="/privacy" target="_blank" rel="noopener" style="color:inherit">informativa privacy</a>.</p></div>`;
   $("formAccesso").addEventListener("submit",async e=>{e.preventDefault();const err=$("aErr");err.hidden=true;const btn=e.target.querySelector("[type=submit]");btn.disabled=true;
     const email=$("aEmail").value.trim(),password=$("aPass").value;
     const r=modoReg?await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+"/#vendo"}}):await sb.auth.signInWithPassword({email,password});
@@ -515,11 +535,16 @@ async function caricaMia(){
   clearInterval(timerOrdini);timerOrdini=setInterval(aggiornaOrdini,60000);
 }
 async function aggiornaOrdini(){if(!mia||$("vistaVendo").hidden)return;const {data}=await sb.from("ordini").select(COL_ORDINI).eq("bottega",mia.id).order("creato",{ascending:false}).limit(200);
-  const prima=nonLetti();await caricaMessaggi();const msgNuovi=nonLetti()-prima;
+  const prima=nonLetti(),recPrima=mieRec.length,segnPrima=mieSegn.length;await caricaMessaggi();const msgNuovi=nonLetti()-prima;
+  if(mieSegn.length>segnPrima)toast("⚠️ Un cliente ha segnalato un problema");else if(mieRec.length>recPrima)toast("⭐ Hai una nuova valutazione");
   const s=$("sheet");if(!s.hidden&&s.dataset.tipo==="chatprod"){apriChatProduttore(s.dataset.id,true)}
-  if(data){const nuovi=data.filter(o=>o.stato==="nuovo"&&!mieiOrd.find(x=>x.id===o.id)).length;mieiOrd=data;if(nuovi){toast(nuovi===1?"È arrivato un ordine nuovo":`Sono arrivati ${nuovi} ordini nuovi`)}else if(msgNuovi>0)toast(msgNuovi===1?"Hai un messaggio nuovo":`Hai ${msgNuovi} messaggi nuovi`);if(nuovi||msgNuovi>0||vendoScheda==="ordini")mostraVendo()}}
-let mieiMsg=[];
-async function caricaMessaggi(){const {data}=await sb.from("messaggi").select("id,ordine,da,testo,letto,creato").order("creato",{ascending:true}).limit(2000);if(data)mieiMsg=data}
+  if(data){const nuovi=data.filter(o=>o.stato==="nuovo"&&!mieiOrd.find(x=>x.id===o.id)).length;mieiOrd=data;if(nuovi){toast(nuovi===1?"È arrivato un ordine nuovo":`Sono arrivati ${nuovi} ordini nuovi`)}else if(msgNuovi>0)toast(msgNuovi===1?"Hai un messaggio nuovo":`Hai ${msgNuovi} messaggi nuovi`);const scrive=[...document.querySelectorAll('#vendo [id^="risp-"] textarea')].length>0;
+    if(!scrive&&(nuovi||msgNuovi>0||mieRec.length>recPrima||mieSegn.length>segnPrima||vendoScheda==="ordini"))mostraVendo()}}
+let mieiMsg=[],mieRec=[],mieSegn=[];
+async function caricaMessaggi(){const [m,r,s]=await Promise.all([sb.from("messaggi").select("id,ordine,da,testo,letto,creato").order("creato",{ascending:true}).limit(2000),
+  sb.from("recensioni").select("id,ordine,stelle,commento,nome,risposta,contestata,creata").order("creata",{ascending:false}).limit(500),
+  sb.from("segnalazioni").select("id,ordine,tipo,testo,risolta,creata").order("creata",{ascending:false}).limit(500)]);
+  if(m.data)mieiMsg=m.data;if(r.data)mieRec=r.data;if(s.data)mieSegn=s.data}
 const nonLetti=id=>mieiMsg.filter(m=>m.da==="cliente"&&!m.letto&&(!id||m.ordine===id)).length;
 function chatHtml(lista,io){return lista.length?lista.map(m=>`<div class="bolla ${m.da===io?"mia":"sua"}">${esc(m.testo)}<small>${new Date(m.creato).toLocaleString("it-IT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</small></div>`).join(""):`<div class="chat-vuota">Ancora nessun messaggio. Scrivi qui per metterti d'accordo su giorno e ora.</div>`}
 function scorriGiu(){const c=document.querySelector(".chat");if(c)c.scrollTop=c.scrollHeight}
@@ -542,7 +567,7 @@ function mostraVendo(){
   const nuovi=mieiOrd.filter(o=>o.stato==="nuovo").length,sett=mieiOrd.filter(o=>o.stato!=="annullato"&&new Date(o.creato)>inizioSett).reduce((s,o)=>s+Number(o.totale),0);
   const link=location.origin+"/#bottega-"+b.id;
   const schede=[["ordini","Ordini"+(nuovi?` (${nuovi})`:"")+(nonLetti()?" 💬":"")],["prodotti","Prodotti"],["bottega","Bottega"]];
-  V().innerHTML=vendoCartello(`Ciao, <span>${esc(b.nome)}</span>`,nuovi?`Hai ${nuovi===1?"un ordine nuovo":nuovi+" ordini nuovi"} da guardare.`:"Metti i tuoi prodotti e decidi tu prezzi e quantità.")+`<div class="wrap">
+  V().innerHTML=vendoCartello(`Ciao, <span>${esc(b.nome)}</span>`,(nuovi?`Hai ${nuovi===1?"un ordine nuovo":nuovi+" ordini nuovi"} da guardare.`:"Metti i tuoi prodotti e decidi tu prezzi e quantità.")+(mieRec.length?` · ★ ${(mieRec.reduce((s,x)=>s+x.stelle,0)/mieRec.length).toFixed(1).replace(".",",")} da ${mieRec.length} ${mieRec.length===1?"valutazione":"valutazioni"}`:""))+`<div class="wrap">
   <div class="numeri"><div class="num"><b>${nuovi}</b><span>ordini nuovi</span></div><div class="num"><b>${euro(Math.round(sett))}</b><span>ultimi 7 giorni</span></div><div class="num"><b>${mieiProd.filter(a=>a.disponibile).length}</b><span>prodotti al banco</span></div></div>
   ${pianoHtml(b)}
   <div id="boxNotifiche"></div><div id="boxInstallaVendo"></div>
@@ -556,6 +581,9 @@ function mostraVendo(){
       <ul class="righe">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)})</span></li>`).join("")}</ul>
       <div style="font-size:13px;color:var(--tenue)">${MODI[o.modo][0]} ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""} · <b style="color:var(--inchiostro)">${euro(o.totale)}</b> · ${new Date(o.creato).toLocaleString("it-IT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${esc(o.codice)}</div>
       ${o.nota?`<div style="font-size:13.5px">📝 ${esc(o.nota)}</div>`:""}
+      ${mieSegn.filter(x=>x.ordine===o.id).map(x=>`<div class="segn${x.risolta?" ok":""}"><div>${x.risolta?"✅ Risolta":"⚠️ Segnalazione"} · <b>${esc(TIPI_PROBLEMA[x.tipo]||x.tipo)}</b></div><div>${esc(x.testo)}</div>${x.risolta?"":`<div class="azioni"><button data-chat="${o.id}">💬 Scrivi al cliente</button><button data-risolta="${x.id}">✓ Risolta</button></div>`}</div>`).join("")}
+      ${mieRec.filter(x=>x.ordine===o.id).map(x=>`<div class="rec"><div>${voto(x.stelle)} <b>${esc(x.nome)}</b></div>${x.commento?`<div>${esc(x.commento)}</div>`:""}${x.risposta?`<div class="risp"><b>La tua risposta:</b> ${esc(x.risposta)}</div>`:`<div id="risp-${x.id}"><button class="link" data-rispondi="${x.id}">Rispondi (la risposta è pubblica)</button></div>`}
+        ${x.contestata?`<div style="font-size:12.5px;color:var(--tenue)">🚩 Segnalata a Ortaly: la controlliamo</div>`:`<button class="link" style="justify-self:start;color:var(--tenue);font-size:12.5px" data-contesta="${x.id}">🚩 Sembra falsa? Segnala a Ortaly</button>`}</div>`).join("")}
       <div class="azioni"><button data-chat="${o.id}">💬 Chat${nonLetti(o.id)?`<span class="badge">${nonLetti(o.id)}</span>`:""}</button>${o.stato==="nuovo"?`<button class="si" data-stato="accettato" data-o="${o.id}">✓ Accetto</button><button data-stato="annullato" data-o="${o.id}">Non posso</button>`:o.stato==="accettato"?`<button class="si" data-stato="pronto" data-o="${o.id}">È pronto</button><button data-stato="annullato" data-o="${o.id}">Annulla</button>`:o.stato==="pronto"?`<button class="si" data-stato="consegnato" data-o="${o.id}">Consegnato</button>`:""}</div></div>`).join("")
       :`<div class="cliente"><span>Nessun ordine per ora. Metti i tuoi prodotti e condividi il link della tua bottega con i tuoi clienti: lo trovi nella scheda «Bottega».</span></div>`;
   }else if(vendoScheda==="prodotti"){
@@ -596,8 +624,47 @@ const COL_ORDINI="id,codice,bottega,cliente_nome,modo,indirizzo,nota,righe,total
 function ricordaOrdine(o){const l=leggi("ordini",[]).filter(x=>x.segreto!==o.segreto);l.unshift(o);salva("ordini",l.slice(0,15));mostraMieiOrdini()}
 function mostraMieiOrdini(){const l=leggi("ordini",[]);const s=$("sezMieiOrdini");if(!s)return;s.hidden=!l.length;
   $("mieiOrdiniCliente").innerHTML=l.map(o=>`<button class="cliente" style="width:100%;text-align:left;border:0;cursor:pointer" data-ordinecliente="${esc(o.segreto)}"><span><b>${esc(o.bottega)}</b><small>Ordine ${esc(o.codice)} · ${new Date(o.creato).toLocaleDateString("it-IT",{day:"numeric",month:"short"})}</small></span><span style="text-align:right"><b>${euro(o.totale)}</b><small>stato e chat ›</small></span></button>`).join("")}
+const TIPI_PROBLEMA={mancava:"Mancava qualcosa",qualita:"Qualità non buona",ritardo:"Ritardo o consegna",quantita:"Quantità o peso sbagliati",altro:"Altro"};
+let correggoValutazione=null;
+function valutazioneHtml(o,segreto){
+  if(o.stato!=="consegnato")return"";
+  const r=o.recensione;
+  if(r&&correggoValutazione!==segreto)return `<h3 style="margin-top:14px;font-size:17px">La tua valutazione</h3><div class="rec" style="margin-top:8px"><div>${voto(r.stelle)}</div>${r.commento?`<div>${esc(r.commento)}</div>`:""}${r.risposta?`<div class="risp"><b>Risposta del produttore:</b> ${esc(r.risposta)}</div>`:""}
+    ${new Date(r.creata)>new Date(Date.now()-14*864e5)?`<button class="link" data-correggi="${esc(segreto)}" style="justify-self:start">Correggi</button>`:""}</div>`;
+  const s0=r?r.stelle:0;
+  return `<form class="nuovo" id="formValuta" style="margin-top:12px"><b style="font-size:16px">Com'è andata?</b>
+    <div class="stelle" role="radiogroup" aria-label="Stelle">${[1,2,3,4,5].map(n=>`<button type="button" data-stella="${n}" aria-pressed="${n<=s0}" aria-label="${n} stelle">★</button>`).join("")}</div>
+    <input type="hidden" id="vStelle" value="${s0||""}">
+    <label for="vCommento">Due parole per gli altri clienti <span class="aiuto">(facoltativo)</span><textarea id="vCommento" maxlength="500" placeholder="Es. Zucca dolcissima, consegna puntuale">${esc(r&&r.commento||"")}</textarea></label>
+    <p class="errore" id="vErr" hidden></p><button class="grande" type="submit" style="margin-top:0">Pubblica la valutazione</button>
+    <p class="nota" style="margin-top:0">La vedono tutti nella bottega, con il tuo nome e l'iniziale del cognome. Se qualcosa non è andato, prima prova a dirlo al produttore qui sotto.</p></form>`}
+function problemaHtml(o){
+  const l=o.segnalazioni||[];
+  return `${l.map(x=>`<div class="segn${x.risolta?" ok":""}" style="margin-top:10px"><div>${x.risolta?"✅ Risolta":"⚠️ Segnalata"} · <b>${esc(TIPI_PROBLEMA[x.tipo]||x.tipo)}</b></div><div>${esc(x.testo)}</div></div>`).join("")}
+  ${l.length>=3?"":`<details class="problema" style="margin-top:12px"><summary>⚠️ Qualcosa non è andato bene?</summary>
+    <form class="nuovo" id="formProblema" style="margin-top:8px"><label for="pTipo">Cosa è successo<select id="pTipo">${Object.entries(TIPI_PROBLEMA).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></label>
+    <label for="pTesto">Racconta in poche parole<textarea id="pTesto" required minlength="3" maxlength="1000" placeholder="Es. Mancava il mazzo di cavolo nero"></textarea></label>
+    <p class="errore" id="pErr" hidden></p><button class="grande" type="submit" style="margin-top:0;background:var(--pomodoro)">Manda la segnalazione</button>
+    <p class="nota" style="margin-top:0">Non è pubblica: la leggono solo il produttore e Ortaly, per sistemare.</p></form></details>`}`}
+function collegaValutazione(segreto,o){
+  const f=$("formValuta");
+  if(f){f.querySelectorAll("[data-stella]").forEach(b=>b.onclick=()=>{const n=+b.dataset.stella;$("vStelle").value=n;f.querySelectorAll("[data-stella]").forEach(x=>x.setAttribute("aria-pressed",+x.dataset.stella<=n))});
+    f.addEventListener("submit",async e=>{e.preventDefault();const n=+$("vStelle").value,err=$("vErr");err.hidden=true;if(!(n>=1&&n<=5)){err.textContent="Tocca le stelle per scegliere il voto";err.hidden=false;return}
+      const btn=f.querySelector("[type=submit]");btn.disabled=true;
+      const {data,error}=await sb.rpc("valuta_ordine",{p_segreto:segreto,p_stelle:n,p_commento:$("vCommento").value.trim()});
+      btn.disabled=false;if(error){err.textContent=erroreDi(error);err.hidden=false;return}
+      if(!o.recensione)fetch("/.netlify/functions/ortaly-recensione",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tipo:"recensione",id:data.id}),keepalive:true}).catch(()=>{});
+      correggoValutazione=null;delete RECENSIONI[o.bottega.id];toast("Grazie! La tua valutazione è pubblicata");apriOrdineCliente(segreto,true,true);caricaBanco()})}
+  const p=$("formProblema");
+  if(p)p.addEventListener("submit",async e=>{e.preventDefault();const err=$("pErr");err.hidden=true;const btn=p.querySelector("[type=submit]");btn.disabled=true;
+    const {data,error}=await sb.rpc("segnala_problema",{p_segreto:segreto,p_tipo:$("pTipo").value,p_testo:$("pTesto").value.trim()});
+    btn.disabled=false;if(error){err.textContent=erroreDi(error);err.hidden=false;return}
+    fetch("/.netlify/functions/ortaly-recensione",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tipo:"problema",id:data.id}),keepalive:true}).catch(()=>{});
+    $("pTesto").value="";toast("Segnalazione mandata: il produttore e Ortaly la leggono subito");apriOrdineCliente(segreto,true,true)})}
+
 let timerOrdineCliente=null;
-async function apriOrdineCliente(segreto,aggiorna){
+async function apriOrdineCliente(segreto,aggiorna,forza){
+  if(aggiorna&&!forza){const a=document.activeElement;if(a&&a.closest&&a.closest("#formValuta,#formProblema"))return;if([...document.querySelectorAll("#formValuta textarea,#formProblema textarea")].some(t=>t.value.trim())||document.querySelector("details.problema[open]"))return}
   if(!/^[0-9a-f]{64}$/.test(segreto))return;
   const {data,error}=await sb.rpc("ordine_cliente",{p_segreto:segreto});
   if(error){if(!aggiorna)apriSheet(`<div class="corpo fatto"><div style="font-size:48px">🔎</div><h2>Ordine non trovato</h2><p class="storia" style="margin-inline:auto">Il link non è giusto o l'ordine è stato cancellato.</p></div>`,"ordinecliente");return}
@@ -610,19 +677,47 @@ async function apriOrdineCliente(segreto,aggiorna){
   apriSheet(`<div class="corpo"><h2>${esc(o.bottega.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">Ordine ${esc(o.codice)} · ${euro(o.totale)} · ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""}</div>
   ${passi}
   <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700;font-size:14px">Cosa hai ordinato</summary><ul class="righe" style="margin-top:6px">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)}) · ${euro(r.prezzo*r.qta)}</span></li>`).join("")}</ul></details>
+  ${valutazioneHtml(o,segreto)}
+  <div id="boxSegui">${boxSegui(segreto)}</div>
   <h3 style="margin-top:14px;font-size:17px">Chat con il produttore</h3>
   <div class="chat" id="chatLista">${chatHtml(o.messaggi||[],"cliente")}</div>
   ${o.stato==="annullato"?"":`<form class="scrivi" id="formChat"><textarea id="chatTesto" maxlength="1000" rows="1" placeholder="Scrivi al produttore…" aria-label="Messaggio">${esc(scritto)}</textarea><button type="submit">Invia</button></form>`}
+  ${problemaHtml(o)}
   <p class="nota">Non serve il telefono: vi scrivete qui. Salva questa pagina o ritrovala in «I tuoi ordini» su ortaly.it. Il link è solo tuo, non mandarlo ad altri.</p></div>`,"ordinecliente",segreto);
   try{history.replaceState(null,"","#ordine-"+segreto)}catch(e){}
-  scorriGiu();
+  scorriGiu();collegaValutazione(segreto,o);
   const f=$("formChat");if(f)f.addEventListener("submit",async e=>{e.preventDefault();const t=$("chatTesto").value.trim();if(!t)return;const btn=e.target.querySelector("button");btn.disabled=true;
     const {data:m,error:er}=await sb.rpc("scrivi_cliente",{p_segreto:segreto,p_testo:t});btn.disabled=false;
     if(er){toast(erroreDi(er));return}
     $("chatTesto").value="";fetch("/.netlify/functions/ortaly-messaggio",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id}),keepalive:true}).catch(()=>{});
-    apriOrdineCliente(segreto,true)});
+    apriOrdineCliente(segreto,true,true)});
   clearInterval(timerOrdineCliente);timerOrdineCliente=setInterval(()=>{const s=$("sheet");if(s.hidden||s.dataset.id!==segreto){clearInterval(timerOrdineCliente);return}apriOrdineCliente(segreto,true)},20000);
 }
+
+// notifiche per il cliente: per ogni ordine che segue, sul telefono dove l'ha aperto
+const seguiti=()=>leggi("seguiti",[]);
+function boxSegui(segreto){
+  if(!pushOk())return iPhone()&&!installata()?`<div class="app-box"><span style="font-size:24px">🔔</span><div class="t"><b>Vuoi gli avvisi sul telefono?</b>Su iPhone prima aggiungi Ortaly alla schermata Home (Condividi → Aggiungi alla schermata Home), poi apri l'ordine da lì.</div></div>`:"";
+  if(seguiti().includes(segreto)&&Notification.permission==="granted")return `<div class="app-box"><span style="font-size:24px">🔔</span><div class="t"><b>Avvisi attivi su questo telefono</b>Ti avvisiamo quando il produttore ti scrive o l'ordine cambia.</div><button class="link" data-segui="spegni" data-segreto="${esc(segreto)}">Spegni</button></div>`;
+  if(Notification.permission==="denied")return "";
+  return `<div class="app-box"><span style="font-size:24px">🔔</span><div class="t"><b>Avvisami su questo telefono</b>Quando il produttore ti scrive o l'ordine è accettato, pronto o consegnato.</div><button class="piu" data-segui="attiva" data-segreto="${esc(segreto)}">Attiva</button></div>`}
+async function seguiOrdine(segreto,attiva){
+  try{
+    const reg=await Promise.race([navigator.serviceWorker.ready,new Promise((_,ko)=>setTimeout(()=>ko(new Error("service worker non pronto")),8000))]);
+    let sub=await reg.pushManager.getSubscription();
+    if(attiva){
+      if(await Notification.requestPermission()!=="granted"){toast("Senza il permesso non possiamo avvisarti");return}
+      if(!sub){const r=await fetch("/.netlify/functions/ortaly-push-chiave");if(!r.ok)throw new Error("risposta "+r.status);const {chiave}=await r.json();
+        sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:daBase64(chiave)})}
+      const k=((sub.toJSON?sub.toJSON():{}).keys)||{};
+      const {error}=await sb.rpc("segui_ordine",{p_segreto:segreto,p_endpoint:sub.endpoint,p_p256dh:k.p256dh||"",p_auth:k.auth||""});if(error)throw error;
+      salva("seguiti",[segreto,...seguiti().filter(x=>x!==segreto)].slice(0,30));toast("Fatto: ti avvisiamo qui");
+    }else{
+      if(sub)await sb.rpc("smetti_ordine",{p_segreto:segreto,p_endpoint:sub.endpoint});
+      salva("seguiti",seguiti().filter(x=>x!==segreto));toast("Avvisi spenti per questo ordine");
+    }
+  }catch(e){console.error(e);toast("Non riesco ad attivare gli avvisi su questo telefono: "+((e&&e.message)||"errore"))}
+  const b=$("boxSegui");if(b)b.innerHTML=boxSegui(segreto)}
 
 // ── app sul telefono: installazione e notifiche ──
 let promptInstalla=null,statoNotifiche="?";
@@ -679,16 +774,31 @@ async function spegniNotifiche(){
     if(sub){await sb.from("notifiche").delete().eq("endpoint",sub.endpoint);await sub.unsubscribe()}}catch(e){}
   statoNotifiche="spente";mostraBoxApp();toast("Notifiche spente su questo telefono")}
 if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{});
-  navigator.serviceWorker.addEventListener("message",e=>{if(!e.data)return;if(e.data.tipo==="apri-ordini"||(e.data.tipo==="apri"&&e.data.url==="/#vendo")){vendoScheda="ordini";modo(true)}})}
+  navigator.serviceWorker.addEventListener("message",e=>{if(!e.data)return;if(e.data.tipo==="apri-ordini"||(e.data.tipo==="apri"&&e.data.url==="/#vendo")){vendoScheda="ordini";modo(true);return}
+    const m=e.data.tipo==="apri"&&String(e.data.url).match(/^\/#ordine-([0-9a-f]{64})$/);if(m){if($("vistaCompro").hidden)modo(false);apriOrdineCliente(m[1])}})}
 
 function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro").setAttribute("aria-pressed",!v);$("mVendo").setAttribute("aria-pressed",v);$("apriCarrello").hidden=v;
   if(v){vendoScheda="ordini";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
   window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":location.pathname)}catch(e){}}
 
-document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente]");if(!t)return;
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui],[data-correggi],[data-rispondi],[data-risolta],[data-contesta]");if(!t)return;
   if(t.dataset.chiudi!==undefined&&t.classList.contains("sheet-bg")&&e.target!==t)return;
   if(t.dataset.installa){installa();return}
   if(t.dataset.chat){apriChatProduttore(t.dataset.chat);return}
+  if(t.dataset.correggi){correggoValutazione=t.dataset.correggi;apriOrdineCliente(t.dataset.correggi,true,true);return}
+  if(t.dataset.contesta){
+    if(t.dataset.sicuro!=="1"){t.dataset.sicuro="1";t.textContent="Tocca ancora per segnalarla a Ortaly";setTimeout(()=>{if(t.isConnected){t.dataset.sicuro="";t.textContent="🚩 Sembra falsa? Segnala a Ortaly"}},5000);return}
+    t.disabled=true;const {error}=await sb.from("recensioni").update({contestata:true}).eq("id",t.dataset.contesta);if(error){toast(erroreDi(error));t.disabled=false;return}
+    fetch("/.netlify/functions/ortaly-recensione",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tipo:"contesta",id:t.dataset.contesta}),keepalive:true}).catch(()=>{});
+    mieRec.forEach(x=>{if(x.id===t.dataset.contesta)x.contestata=true});mostraVendo();toast("Segnalata: la controlliamo noi");return}
+  if(t.dataset.risolta){t.disabled=true;const {error}=await sb.from("segnalazioni").update({risolta:true}).eq("id",t.dataset.risolta);if(error){toast(erroreDi(error));t.disabled=false;return}
+    mieSegn.forEach(x=>{if(x.id===t.dataset.risolta)x.risolta=true});mostraVendo();toast("Segnata come risolta");return}
+  if(t.dataset.rispondi){const id=t.dataset.rispondi,box=$("risp-"+id);box.innerHTML=`<form class="scrivi" style="margin-top:4px"><textarea maxlength="500" rows="2" placeholder="Grazie! …" aria-label="Risposta pubblica"></textarea><button type="submit">Pubblica</button></form>`;
+    const f=box.querySelector("form");f.querySelector("textarea").focus();
+    f.addEventListener("submit",async e=>{e.preventDefault();const testo=f.querySelector("textarea").value.trim();if(!testo)return;
+      const {error}=await sb.from("recensioni").update({risposta:testo}).eq("id",id);if(error){toast(erroreDi(error));return}
+      mieRec.forEach(x=>{if(x.id===id)x.risposta=testo});delete RECENSIONI[mia.id];mostraVendo();toast("Risposta pubblicata")});return}
+  if(t.dataset.segui){t.disabled=true;await seguiOrdine(t.dataset.segreto,t.dataset.segui==="attiva");return}
   if(t.dataset.ordinecliente){if($("vistaCompro").hidden)modo(false);apriOrdineCliente(t.dataset.ordinecliente);return}
   if(t.dataset.chiudibottega){
     if(t.dataset.sicuro!=="1"){t.dataset.sicuro="1";t.textContent="Sicuro? Tocca ancora per cancellare tutto";setTimeout(()=>{if(t.isConnected){t.dataset.sicuro="";t.textContent="Chiudi e cancella la bottega"}},5000);return}
@@ -709,6 +819,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu]
   else if(t.dataset.scheda){vendoScheda=t.dataset.scheda;mostraVendo()}
   else if(t.dataset.stato){t.disabled=true;const {error}=await sb.from("ordini").update({stato:t.dataset.stato}).eq("id",t.dataset.o);
     if(error){toast(erroreDi(error));t.disabled=false;return}mieiOrd.find(o=>o.id===t.dataset.o).stato=t.dataset.stato;mostraVendo();
+    fetch("/.netlify/functions/ortaly-stato",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:t.dataset.o}),keepalive:true}).catch(()=>{});
     toast({accettato:"Accettato: scrivi al cliente nella chat per giorno e ora",pronto:"Segnato come pronto",consegnato:"Consegnato",annullato:"Ordine annullato: avvisa il cliente"}[t.dataset.stato])}
   else if(t.dataset.attiva){const a=mieiProd.find(x=>x.id===t.dataset.attiva);const {error}=await sb.from("prodotti").update({disponibile:!a.disponibile}).eq("id",a.id);
     if(error){toast(erroreDi(error));return}a.disponibile=!a.disponibile;mostraVendo();caricaBanco();toast(a.disponibile?"Di nuovo al banco":"Tolto dal banco")}
