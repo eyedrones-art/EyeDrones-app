@@ -51,7 +51,7 @@ exports.handler = async (event) => {
   if (!ora || ora.stato === ora.stato_avvisato || !TESTI[ora.stato]) return risposta(200, "Niente da avvisare");
 
   // aggiorno solo se nessun altro l'ha già fatto nel frattempo
-  const presa = await fetch(`${ORTALY_SUPABASE_URL}/rest/v1/ordini?id=eq.${id}&stato=eq.${ora.stato}&stato_avvisato=eq.${encodeURIComponent(ora.stato_avvisato)}&select=codice,stato,cliente_nome,cliente_email,segreto,annullato_da,motivo_annullo,bottega,botteghe(nome,utente)`, {
+  const presa = await fetch(`${ORTALY_SUPABASE_URL}/rest/v1/ordini?id=eq.${id}&stato=eq.${ora.stato}&stato_avvisato=eq.${encodeURIComponent(ora.stato_avvisato)}&select=codice,stato,cliente_nome,cliente_email,segreto,annullato_da,motivo_annullo,bottega,pagamento,pagato,totale,botteghe(nome,utente,link_pagamento)`, {
     method: "PATCH", headers: intestazioni(chiave, { Prefer: "return=representation" }), body: JSON.stringify({ stato_avvisato: ora.stato }),
   }).catch(() => null);
   const [o] = presa && presa.ok ? await presa.json() : [];
@@ -73,7 +73,15 @@ exports.handler = async (event) => {
     }
     return risposta(200, `produttore: notifiche ${telefoni}, email ${inviata ? 1 : 0}`);
   }
-  const [cosa, poi] = TESTI[o.stato];
+  let [cosa, poi] = TESTI[o.stato];
+  // ordine da pagare online: quando il produttore accetta, il cliente riceve il link per pagare
+  let linkPaga = null;
+  const lp = o.botteghe && o.botteghe.link_pagamento;
+  if (o.stato === "accettato" && o.pagamento === "online" && !o.pagato && lp && /^https:\/\/([a-z0-9-]+\.)*(stripe\.com|paypal\.me|paypal\.com|sumup\.com|sumup\.link|satispay\.com|revolut\.me)(\/[^\s<>"]*)?$/i.test(lp)) {
+    linkPaga = lp;
+    try { const u = new URL(lp); if (/(^|\.)paypal\.me$/i.test(u.hostname) && u.pathname.split("/").filter(Boolean).length === 1) linkPaga = lp.replace(/\/$/, "") + "/" + Number(o.totale).toFixed(2) + "EUR"; } catch {}
+    poi = `Ora puoi pagare ${Number(o.totale).toLocaleString("it-IT", { minimumFractionDigits: 2 })} € con il link del produttore (nella causale scrivi ${o.codice}).`;
+  }
   const link = `${SITO}/#ordine-${o.segreto}`;
   const telefoni = await notificaCliente({ supabaseUrl: ORTALY_SUPABASE_URL, chiave, intestazioni, ordine: id,
     messaggio: { titolo: `${String(nome).slice(0, 40)} ${cosa}`, testo: `Ordine ${o.codice}: ${poi}`, url: `/#ordine-${o.segreto}` } });
@@ -82,8 +90,9 @@ exports.handler = async (event) => {
   if (resend && emailValida(o.cliente_email)) {
     const html = `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1e2a1d;max-width:560px">
       <h2 style="margin:0 0 6px">${esc(nome)} ${esc(cosa)}</h2><p style="margin:0;color:#5d6a57">Ordine ${esc(o.codice)}. ${esc(poi)}</p>
+      ${linkPaga ? `<p style="margin:18px 0 0"><a href="${esc(linkPaga)}" style="background:#e9a514;color:#1e2a1d;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:800">💳 Paga ora</a></p>` : ""}
       <p style="margin:18px 0"><a href="${link}" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Apri l'ordine e la chat</a></p></div>`;
-    inviata = await manda(resend, o.cliente_email, `${nome} ${cosa} · ordine ${o.codice}`, html, `${nome} ${cosa}.\nOrdine ${o.codice}. ${poi}\n\nApri l'ordine e la chat: ${link}`);
+    inviata = await manda(resend, o.cliente_email, `${nome} ${cosa} · ordine ${o.codice}`, html, `${nome} ${cosa}.\nOrdine ${o.codice}. ${poi}${linkPaga ? `\nPaga ora: ${linkPaga}` : ""}\n\nApri l'ordine e la chat: ${link}`);
   }
   return risposta(200, `notifiche ${telefoni}, email ${inviata ? 1 : 0}`);
 };
