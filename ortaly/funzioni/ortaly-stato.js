@@ -1,7 +1,8 @@
 // Ortaly — il produttore ha cambiato lo stato di un ordine (accettato, pronto, consegnato, annullato):
 // avviso il cliente con la notifica sul telefono (se l'ha attivata) e con un'email.
+// Se l'ha annullato il cliente, avviso invece il produttore.
 // Ogni stato si avvisa una volta sola: confronto con «stato_avvisato» e lo aggiorno prima di scrivere.
-const { notificaCliente } = require("./ortaly-push-chiave.js");
+const { notificaCliente, notificaBottega } = require("./ortaly-push-chiave.js");
 
 const ORTALY_SUPABASE_URL = "https://qqxzqiwxhyyzylmkvdew.supabase.co";
 const SITO = "https://ortaly.it";
@@ -10,6 +11,7 @@ const TESTI = {
   accettato: ["ha accettato il tuo ordine", "Il produttore lo prepara: mettetevi d'accordo su giorno e ora nella chat."],
   pronto: ["ha preparato il tuo ordine", "È pronto: controlla nella chat quando passare o quando arriva."],
   consegnato: ["ha segnato il tuo ordine come consegnato", "Buon appetito! Se qualcosa non va, scrivi al produttore nella chat."],
+  non_ritirato: ["ha segnato il tuo ordine come non ritirato", "Se è un errore, scrivi al produttore nella chat o a info@ortaly.it: chi non ritira più ordini non può più ordinare su Ortaly."],
   annullato: ["non può preparare il tuo ordine", "L'ordine è annullato: nella chat trovi il motivo, se il produttore l'ha scritto."],
 };
 
@@ -49,14 +51,37 @@ exports.handler = async (event) => {
   if (!ora || ora.stato === ora.stato_avvisato || !TESTI[ora.stato]) return risposta(200, "Niente da avvisare");
 
   // aggiorno solo se nessun altro l'ha già fatto nel frattempo
-  const presa = await fetch(`${ORTALY_SUPABASE_URL}/rest/v1/ordini?id=eq.${id}&stato=eq.${ora.stato}&stato_avvisato=eq.${encodeURIComponent(ora.stato_avvisato)}&select=codice,stato,cliente_email,segreto,botteghe(nome)`, {
+  const presa = await fetch(`${ORTALY_SUPABASE_URL}/rest/v1/ordini?id=eq.${id}&stato=eq.${ora.stato}&stato_avvisato=eq.${encodeURIComponent(ora.stato_avvisato)}&select=codice,stato,cliente_nome,cliente_email,segreto,annullato_da,motivo_annullo,bottega,pagamento,pagato,totale,botteghe(nome,utente,link_pagamento)`, {
     method: "PATCH", headers: intestazioni(chiave, { Prefer: "return=representation" }), body: JSON.stringify({ stato_avvisato: ora.stato }),
   }).catch(() => null);
   const [o] = presa && presa.ok ? await presa.json() : [];
   if (!o) return risposta(200, "Già avvisato");
 
   const nome = (o.botteghe && o.botteghe.nome) || "Il produttore";
-  const [cosa, poi] = TESTI[o.stato];
+  if (o.stato === "annullato" && o.annullato_da === "cliente") {
+    const telefoni = await notificaBottega({ supabaseUrl: ORTALY_SUPABASE_URL, chiave, intestazioni, bottega: o.bottega,
+      messaggio: { titolo: `Ordine ${o.codice} annullato dal cliente`, testo: o.motivo_annullo ? `${o.cliente_nome}: «${String(o.motivo_annullo).slice(0, 100)}»` : `${o.cliente_nome} ha annullato l'ordine`, url: "/#vendo" } });
+    const u = await fetch(`${ORTALY_SUPABASE_URL}/auth/v1/admin/users/${o.botteghe && o.botteghe.utente}`, { headers: intestazioni(chiave) }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    let inviata = false;
+    if (resend && u && emailValida(u.email)) {
+      const html = `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1e2a1d;max-width:560px">
+        <h2 style="margin:0 0 6px">${esc(o.cliente_nome)} ha annullato l'ordine ${esc(o.codice)}</h2>
+        ${o.motivo_annullo ? `<p style="margin:4px 0">Motivo: «${esc(o.motivo_annullo)}»</p>` : ""}<p style="margin:0;color:#5d6a57">Non serve prepararlo.</p>
+        <p style="margin:18px 0"><a href="${SITO}/#vendo" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Apri i tuoi ordini</a></p></div>`;
+      inviata = await manda(resend, u.email, `Ordine ${o.codice} annullato dal cliente · Ortaly`, html,
+        `${o.cliente_nome} ha annullato l'ordine ${o.codice}.${o.motivo_annullo ? `\nMotivo: «${o.motivo_annullo}»` : ""}\nNon serve prepararlo.\n${SITO}/#vendo`);
+    }
+    return risposta(200, `produttore: notifiche ${telefoni}, email ${inviata ? 1 : 0}`);
+  }
+  let [cosa, poi] = TESTI[o.stato];
+  // ordine da pagare online: quando il produttore accetta, il cliente riceve il link per pagare
+  let linkPaga = null;
+  const lp = o.botteghe && o.botteghe.link_pagamento;
+  if (o.stato === "accettato" && o.pagamento === "online" && !o.pagato && lp && /^https:\/\/([a-z0-9-]+\.)*(stripe\.com|paypal\.me|paypal\.com|sumup\.com|sumup\.link|satispay\.com|revolut\.me)(\/[^\s<>"]*)?$/i.test(lp)) {
+    linkPaga = lp;
+    try { const u = new URL(lp); if (/(^|\.)paypal\.me$/i.test(u.hostname) && u.pathname.split("/").filter(Boolean).length === 1) linkPaga = lp.replace(/\/$/, "") + "/" + Number(o.totale).toFixed(2) + "EUR"; } catch {}
+    poi = `Ora puoi pagare ${Number(o.totale).toLocaleString("it-IT", { minimumFractionDigits: 2 })} € con il link del produttore (nella causale scrivi ${o.codice}).`;
+  }
   const link = `${SITO}/#ordine-${o.segreto}`;
   const telefoni = await notificaCliente({ supabaseUrl: ORTALY_SUPABASE_URL, chiave, intestazioni, ordine: id,
     messaggio: { titolo: `${String(nome).slice(0, 40)} ${cosa}`, testo: `Ordine ${o.codice}: ${poi}`, url: `/#ordine-${o.segreto}` } });
@@ -65,8 +90,9 @@ exports.handler = async (event) => {
   if (resend && emailValida(o.cliente_email)) {
     const html = `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1e2a1d;max-width:560px">
       <h2 style="margin:0 0 6px">${esc(nome)} ${esc(cosa)}</h2><p style="margin:0;color:#5d6a57">Ordine ${esc(o.codice)}. ${esc(poi)}</p>
+      ${linkPaga ? `<p style="margin:18px 0 0"><a href="${esc(linkPaga)}" style="background:#e9a514;color:#1e2a1d;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:800">💳 Paga ora</a></p>` : ""}
       <p style="margin:18px 0"><a href="${link}" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Apri l'ordine e la chat</a></p></div>`;
-    inviata = await manda(resend, o.cliente_email, `${nome} ${cosa} · ordine ${o.codice}`, html, `${nome} ${cosa}.\nOrdine ${o.codice}. ${poi}\n\nApri l'ordine e la chat: ${link}`);
+    inviata = await manda(resend, o.cliente_email, `${nome} ${cosa} · ordine ${o.codice}`, html, `${nome} ${cosa}.\nOrdine ${o.codice}. ${poi}${linkPaga ? `\nPaga ora: ${linkPaga}` : ""}\n\nApri l'ordine e la chat: ${link}`);
   }
   return risposta(200, `notifiche ${telefoni}, email ${inviata ? 1 : 0}`);
 };
