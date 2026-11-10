@@ -247,7 +247,7 @@ form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
       <div class="cat" id="categorie" role="group" aria-label="Categorie"></div>
       <div class="griglia" id="griglia"><div class="attesa">Carico il banco…</div></div></section>
     <div id="boxInstallaCompro"></div>
-    <p class="pie-sito">Ortaly mette in contatto clienti e produttori: ogni produttore vende, consegna e incassa da sé.</p>
+    <p class="pie-sito">Ortaly mette in contatto clienti e produttori: ogni produttore vende, consegna e incassa da sé.<br><a href="/privacy" style="color:inherit">Privacy</a> · <a href="mailto:info@ortaly.it" style="color:inherit">info@ortaly.it</a></p>
   </div>
 </main>
 
@@ -369,7 +369,7 @@ function apriCarrello(){
     <label for="oNota">Nota per il produttore <span class="aiuto">(facoltativa)</span><textarea id="oNota" maxlength="300" placeholder="Es. citofono Rossi, meglio dopo le 18"></textarea></label>
     <p class="errore" id="oErr" hidden></p>
     <button class="grande" type="submit" id="oInvia">Manda ${n>1?"gli ordini":"l'ordine"}</button>
-    <p class="nota">Paghi direttamente al produttore alla consegna o al ritiro. Il tuo nome e il telefono arrivano solo ai produttori a cui ordini.</p>
+    <p class="nota">Paghi direttamente al produttore alla consegna o al ritiro. Il tuo nome e il telefono arrivano solo ai produttori a cui ordini. <a href="/privacy" target="_blank" rel="noopener" style="color:inherit">Privacy</a></p>
   </form></div>`,"carrello");
   $("formOrdine").addEventListener("submit",mandaOrdini);
 }
@@ -410,7 +410,7 @@ function vistaAccesso(modoReg){
     <button class="grande" type="submit">${modoReg?"Crea il mio account":"Entra"}</button>
     ${modoReg?"":`<button type="button" class="link" id="aDimenticata" style="justify-self:start">Ho dimenticato la password</button>`}
   </form>
-  ${modoReg?pianoHtml():""}<p class="pie-sito">Dopo l'account crei la tua bottega: nome, paese, telefono, partita IVA e come consegni.</p></div>`;
+  ${modoReg?pianoHtml():""}<p class="pie-sito">Dopo l'account crei la tua bottega: nome, paese, telefono, partita IVA e come consegni.<br>Iscrivendoti accetti l'<a href="/privacy" target="_blank" rel="noopener" style="color:inherit">informativa privacy</a>.</p></div>`;
   $("formAccesso").addEventListener("submit",async e=>{e.preventDefault();const err=$("aErr");err.hidden=true;const btn=e.target.querySelector("[type=submit]");btn.disabled=true;
     const email=$("aEmail").value.trim(),password=$("aPass").value;
     const r=modoReg?await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+"/#vendo"}}):await sb.auth.signInWithPassword({email,password});

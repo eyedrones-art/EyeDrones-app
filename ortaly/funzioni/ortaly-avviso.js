@@ -119,5 +119,7 @@ exports.handler = async (event) => {
     if (await manda(resend, o.cliente_email, `Ordine ${o.codice} inviato a ${b.nome} · Ortaly`, html, testo, emailValida(emailProduttore) ? emailProduttore : undefined)) inviate++;
   }
   const telefoni = await notificaTelefoni(chiave, o.bottega);
+  // pulizia: gli ordini più vecchi di 24 mesi si cancellano (come scritto nell'informativa privacy)
+  await fetch(`${ORTALY_SUPABASE_URL}/rest/v1/ordini?creato=lt.${encodeURIComponent(new Date(Date.now() - 730 * 864e5).toISOString())}`, { method: "DELETE", headers: intestazioni(chiave) }).catch(() => null);
   return risposta(200, `Email inviate: ${inviate}, notifiche: ${telefoni}`);
 };
