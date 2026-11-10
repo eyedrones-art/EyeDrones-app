@@ -1,9 +1,9 @@
 // Ortaly — dopo un messaggio nella chat di un ordine il telefono chiama qui con l'id del messaggio.
 // • messaggio del cliente → notifica sui telefoni del produttore; email al produttore se non gli abbiamo già scritto nell'ultima mezz'ora
-// • messaggio del produttore → email al cliente (solo se ha lasciato l'email), sempre con al massimo un'email ogni mezz'ora
+// • messaggio del produttore → notifica sui telefoni del cliente che la ha attivata; email al cliente, al massimo una ogni mezz'ora
 // Le email non contengono il testo né i contatti dell'altro: dicono solo «hai un messaggio» e portano alla chat.
 // Ogni messaggio si avvisa una volta sola (colonna «avvisato»).
-const { notificaBottega } = require("./ortaly-push-chiave.js");
+const { notificaBottega, notificaCliente } = require("./ortaly-push-chiave.js");
 
 const ORTALY_SUPABASE_URL = "https://qqxzqiwxhyyzylmkvdew.supabase.co";
 const SITO = "https://ortaly.it";
@@ -72,6 +72,8 @@ exports.handler = async (event) => {
     return risposta(200, `notifiche ${telefoni}, email ${inviata ? 1 : 0}`);
   }
 
+  const telefoni = await notificaCliente({ supabaseUrl: ORTALY_SUPABASE_URL, chiave, intestazioni, ordine: m.ordine,
+    messaggio: { titolo: `${String(b.nome || "Il produttore").slice(0, 40)} ti ha scritto`, testo: `Ordine ${o.codice}: tocca per leggere e rispondere`, url: `/#ordine-${o.segreto}` } });
   let inviata = false;
   if (email && emailValida(o.cliente_email)) {
     const link = `${SITO}/#ordine-${o.segreto}`;
@@ -79,5 +81,5 @@ exports.handler = async (event) => {
       pagina(`${b.nome} ti ha scritto`, `Un messaggio sul tuo ordine ${o.codice}.`, link, "Leggi e rispondi"),
       `${b.nome} ti ha scritto sul tuo ordine ${o.codice}.\nLeggi e rispondi: ${link}`);
   }
-  return risposta(200, `email ${inviata ? 1 : 0}`);
+  return risposta(200, `notifiche ${telefoni}, email ${inviata ? 1 : 0}`);
 };

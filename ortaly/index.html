@@ -610,6 +610,7 @@ async function apriOrdineCliente(segreto,aggiorna){
   apriSheet(`<div class="corpo"><h2>${esc(o.bottega.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">Ordine ${esc(o.codice)} · ${euro(o.totale)} · ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""}</div>
   ${passi}
   <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700;font-size:14px">Cosa hai ordinato</summary><ul class="righe" style="margin-top:6px">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)}) · ${euro(r.prezzo*r.qta)}</span></li>`).join("")}</ul></details>
+  <div id="boxSegui">${boxSegui(segreto)}</div>
   <h3 style="margin-top:14px;font-size:17px">Chat con il produttore</h3>
   <div class="chat" id="chatLista">${chatHtml(o.messaggi||[],"cliente")}</div>
   ${o.stato==="annullato"?"":`<form class="scrivi" id="formChat"><textarea id="chatTesto" maxlength="1000" rows="1" placeholder="Scrivi al produttore…" aria-label="Messaggio">${esc(scritto)}</textarea><button type="submit">Invia</button></form>`}
@@ -623,6 +624,31 @@ async function apriOrdineCliente(segreto,aggiorna){
     apriOrdineCliente(segreto,true)});
   clearInterval(timerOrdineCliente);timerOrdineCliente=setInterval(()=>{const s=$("sheet");if(s.hidden||s.dataset.id!==segreto){clearInterval(timerOrdineCliente);return}apriOrdineCliente(segreto,true)},20000);
 }
+
+// notifiche per il cliente: per ogni ordine che segue, sul telefono dove l'ha aperto
+const seguiti=()=>leggi("seguiti",[]);
+function boxSegui(segreto){
+  if(!pushOk())return iPhone()&&!installata()?`<div class="app-box"><span style="font-size:24px">🔔</span><div class="t"><b>Vuoi gli avvisi sul telefono?</b>Su iPhone prima aggiungi Ortaly alla schermata Home (Condividi → Aggiungi alla schermata Home), poi apri l'ordine da lì.</div></div>`:"";
+  if(seguiti().includes(segreto)&&Notification.permission==="granted")return `<div class="app-box"><span style="font-size:24px">🔔</span><div class="t"><b>Avvisi attivi su questo telefono</b>Ti avvisiamo quando il produttore ti scrive o l'ordine cambia.</div><button class="link" data-segui="spegni" data-segreto="${esc(segreto)}">Spegni</button></div>`;
+  if(Notification.permission==="denied")return "";
+  return `<div class="app-box"><span style="font-size:24px">🔔</span><div class="t"><b>Avvisami su questo telefono</b>Quando il produttore ti scrive o l'ordine è accettato, pronto o consegnato.</div><button class="piu" data-segui="attiva" data-segreto="${esc(segreto)}">Attiva</button></div>`}
+async function seguiOrdine(segreto,attiva){
+  try{
+    const reg=await Promise.race([navigator.serviceWorker.ready,new Promise((_,ko)=>setTimeout(()=>ko(new Error("service worker non pronto")),8000))]);
+    let sub=await reg.pushManager.getSubscription();
+    if(attiva){
+      if(await Notification.requestPermission()!=="granted"){toast("Senza il permesso non possiamo avvisarti");return}
+      if(!sub){const r=await fetch("/.netlify/functions/ortaly-push-chiave");if(!r.ok)throw new Error("risposta "+r.status);const {chiave}=await r.json();
+        sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:daBase64(chiave)})}
+      const k=((sub.toJSON?sub.toJSON():{}).keys)||{};
+      const {error}=await sb.rpc("segui_ordine",{p_segreto:segreto,p_endpoint:sub.endpoint,p_p256dh:k.p256dh||"",p_auth:k.auth||""});if(error)throw error;
+      salva("seguiti",[segreto,...seguiti().filter(x=>x!==segreto)].slice(0,30));toast("Fatto: ti avvisiamo qui");
+    }else{
+      if(sub)await sb.rpc("smetti_ordine",{p_segreto:segreto,p_endpoint:sub.endpoint});
+      salva("seguiti",seguiti().filter(x=>x!==segreto));toast("Avvisi spenti per questo ordine");
+    }
+  }catch(e){console.error(e);toast("Non riesco ad attivare gli avvisi su questo telefono: "+((e&&e.message)||"errore"))}
+  const b=$("boxSegui");if(b)b.innerHTML=boxSegui(segreto)}
 
 // ── app sul telefono: installazione e notifiche ──
 let promptInstalla=null,statoNotifiche="?";
@@ -679,16 +705,18 @@ async function spegniNotifiche(){
     if(sub){await sb.from("notifiche").delete().eq("endpoint",sub.endpoint);await sub.unsubscribe()}}catch(e){}
   statoNotifiche="spente";mostraBoxApp();toast("Notifiche spente su questo telefono")}
 if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{});
-  navigator.serviceWorker.addEventListener("message",e=>{if(!e.data)return;if(e.data.tipo==="apri-ordini"||(e.data.tipo==="apri"&&e.data.url==="/#vendo")){vendoScheda="ordini";modo(true)}})}
+  navigator.serviceWorker.addEventListener("message",e=>{if(!e.data)return;if(e.data.tipo==="apri-ordini"||(e.data.tipo==="apri"&&e.data.url==="/#vendo")){vendoScheda="ordini";modo(true);return}
+    const m=e.data.tipo==="apri"&&String(e.data.url).match(/^\/#ordine-([0-9a-f]{64})$/);if(m){if($("vistaCompro").hidden)modo(false);apriOrdineCliente(m[1])}})}
 
 function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro").setAttribute("aria-pressed",!v);$("mVendo").setAttribute("aria-pressed",v);$("apriCarrello").hidden=v;
   if(v){vendoScheda="ordini";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
   window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":location.pathname)}catch(e){}}
 
-document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente]");if(!t)return;
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui]");if(!t)return;
   if(t.dataset.chiudi!==undefined&&t.classList.contains("sheet-bg")&&e.target!==t)return;
   if(t.dataset.installa){installa();return}
   if(t.dataset.chat){apriChatProduttore(t.dataset.chat);return}
+  if(t.dataset.segui){t.disabled=true;await seguiOrdine(t.dataset.segreto,t.dataset.segui==="attiva");return}
   if(t.dataset.ordinecliente){if($("vistaCompro").hidden)modo(false);apriOrdineCliente(t.dataset.ordinecliente);return}
   if(t.dataset.chiudibottega){
     if(t.dataset.sicuro!=="1"){t.dataset.sicuro="1";t.textContent="Sicuro? Tocca ancora per cancellare tutto";setTimeout(()=>{if(t.isConnected){t.dataset.sicuro="";t.textContent="Chiudi e cancella la bottega"}},5000);return}
@@ -709,6 +737,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu]
   else if(t.dataset.scheda){vendoScheda=t.dataset.scheda;mostraVendo()}
   else if(t.dataset.stato){t.disabled=true;const {error}=await sb.from("ordini").update({stato:t.dataset.stato}).eq("id",t.dataset.o);
     if(error){toast(erroreDi(error));t.disabled=false;return}mieiOrd.find(o=>o.id===t.dataset.o).stato=t.dataset.stato;mostraVendo();
+    fetch("/.netlify/functions/ortaly-stato",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:t.dataset.o}),keepalive:true}).catch(()=>{});
     toast({accettato:"Accettato: scrivi al cliente nella chat per giorno e ora",pronto:"Segnato come pronto",consegnato:"Consegnato",annullato:"Ordine annullato: avvisa il cliente"}[t.dataset.stato])}
   else if(t.dataset.attiva){const a=mieiProd.find(x=>x.id===t.dataset.attiva);const {error}=await sb.from("prodotti").update({disponibile:!a.disponibile}).eq("id",a.id);
     if(error){toast(erroreDi(error));return}a.disponibile=!a.disponibile;mostraVendo();caricaBanco();toast(a.disponibile?"Di nuovo al banco":"Tolto dal banco")}
