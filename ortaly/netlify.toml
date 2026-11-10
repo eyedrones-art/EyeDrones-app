@@ -4,8 +4,6 @@
   publish = "."
   functions = "funzioni"
   command = ""
-  # se un push non tocca la cartella ortaly, Netlify non ripubblica Ortaly
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."
 
 # sicurezza: nessun altro sito può mostrare Ortaly dentro una sua pagina, sempre https,
 # agli altri siti arriva solo l'indirizzo base; fotocamera solo per Ortaly (foto dei prodotti)
