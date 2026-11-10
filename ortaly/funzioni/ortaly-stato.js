@@ -11,6 +11,7 @@ const TESTI = {
   accettato: ["ha accettato il tuo ordine", "Il produttore lo prepara: mettetevi d'accordo su giorno e ora nella chat."],
   pronto: ["ha preparato il tuo ordine", "È pronto: controlla nella chat quando passare o quando arriva."],
   consegnato: ["ha segnato il tuo ordine come consegnato", "Buon appetito! Se qualcosa non va, scrivi al produttore nella chat."],
+  non_ritirato: ["ha segnato il tuo ordine come non ritirato", "Se è un errore, scrivi al produttore nella chat o a info@ortaly.it: chi non ritira più ordini non può più ordinare su Ortaly."],
   annullato: ["non può preparare il tuo ordine", "L'ordine è annullato: nella chat trovi il motivo, se il produttore l'ha scritto."],
 };
 

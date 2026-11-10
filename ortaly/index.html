@@ -202,6 +202,7 @@ form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
 .ordine a{color:var(--foglia);font-weight:700}
 .s-accettato{background:color-mix(in srgb,var(--foglia) 18%,transparent);color:var(--foglia)}
 .s-consegnato{background:var(--carta2);color:var(--tenue)}
+.s-non_ritirato{background:color-mix(in srgb,var(--pomodoro) 18%,transparent);color:var(--pomodoro)}
 .s-annullato{background:color-mix(in srgb,var(--pomodoro) 18%,transparent);color:var(--pomodoro)}
 .mioart .azioni button{padding:5px 9px;font-size:12px}
 .mioart input.pz{width:84px;border:1px solid var(--bordo);border-radius:10px;padding:6px 8px;font:inherit;background:var(--carta);color:var(--inchiostro)}
@@ -292,7 +293,7 @@ const COLORI=["f1","f2","f3","f4","f5","f6"];
 const STAGIONI=["cavolo nero, porri, arance, mandarini e radicchio","cavoli, finocchi, arance e topinambur","asparagi selvatici, spinaci, carciofi e uova fresche","asparagi, fave, piselli e le prime fragole","fragole, ciliegie, piselli e zucchine","albicocche, zucchine, fagiolini e i primi pomodori","pesche, pomodori, peperoni, melanzane e meloni","pesche, fichi, pomodori e angurie","uva, fichi, peperoni e i primi funghi","uva, castagne, zucca, mele e pere","zucca, castagne, cachi, mele, porri e cavolo nero","cavoli, porri, arance, mandarini e miele"];
 const MESI=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 const MODI={casa:["🚚","A casa","Consegna a casa","consegna_casa"],ritiro:["🏡","Ritiro","Ritiro in azienda","ritiro"],spedizione:["📦","Spedizione","Spedizione con corriere","spedizione"]};
-const STATI={nuovo:"Nuovo",accettato:"Accettato",pronto:"Pronto",consegnato:"Consegnato",annullato:"Annullato"};
+const STATI={nuovo:"Nuovo",accettato:"Accettato",pronto:"Pronto",consegnato:"Consegnato",annullato:"Annullato",non_ritirato:"Non ritirato"};
 
 const $=id=>document.getElementById(id);
 const esc=t=>String(t??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -583,11 +584,12 @@ function mostraVendo(){
       <ul class="righe">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)})</span></li>`).join("")}</ul>
       <div style="font-size:13px;color:var(--tenue)">${MODI[o.modo][0]} ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""} · <b style="color:var(--inchiostro)">${euro(o.totale)}</b> · ${new Date(o.creato).toLocaleString("it-IT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${esc(o.codice)}</div>
       ${o.nota?`<div style="font-size:13.5px">📝 ${esc(o.nota)}</div>`:""}
+      ${o.mancati_precedenti>0&&["nuovo","accettato","pronto"].includes(o.stato)?`<div class="segn"><div>⚠️ Questo cliente non ha ritirato ${o.mancati_precedenti===1?"1 ordine":o.mancati_precedenti+" ordini"} in passato</div></div>`:""}
       ${o.stato==="annullato"&&o.annullato_da==="cliente"?`<div class="segn"><div>✕ <b>Annullato dal cliente</b></div>${o.motivo_annullo?`<div>«${esc(o.motivo_annullo)}»</div>`:""}</div>`:""}
       ${mieSegn.filter(x=>x.ordine===o.id).map(x=>`<div class="segn${x.risolta?" ok":""}"><div>${x.risolta?"✅ Risolta":"⚠️ Segnalazione"} · <b>${esc(TIPI_PROBLEMA[x.tipo]||x.tipo)}</b></div><div>${esc(x.testo)}</div>${x.risolta?"":`<div class="azioni"><button data-chat="${o.id}">💬 Scrivi al cliente</button><button data-risolta="${x.id}">✓ Risolta</button></div>`}</div>`).join("")}
       ${mieRec.filter(x=>x.ordine===o.id).map(x=>`<div class="rec"><div>${voto(x.stelle)} <b>${esc(x.nome)}</b></div>${x.commento?`<div>${esc(x.commento)}</div>`:""}${x.risposta?`<div class="risp"><b>La tua risposta:</b> ${esc(x.risposta)}</div>`:`<div id="risp-${x.id}"><button class="link" data-rispondi="${x.id}">Rispondi (la risposta è pubblica)</button></div>`}
         ${x.contestata?`<div style="font-size:12.5px;color:var(--tenue)">🚩 Segnalata a Ortaly: la controlliamo</div>`:`<button class="link" style="justify-self:start;color:var(--tenue);font-size:12.5px" data-contesta="${x.id}">🚩 Sembra falsa? Segnala a Ortaly</button>`}</div>`).join("")}
-      <div class="azioni"><button data-chat="${o.id}">💬 Chat${nonLetti(o.id)?`<span class="badge">${nonLetti(o.id)}</span>`:""}</button>${o.stato==="nuovo"?`<button class="si" data-stato="accettato" data-o="${o.id}">✓ Accetto</button><button data-stato="annullato" data-o="${o.id}">Non posso</button>`:o.stato==="accettato"?`<button class="si" data-stato="pronto" data-o="${o.id}">È pronto</button><button data-stato="annullato" data-o="${o.id}">Annulla</button>`:o.stato==="pronto"?`<button class="si" data-stato="consegnato" data-o="${o.id}">Consegnato</button>`:""}</div></div>`).join("")
+      <div class="azioni"><button data-chat="${o.id}">💬 Chat${nonLetti(o.id)?`<span class="badge">${nonLetti(o.id)}</span>`:""}</button>${o.stato==="nuovo"?`<button class="si" data-stato="accettato" data-o="${o.id}">✓ Accetto</button><button data-stato="annullato" data-o="${o.id}">Non posso</button>`:o.stato==="accettato"?`<button class="si" data-stato="pronto" data-o="${o.id}">È pronto</button><button data-stato="annullato" data-o="${o.id}">Annulla</button>`:o.stato==="pronto"?`<button class="si" data-stato="consegnato" data-o="${o.id}">Consegnato</button><button data-stato="non_ritirato" data-o="${o.id}">❌ Non si è presentato</button>`:o.stato==="non_ritirato"?`<button data-stato="consegnato" data-o="${o.id}">Mi sono sbagliato: l'ha ritirato</button>`:""}</div></div>`).join("")
       :`<div class="cliente"><span>Nessun ordine per ora. Metti i tuoi prodotti e condividi il link della tua bottega con i tuoi clienti: lo trovi nella scheda «Bottega».</span></div>`;
   }else if(vendoScheda==="prodotti"){
     c.innerHTML=`<form class="nuovo" id="formProdotto"><h3 style="font-size:18px">Metti un prodotto</h3>
@@ -623,7 +625,7 @@ async function salvaProdotto(e){e.preventDefault();const err=$("nErr"),btn=e.tar
 }
 
 // ── ordine del cliente (link segreto ortaly.it/#ordine-...) ──
-const COL_ORDINI="id,codice,bottega,cliente_nome,modo,indirizzo,nota,righe,totale,stato,creato,annullato_da,motivo_annullo";
+const COL_ORDINI="id,codice,bottega,cliente_nome,modo,indirizzo,nota,righe,totale,stato,creato,annullato_da,motivo_annullo,mancati_precedenti";
 function ricordaOrdine(o){const l=leggi("ordini",[]).filter(x=>x.segreto!==o.segreto);l.unshift(o);salva("ordini",l.slice(0,15));mostraMieiOrdini()}
 function mostraMieiOrdini(){const l=leggi("ordini",[]);const s=$("sezMieiOrdini");if(!s)return;s.hidden=!l.length;
   $("mieiOrdiniCliente").innerHTML=l.map(o=>`<button class="cliente" style="width:100%;text-align:left;border:0;cursor:pointer" data-ordinecliente="${esc(o.segreto)}"><span><b>${esc(o.bottega)}</b><small>Ordine ${esc(o.codice)} · ${new Date(o.creato).toLocaleDateString("it-IT",{day:"numeric",month:"short"})}</small></span><span style="text-align:right"><b>${euro(o.totale)}</b><small>stato e chat ›</small></span></button>`).join("")}
@@ -682,7 +684,7 @@ async function apriOrdineCliente(segreto,aggiorna,forza){
   const scritto=aggiorna&&$("chatTesto")?$("chatTesto").value:"";
   ricordaOrdine({segreto,codice:o.codice,bottega:o.bottega.nome,totale:o.totale,creato:o.creato});
   const ordine=["nuovo","accettato","pronto","consegnato"],i=ordine.indexOf(o.stato);
-  const passi=o.stato==="annullato"?`<div class="passi"><span class="no">${o.annullato_da==="cliente"?"Annullato da te":"Annullato dal produttore"}</span></div>`:`<div class="passi">${["Inviato","Accettato","Pronto","Consegnato"].map((t,k)=>`<span class="${k<=i?"ok":""}">${t}</span>`).join("")}</div>`;
+  const passi=o.stato==="non_ritirato"?`<div class="passi"><span class="no">Segnato come non ritirato</span></div><p class="nota">Se è un errore scrivi al produttore qui sotto o a info@ortaly.it.</p>`:o.stato==="annullato"?`<div class="passi"><span class="no">${o.annullato_da==="cliente"?"Annullato da te":"Annullato dal produttore"}</span></div>`:`<div class="passi">${["Inviato","Accettato","Pronto","Consegnato"].map((t,k)=>`<span class="${k<=i?"ok":""}">${t}</span>`).join("")}</div>`;
   apriSheet(`<div class="corpo"><h2>${esc(o.bottega.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">Ordine ${esc(o.codice)} · ${euro(o.totale)} · ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""}</div>
   ${passi}
   <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700;font-size:14px">Cosa hai ordinato</summary><ul class="righe" style="margin-top:6px">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)}) · ${euro(r.prezzo*r.qta)}</span></li>`).join("")}</ul></details>
@@ -830,10 +832,11 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu]
   else if(t.dataset.reg!==undefined)vistaAccesso(!!t.dataset.reg);
   else if(t.dataset.esci){await sb.auth.signOut();mia=null;statoNotifiche="?";clearInterval(timerOrdini);toast("Sei uscito")}
   else if(t.dataset.scheda){vendoScheda=t.dataset.scheda;mostraVendo()}
+  else if(t.dataset.stato==="non_ritirato"&&t.dataset.sicuro!=="1"){t.dataset.sicuro="1";t.textContent="Sicuro? Tocca ancora";setTimeout(()=>{if(t.isConnected){t.dataset.sicuro="";t.textContent="❌ Non si è presentato"}},5000)}
   else if(t.dataset.stato){t.disabled=true;const {error}=await sb.from("ordini").update({stato:t.dataset.stato}).eq("id",t.dataset.o);
     if(error){toast(erroreDi(error));t.disabled=false;return}mieiOrd.find(o=>o.id===t.dataset.o).stato=t.dataset.stato;mostraVendo();
     fetch("/.netlify/functions/ortaly-stato",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:t.dataset.o}),keepalive:true}).catch(()=>{});
-    toast({accettato:"Accettato: scrivi al cliente nella chat per giorno e ora",pronto:"Segnato come pronto",consegnato:"Consegnato",annullato:"Ordine annullato: avvisa il cliente"}[t.dataset.stato])}
+    toast({non_ritirato:"Segnato come non ritirato: il cliente è avvisato",accettato:"Accettato: scrivi al cliente nella chat per giorno e ora",pronto:"Segnato come pronto",consegnato:"Consegnato",annullato:"Ordine annullato: avvisa il cliente"}[t.dataset.stato])}
   else if(t.dataset.attiva){const a=mieiProd.find(x=>x.id===t.dataset.attiva);const {error}=await sb.from("prodotti").update({disponibile:!a.disponibile}).eq("id",a.id);
     if(error){toast(erroreDi(error));return}a.disponibile=!a.disponibile;mostraVendo();caricaBanco();toast(a.disponibile?"Di nuovo al banco":"Tolto dal banco")}
   else if(t.dataset.prezzo){const a=mieiProd.find(x=>x.id===t.dataset.prezzo);const riga=t.closest(".t");
