@@ -11558,6 +11558,8 @@ function OfferteCliente({ codice }) {
   const [scelgo, setScelgo] = useState(null); // offerta che sta per scegliere (chiede conferma)
   const [lavoro, setLavoro] = useState(null); // null | "invio" | messaggio
   const [foto, setFoto] = useState(null);
+  const [annulli, setAnnulli] = useState([]); // lavori annullati (dal pilota o da me), con la domanda «fatto lo stesso?»
+  const [cambio, setCambio] = useState(null); // { tipo: "sposta" | "annulla", data, motivo, altro } sul lavoro confermato
   // dall'email «com'è andata?»: /offerte/<codice>?stelle=5 (le stelle si mandano solo toccando «Invia»)
   const [stelleEmail] = useState(() => { const n = Number(new URLSearchParams(window.location.search).get("stelle")); return n >= 1 && n <= 5 ? n : 0; });
   useEffect(() => {
@@ -11574,6 +11576,7 @@ function OfferteCliente({ codice }) {
   const carica = async () => {
     const { data, error } = await supabase.rpc("offerte_cliente", { p_codice: codice });
     setDati(error ? null : data || null);
+    supabase.rpc("annullamenti_cliente", { p_codice: codice }).then(({ data: an }) => setAnnulli(Array.isArray(an) ? an : []), () => {});
   };
   useEffect(() => {
     document.title = "Le tue offerte — EyeDrones";
@@ -11582,6 +11585,28 @@ function OfferteCliente({ codice }) {
     return () => clearInterval(t);
   }, [codice]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const rispondiAnnullo = async (offerta, si) => {
+    await supabase.rpc("segnala_fatto_lo_stesso", { p_codice: codice, p_offerta: offerta, p_si: si });
+    carica();
+  };
+  const cambia_ = async () => {
+    if (cambio.tipo === "sposta") {
+      if (!cambio.data) { setCambio({ ...cambio, errore: "Scegli la nuova data." }); return; }
+      setLavoro("invio");
+      const { error } = await supabase.rpc("sposta_data_cliente", { p_codice: codice, p_data: cambio.data });
+      setLavoro(null);
+      if (error) { setCambio({ ...cambio, errore: "Scegli una data da oggi in poi." }); return; }
+    } else {
+      const motivo = [cambio.motivo, (cambio.altro || "").trim()].filter(Boolean).join(": ");
+      if (!motivo) { setCambio({ ...cambio, errore: "Scegli o scrivi il motivo: lo leggerà il pilota." }); return; }
+      setLavoro("invio");
+      const { error } = await supabase.rpc("annulla_lavoro_cliente", { p_codice: codice, p_motivo: motivo });
+      setLavoro(null);
+      if (error) { setCambio({ ...cambio, errore: /consegnato/i.test(error.message || "") ? "Il lavoro è già stato consegnato." : "Non è stato possibile: ricarica la pagina." }); return; }
+    }
+    setCambio(null);
+    carica();
+  };
   const rispondi = async (offerta, si) => {
     await supabase.rpc("segnala_contatto_fuori", { p_codice: codice, p_offerta: offerta, p_si: si });
     carica();
@@ -11610,7 +11635,7 @@ function OfferteCliente({ codice }) {
   }
 
   const r = dati.richiesta;
-  const offerte = dati.offerte || [];
+  const offerte = (dati.offerte || []).filter((o) => o.stato !== "annullata");
   const confermata = offerte.find((o) => o.stato === "confermata");
   const scelta = offerte.find((o) => o.stato === "scelta");
   // prima le offerte più complete (non le più economiche), a parità il prezzo più basso
@@ -11747,7 +11772,56 @@ function OfferteCliente({ codice }) {
           </div>
         )}
 
+        {annulli.filter((a) => a.da === "pilota" && r.stato === "aperta").map((a) => (
+          <div key={"an" + a.id} style={{ ...CLIENTE.scheda, background: "#fffaf0", borderColor: "#f3dfb0" }}>
+            <strong style={{ fontSize: 15.5 }}>{a.nome} ha annullato il lavoro</strong>
+            <p style={{ fontSize: 14, color: "#5b534b", margin: "6px 0 0 0", lineHeight: 1.5 }}>Ci dispiace{a.motivo ? `: «${a.motivo}»` : ""}. Puoi scegliere un'altra delle offerte qui sotto.</p>
+          </div>
+        ))}
+        {annulli.filter((a) => a.chiedi).map((a) => (
+          <div key={"ch" + a.id} id="annullati" style={{ ...CLIENTE.scheda, background: "#fffaf0", borderColor: "#f3dfb0" }}>
+            <strong style={{ fontSize: 15.5 }}>Il lavoro con {a.nome} è stato fatto lo stesso?</strong>
+            <p style={{ fontSize: 14, color: "#5b534b", margin: "6px 0 10px 0", lineHeight: 1.5 }}>Era stato annullato{a.da === "cliente" ? " da te" : ""}. Se poi l'avete fatto lo stesso, fuori da EyeDrones, diccelo: la risposta resta tra noi e ci aiuta a tenere solo piloti seri.</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={() => rispondiAnnullo(a.id, true)} style={{ flex: 1, background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "11px 12px", fontSize: 14.5, fontWeight: 700, color: "#3a332c" }}>Sì, l'abbiamo fatto</button>
+              <button type="button" onClick={() => rispondiAnnullo(a.id, false)} style={{ flex: 1, background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "11px 12px", fontSize: 14.5, fontWeight: 700, color: "#3a332c" }}>No</button>
+            </div>
+          </div>
+        ))}
         {confermata && schedaOfferta(confermata)}
+        {confermata && !confermata.consegna && !cambio && (
+          <div style={{ display: "flex", gap: 16, justifyContent: "center", fontSize: 13.5 }}>
+            <button type="button" onClick={() => setCambio({ tipo: "sposta", data: r.data_desiderata || "" })} style={{ background: "none", border: "none", color: "#6b6258", fontWeight: 700, padding: 0, fontSize: 13.5 }}>📅 Sposta la data</button>
+            <button type="button" onClick={() => setCambio({ tipo: "annulla", motivo: "", altro: "" })} style={{ background: "none", border: "none", color: "#c0392b", fontWeight: 700, padding: 0, fontSize: 13.5 }}>Annulla il lavoro</button>
+          </div>
+        )}
+        {confermata && cambio && (
+          <div style={{ ...CLIENTE.scheda, display: "flex", flexDirection: "column", gap: 10 }}>
+            {cambio.tipo === "sposta" ? (
+              <>
+                <strong style={{ fontSize: 15.5 }}>Sposta la data</strong>
+                <p style={{ fontSize: 14, color: "#5b534b", margin: 0, lineHeight: 1.5 }}>Prima mettiti d'accordo con il pilota al telefono, poi scegli la nuova data: gli mandiamo un'email.</p>
+                <input type="date" value={cambio.data} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setCambio({ ...cambio, data: e.target.value, errore: null })} style={{ border: "1px solid #e2d8cc", borderRadius: 12, padding: "11px 12px", fontSize: 15, background: "#fff", color: "#2b241e" }} />
+              </>
+            ) : (
+              <>
+                <strong style={{ fontSize: 15.5 }}>Annulla il lavoro</strong>
+                <p style={{ fontSize: 14, color: "#5b534b", margin: 0, lineHeight: 1.5 }}>Se è solo un cambio di giorno, meglio <button type="button" onClick={() => setCambio({ tipo: "sposta", data: r.data_desiderata || "" })} style={{ background: "none", border: "none", color: "#e0552f", fontWeight: 700, padding: 0, fontSize: 14 }}>spostare la data</button>. Avvisiamo noi il pilota.</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {["Ho cambiato programma", "L'evento è stato annullato", "Ho trovato un'altra soluzione"].map((m) => (
+                    <button key={m} type="button" onClick={() => setCambio({ ...cambio, motivo: cambio.motivo === m ? "" : m, errore: null })} style={{ background: cambio.motivo === m ? "#fff3eb" : "#fff", border: `1px solid ${cambio.motivo === m ? "#ff8c42" : "#e2d8cc"}`, borderRadius: 16, padding: "7px 11px", fontSize: 13, color: "#3a332c" }}>{m}</button>
+                  ))}
+                </div>
+                <input value={cambio.altro} onChange={(e) => setCambio({ ...cambio, altro: e.target.value, errore: null })} maxLength={200} placeholder="Altro o dettagli (facoltativo)" style={{ border: "1px solid #e2d8cc", borderRadius: 12, padding: "11px 12px", fontSize: 15, background: "#fff", color: "#2b241e" }} />
+              </>
+            )}
+            {cambio.errore && <p style={{ color: "#c0392b", fontSize: 14, margin: 0 }}>{cambio.errore}</p>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={() => setCambio(null)} disabled={lavoro === "invio"} style={{ flex: 1, background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "12px 14px", fontSize: 15, fontWeight: 700, color: "#3a332c" }}>Indietro</button>
+              <button type="button" onClick={cambia_} disabled={lavoro === "invio"} style={cambio.tipo === "sposta" ? { ...CLIENTE.bottone, flex: 2 } : { flex: 2, background: "#fff", border: "1px solid #c0392b", borderRadius: 12, padding: "12px 14px", fontSize: 15, fontWeight: 800, color: "#c0392b" }}>{lavoro === "invio" ? "Un attimo…" : cambio.tipo === "sposta" ? "Sposta la data" : "Annulla il lavoro"}</button>
+            </div>
+          </div>
+        )}
         {confermata && confermata.si_recensisce && <RecensioneCliente codice={codice} nomePilota={confermata.pilota?.nome || "il pilota"} stelleIniziali={stelleEmail || confermata.mie_stelle} testoIniziale={confermata.mia_recensione} gia={!!confermata.mie_stelle} />}
         {!confermata && scelta && schedaOfferta(scelta)}
         {!confermata && inGara.length > 0 && (
@@ -11761,7 +11835,7 @@ function OfferteCliente({ codice }) {
         {r.stato === "aperta" && offerte.length > 0 && (
           <p style={{ fontSize: 12.5, color: "#8a8076", textAlign: "center", margin: 0 }}>Puoi aspettare altre offerte: ti scriviamo quando arrivano. <button type="button" onClick={() => { if (confirm("Non ti serve più? Chiudo la richiesta e i piloti non manderanno altre offerte.")) scegli(null); }} style={{ background: "none", border: "none", color: "#8a8076", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>Non mi serve più</button></p>
         )}
-        {r.stato === "chiusa" && <p style={{ ...CLIENTE.scheda, fontSize: 14, color: "#6b6258", margin: 0 }}>Hai chiuso questa richiesta. Se ti serve di nuovo un pilota, <a href="/trova-pilota" style={{ color: "#e0552f" }}>fai una nuova richiesta</a>.</p>}
+        {r.stato === "chiusa" && <p style={{ ...CLIENTE.scheda, fontSize: 14, color: "#6b6258", margin: 0 }}>{annulli.some((a) => a.da === "cliente") ? "Hai annullato il lavoro e chiuso la richiesta." : "Hai chiuso questa richiesta."} Se ti serve di nuovo un pilota, <a href="/trova-pilota" style={{ color: "#e0552f" }}>fai una nuova richiesta</a>.</p>}
       </main>
 
       {scelgo && (
@@ -12120,6 +12194,8 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   const [pagato, setPagato] = useState(LAVORO_APPENA_PAGATO);
   const [rinuncia, setRinuncia] = useState(null); // { id, motivo, altro } mentre il pilota dice «non posso farlo»
   const [consegna, setConsegna] = useState(null); // { id, link, nota } mentre il pilota consegna il lavoro
+  const [cambio, setCambio] = useState(null); // { id, tipo: "sposta" | "annulla", data, motivo, altro } su un lavoro confermato
+  const [annulli, setAnnulli] = useState(null); // { credito, annullati_da_me_6_mesi, lavori: [{ richiesta, da, motivo }] }
   const [gallerie, setGallerie] = useState(null); // le sue gallerie per il cliente, da scegliere con un tocco
   const [archivio, setArchivio] = useState(undefined); // il file zone D-Flight del pilota (dal telefono o dall'account)
   useEffect(() => { leggiZoneSalvate().then(async (d) => setArchivio(d && Array.isArray(d.zone) ? d : (await riprendiCopiaZone()) || null)); }, []);
@@ -12167,6 +12243,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
       try { localStorage.setItem(CHIAVE_LAVORI_VISTI, JSON.stringify(data.map((l) => l.id).slice(0, 200))); window.dispatchEvent(new Event("eyedrones-lavori-visti")); } catch { /* niente */ }
     }
     supabase.rpc("storia_clienti_zona").then(({ data: st }) => st && typeof st === "object" && setStoria(st), () => {});
+    supabase.rpc("annullamenti_pilota").then(({ data: an }) => an && typeof an === "object" && setAnnulli(an), () => {});
     return Array.isArray(data) ? data : [];
   };
   useEffect(() => {
@@ -12244,6 +12321,26 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     setRinuncia(null);
     carica();
   };
+  // un lavoro confermato: spostare la data o annullarlo (con il motivo, lo legge il cliente)
+  const cambia_ = async (l) => {
+    setErrore(null);
+    if (cambio.tipo === "sposta") {
+      if (!cambio.data) { setErrore({ id: l.id, testo: "Scegli la nuova data." }); return; }
+      setLavoro(l.id);
+      const { error } = await supabase.rpc("sposta_data_pilota", { p_offerta: l.mia.id, p_data: cambio.data });
+      setLavoro(null);
+      if (error) { setErrore({ id: l.id, testo: /data/i.test(error.message || "") ? "Scegli una data da oggi in poi." : "Non è stato possibile: ricarica la pagina." }); return; }
+    } else {
+      const motivo = [cambio.motivo, (cambio.altro || "").trim()].filter(Boolean).join(": ");
+      if (!motivo) { setErrore({ id: l.id, testo: "Scegli o scrivi il motivo: lo leggerà il cliente." }); return; }
+      setLavoro(l.id);
+      const { error } = await supabase.rpc("annulla_lavoro_pilota", { p_offerta: l.mia.id, p_motivo: motivo });
+      setLavoro(null);
+      if (error) { setErrore({ id: l.id, testo: /consegnato/i.test(error.message || "") ? "Il lavoro è già consegnato: non si può annullare." : "Non è stato possibile: ricarica la pagina." }); return; }
+    }
+    setCambio(null);
+    carica();
+  };
   const scelti = lavori.filter((l) => l.mia?.stato === "scelta");
   const confermati = lavori.filter((l) => l.mia?.stato === "confermata");
   const apriConsegna = (l) => {
@@ -12277,7 +12374,8 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     carica();
   };
   const aperti = lavori.filter((l) => l.stato === "aperta" && (!l.mia || l.mia.stato === "inviata"));
-  const finiti = lavori.filter((l) => l.mia && ["non_scelta", "decaduta", "rinunciata"].includes(l.mia.stato) || (l.mia?.stato === "inviata" && l.stato !== "aperta"));
+  const finiti = lavori.filter((l) => l.mia && ["non_scelta", "decaduta", "rinunciata", "annullata"].includes(l.mia.stato) || (l.mia?.stato === "inviata" && l.stato !== "aperta"));
+  const annullatoDa = (l) => (annulli?.lavori || []).find((a) => a.richiesta === l.id)?.da;
   const dataBreve = (d) => new Date(d + (String(d).length === 10 ? "T12:00:00" : "")).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
   const riga = (l) => [l.servizio || "Richiesta", l.luogo, l.data_desiderata ? `per il ${dataBreve(l.data_desiderata)}` : null].filter(Boolean).join(" · ");
   const st = { scheda: { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 12, marginTop: 8 } };
@@ -12449,6 +12547,9 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
         );
       })}
 
+      {Number(annulli?.credito) > 0 && (
+        <div style={{ ...st.scheda, borderColor: "#2c5a3f", fontSize: 13, color: "#c3cad4" }}>💶 Hai <strong style={{ color: "#86efac" }}>{euroIt(Number(annulli.credito))}</strong> di credito: paga la commissione del prossimo lavoro che confermi.</div>
+      )}
       {confermati.length > 0 && sezione("Lavori confermati")}
       {confermati.map((l) => (
         <div key={l.id} style={{ ...st.scheda, borderColor: l.mia.consegna ? "#2c5a3f" : "#3d8bfd66" }}>
@@ -12485,6 +12586,36 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="button" disabled={lavoro === l.id} onClick={() => consegna_(l)} style={{ background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 800 }}>{lavoro === l.id ? "Un attimo…" : l.mia.consegna ? "Salva" : "Consegna al cliente"}</button>
                 <button type="button" onClick={() => setConsegna(null)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5 }}>Annulla</button>
+              </div>
+            </div>
+          )}
+          {!l.mia.consegna && consegna?.id !== l.id && cambio?.id !== l.id && (
+            <div style={{ display: "flex", gap: 14, marginTop: 10 }}>
+              <button type="button" onClick={() => { setErrore(null); setCambio({ id: l.id, tipo: "sposta", data: l.data_desiderata || "" }); }} style={{ background: "none", border: "none", color: "#9cc4ff", fontSize: 12.5, fontWeight: 700, padding: 0 }}>📅 Sposta la data</button>
+              <button type="button" onClick={() => { setErrore(null); setCambio({ id: l.id, tipo: "annulla", motivo: "", altro: "" }); }} style={{ background: "none", border: "none", color: "#ff9c9c", fontSize: 12.5, fontWeight: 700, padding: 0 }}>Annulla il lavoro</button>
+            </div>
+          )}
+          {cambio?.id === l.id && (
+            <div style={{ marginTop: 10, background: "#141820", border: "1px solid #343e57", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+              {cambio.tipo === "sposta" ? (
+                <>
+                  <div style={{ fontSize: 12.5, color: "#c3cad4" }}>Meteo o imprevisto? Sposta la data: il lavoro resta tuo e il cliente riceve un'email. Prima mettetevi d'accordo al telefono.</div>
+                  <input type="date" value={cambio.data} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setCambio({ ...cambio, data: e.target.value })} style={inputStyle} />
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 12.5, color: "#c3cad4" }}>Se è il meteo, meglio <button type="button" onClick={() => setCambio({ id: l.id, tipo: "sposta", data: l.data_desiderata || "" })} style={{ background: "none", border: "none", color: "#9cc4ff", fontWeight: 700, padding: 0, fontSize: 12.5 }}>spostare la data</button>. Se annulli, il cliente torna a scegliere tra le altre offerte e la commissione non viene restituita.{(annulli?.annullati_da_me_6_mesi || 0) >= 1 ? " ⚠️ È il tuo secondo annullamento in 6 mesi: dopo non riceverai più richieste da «Trova un pilota»." : " Con 2 annullamenti in 6 mesi non si ricevono più richieste."}</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {["Malattia o imprevisto personale", "Divieto di volo o permesso negato", "Drone guasto"].map((m) => (
+                      <button key={m} type="button" onClick={() => setCambio({ ...cambio, motivo: cambio.motivo === m ? "" : m })} style={{ ...chip(cambio.motivo === m), borderRadius: 16, padding: "6px 10px", fontSize: 12 }}>{m}</button>
+                    ))}
+                  </div>
+                  <input value={cambio.altro} onChange={(e) => setCambio({ ...cambio, altro: e.target.value })} maxLength={200} placeholder="Altro o dettagli (facoltativo)" style={inputStyle} />
+                </>
+              )}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" disabled={lavoro === l.id} onClick={() => cambia_(l)} style={cambio.tipo === "sposta" ? { background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 800 } : { background: "#232b3f", border: "1px solid #ff9c9c66", color: "#ffb4b4", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>{lavoro === l.id ? "Un attimo…" : cambio.tipo === "sposta" ? "Sposta e avvisa il cliente" : "Annulla e avvisa il cliente"}</button>
+                <button type="button" onClick={() => setCambio(null)} style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 12.5 }}>Indietro</button>
               </div>
             </div>
           )}
@@ -12557,7 +12688,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
           <summary style={{ fontSize: 12.5, color: "#8b95a3", cursor: "pointer" }}>Le tue offerte passate ({finiti.length})</summary>
           {finiti.map((l) => (
             <div key={l.id} style={{ ...st.scheda, fontSize: 12.5, color: "#c3cad4" }}>
-              {riga(l)} · {euroIt(l.mia.prezzo)} · <strong style={{ color: l.mia.stato === "confermata" ? "#4ade80" : "#8b95a3" }}>{l.mia.stato === "confermata" ? "lavoro tuo ✓" : l.mia.stato === "decaduta" ? "non confermato in tempo" : l.mia.stato === "rinunciata" ? "hai detto che non potevi" : "il cliente ha scelto un altro pilota"}</strong>
+              {riga(l)} · {euroIt(l.mia.prezzo)} · <strong style={{ color: l.mia.stato === "confermata" ? "#4ade80" : "#8b95a3" }}>{l.mia.stato === "confermata" ? "lavoro tuo ✓" : l.mia.stato === "decaduta" ? "non confermato in tempo" : l.mia.stato === "rinunciata" ? "hai detto che non potevi" : l.mia.stato === "annullata" ? (annullatoDa(l) === "cliente" ? "annullato dal cliente" : "annullato da te") : "il cliente ha scelto un altro pilota"}</strong>
             </div>
           ))}
         </details>
