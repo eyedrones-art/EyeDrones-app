@@ -79,7 +79,11 @@ for (const k of sezioni) {
 // le riscritture vanno prima delle regole di netlify.toml (/trova-pilota/* → index.html), che restano per tutto il resto
 const fileRedirects = path.join(DIST, "_redirects");
 const prima = fs.existsSync(fileRedirects) ? fs.readFileSync(fileRedirects, "utf8") : "";
-fs.writeFileSync(fileRedirects, `# pagine per Google create da scripts/pagine-google.mjs\n${riscritture.join("\n")}\n${prima}`);
+// trovapilota.it (indirizzo corto da volantini e annunci): porta sempre a Trova un pilota su app.eyedrones.it,
+// così le pagine per Google restano su un solo dominio. trovapilota.it/to → /trova-pilota/to
+const dominiCorti = ["https://trovapilota.it", "https://www.trovapilota.it", "http://trovapilota.it", "http://www.trovapilota.it"]
+  .flatMap((d) => [`${d}/ https://app.eyedrones.it/trova-pilota 301!`, `${d}/* https://app.eyedrones.it/trova-pilota/:splat 301!`]);
+fs.writeFileSync(fileRedirects, `# indirizzo corto trovapilota.it\n${dominiCorti.join("\n")}\n# pagine per Google create da scripts/pagine-google.mjs\n${riscritture.join("\n")}\n${prima}`);
 console.log(`pagine per Google: ${n} (riscritture: ${riscritture.length})`);
 
 // Tutti gli altri indirizzi (home, pagine dei piloti /p/<nome>, ...) usano dist/index.html: lì l'indirizzo canonico
