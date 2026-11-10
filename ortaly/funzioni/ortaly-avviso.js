@@ -71,6 +71,10 @@ exports.handler = async (event) => {
   let inviate = 0;
 
   const linkCliente = `${SITO}/#ordine-${o.segreto}`;
+  // iscritto alle novità? allora nell'email metto il link per togliersi
+  const iscr = emailValida(o.cliente_email) ? await fetch(`${ORTALY_SUPABASE_URL}/rest/v1/novita?email=eq.${encodeURIComponent(String(o.cliente_email).trim().toLowerCase())}&disiscritto=is.null&select=token`, { headers: intestazioni(chiave) })
+    .then((r) => (r.ok ? r.json() : [])).catch(() => []) : [];
+  const linkVia = iscr[0] && /^[0-9a-f]{64}$/.test(iscr[0].token) ? `${SITO}/#disiscrivi-${iscr[0].token}` : null;
   if (emailValida(emailProduttore)) {
     const testo = [`Nuovo ordine ${o.codice} da ${o.cliente_nome}`, "", ...righe, `Totale prodotti: ${euro(o.totale)}`, "", `Come: ${consegna}`,
       o.nota ? `Nota: ${o.nota}` : "", "", `Accettalo e scrivi al cliente dall'app: ${SITO}/#vendo`].filter((x) => x !== "").join("\n");
@@ -85,12 +89,14 @@ exports.handler = async (event) => {
 
   if (emailValida(o.cliente_email)) {
     const testo = [`Il tuo ordine ${o.codice} è arrivato a ${b.nome}.`, "", ...righe, `Totale prodotti: ${euro(o.totale)}`, "", `Come: ${consegna}`,
-      "", `Segui l'ordine e scrivi al produttore: ${linkCliente}`, "", "Paghi al produttore alla consegna o al ritiro."].join("\n");
+      "", `Segui l'ordine e scrivi al produttore: ${linkCliente}`, "", "Paghi al produttore alla consegna o al ritiro.",
+      ...(linkVia ? ["", "Ti sei iscritto a ricette, promozioni e novità di stagione. Per toglierti: " + linkVia] : [])].join("\n");
     const html = `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1e2a1d;max-width:560px">
       <h2 style="margin:0 0 6px">Ordine inviato a ${esc(b.nome)}</h2><p style="margin:0;color:#5d6a57">Codice ${esc(o.codice)}</p>${lista}
       <p style="margin:4px 0"><b>Come:</b> ${esc(consegna)}</p>
       <p style="margin:18px 0"><a href="${linkCliente}" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Segui l'ordine e scrivi al produttore</a></p>
-      <p style="color:#5d6a57;font-size:13px">Conserva questa email: il link è solo tuo. Il produttore ti risponde lì per giorno e ora. Paghi a lui alla consegna o al ritiro.</p></div>`;
+      <p style="color:#5d6a57;font-size:13px">Conserva questa email: il link è solo tuo. Il produttore ti risponde lì per giorno e ora. Paghi a lui alla consegna o al ritiro.</p>
+      ${linkVia ? `<p style="color:#5d6a57;font-size:12px">Ti sei iscritto a ricette, promozioni e novità di stagione. <a href="${linkVia}" style="color:#5d6a57">Non le voglio più</a></p>` : ""}</div>`;
     if (await manda(resend, o.cliente_email, `Ordine ${o.codice} inviato a ${b.nome} · Ortaly`, html, testo)) inviate++;
   }
   const telefoni = await notificaBottega({ supabaseUrl: ORTALY_SUPABASE_URL, chiave, intestazioni, bottega: o.bottega,

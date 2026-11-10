@@ -377,9 +377,10 @@ function apriCarrello(){
   <p class="nota" style="margin-top:2px">Le spese di consegna o spedizione, se ci sono, sono scritte sopra sotto ogni produttore.</p>
   <form class="nuovo" id="formOrdine">
     <label for="oNome">Nome e cognome<input id="oNome" required minlength="2" maxlength="60" autocomplete="name" value="${esc(cliente.nome||"")}"></label>
-    <label for="oEmail">Email <span class="aiuto">(facoltativa: ti avvisiamo quando il produttore risponde; lui non la vede)</span><input id="oEmail" type="email" maxlength="120" autocomplete="email" value="${esc(cliente.email||"")}"></label>
+    <label for="oEmail">Email <span class="aiuto">(ti avvisiamo qui quando il produttore risponde; lui non la vede)</span><input id="oEmail" type="email" required maxlength="120" autocomplete="email" value="${esc(cliente.email||"")}"></label>
     ${serveIndirizzo?`<label for="oInd">Indirizzo di consegna<input id="oInd" required minlength="8" maxlength="200" autocomplete="street-address" placeholder="Via, numero, città" value="${esc(cliente.ind||"")}"></label>`:""}
     <label for="oNota">Nota per il produttore <span class="aiuto">(facoltativa)</span><textarea id="oNota" maxlength="300" placeholder="Es. citofono Rossi, meglio dopo le 18"></textarea></label>
+    <label class="scelta"><input type="checkbox" id="oNovita"><span><b>🍅 Mandami ricette, promozioni e cosa c'è di stagione</b><small>Facoltativo · al massimo un paio di email al mese · ti togli quando vuoi</small></span></label>
     <p class="errore" id="oErr" hidden></p>
     <button class="grande" type="submit" id="oInvia">Manda ${n>1?"gli ordini":"l'ordine"}</button>
     <p class="nota">Paghi direttamente al produttore alla consegna o al ritiro. Non serve il telefono: vi scrivete nella chat dell'ordine. Il produttore vede solo nome${serveIndirizzo?" e indirizzo":""}. <a href="/privacy" target="_blank" rel="noopener" style="color:inherit">Privacy</a></p>
@@ -387,12 +388,12 @@ function apriCarrello(){
   $("formOrdine").addEventListener("submit",mandaOrdini);
 }
 async function mandaOrdini(e){e.preventDefault();const btn=$("oInvia"),err=$("oErr");err.hidden=true;
-  const dati={nome:$("oNome").value.trim(),email:$("oEmail").value.trim(),ind:$("oInd")?$("oInd").value.trim():(cliente.ind||""),nota:$("oNota").value.trim()};
+  const dati={nome:$("oNome").value.trim(),email:$("oEmail").value.trim(),novita:$("oNovita").checked,ind:$("oInd")?$("oInd").value.trim():(cliente.ind||""),nota:$("oNota").value.trim()};
   cliente={nome:dati.nome,email:dati.email,ind:dati.ind};salva("cliente",cliente);
   btn.disabled=true;btn.textContent="Invio…";
   const fatti=[],errori=[];
   for(const [bid,arts] of Object.entries(gruppiCarrello())){const b=bot(bid);
-    const {data,error}=await sb.rpc("ordina",{p_bottega:bid,p_righe:arts.map(a=>({id:a.id,qta:carrello[a.id]})),p_nome:dati.nome,p_email:dati.email||null,p_modo:scelte[bid],p_indirizzo:scelte[bid]==="ritiro"?null:dati.ind,p_nota:dati.nota||null});
+    const {data,error}=await sb.rpc("ordina",{p_bottega:bid,p_righe:arts.map(a=>({id:a.id,qta:carrello[a.id]})),p_nome:dati.nome,p_email:dati.email,p_novita:dati.novita,p_modo:scelte[bid],p_indirizzo:scelte[bid]==="ritiro"?null:dati.ind,p_nota:dati.nota||null});
     if(error){errori.push(`${b.nome}: ${erroreDi(error)}`);continue}
     fatti.push({b,o:data});arts.forEach(a=>delete carrello[a.id]);
     ricordaOrdine({segreto:data.segreto,codice:data.codice,bottega:b.nome,totale:data.totale,creato:new Date().toISOString()});
@@ -401,7 +402,7 @@ async function mandaOrdini(e){e.preventDefault();const btn=$("oInvia"),err=$("oE
   salva("carrello",carrello);mostraGriglia();
   if(!fatti.length){btn.disabled=false;btn.textContent="Riprova";err.textContent=errori.join(" · ");err.hidden=false;return}
   apriSheet(`<div class="corpo fatto"><div class="bollo">Ordinato!</div><h2>Grazie ${esc(dati.nome.split(" ")[0])}, ${fatti.length>1?"i tuoi ordini sono partiti":"il tuo ordine è partito"}</h2>
-  <p class="storia" style="margin-inline:auto">Il produttore ti risponde nella chat dell'ordine per giorno e ora${dati.email?" e ti avvisiamo via email":""}. Paghi a lui alla consegna o al ritiro. Ritrovi l'ordine in «I tuoi ordini», qui al banco.</p>
+  <p class="storia" style="margin-inline:auto">Il produttore ti risponde nella chat dell'ordine per giorno e ora e ti avvisiamo via email. Paghi a lui alla consegna o al ritiro. Ritrovi l'ordine in «I tuoi ordini», qui al banco.</p>
   ${fatti.map(({b,o})=>`<div class="gruppo" style="text-align:left"><h3><span>${esc(b.nome)}</span><span>${euro(o.totale)}</span></h3><div style="font-size:14px;color:var(--tenue)">Codice ordine <b style="color:var(--inchiostro)">${esc(o.codice)}</b></div>
     <div class="azioni" style="margin-top:8px"><button class="si" data-ordinecliente="${esc(o.segreto)}">💬 Segui l'ordine e scrivi</button></div></div>`).join("")}
   ${errori.length?`<p class="errore">Non partito: ${esc(errori.join(" · "))}. Il resto è ancora nel cestino.</p>`:""}
@@ -734,6 +735,8 @@ if(sb)sb.auth.onAuthStateChange((ev,sess)=>{const prima=utente&&utente.id;utente
 caricaBanco();mostraBoxApp();mostraMieiOrdini();
 if(location.hash==="#vendo")modo(true);
 {const m=location.hash.match(/^#ordine-([0-9a-f]{64})$/);if(m&&sb)apriOrdineCliente(m[1])}
+{const m=location.hash.match(/^#disiscrivi-([0-9a-f]{64})$/);if(m&&sb){apriSheet(`<div class="corpo fatto"><div style="font-size:48px">✉️</div><h2>Non vuoi più le nostre email?</h2><p class="storia" style="margin-inline:auto">Smetti di ricevere ricette, promozioni e novità di stagione. Gli avvisi dei tuoi ordini continuano ad arrivare.</p><button class="grande" id="btnDisiscrivi">Sì, toglimi</button></div>`,"disiscrivi");
+  $("btnDisiscrivi").onclick=async()=>{const {data,error}=await sb.rpc("disiscrivi",{p_token:m[1]});$("sheet").querySelector(".corpo").innerHTML=error||!data?`<h2>Link non valido</h2><p class="storia" style="margin-inline:auto">Scrivici a info@ortaly.it e ti togliamo noi.</p>`:`<div class="bollo">Fatto</div><h2>Non riceverai più le nostre email</h2><p class="storia" style="margin-inline:auto">Se cambi idea, al prossimo ordine rimetti la spunta.</p>`;try{history.replaceState(null,"",location.pathname)}catch(e){}}}}
 window.addEventListener("hashchange",()=>{const m=location.hash.match(/^#ordine-([0-9a-f]{64})$/);if(m&&sb){if($("vistaCompro").hidden)modo(false);apriOrdineCliente(m[1])}});
 </script>
 </body>

@@ -4,6 +4,7 @@
 -- • ogni ordine ha un link segreto (ortaly.it/#ordine-...) da cui il cliente vede lo stato e scrive al produttore
 -- • il produttore non vede né telefono né email del cliente: solo nome, indirizzo, nota e chat
 -- • le notifiche possono portare un testo («Nuovo messaggio da Laura»): servono le chiavi del telefono
+-- • l'email del cliente è obbligatoria (per gli avvisi); chi vuole riceve anche ricette, promozioni e stagione (tabella novita)
 
 alter table public.ordini alter column cliente_telefono drop not null;
 alter table public.ordini add column if not exists segreto text unique
@@ -43,9 +44,32 @@ grant select (id, ordine, da, testo, letto, creato) on public.messaggi to authen
 grant insert (ordine, da, testo) on public.messaggi to authenticated;
 grant update (letto) on public.messaggi to authenticated;
 
--- ordine del cliente, senza telefono; il cliente riceve il link segreto del suo ordine
+-- iscritti alle novità (ricette, promozioni, frutta e verdura di stagione): solo con la spunta, si tolgono con il link
+create table if not exists public.novita (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique check (email ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$' and char_length(email) <= 120),
+  provincia text check (provincia is null or provincia ~ '^[A-Z]{2}$'),
+  consenso timestamptz not null default now(),
+  disiscritto timestamptz,
+  token text not null unique default replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '')
+);
+alter table public.novita enable row level security;
+revoke all on public.novita from anon, authenticated;
+
+create or replace function public.disiscrivi(p_token text)
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  if p_token is null or p_token !~ '^[0-9a-f]{64}$' then return false; end if;
+  update public.novita set disiscritto = now() where token = p_token and disiscritto is null;
+  return found or exists (select 1 from public.novita where token = p_token);
+end $$;
+revoke all on function public.disiscrivi(text) from public;
+grant execute on function public.disiscrivi(text) to anon, authenticated;
+
+-- ordine del cliente, senza telefono, con email obbligatoria; il cliente riceve il link segreto del suo ordine
 drop function if exists public.ordina(uuid, jsonb, text, text, text, text, text, text);
-create or replace function public.ordina(p_bottega uuid, p_righe jsonb, p_nome text, p_email text, p_modo text, p_indirizzo text, p_nota text)
+drop function if exists public.ordina(uuid, jsonb, text, text, text, text, text);
+create or replace function public.ordina(p_bottega uuid, p_righe jsonb, p_nome text, p_email text, p_modo text, p_indirizzo text, p_nota text, p_novita boolean default false)
 returns json language plpgsql security definer set search_path = public as $$
 declare b record; r jsonb; p record; righe jsonb := '[]'::jsonb; tot numeric := 0; q int; o record; recenti int;
 begin
@@ -55,6 +79,7 @@ begin
     raise exception 'Questo modo di consegna non è disponibile'; end if;
   if p_modo in ('casa', 'spedizione') and char_length(btrim(coalesce(p_indirizzo, ''))) < 8 then raise exception 'Scrivi l''indirizzo completo'; end if;
   if jsonb_typeof(p_righe) <> 'array' or jsonb_array_length(p_righe) = 0 or jsonb_array_length(p_righe) > 40 then raise exception 'Il cestino è vuoto'; end if;
+  if coalesce(btrim(p_email), '') !~* '^[^@\s]+@[^@\s]+\.[^@\s]+$' or char_length(btrim(p_email)) > 120 then raise exception 'Scrivi la tua email: ti avvisiamo lì quando il produttore risponde'; end if;
   -- freno contro gli scherzi: stesso nome alla stessa bottega al massimo 5 volte all'ora, e al massimo 60 ordini all'ora per bottega
   select count(*) filter (where lower(btrim(cliente_nome)) = lower(btrim(p_nome))), count(*) into recenti, q
     from public.ordini where bottega = p_bottega and creato > now() - interval '1 hour';
@@ -71,10 +96,14 @@ begin
   values (p_bottega, btrim(p_nome), nullif(btrim(coalesce(p_email, '')), ''), p_modo,
           nullif(btrim(coalesce(p_indirizzo, '')), ''), nullif(btrim(coalesce(p_nota, '')), ''), righe, round(tot, 2))
   returning id, codice, totale, segreto into o;
+  if p_novita then
+    insert into public.novita (email, provincia) values (lower(btrim(p_email)), b.provincia)
+    on conflict (email) do update set disiscritto = null, consenso = now(), provincia = excluded.provincia;
+  end if;
   return json_build_object('id', o.id, 'codice', o.codice, 'totale', o.totale, 'segreto', o.segreto);
 end $$;
-revoke all on function public.ordina(uuid, jsonb, text, text, text, text, text) from public;
-grant execute on function public.ordina(uuid, jsonb, text, text, text, text, text) to anon, authenticated;
+revoke all on function public.ordina(uuid, jsonb, text, text, text, text, text, boolean) from public;
+grant execute on function public.ordina(uuid, jsonb, text, text, text, text, text, boolean) to anon, authenticated;
 
 -- il cliente apre il suo ordine con il link segreto
 create or replace function public.ordine_cliente(p_segreto text)
