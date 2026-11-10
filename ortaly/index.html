@@ -428,7 +428,7 @@ function pianoHtml(b){
   if(b.abbonamento==="prova"&&giorni>=0)return `<div class="piano"><div class="ptesta"><b>Il tuo abbonamento</b><span class="prova">In prova</span></div>
     <span>Periodo di prova fino al <b>${data}</b> (${giorni===0?"ultimo giorno":giorni===1?"ancora 1 giorno":"ancora "+giorni+" giorni"}). Dopo: <b>19 € al mese</b>, solo se lo confermi tu.</span></div>`;
   return `<div class="piano scaduta"><div class="ptesta"><b>Il tuo abbonamento</b><span class="prova" style="background:var(--pomodoro);color:#fff">${b.abbonamento==="disdetto"?"Disdetto":"Prova finita"}</span></div>
-    <span>La tua bottega non è visibile ai clienti. Per riaprirla con l'abbonamento da 19 € al mese scrivi a <b>info@eyedrones.it</b>.</span></div>`;
+    <span>La tua bottega non è visibile ai clienti. Per riaprirla con l'abbonamento da 19 € al mese scrivi a <b>info@ortaly.it</b>.</span></div>`;
 }
 function formBottega(b){b=b||{};const pv=b.provincia||prov;
   return `<form class="nuovo" id="formBottega">
@@ -473,8 +473,9 @@ async function salvaBottega(e){e.preventDefault();const err=$("bErr"),btn=e.targ
   v.piva=v.piva.replace(/^IT/i,"");
   btn.disabled=true;btn.textContent="Salvo…";
   try{const f=$("bFoto").files[0];if(f)v.foto=await caricaFoto(f,"bottega");
-    const r=mia?await sb.from("botteghe").update(v).eq("id",mia.id):await sb.from("botteghe").insert(v);
+    const r=mia?await sb.from("botteghe").update(v).eq("id",mia.id):await sb.from("botteghe").insert(v).select("id").single();
     if(r.error)throw r.error;
+    if(!mia&&r.data)fetch("/.netlify/functions/ortaly-iscrizione",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:r.data.id}),keepalive:true}).catch(()=>{});
     toast(mia?"Bottega salvata":"Benvenuto! Ora metti il tuo primo prodotto");vendoScheda=mia?"bottega":"prodotti";await caricaMia();caricaBanco();
   }catch(x){err.textContent=erroreDi(x);err.hidden=false;btn.disabled=false;btn.textContent="Riprova"}
 }
