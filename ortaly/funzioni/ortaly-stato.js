@@ -1,7 +1,8 @@
 // Ortaly — il produttore ha cambiato lo stato di un ordine (accettato, pronto, consegnato, annullato):
 // avviso il cliente con la notifica sul telefono (se l'ha attivata) e con un'email.
+// Se l'ha annullato il cliente, avviso invece il produttore.
 // Ogni stato si avvisa una volta sola: confronto con «stato_avvisato» e lo aggiorno prima di scrivere.
-const { notificaCliente } = require("./ortaly-push-chiave.js");
+const { notificaCliente, notificaBottega } = require("./ortaly-push-chiave.js");
 
 const ORTALY_SUPABASE_URL = "https://qqxzqiwxhyyzylmkvdew.supabase.co";
 const SITO = "https://ortaly.it";
@@ -49,13 +50,28 @@ exports.handler = async (event) => {
   if (!ora || ora.stato === ora.stato_avvisato || !TESTI[ora.stato]) return risposta(200, "Niente da avvisare");
 
   // aggiorno solo se nessun altro l'ha già fatto nel frattempo
-  const presa = await fetch(`${ORTALY_SUPABASE_URL}/rest/v1/ordini?id=eq.${id}&stato=eq.${ora.stato}&stato_avvisato=eq.${encodeURIComponent(ora.stato_avvisato)}&select=codice,stato,cliente_email,segreto,botteghe(nome)`, {
+  const presa = await fetch(`${ORTALY_SUPABASE_URL}/rest/v1/ordini?id=eq.${id}&stato=eq.${ora.stato}&stato_avvisato=eq.${encodeURIComponent(ora.stato_avvisato)}&select=codice,stato,cliente_nome,cliente_email,segreto,annullato_da,motivo_annullo,bottega,botteghe(nome,utente)`, {
     method: "PATCH", headers: intestazioni(chiave, { Prefer: "return=representation" }), body: JSON.stringify({ stato_avvisato: ora.stato }),
   }).catch(() => null);
   const [o] = presa && presa.ok ? await presa.json() : [];
   if (!o) return risposta(200, "Già avvisato");
 
   const nome = (o.botteghe && o.botteghe.nome) || "Il produttore";
+  if (o.stato === "annullato" && o.annullato_da === "cliente") {
+    const telefoni = await notificaBottega({ supabaseUrl: ORTALY_SUPABASE_URL, chiave, intestazioni, bottega: o.bottega,
+      messaggio: { titolo: `Ordine ${o.codice} annullato dal cliente`, testo: o.motivo_annullo ? `${o.cliente_nome}: «${String(o.motivo_annullo).slice(0, 100)}»` : `${o.cliente_nome} ha annullato l'ordine`, url: "/#vendo" } });
+    const u = await fetch(`${ORTALY_SUPABASE_URL}/auth/v1/admin/users/${o.botteghe && o.botteghe.utente}`, { headers: intestazioni(chiave) }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    let inviata = false;
+    if (resend && u && emailValida(u.email)) {
+      const html = `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1e2a1d;max-width:560px">
+        <h2 style="margin:0 0 6px">${esc(o.cliente_nome)} ha annullato l'ordine ${esc(o.codice)}</h2>
+        ${o.motivo_annullo ? `<p style="margin:4px 0">Motivo: «${esc(o.motivo_annullo)}»</p>` : ""}<p style="margin:0;color:#5d6a57">Non serve prepararlo.</p>
+        <p style="margin:18px 0"><a href="${SITO}/#vendo" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Apri i tuoi ordini</a></p></div>`;
+      inviata = await manda(resend, u.email, `Ordine ${o.codice} annullato dal cliente · Ortaly`, html,
+        `${o.cliente_nome} ha annullato l'ordine ${o.codice}.${o.motivo_annullo ? `\nMotivo: «${o.motivo_annullo}»` : ""}\nNon serve prepararlo.\n${SITO}/#vendo`);
+    }
+    return risposta(200, `produttore: notifiche ${telefoni}, email ${inviata ? 1 : 0}`);
+  }
   const [cosa, poi] = TESTI[o.stato];
   const link = `${SITO}/#ordine-${o.segreto}`;
   const telefoni = await notificaCliente({ supabaseUrl: ORTALY_SUPABASE_URL, chiave, intestazioni, ordine: id,

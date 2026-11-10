@@ -538,8 +538,10 @@ async function aggiornaOrdini(){if(!mia||$("vistaVendo").hidden)return;const {da
   const prima=nonLetti(),recPrima=mieRec.length,segnPrima=mieSegn.length;await caricaMessaggi();const msgNuovi=nonLetti()-prima;
   if(mieSegn.length>segnPrima)toast("⚠️ Un cliente ha segnalato un problema");else if(mieRec.length>recPrima)toast("⭐ Hai una nuova valutazione");
   const s=$("sheet");if(!s.hidden&&s.dataset.tipo==="chatprod"){apriChatProduttore(s.dataset.id,true)}
-  if(data){const nuovi=data.filter(o=>o.stato==="nuovo"&&!mieiOrd.find(x=>x.id===o.id)).length;mieiOrd=data;if(nuovi){toast(nuovi===1?"È arrivato un ordine nuovo":`Sono arrivati ${nuovi} ordini nuovi`)}else if(msgNuovi>0)toast(msgNuovi===1?"Hai un messaggio nuovo":`Hai ${msgNuovi} messaggi nuovi`);const scrive=[...document.querySelectorAll('#vendo [id^="risp-"] textarea')].length>0;
-    if(!scrive&&(nuovi||msgNuovi>0||mieRec.length>recPrima||mieSegn.length>segnPrima||vendoScheda==="ordini"))mostraVendo()}}
+  if(data){const annullatiOra=data.filter(o=>o.stato==="annullato"&&o.annullato_da==="cliente"&&(mieiOrd.find(x=>x.id===o.id)||{}).stato!=="annullato"&&mieiOrd.find(x=>x.id===o.id)).length;
+    if(annullatiOra)toast(annullatiOra===1?"Un cliente ha annullato un ordine":`${annullatiOra} ordini annullati dai clienti`);
+    const nuovi=data.filter(o=>o.stato==="nuovo"&&!mieiOrd.find(x=>x.id===o.id)).length;mieiOrd=data;if(nuovi){toast(nuovi===1?"È arrivato un ordine nuovo":`Sono arrivati ${nuovi} ordini nuovi`)}else if(msgNuovi>0)toast(msgNuovi===1?"Hai un messaggio nuovo":`Hai ${msgNuovi} messaggi nuovi`);const scrive=[...document.querySelectorAll('#vendo [id^="risp-"] textarea')].length>0;
+    if(!scrive&&(nuovi||annullatiOra||msgNuovi>0||mieRec.length>recPrima||mieSegn.length>segnPrima||vendoScheda==="ordini"))mostraVendo()}}
 let mieiMsg=[],mieRec=[],mieSegn=[];
 async function caricaMessaggi(){const [m,r,s]=await Promise.all([sb.from("messaggi").select("id,ordine,da,testo,letto,creato").order("creato",{ascending:true}).limit(2000),
   sb.from("recensioni").select("id,ordine,stelle,commento,nome,risposta,contestata,creata").order("creata",{ascending:false}).limit(500),
@@ -581,6 +583,7 @@ function mostraVendo(){
       <ul class="righe">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)})</span></li>`).join("")}</ul>
       <div style="font-size:13px;color:var(--tenue)">${MODI[o.modo][0]} ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""} · <b style="color:var(--inchiostro)">${euro(o.totale)}</b> · ${new Date(o.creato).toLocaleString("it-IT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${esc(o.codice)}</div>
       ${o.nota?`<div style="font-size:13.5px">📝 ${esc(o.nota)}</div>`:""}
+      ${o.stato==="annullato"&&o.annullato_da==="cliente"?`<div class="segn"><div>✕ <b>Annullato dal cliente</b></div>${o.motivo_annullo?`<div>«${esc(o.motivo_annullo)}»</div>`:""}</div>`:""}
       ${mieSegn.filter(x=>x.ordine===o.id).map(x=>`<div class="segn${x.risolta?" ok":""}"><div>${x.risolta?"✅ Risolta":"⚠️ Segnalazione"} · <b>${esc(TIPI_PROBLEMA[x.tipo]||x.tipo)}</b></div><div>${esc(x.testo)}</div>${x.risolta?"":`<div class="azioni"><button data-chat="${o.id}">💬 Scrivi al cliente</button><button data-risolta="${x.id}">✓ Risolta</button></div>`}</div>`).join("")}
       ${mieRec.filter(x=>x.ordine===o.id).map(x=>`<div class="rec"><div>${voto(x.stelle)} <b>${esc(x.nome)}</b></div>${x.commento?`<div>${esc(x.commento)}</div>`:""}${x.risposta?`<div class="risp"><b>La tua risposta:</b> ${esc(x.risposta)}</div>`:`<div id="risp-${x.id}"><button class="link" data-rispondi="${x.id}">Rispondi (la risposta è pubblica)</button></div>`}
         ${x.contestata?`<div style="font-size:12.5px;color:var(--tenue)">🚩 Segnalata a Ortaly: la controlliamo</div>`:`<button class="link" style="justify-self:start;color:var(--tenue);font-size:12.5px" data-contesta="${x.id}">🚩 Sembra falsa? Segnala a Ortaly</button>`}</div>`).join("")}
@@ -620,7 +623,7 @@ async function salvaProdotto(e){e.preventDefault();const err=$("nErr"),btn=e.tar
 }
 
 // ── ordine del cliente (link segreto ortaly.it/#ordine-...) ──
-const COL_ORDINI="id,codice,bottega,cliente_nome,modo,indirizzo,nota,righe,totale,stato,creato";
+const COL_ORDINI="id,codice,bottega,cliente_nome,modo,indirizzo,nota,righe,totale,stato,creato,annullato_da,motivo_annullo";
 function ricordaOrdine(o){const l=leggi("ordini",[]).filter(x=>x.segreto!==o.segreto);l.unshift(o);salva("ordini",l.slice(0,15));mostraMieiOrdini()}
 function mostraMieiOrdini(){const l=leggi("ordini",[]);const s=$("sezMieiOrdini");if(!s)return;s.hidden=!l.length;
   $("mieiOrdiniCliente").innerHTML=l.map(o=>`<button class="cliente" style="width:100%;text-align:left;border:0;cursor:pointer" data-ordinecliente="${esc(o.segreto)}"><span><b>${esc(o.bottega)}</b><small>Ordine ${esc(o.codice)} · ${new Date(o.creato).toLocaleDateString("it-IT",{day:"numeric",month:"short"})}</small></span><span style="text-align:right"><b>${euro(o.totale)}</b><small>stato e chat ›</small></span></button>`).join("")}
@@ -655,6 +658,12 @@ function collegaValutazione(segreto,o){
       btn.disabled=false;if(error){err.textContent=erroreDi(error);err.hidden=false;return}
       if(!o.recensione)fetch("/.netlify/functions/ortaly-recensione",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tipo:"recensione",id:data.id}),keepalive:true}).catch(()=>{});
       correggoValutazione=null;delete RECENSIONI[o.bottega.id];toast("Grazie! La tua valutazione è pubblicata");apriOrdineCliente(segreto,true,true);caricaBanco()})}
+  const fa=$("formAnnulla");
+  if(fa)fa.addEventListener("submit",async e=>{e.preventDefault();const err=$("annErr");err.hidden=true;const btn=fa.querySelector("[type=submit]");btn.disabled=true;
+    const {data,error}=await sb.rpc("annulla_ordine",{p_segreto:segreto,p_motivo:$("aMotivo").value.trim()});
+    btn.disabled=false;if(error){err.textContent=erroreDi(error);err.hidden=false;return}
+    fetch("/.netlify/functions/ortaly-stato",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:data.id}),keepalive:true}).catch(()=>{});
+    $("aMotivo").value="";toast("Ordine annullato: il produttore è avvisato");apriOrdineCliente(segreto,true,true)});
   const p=$("formProblema");
   if(p)p.addEventListener("submit",async e=>{e.preventDefault();const err=$("pErr");err.hidden=true;const btn=p.querySelector("[type=submit]");btn.disabled=true;
     const {data,error}=await sb.rpc("segnala_problema",{p_segreto:segreto,p_tipo:$("pTipo").value,p_testo:$("pTesto").value.trim()});
@@ -664,7 +673,7 @@ function collegaValutazione(segreto,o){
 
 let timerOrdineCliente=null;
 async function apriOrdineCliente(segreto,aggiorna,forza){
-  if(aggiorna&&!forza){const a=document.activeElement;if(a&&a.closest&&a.closest("#formValuta,#formProblema"))return;if([...document.querySelectorAll("#formValuta textarea,#formProblema textarea")].some(t=>t.value.trim())||document.querySelector("details.problema[open]"))return}
+  if(aggiorna&&!forza){const a=document.activeElement;if(a&&a.closest&&a.closest("#formValuta,#formProblema"))return;if([...document.querySelectorAll("#formValuta textarea,#formProblema textarea,#formAnnulla textarea")].some(t=>t.value.trim())||document.querySelector("details.problema[open]"))return}
   if(!/^[0-9a-f]{64}$/.test(segreto))return;
   const {data,error}=await sb.rpc("ordine_cliente",{p_segreto:segreto});
   if(error){if(!aggiorna)apriSheet(`<div class="corpo fatto"><div style="font-size:48px">🔎</div><h2>Ordine non trovato</h2><p class="storia" style="margin-inline:auto">Il link non è giusto o l'ordine è stato cancellato.</p></div>`,"ordinecliente");return}
@@ -673,16 +682,20 @@ async function apriOrdineCliente(segreto,aggiorna,forza){
   const scritto=aggiorna&&$("chatTesto")?$("chatTesto").value:"";
   ricordaOrdine({segreto,codice:o.codice,bottega:o.bottega.nome,totale:o.totale,creato:o.creato});
   const ordine=["nuovo","accettato","pronto","consegnato"],i=ordine.indexOf(o.stato);
-  const passi=o.stato==="annullato"?`<div class="passi"><span class="no">Annullato dal produttore</span></div>`:`<div class="passi">${["Inviato","Accettato","Pronto","Consegnato"].map((t,k)=>`<span class="${k<=i?"ok":""}">${t}</span>`).join("")}</div>`;
+  const passi=o.stato==="annullato"?`<div class="passi"><span class="no">${o.annullato_da==="cliente"?"Annullato da te":"Annullato dal produttore"}</span></div>`:`<div class="passi">${["Inviato","Accettato","Pronto","Consegnato"].map((t,k)=>`<span class="${k<=i?"ok":""}">${t}</span>`).join("")}</div>`;
   apriSheet(`<div class="corpo"><h2>${esc(o.bottega.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">Ordine ${esc(o.codice)} · ${euro(o.totale)} · ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""}</div>
   ${passi}
   <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700;font-size:14px">Cosa hai ordinato</summary><ul class="righe" style="margin-top:6px">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)}) · ${euro(r.prezzo*r.qta)}</span></li>`).join("")}</ul></details>
   ${valutazioneHtml(o,segreto)}
-  <div id="boxSegui">${boxSegui(segreto)}</div>
+  ${o.stato==="annullato"?"":`<div id="boxSegui">${boxSegui(segreto)}</div>`}
   <h3 style="margin-top:14px;font-size:17px">Chat con il produttore</h3>
   <div class="chat" id="chatLista">${chatHtml(o.messaggi||[],"cliente")}</div>
   ${o.stato==="annullato"?"":`<form class="scrivi" id="formChat"><textarea id="chatTesto" maxlength="1000" rows="1" placeholder="Scrivi al produttore…" aria-label="Messaggio">${esc(scritto)}</textarea><button type="submit">Invia</button></form>`}
-  ${problemaHtml(o)}
+  ${["nuovo","accettato"].includes(o.stato)?`<details class="problema" style="margin-top:12px" id="detAnnulla"><summary>✕ Annulla l'ordine</summary>
+    <form class="nuovo" id="formAnnulla" style="margin-top:8px"><p class="nota" style="margin:0">Puoi annullare finché il produttore non l'ha preparato. Il produttore riceve subito l'avviso.</p>
+    <label for="aMotivo">Perché? <span class="aiuto">(facoltativo, lo legge il produttore)</span><textarea id="aMotivo" maxlength="300" placeholder="Es. ho sbagliato quantità, ordino di nuovo"></textarea></label>
+    <p class="errore" id="annErr" hidden></p><button class="grande" type="submit" style="margin-top:0;background:var(--pomodoro)">Sì, annulla l'ordine</button></form></details>`:""}
+  ${o.stato==="annullato"?"":problemaHtml(o)}
   <p class="nota">Non serve il telefono: vi scrivete qui. Salva questa pagina o ritrovala in «I tuoi ordini» su ortaly.it. Il link è solo tuo, non mandarlo ad altri.</p></div>`,"ordinecliente",segreto);
   try{history.replaceState(null,"","#ordine-"+segreto)}catch(e){}
   scorriGiu();collegaValutazione(segreto,o);
