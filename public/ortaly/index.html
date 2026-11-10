@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ortaly · dal campo a casa tua</title>
+<meta name="description" content="Ortaly: frutta, verdura, formaggi e miele dei produttori della tua zona. Anteprima in arrivo.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#22382a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2048%2048%22%3E%3Crect%20width%3D%2248%22%20height%3D%2248%22%20rx%3D%2213%22%20fill%3D%22%23e9a514%22/%3E%3Cpath%20d%3D%22M24%2025V13%22%20stroke%3D%22%2322382a%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M24%2017c-1-5-5-7-10-6%200%205%204%208%2010%206zM24%2015c1-5%205-7%2010-6%200%205-4%208-10%206z%22%20fill%3D%22%233c6a2c%22/%3E%3Cpath%20d%3D%22M9%2024h30l-3%2015H12z%22%20fill%3D%22%2322382a%22/%3E%3Cpath%20d%3D%22M11%2029.5h26M12%2034.5h24%22%20stroke%3D%22%23e9a514%22%20stroke-width%3D%222%22/%3E%3C/svg%3E">
+<style>body{margin:0}</style>
+</head>
+<body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=Caveat+Brush&display=swap">
+<style>
+/* Layout: un banco di mercato sul telefono — lavagna verde in alto, cassette di prodotti sotto, prezzi scritti col gesso */
+:root{
+  --carta:#f1f3ea; --carta2:#e6eadb; --bianco:#fffefa; --inchiostro:#1e2a1d; --tenue:#5d6a57;
+  --foglia:#3c6a2c; --foglia-chiara:#e1ecd3; --lavagna:#22382a; --gesso:#f4f1e4; --tuorlo:#e9a514; --pomodoro:#c8412e; --bordo:#d5dbc7;
+  --ombra:0 1px 0 rgba(30,42,29,.06),0 8px 24px -14px rgba(30,42,29,.35);
+  --titoli:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --testo:"Figtree","Segoe UI",system-ui,sans-serif;
+  --gessetto:"Caveat Brush","Comic Sans MS",cursive;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --carta:#151c15; --carta2:#1d261c; --bianco:#1f2a1e; --inchiostro:#eef1e6; --tenue:#a7b39d;
+  --foglia:#8fc46d; --foglia-chiara:#2a3a24; --lavagna:#0f1a12; --gesso:#f1eedf; --tuorlo:#f2b937; --pomodoro:#ef7560; --bordo:#33402f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --carta:#151c15; --carta2:#1d261c; --bianco:#1f2a1e; --inchiostro:#eef1e6; --tenue:#a7b39d;
+  --foglia:#8fc46d; --foglia-chiara:#2a3a24; --lavagna:#0f1a12; --gesso:#f1eedf; --tuorlo:#f2b937; --pomodoro:#ef7560; --bordo:#33402f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--carta);color:var(--inchiostro);font:15px/1.5 var(--testo);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--lavagna)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--tuorlo);outline-offset:2px}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--titoli);margin:0;line-height:1.1;text-wrap:balance}
+.esempio{font-size:12px;color:var(--tenue);text-align:center;padding-block:10px 0}
+
+/* lavagna */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--lavagna);color:var(--gesso);
+  background-image:radial-gradient(120% 80% at 20% 0%,rgba(255,255,255,.06),transparent 60%)}
+.top .wrap{display:flex;align-items:center;gap:12px;padding-block:12px}
+.marchio{font:800 21px var(--titoli);letter-spacing:-.4px;display:flex;align-items:center;gap:8px}
+.marchio .logo{width:34px;height:34px;flex:none}
+.zone{display:flex;gap:6px;margin-top:16px;background:rgba(255,255,255,.08);border-radius:16px;padding:4px}
+.zone button{flex:1;border:0;background:none;color:var(--gesso);border-radius:12px;padding:10px 8px;font-weight:700;font-size:14px;opacity:.75}
+.zone button[aria-pressed="true"]{background:var(--gesso);color:var(--lavagna);opacity:1}
+.zone small{display:block;font-weight:500;font-size:11.5px;opacity:.8}
+.marchio i{font-style:normal;font-family:var(--gessetto);font-weight:400;color:var(--tuorlo);font-size:26px;transform:rotate(-4deg);display:inline-block}
+.modo{margin-left:auto;display:flex;background:rgba(255,255,255,.08);border-radius:99px;padding:3px}
+.modo button{border:0;background:none;color:var(--gesso);padding:7px 14px;border-radius:99px;font-weight:700;font-size:13.5px;opacity:.75}
+.modo button[aria-pressed="true"]{background:var(--gesso);color:var(--lavagna);opacity:1}
+.carrello{position:relative;border:0;background:var(--tuorlo);color:#1e2a1d;border-radius:12px;padding:8px 11px;font-weight:800;font-size:14px;display:flex;gap:6px;align-items:center}
+.carrello b{background:#1e2a1d;color:var(--tuorlo);border-radius:99px;min-width:20px;height:20px;font-size:12px;display:grid;place-items:center;padding:0 5px}
+
+.cartello{background:var(--lavagna);color:var(--gesso);padding-block:6px 26px}
+.cartello h1{font-size:clamp(30px,8vw,46px);letter-spacing:-1px;font-weight:800}
+.cartello h1 span{font-family:var(--gessetto);font-weight:400;color:var(--tuorlo);letter-spacing:0}
+.cartello p{margin:8px 0 0;max-width:52ch;color:#cdd6c4}
+.dove{display:inline-flex;gap:6px;align-items:center;margin-top:14px;background:rgba(255,255,255,.08);border:1px dashed rgba(244,241,228,.35);border-radius:99px;padding:6px 12px;font-size:13.5px}
+.cerca{margin-top:14px;display:flex;gap:8px}
+.cerca input{flex:1;min-width:0;border:0;border-radius:14px;padding:13px 14px;font:inherit;background:var(--gesso);color:#1e2a1d}
+
+/* sezioni */
+.sez{padding-block:22px 4px}
+.sez h2{font-size:21px;display:flex;align-items:baseline;gap:10px;justify-content:space-between}
+.sez h2 small{font:600 12.5px var(--testo);color:var(--tenue)}
+.cat{display:flex;gap:8px;overflow-x:auto;padding-block:12px 4px;scrollbar-width:none}
+.cat button{flex:none;border:1px solid var(--bordo);background:var(--bianco);border-radius:99px;padding:8px 13px;font-weight:600;font-size:13.5px;white-space:nowrap}
+.cat button[aria-pressed="true"]{background:var(--foglia);border-color:var(--foglia);color:var(--bianco)}
+
+.stagione{margin-top:14px;display:flex;gap:10px;align-items:center;background:var(--foglia-chiara);border-radius:16px;padding:12px 14px;font-size:14px}
+.stagione b{font-family:var(--gessetto);font-weight:400;font-size:22px;color:var(--foglia)}
+
+.produttori{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(230px,72%);gap:12px;overflow-x:auto;padding-block:12px 6px;scroll-snap-type:x mandatory;scrollbar-width:none}
+@media (min-width:640px){.produttori{grid-auto-columns:calc(33.33% - 8px)}}
+.prod{scroll-snap-align:start;border:0;text-align:left;background:var(--bianco);border-radius:18px;overflow:hidden;box-shadow:var(--ombra);padding:0;display:flex;flex-direction:column}
+.prod .foto{height:110px}
+.prod div.t{padding:11px 13px 13px}
+.prod h3{font-size:16.5px}
+.prod .meta{font-size:12.5px;color:var(--tenue);margin-top:3px}
+.tag{display:inline-flex;gap:4px;align-items:center;font-size:11.5px;font-weight:700;border-radius:8px;padding:2px 7px;background:var(--foglia-chiara);color:var(--foglia);margin-top:7px;margin-right:4px}
+
+/* foto: riquadri pronti per le foto vere */
+.foto{position:relative;display:grid;place-items:center;font-size:52px;overflow:hidden;background:var(--carta2)}
+.foto::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 34px,rgba(0,0,0,.035) 34px 36px)}
+.foto img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.f1{background:linear-gradient(160deg,#9cc27a,#5e8f3d)}.f2{background:linear-gradient(160deg,#f0c36a,#d98a2b)}.f3{background:linear-gradient(160deg,#d8b98a,#a8794a)}
+.f4{background:linear-gradient(160deg,#b9d7a0,#7aa65c)}.f5{background:linear-gradient(160deg,#e8a28c,#c8573f)}.f6{background:linear-gradient(160deg,#c7b7e0,#8b72b8)}
+
+.griglia{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-block:12px}
+@media (min-width:640px){.griglia{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.art{background:var(--bianco);border-radius:18px;overflow:hidden;box-shadow:var(--ombra);display:flex;flex-direction:column;min-width:0}
+.art .foto{aspect-ratio:4/3;max-width:100%}
+.prezzo{position:absolute;right:8px;bottom:8px;z-index:2;background:var(--lavagna);color:var(--gesso);border-radius:10px 10px 10px 2px;padding:3px 9px 4px;font:400 21px/1 var(--gessetto);transform:rotate(-3deg);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.prezzo small{font:600 11px var(--testo);opacity:.85;margin-left:2px}
+.art .t{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
+.art h3{font-size:15.5px;font-weight:700}
+.art .chi{font-size:12.5px;color:var(--tenue);border:0;background:none;padding:0;text-align:left;text-decoration:underline;text-decoration-color:var(--bordo);text-underline-offset:3px}
+.art .pie{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:6px;padding-top:6px}
+.km{font-size:12px;font-weight:700;color:var(--foglia)}
+.piu{border:0;background:var(--foglia);color:var(--bianco);border-radius:11px;padding:7px 12px;font-weight:700;font-size:13.5px}
+.qta{display:flex;align-items:center;gap:8px;background:var(--foglia-chiara);border-radius:11px;padding:3px}
+.qta button{border:0;background:var(--bianco);border-radius:8px;width:28px;height:28px;font-weight:800;color:var(--foglia)}
+.qta span{font-weight:800;min-width:16px;text-align:center;font-variant-numeric:tabular-nums}
+.vuoto{grid-column:1/-1;text-align:center;color:var(--tenue);padding:30px 10px}
+
+/* scheda produttore */
+.sheet-bg{position:fixed;inset:0;z-index:40;background:rgba(15,22,14,.5);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--carta);width:100%;max-width:760px;max-height:92%;overflow:auto;border-radius:22px 22px 0 0;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+.sheet .testa{position:sticky;top:0;z-index:2;display:flex;justify-content:flex-end;padding:10px 12px 0}
+.chiudi{border:0;background:var(--bianco);border-radius:99px;width:36px;height:36px;font-size:18px;box-shadow:var(--ombra)}
+.banner{height:150px;margin-top:-46px}
+.sheet .corpo{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 0}
+.sheet h2{font-size:25px}
+.storia{color:var(--tenue);margin:6px 0 0;max-width:60ch}
+.consegne{display:grid;gap:8px;margin-top:14px}
+.cons{display:flex;gap:10px;align-items:flex-start;background:var(--bianco);border:1px solid var(--bordo);border-radius:14px;padding:10px 12px;font-size:14px}
+.cons b{display:block}
+
+/* carrello */
+.gruppo{background:var(--bianco);border-radius:18px;padding:14px;margin-top:12px;box-shadow:var(--ombra)}
+.gruppo h3{font-size:16px;display:flex;justify-content:space-between;gap:8px}
+.riga{display:flex;justify-content:space-between;gap:10px;align-items:center;padding-block:8px;border-bottom:1px dashed var(--bordo);font-size:14px}
+.riga:last-of-type{border-bottom:0}
+.scelte{display:grid;gap:6px;margin-top:10px}
+.scelta{display:flex;gap:10px;align-items:center;border:1.5px solid var(--bordo);border-radius:12px;padding:9px 11px;font-size:13.5px;background:var(--carta)}
+.scelta input{accent-color:var(--foglia);width:18px;height:18px;margin:0}
+.scelta:has(input:checked){border-color:var(--foglia);background:var(--foglia-chiara)}
+.scelta small{color:var(--tenue);display:block}
+.totale{display:flex;justify-content:space-between;align-items:baseline;margin-top:16px;font-weight:700}
+.totale b{font:400 34px var(--gessetto);color:var(--foglia)}
+.grande{width:100%;border:0;background:var(--foglia);color:var(--bianco);border-radius:16px;padding:15px;font-weight:800;font-size:16px;margin-top:12px}
+.nota{font-size:12.5px;color:var(--tenue);margin-top:8px}
+.fatto{text-align:center;padding:30px 10px}
+.fatto .bollo{font:400 44px var(--gessetto);color:var(--foglia);transform:rotate(-6deg);border:3px solid var(--foglia);border-radius:16px;display:inline-block;padding:2px 18px;margin-bottom:12px}
+
+/* lato produttore */
+.numeri{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding-block:12px}
+.num{background:var(--bianco);border-radius:16px;padding:12px;box-shadow:var(--ombra)}
+.num b{display:block;font:400 30px/1 var(--gessetto);color:var(--foglia)}
+.num span{font-size:12px;color:var(--tenue)}
+.ordine{background:var(--bianco);border-radius:16px;padding:12px 14px;box-shadow:var(--ombra);margin-top:10px;display:grid;gap:6px}
+.ordine .su{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.stato{font-size:12px;font-weight:800;border-radius:8px;padding:2px 8px}
+.s-nuovo{background:color-mix(in srgb,var(--tuorlo) 25%,transparent);color:var(--inchiostro)}
+.s-pronto{background:var(--foglia-chiara);color:var(--foglia)}
+.azioni{display:flex;gap:8px;flex-wrap:wrap}
+.azioni button{border:1px solid var(--bordo);background:var(--carta);border-radius:10px;padding:7px 12px;font-weight:700;font-size:13px}
+.azioni .si{background:var(--foglia);border-color:var(--foglia);color:var(--bianco)}
+.mioart{display:flex;gap:12px;align-items:center;background:var(--bianco);border-radius:16px;padding:10px;margin-top:10px;box-shadow:var(--ombra)}
+.mioart .foto{width:58px;height:58px;border-radius:12px;font-size:28px;flex:none}
+.mioart .t{flex:1;min-width:0}
+.mioart .t div{font-size:12.5px;color:var(--tenue)}
+.inter{position:relative;width:46px;height:28px;border-radius:99px;border:0;background:var(--bordo);flex:none}
+.inter::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--bianco);transition:transform .2s}
+.inter[aria-pressed="true"]{background:var(--foglia)}.inter[aria-pressed="true"]::after{transform:translateX(18px)}
+form.nuovo{background:var(--bianco);border-radius:18px;padding:14px;margin-top:12px;box-shadow:var(--ombra);display:grid;gap:10px}
+form.nuovo label{font-size:13px;font-weight:700;display:grid;gap:5px}
+form.nuovo input,form.nuovo select{border:1px solid var(--bordo);border-radius:12px;padding:11px 12px;font:inherit;background:var(--carta);color:var(--inchiostro);min-width:0;width:100%}
+.due{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.invito{margin-top:14px;display:flex;gap:14px;align-items:center;background:var(--lavagna);color:var(--gesso);border-radius:18px;padding:16px;box-shadow:var(--ombra)}
+.invito b{font:400 25px/1.05 var(--gessetto);color:var(--tuorlo);display:block}
+.invito p{margin:4px 0 0;font-size:13.5px;color:#cdd6c4}
+.invito button{flex:none;border:0;background:var(--tuorlo);color:#1e2a1d;border-radius:12px;padding:10px 14px;font-weight:800}
+.spunte{display:grid;gap:6px}
+form.nuovo label.scelta{display:flex;font-weight:600}
+form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
+.cliente{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--bianco);border-radius:14px;padding:10px 12px;margin-top:8px;box-shadow:var(--ombra);font-size:14px}
+.cliente small{color:var(--tenue);display:block}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--lavagna);color:var(--gesso);border-radius:14px;padding:11px 16px;font-weight:700;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="top"><div class="wrap">
+  <div class="marchio"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="13" fill="var(--tuorlo)"/><path d="M24 25V13" stroke="#22382a" stroke-width="3" stroke-linecap="round"/><path d="M24 17c-1-5-5-7-10-6 0 5 4 8 10 6zM24 15c1-5 5-7 10-6 0 5-4 8-10 6z" fill="#3c6a2c"/><path d="M9 24h30l-3 15H12z" fill="#22382a"/><path d="M11 29.5h26M12 34.5h24" stroke="var(--tuorlo)" stroke-width="2"/></svg>ortaly</div>
+  <div class="modo" role="group" aria-label="Modalità">
+    <button id="mCompro" aria-pressed="true">Compro</button>
+    <button id="mVendo" aria-pressed="false">Vendo</button>
+  </div>
+  <button class="carrello" id="apriCarrello" aria-label="Apri il carrello">🧺 <b id="nCarrello">0</b></button>
+</div></header>
+
+<main id="vistaCompro">
+  <section class="cartello"><div class="wrap">
+    <h1>Dal campo <span>a casa tua</span></h1>
+    <p>Frutta, verdura, formaggi e miele dei produttori intorno a Torino. Ordini qui, prepara tutto chi coltiva.</p>
+    <div class="zone" role="group" aria-label="Da dove">
+      <button id="zVicino" aria-pressed="true">📍 Vicino a te<small>fresco, entro 30 km</small></button>
+      <button id="zItalia" aria-pressed="false">🇮🇹 Dall'Italia<small>specialità spedite</small></button>
+    </div>
+    <div class="cerca"><input id="cerca" type="search" placeholder="Cerca: zucca, toma, miele…" aria-label="Cerca un prodotto"></div>
+  </div></section>
+  <div class="wrap">
+    <div class="stagione" id="stagione"><b>Novembre</b><span>È il momento di cavolo nero, zucca, porri, castagne, cachi e mele.</span></div>
+    <section class="sez"><h2><span id="titProd">Produttori vicino a te</span> <small>tocca per conoscerli</small></h2>
+      <div class="produttori" id="produttori"></div>
+      <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Iscriviti in 2 minuti, metti i tuoi prodotti con le tue foto e ricevi gli ordini dei clienti della tua zona.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
+    <section class="sez"><h2>Al banco oggi <small id="conta"></small></h2>
+      <div class="cat" id="categorie" role="group" aria-label="Categorie"></div>
+      <div class="griglia" id="griglia"></div></section>
+    <p class="esempio">Prototipo con produttori e prezzi di esempio · nessun ordine o pagamento reale</p>
+  </div>
+</main>
+
+<main id="vistaVendo" hidden>
+  <section class="cartello"><div class="wrap">
+    <h1>Ciao, <span id="vNome">Cascina Bellavista</span></h1>
+    <p>Ecco gli ordini della settimana. Metti i tuoi prodotti e decidi tu prezzi e quantità.</p>
+  </div></section>
+  <div class="wrap">
+    <div class="numeri">
+      <div class="num"><b id="vOrdini">0</b><span>ordini nuovi</span></div>
+      <div class="num"><b id="vIncasso">0 €</b><span>questa settimana</span></div>
+      <div class="num"><b id="vProdotti">0</b><span>prodotti in vendita</span></div>
+    </div>
+    <section class="sez"><h2>Ordini da preparare</h2><div id="ordini"></div></section>
+    <section class="sez"><h2>I miei clienti <small>chi ha già comprato da te</small></h2><div id="mieiClienti"></div></section>
+    <section class="sez"><h2>I miei prodotti <small>accendi o spegni</small></h2><div id="mieiProdotti"></div></section>
+    <section class="sez"><h2>Metti un prodotto</h2>
+      <form class="nuovo" id="formNuovo">
+        <label for="nNome">Prodotto<input id="nNome" required maxlength="40" placeholder="Es. Topinambur"></label>
+        <div class="due">
+          <label for="nCat">Categoria<select id="nCat"></select></label>
+          <label for="nUnita">Venduto a<select id="nUnita"><option>kg</option><option>pezzo</option><option>mazzo</option><option>vasetto 500 g</option><option>confezione</option><option>bottiglia 0,75 l</option></select></label>
+        </div>
+        <div class="due">
+          <label for="nPrezzo">Prezzo (€)<input id="nPrezzo" required inputmode="decimal" placeholder="3,20"></label>
+          <label for="nQta">Disponibili<input id="nQta" required inputmode="numeric" placeholder="20"></label>
+        </div>
+        <label for="nFoto">Foto del prodotto (scattala tu, dal telefono)<input id="nFoto" type="file" accept="image/*"></label>
+        <button class="grande" type="submit">Metti in vendita</button>
+        <p class="nota">Il prodotto compare subito al banco: prova a tornare su «Compro».</p>
+      </form>
+    </section>
+    <p class="esempio">Prototipo con dati di esempio</p>
+  </div>
+</main>
+
+<div id="sheet" hidden></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+const CAT=["Tutto","Verdura","Frutta","Uova e latticini","Formaggi","Miele e conserve","Vino e olio","Pane e farine"];
+const PROD=[
+ {id:"bel",nome:"Cascina Bellavista",paese:"Carmagnola",km:24,f:"f1",e:"🥬",tipo:"Orto e uova",storia:"Tre generazioni sullo stesso campo vicino al Po. Verdura di stagione raccolta il giorno prima della consegna.",cons:{casa:"Consegna a casa il giovedì · 4 €, inclusa sopra 40 €",azienda:"Ritiro in cascina · sabato 9–12"},bio:true},
+ {id:"rov",nome:"Frutteto Il Rovere",paese:"Cavour",km:46,f:"f5",e:"🍎",tipo:"Mele, pere, kiwi",storia:"Frutteti ai piedi della Rocca di Cavour: mele antiche, pere Madernassa e kiwi.",cons:{casa:"Consegna a casa il martedì · 5 €",azienda:"Ritiro al frutteto · sabato 9–12"}},
+ {id:"api",nome:"Apicoltura Val Sangone",paese:"Giaveno",km:28,f:"f2",e:"🍯",tipo:"Miele e conserve",storia:"Arnie tra castagni e prati di montagna. Miele di castagno, acacia e millefiori.",cons:{casa:"Spedizione con corriere in 48 ore · 7 €",azienda:"Ritiro in azienda su appuntamento"}},
+ {id:"cas",nome:"Caseificio Prà d'la Fea",paese:"Villar Perosa",km:44,f:"f3",e:"🧀",tipo:"Formaggi di malga",storia:"Latte delle nostre mucche, lavorato ogni mattina. Toma, tomini e ricotta.",cons:{casa:"Consegna a casa il venerdì · 5 €",azienda:"Ritiro in caseificio · tutti i giorni 8–12"}},
+ {id:"agr",zona:"italia",nome:"Agrumeto Terre di Ribera",paese:"Ribera",regione:"Sicilia",f:"f2",e:"🍊",tipo:"Arance e limoni",storia:"Arance raccolte su ordinazione e spedite il giorno stesso: arrivano in 48–72 ore.",cons:{spedizione:"Corriere in 48–72 ore · 9 €, inclusa sopra 49 €"}},
+ {id:"fra",zona:"italia",nome:"Frantoio Masseria degli Ulivi",paese:"Andria",regione:"Puglia",f:"f4",e:"🫒",tipo:"Olio e mandorle",storia:"Ulivi di famiglia e frantoio in masseria. Olio dell'ultima raccolta, imbottigliato a mano.",cons:{spedizione:"Corriere in 48 ore · 9 €, inclusa sopra 49 €"}},
+ {id:"pas",zona:"italia",nome:"Pastificio Antica Valle",paese:"Gragnano",regione:"Campania",f:"f3",e:"🍝",tipo:"Pasta e conserve",storia:"Pasta trafilata al bronzo ed essiccata lentamente, pomodorini del Vesuvio in vasetto.",cons:{spedizione:"Corriere in 48 ore · 8 €, inclusa sopra 39 €"}},
+ {id:"vig",nome:"Cantina Colli del Pinerolese",paese:"Bricherasio",km:42,f:"f6",e:"🍇",tipo:"Vino e olio",storia:"Piccola cantina di famiglia: Barbera, Doux d'Henry e un olio da olive liguri.",cons:{casa:"Spedizione con corriere · 9 €, inclusa da 6 bottiglie"}},
+];
+let ART=[
+ ["Zucca delica","Verdura","bel",1.9,"kg","🎃","raccolta ieri"],["Cavolo nero","Verdura","bel",2.5,"mazzo","🥬","di stagione"],["Porri","Verdura","bel",2.8,"kg","🧅"],
+ ["Topinambur","Verdura","bel",3.6,"kg","🥔"],["Uova di galline a terra","Uova e latticini","bel",3.5,"confezione","🥚","6 uova"],
+ ["Mele Grigia di Torriana","Frutta","rov",2.4,"kg","🍏","varietà antica"],["Pere Madernassa","Frutta","rov",3.2,"kg","🍐"],["Kiwi","Frutta","rov",2.9,"kg","🥝"],["Cachi","Frutta","rov",2.6,"kg","🟠"],
+ ["Miele di castagno","Miele e conserve","api",9,"vasetto 500 g","🍯"],["Miele di acacia","Miele e conserve","api",10,"vasetto 500 g","🍯"],["Confettura di mirtilli","Miele e conserve","api",6.5,"vasetto","🫐"],
+ ["Toma stagionata","Formaggi","cas",16,"kg","🧀"],["Tomini freschi","Formaggi","cas",4.2,"confezione","🧀","4 pezzi"],["Ricotta","Uova e latticini","cas",5,"pezzo","🥛","500 g"],
+ ["Barbera","Vino e olio","vig",9.5,"bottiglia 0,75 l","🍷"],["Olio extravergine","Vino e olio","vig",14,"bottiglia 0,75 l","🫒"],
+ ["Farina di mais otto file","Pane e farine","bel",4.5,"confezione","🌽","1 kg"],["Castagne","Frutta","api",5.5,"kg","🌰","raccolte in valle"],
+ ["Arance tarocco","Frutta","agr",14,"cassetta 5 kg","🍊","raccolte su ordinazione"],["Limoni non trattati","Frutta","agr",8,"cassetta 3 kg","🍋"],
+ ["Olio extravergine pugliese","Vino e olio","fra",16,"bottiglia 1 l","🫒","raccolta 2026"],["Mandorle sgusciate","Miele e conserve","fra",9,"confezione 500 g","🌰"],
+ ["Pasta di Gragnano","Pane e farine","pas",5,"pacco 1 kg","🍝","trafilata al bronzo"],["Pomodorini del Vesuvio","Miele e conserve","pas",6,"vasetto","🍅"],
+].map((a,i)=>({id:"a"+i,nome:a[0],cat:a[1],prod:a[2],prezzo:a[3],unita:a[4],e:a[5],nota:a[6]||"",attivo:true,foto:null}));
+let zona="vicino",io="bel",cat="Tutto",testo="",carrello={},scelte={},ordini=[
+ {id:"o1",prod:"bel",chi:"Laura B.",cosa:"2 kg zucca, 1 mazzo cavolo nero, 1 confezione uova",tot:11.3,come:"Consegna a casa · giovedì",stato:"nuovo"},
+ {id:"o2",prod:"bel",chi:"Marco T.",cosa:"1 kg porri, 1 kg topinambur",tot:6.4,come:"Ritiro in cascina · sabato",stato:"nuovo"},
+ {id:"o3",prod:"bel",chi:"Giulia R.",cosa:"1 confezione farina di mais, 2 kg zucca",tot:8.3,come:"Ritiro in cascina · sabato",stato:"pronto"}];
+const $=id=>document.getElementById(id);
+const euro=n=>n.toLocaleString("it-IT",{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2})+" €";
+const prod=id=>PROD.find(p=>p.id===id);
+const zonaDi=p=>p.zona||"vicino";
+const dove=p=>p.zona==="italia"?`📦 ${p.regione}`:`📍 ${p.km} km`;
+const ETI={casa:["🚚","A casa","Consegna"],azienda:["🏡","Ritiro in azienda","Ritiro in azienda"],spedizione:["📦","Spedizione","Spedizione con corriere"]};
+const CLIENTI={bel:[["Laura B.","Torino · Crocetta",6,"ogni settimana"],["Giulia R.","Moncalieri",3,"l'ultimo sabato"],["Marco T.","Torino · San Salvario",2,"10 giorni fa"]]};
+const foto=(cls,e,img)=>`<div class="foto ${cls}">${img?`<img src="${img}" alt="">`:`<span aria-hidden="true">${e}</span>`}</div>`;
+function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2200)}
+
+function mostraProduttori(){
+  $("produttori").innerHTML=PROD.filter(p=>zonaDi(p)===zona).map(p=>`<button class="prod" data-p="${p.id}">${foto(p.f,p.e,p.foto)}<div class="t"><h3>${p.nome}</h3>
+  <div class="meta">${p.tipo} · ${p.paese}</div><span class="tag">${dove(p)}</span>${p.bio?'<span class="tag">🌱 bio</span>':""}${p.cons.casa?'<span class="tag">🚚 a casa</span>':""}</div></button>`).join("");
+}
+function mostraCategorie(){
+  $("categorie").innerHTML=CAT.map(c=>`<button aria-pressed="${c===cat}" data-c="${c}">${c}</button>`).join("");
+  $("nCat").innerHTML=CAT.slice(1).map(c=>`<option>${c}</option>`).join("");
+}
+function qtaHtml(a){const q=carrello[a.id]||0;return q?`<div class="qta"><button data-meno="${a.id}" aria-label="Togli uno">−</button><span>${q}</span><button data-piu="${a.id}" aria-label="Aggiungi uno">+</button></div>`:`<button class="piu" data-piu="${a.id}">Aggiungi</button>`}
+function mostraGriglia(){
+  const t=testo.trim().toLowerCase();
+  const lista=ART.filter(a=>a.attivo&&zonaDi(prod(a.prod))===zona&&(cat==="Tutto"||a.cat===cat)&&(!t||(a.nome+" "+prod(a.prod).nome).toLowerCase().includes(t)));
+  $("conta").textContent=lista.length+" prodotti";
+  $("griglia").innerHTML=lista.length?lista.map(a=>{const p=prod(a.prod);return `<article class="art">
+    <div style="position:relative">${foto(p.f,a.e,a.foto)}<div class="prezzo">${euro(a.prezzo)}<small>/${a.unita.split(" ")[0]}</small></div></div>
+    <div class="t"><h3>${a.nome}</h3><button class="chi" data-p="${p.id}">${p.nome}</button>${a.nota?`<div class="km" style="color:var(--tenue);font-weight:600">${a.nota}</div>`:""}
+    <div class="pie"><span class="km">${dove(p)}</span>${qtaHtml(a)}</div></div></article>`}).join(""):`<div class="vuoto">Nessun prodotto trovato. Prova un'altra parola o un'altra categoria.</div>`;
+  $("nCarrello").textContent=Object.values(carrello).reduce((s,q)=>s+q,0);
+}
+function cambia(id,d){carrello[id]=Math.max(0,(carrello[id]||0)+d);if(!carrello[id])delete carrello[id];mostraGriglia();if(!$("sheet").hidden&&$("sheet").dataset.tipo==="carrello")apriCarrello()}
+
+function apriSheet(html,tipo){const s=$("sheet");s.dataset.tipo=tipo;s.innerHTML=`<div class="sheet-bg" data-chiudi="1"><div class="sheet" role="dialog" aria-modal="true"><div class="testa"><button class="chiudi" data-chiudi="1" aria-label="Chiudi">✕</button></div>${html}</div></div>`;s.hidden=false}
+function apriProduttore(id){const p=prod(id);const suoi=ART.filter(a=>a.prod===id&&a.attivo);
+  apriSheet(`${foto(p.f+" banner",p.e,p.foto)}<div class="corpo"><h2>${p.nome}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">${p.tipo} · ${p.paese} · ${p.zona==="italia"?p.regione+", spedito dal produttore":p.km+" km da Torino"}</div>
+  <p class="storia">${p.storia}</p><div class="consegne">${Object.entries(p.cons).map(([k,v])=>`<div class="cons"><span>${ETI[k][0]}</span><div><b>${ETI[k][2]}</b>${v}</div></div>`).join("")}</div>
+  <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.map(a=>`<div class="riga"><span>${a.e} ${a.nome}</span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${a.unita.split(" ")[0]}</b>${qtaHtml(a)}</span></div>`).join("")}</div>`,"prod")}
+function apriCarrello(){
+  const ids=Object.keys(carrello);
+  if(!ids.length){apriSheet(`<div class="corpo fatto"><div style="font-size:54px">🧺</div><h2>Il cestino è vuoto</h2><p class="storia" style="margin-inline:auto">Aggiungi qualcosa dal banco: ogni produttore prepara e consegna i suoi prodotti.</p></div>`,"carrello");return}
+  const gruppi={};ids.forEach(id=>{const a=ART.find(x=>x.id===id);(gruppi[a.prod]=gruppi[a.prod]||[]).push(a)});
+  let tot=0;
+  const html=Object.entries(gruppi).map(([pid,arts])=>{const p=prod(pid);const sub=arts.reduce((s,a)=>s+a.prezzo*carrello[a.id],0);
+    const opz=Object.entries(p.cons);if(!scelte[pid])scelte[pid]=opz[0][0];
+    let sped=0;const tx=p.cons[scelte[pid]];const m=tx.match(/· (\d+) €/);if(m&&!(/inclusa sopra (\d+)/.test(tx)&&sub>=Number(tx.match(/inclusa sopra (\d+)/)[1])))sped=Number(m[1]);
+    tot+=sub+sped;
+    return `<div class="gruppo"><h3><span>${p.nome}</span><span style="font-variant-numeric:tabular-nums">${euro(sub)}</span></h3>
+    ${arts.map(a=>`<div class="riga"><span>${a.e} ${a.nome}<br><small style="color:var(--tenue)">${euro(a.prezzo)}/${a.unita.split(" ")[0]}</small></span>${qtaHtml(a)}</div>`).join("")}
+    <div class="scelte" role="radiogroup" aria-label="Come ricevi da ${p.nome}">${opz.map(([k,v])=>`<label class="scelta"><input type="radio" name="c-${pid}" value="${k}" data-scelta="${pid}" ${scelte[pid]===k?"checked":""}><span><b>${ETI[k][0]} ${ETI[k][1]}</b><small>${v}</small></span></label>`).join("")}</div>
+    ${sped?`<div class="riga" style="border:0"><span>Consegna</span><span>${euro(sped)}</span></div>`:""}</div>`}).join("");
+  apriSheet(`<div class="corpo"><h2>Il tuo cestino</h2><p class="storia">Ogni produttore prepara e consegna il suo ordine: scegli come ricevere da ognuno.</p>${html}
+  <div class="totale"><span>Totale</span><b>${euro(Math.round(tot*100)/100)}</b></div>
+  <button class="grande" data-ordina="1">Ordina e paga</button><p class="nota">Nel prototipo non si paga davvero: nell'app vera il pagamento va direttamente a ogni produttore.</p></div>`,"carrello");
+}
+function ordina(){const n=Object.keys(carrello).length;const prods=[...new Set(Object.keys(carrello).map(id=>ART.find(a=>a.id===id).prod))].map(id=>prod(id).nome);
+  carrello={};mostraGriglia();
+  apriSheet(`<div class="corpo fatto"><div class="bollo">Ordinato!</div><h2>Grazie, il tuo ordine è partito</h2><p class="storia" style="margin-inline:auto">L'abbiamo mandato a ${prods.join(", ")}. Ti scriviamo quando è pronto o in consegna.</p><button class="grande" data-chiudi="1">Torna al banco</button></div>`,"fatto")}
+
+// iscrizione di un produttore nuovo
+function apriIscrizione(){
+  apriSheet(`<div class="corpo"><h2>Vendi con Ortaly</h2><p class="storia">Ti iscrivi tu, metti i tuoi prodotti con le tue foto e decidi prezzi e consegne. I clienti della tua zona ti trovano e ordinano.</p>
+  <form class="nuovo" id="formIscrizione">
+    <label for="iNome">Nome dell'azienda<input id="iNome" required maxlength="40" placeholder="Es. Cascina dei Noci"></label>
+    <div class="due"><label for="iPaese">Paese<input id="iPaese" required maxlength="30" placeholder="Es. Chieri"></label>
+    <label for="iKm">Km da Torino<input id="iKm" inputmode="numeric" placeholder="15"></label></div>
+    <label for="iTipo">Cosa produci<input id="iTipo" maxlength="40" placeholder="Es. Verdura e uova"></label>
+    <label for="iStoria">Due righe su di te<input id="iStoria" maxlength="160" placeholder="Es. Coltiviamo senza serre da 20 anni"></label>
+    <label for="iFoto">Foto della tua azienda<input id="iFoto" type="file" accept="image/*"></label>
+    <div class="spunte" role="group" aria-label="Come consegni">
+      <b style="font-size:13px">Come consegni</b>
+      <label class="scelta"><input type="checkbox" id="cCasa" checked><span><b>🚚 Porto io a casa del cliente</b></span></label>
+      <label class="scelta"><input type="checkbox" id="cAzienda" checked><span><b>🏡 Ritiro in azienda</b></span></label>
+    </div>
+    <button class="grande" type="submit">Crea la mia bottega</button>
+    <p class="nota">Nel prototipo non serve email né password: nell'app vera ti iscrivi con email o telefono e controlliamo la partita IVA agricola.</p>
+  </form></div>`,"iscrizione");
+  $("formIscrizione").addEventListener("submit",e=>{e.preventDefault();
+    const cons={};if($("cCasa").checked)cons.casa="Consegna a casa · giorni da concordare";if($("cAzienda").checked)cons.azienda="Ritiro in azienda";
+    if(!Object.keys(cons).length)cons.azienda="Ritiro in azienda";
+    const nuovo={id:"p"+Date.now(),nome:$("iNome").value.trim(),paese:$("iPaese").value.trim(),km:parseInt($("iKm").value,10)||15,f:"f4",e:"🌾",tipo:$("iTipo").value.trim()||"Prodotti della terra",storia:$("iStoria").value.trim()||"Nuovo produttore su Ortaly.",cons,foto:null};
+    const f=$("iFoto").files[0];
+    const fine=()=>{PROD.unshift(nuovo);io=nuovo.id;$("sheet").hidden=true;mostraProduttori();modo(true);toast("Benvenuto! Ora metti il tuo primo prodotto")};
+    if(f){const r=new FileReader();r.onload=()=>{nuovo.foto=r.result;fine()};r.readAsDataURL(f)}else fine();
+  });
+}
+
+// lato produttore
+function mostraVendo(){
+  const miei=ART.filter(a=>a.prod===io),mieiOrd=ordini.filter(o=>o.prod===io),me=prod(io);
+  $("vNome").textContent=me.nome;
+  $("vOrdini").textContent=mieiOrd.filter(o=>o.stato==="nuovo").length;
+  $("vIncasso").textContent=euro(mieiOrd.reduce((s,o)=>s+o.tot,0));
+  const cl=CLIENTI[io]||[];
+  $("mieiClienti").innerHTML=cl.length?cl.map(c=>`<div class="cliente"><span><b>${c[0]}</b><small>${c[1]}</small></span><span style="text-align:right"><b>${c[2]} ordini</b><small>${c[3]}</small></span></div>`).join(""):`<div class="cliente"><span>Ancora nessun cliente: appena arriva il primo ordine lo trovi qui, e lui ritrova te per riordinare.</span></div>`;
+  $("vProdotti").textContent=miei.filter(a=>a.attivo).length;
+  $("ordini").innerHTML=mieiOrd.length?"":`<div class="cliente"><span>Nessun ordine per ora. Metti i tuoi prodotti qui sotto: i clienti della zona li vedono subito al banco.</span></div>`;
+  $("ordini").innerHTML+=mieiOrd.map(o=>`<div class="ordine"><div class="su"><b>${o.chi}</b><span class="stato ${o.stato==="nuovo"?"s-nuovo":"s-pronto"}">${o.stato==="nuovo"?"Nuovo":o.stato==="pronto"?"Pronto":"Consegnato"}</span></div>
+    <div style="font-size:14px">${o.cosa}</div><div style="font-size:12.5px;color:var(--tenue)">${o.come} · ${euro(o.tot)}</div>
+    <div class="azioni">${o.stato==="nuovo"?`<button class="si" data-pronto="${o.id}">✓ Accetto, lo preparo</button>`:o.stato==="pronto"?`<button data-consegnato="${o.id}">Consegnato</button>`:""}</div></div>`).join("");
+  $("mieiProdotti").innerHTML=(miei.length?"":`<div class="cliente"><span>Non hai ancora prodotti al banco.</span></div>`)+miei.map(a=>`<div class="mioart">${foto(me.f,a.e,a.foto)}<div class="t"><b>${a.nome}</b><div>${euro(a.prezzo)} / ${a.unita}</div></div>
+    <button class="inter" aria-pressed="${a.attivo}" data-attiva="${a.id}" aria-label="${a.attivo?"Togli dal banco":"Metti al banco"} ${a.nome}"></button></div>`).join("");
+}
+function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro").setAttribute("aria-pressed",!v);$("mVendo").setAttribute("aria-pressed",v);$("apriCarrello").hidden=v;
+  if(v)mostraVendo();else mostraGriglia();window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":"#compro")}catch(e){}}
+
+document.addEventListener("click",e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-ordina],[data-pronto],[data-consegnato],[data-attiva],[data-iscrivi]");if(!t)return;
+  if(t.dataset.iscrivi){apriIscrizione();return}
+  if(t.dataset.chiudi&&e.target!==t&&t.classList.contains("sheet-bg"))return;
+  if(t.dataset.piu){cambia(t.dataset.piu,1);if($("sheet").dataset.tipo==="prod"&&!$("sheet").hidden)apriProduttore(ART.find(a=>a.id===t.dataset.piu).prod)}
+  else if(t.dataset.meno){cambia(t.dataset.meno,-1);if($("sheet").dataset.tipo==="prod"&&!$("sheet").hidden)apriProduttore(ART.find(a=>a.id===t.dataset.meno).prod)}
+  else if(t.dataset.p)apriProduttore(t.dataset.p);
+  else if(t.dataset.c){cat=t.dataset.c;mostraCategorie();mostraGriglia()}
+  else if(t.dataset.chiudi){$("sheet").hidden=true}
+  else if(t.dataset.ordina)ordina();
+  else if(t.dataset.pronto){ordini.find(o=>o.id===t.dataset.pronto).stato="pronto";mostraVendo();toast("Il cliente riceve un messaggio: ordine in preparazione")}
+  else if(t.dataset.consegnato){ordini.find(o=>o.id===t.dataset.consegnato).stato="consegnato";mostraVendo();toast("Segnato come consegnato")}
+  else if(t.dataset.attiva){const a=ART.find(x=>x.id===t.dataset.attiva);a.attivo=!a.attivo;mostraVendo();toast(a.attivo?"Di nuovo al banco":"Tolto dal banco")}
+});
+document.addEventListener("change",e=>{if(e.target.dataset.scelta){scelte[e.target.dataset.scelta]=e.target.value;apriCarrello()}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")$("sheet").hidden=true});
+$("cerca").addEventListener("input",e=>{testo=e.target.value;mostraGriglia()});
+function scegliZona(z){zona=z;cat="Tutto";$("zVicino").setAttribute("aria-pressed",z==="vicino");$("zItalia").setAttribute("aria-pressed",z==="italia");
+  $("titProd").textContent=z==="italia"?"Produttori da tutta Italia":"Produttori vicino a te";
+  $("stagione").innerHTML=z==="italia"?"<b>Dal Sud</b><span>Arance di Sicilia, olio pugliese e pasta di Gragnano: spediti dal produttore, arrivano in 2–3 giorni.</span>":"<b>Novembre</b><span>È il momento di cavolo nero, zucca, porri, castagne, cachi e mele.</span>";
+  mostraProduttori();mostraCategorie();mostraGriglia()}
+$("zVicino").onclick=()=>scegliZona("vicino");$("zItalia").onclick=()=>scegliZona("italia");
+$("apriCarrello").onclick=apriCarrello;$("mCompro").onclick=()=>modo(false);$("mVendo").onclick=()=>modo(true);
+$("formNuovo").addEventListener("submit",e=>{e.preventDefault();
+  const prezzo=Number($("nPrezzo").value.replace(",","."));if(!(prezzo>0)){toast("Scrivi un prezzo, per esempio 3,20");return}
+  const nuovo={id:"n"+Date.now(),nome:$("nNome").value.trim(),cat:$("nCat").value,prod:io,prezzo,unita:$("nUnita").value,e:"🧺",nota:"appena arrivato",attivo:true,foto:null};
+  const f=$("nFoto").files[0];
+  const fine=()=>{ART.unshift(nuovo);e.target.reset();mostraVendo();toast(nuovo.nome+" è al banco")};
+  if(f){const r=new FileReader();r.onload=()=>{nuovo.foto=r.result;fine()};r.readAsDataURL(f)}else fine();
+});
+mostraProduttori();mostraCategorie();mostraGriglia();
+if(location.hash==="#vendo")modo(true);
+window.addEventListener("hashchange",()=>modo(location.hash==="#vendo"));
+</script>
+
+</body>
+</html>
