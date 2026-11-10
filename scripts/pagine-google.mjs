@@ -33,8 +33,10 @@ function pagina({ percorso, titolo, descrizione, h1, sottotitolo, immagine, doma
   h = sostituisci(h, /<meta property="og:url" content="[^"]*"\s*\/?>/, `<meta property="og:url" content="${url}" />`);
   if (immagine) h = sostituisci(h, /<meta property="og:image" content="[^"]*"\s*\/?>/, `<meta property="og:image" content="${SITO}${immagine}" />`);
   h = sostituisci(h, /<script type="application\/ld\+json">[\s\S]*?<\/script>/, `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": grafo }).replace(/</g, "\\u003c")}</script>`);
+  // come in index.html: con JavaScript acceso si vede il logo di avvio e il testo per Google resta nascosto finché parte l'app
   const corpo = `<div id="root">
-      <main style="max-width: 640px; margin: 0 auto; padding: 48px 20px; color: #e7eaee; font-family: 'IBM Plex Sans', system-ui, sans-serif; line-height: 1.55;">
+      <div class="avvio" aria-hidden="true"><img src="/icon-192.png" alt="" /><span>EyeDrones</span></div>
+      <main id="testo-google" style="max-width: 640px; margin: 0 auto; padding: 48px 20px; color: #e7eaee; font-family: 'IBM Plex Sans', system-ui, sans-serif; line-height: 1.55;">
         <p style="color: #ffb877; font-size: 12px; letter-spacing: .14em; margin: 0 0 8px 0;">EYEDRONES · TROVA UN PILOTA</p>
         <h1 style="font-size: 26px; margin: 0 0 10px 0;">${esc(h1)}</h1>
         <p style="color: #c3cad4; margin: 0 0 16px 0;">${esc(sottotitolo)}</p>
