@@ -4,14 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ortaly · dal campo a casa tua</title>
-<meta name="description" content="Ortaly: frutta, verdura, formaggi e miele dei produttori della tua zona. Anteprima in arrivo.">
-<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Frutta, verdura, formaggi, miele e vino dei produttori della tua zona: ordini su Ortaly e paghi al produttore alla consegna o al ritiro.">
 <meta name="theme-color" content="#22382a">
+<meta property="og:title" content="Ortaly · dal campo a casa tua">
+<meta property="og:description" content="I prodotti dei contadini della tua zona: ordini qui, prepara tutto chi coltiva.">
+<meta property="og:url" content="https://ortaly.it/">
+<link rel="canonical" href="https://ortaly.it/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2048%2048%22%3E%3Crect%20width%3D%2248%22%20height%3D%2248%22%20rx%3D%2213%22%20fill%3D%22%23e9a514%22/%3E%3Cpath%20d%3D%22M24%2025V13%22%20stroke%3D%22%2322382a%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M24%2017c-1-5-5-7-10-6%200%205%204%208%2010%206zM24%2015c1-5%205-7%2010-6%200%205-4%208-10%206z%22%20fill%3D%22%233c6a2c%22/%3E%3Cpath%20d%3D%22M9%2024h30l-3%2015H12z%22%20fill%3D%22%2322382a%22/%3E%3Cpath%20d%3D%22M11%2029.5h26M12%2034.5h24%22%20stroke%3D%22%23e9a514%22%20stroke-width%3D%222%22/%3E%3C/svg%3E">
-<style>body{margin:0}</style>
-</head>
-<body>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=Caveat+Brush&display=swap">
 <style>
@@ -181,246 +180,410 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--lavagna);color:var(--gesso);border-radius:14px;padding:11px 16px;font-weight:700;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.3)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
-
+<style>
+/* aggiunte dell'app vera */
+.dove select{border:0;background:none;color:var(--gesso);font:inherit;font-weight:700;padding:0 2px;max-width:60vw}
+.dove select option{color:#1e2a1d}
+form.nuovo textarea{border:1px solid var(--bordo);border-radius:12px;padding:11px 12px;font:inherit;background:var(--carta);color:var(--inchiostro);min-width:0;width:100%;resize:vertical;min-height:70px}
+form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
+.blocco{background:var(--bianco);border-radius:18px;padding:16px;margin-top:12px;box-shadow:var(--ombra)}
+.blocco h2{font-size:21px}
+.link{border:0;background:none;padding:0;color:var(--foglia);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.errore{color:var(--pomodoro);font-weight:700;font-size:13.5px}
+.schede{display:flex;gap:6px;background:var(--carta2);border-radius:14px;padding:4px;margin-bottom:12px}
+.schede button{flex:1;border:0;background:none;border-radius:10px;padding:9px;font-weight:700}
+.schede button[aria-pressed="true"]{background:var(--bianco);box-shadow:var(--ombra)}
+.ordine .righe{font-size:14px;margin:0;padding-left:18px}
+.ordine a{color:var(--foglia);font-weight:700}
+.s-accettato{background:color-mix(in srgb,var(--foglia) 18%,transparent);color:var(--foglia)}
+.s-consegnato{background:var(--carta2);color:var(--tenue)}
+.s-annullato{background:color-mix(in srgb,var(--pomodoro) 18%,transparent);color:var(--pomodoro)}
+.mioart .azioni button{padding:5px 9px;font-size:12px}
+.mioart input.pz{width:84px;border:1px solid var(--bordo);border-radius:10px;padding:6px 8px;font:inherit;background:var(--carta);color:var(--inchiostro)}
+.scaduta{border-color:var(--pomodoro)}
+.condividi{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.condividi code{background:var(--carta2);border-radius:8px;padding:4px 8px;font-size:13px;word-break:break-all}
+.pie-sito{padding-block:26px 34px;text-align:center;color:var(--tenue);font-size:12.5px}
+.vuoto b{display:block;color:var(--inchiostro);font-size:16px;margin-bottom:4px}
+.attesa{text-align:center;color:var(--tenue);padding:40px 10px}
+</style>
+</head>
+<body>
 <header class="top"><div class="wrap">
   <div class="marchio"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="13" fill="var(--tuorlo)"/><path d="M24 25V13" stroke="#22382a" stroke-width="3" stroke-linecap="round"/><path d="M24 17c-1-5-5-7-10-6 0 5 4 8 10 6zM24 15c1-5 5-7 10-6 0 5-4 8-10 6z" fill="#3c6a2c"/><path d="M9 24h30l-3 15H12z" fill="#22382a"/><path d="M11 29.5h26M12 34.5h24" stroke="var(--tuorlo)" stroke-width="2"/></svg>ortaly</div>
   <div class="modo" role="group" aria-label="Modalità">
     <button id="mCompro" aria-pressed="true">Compro</button>
     <button id="mVendo" aria-pressed="false">Vendo</button>
   </div>
-  <button class="carrello" id="apriCarrello" aria-label="Apri il carrello">🧺 <b id="nCarrello">0</b></button>
+  <button class="carrello" id="apriCarrello" aria-label="Apri il cestino">🧺 <b id="nCarrello">0</b></button>
 </div></header>
 
 <main id="vistaCompro">
   <section class="cartello"><div class="wrap">
     <h1>Dal campo <span>a casa tua</span></h1>
-    <p>Frutta, verdura, formaggi e miele dei produttori intorno a Torino. Ordini qui, prepara tutto chi coltiva.</p>
+    <p>Frutta, verdura, formaggi, miele e vino dei produttori della tua zona. Ordini qui, prepara tutto chi coltiva, paghi a lui alla consegna o al ritiro.</p>
+    <label class="dove">📍 Sei in provincia di <select id="provincia" aria-label="La tua provincia"></select></label>
     <div class="zone" role="group" aria-label="Da dove">
-      <button id="zVicino" aria-pressed="true">📍 Vicino a te<small>fresco, entro 30 km</small></button>
+      <button id="zVicino" aria-pressed="true">📍 Vicino a te<small>fresco, dalla tua provincia</small></button>
       <button id="zItalia" aria-pressed="false">🇮🇹 Dall'Italia<small>specialità spedite</small></button>
     </div>
     <div class="cerca"><input id="cerca" type="search" placeholder="Cerca: zucca, toma, miele…" aria-label="Cerca un prodotto"></div>
   </div></section>
   <div class="wrap">
-    <div class="stagione" id="stagione"><b>Novembre</b><span>È il momento di cavolo nero, zucca, porri, castagne, cachi e mele.</span></div>
+    <div class="stagione" id="stagione"></div>
     <section class="sez"><h2><span id="titProd">Produttori vicino a te</span> <small>tocca per conoscerli</small></h2>
       <div class="produttori" id="produttori"></div>
       <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Iscriviti in 2 minuti, metti i tuoi prodotti con le tue foto e ricevi gli ordini dei clienti della tua zona. <span style="font-weight:700">I primi 3 mesi sono inclusi</span>, poi 19 € al mese.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
     <section class="sez"><h2>Al banco oggi <small id="conta"></small></h2>
       <div class="cat" id="categorie" role="group" aria-label="Categorie"></div>
-      <div class="griglia" id="griglia"></div></section>
-    <p class="esempio">Prototipo con produttori e prezzi di esempio · nessun ordine o pagamento reale</p>
+      <div class="griglia" id="griglia"><div class="attesa">Carico il banco…</div></div></section>
+    <p class="pie-sito">Ortaly mette in contatto clienti e produttori: ogni produttore vende, consegna e incassa da sé.</p>
   </div>
 </main>
 
-<main id="vistaVendo" hidden>
-  <section class="cartello"><div class="wrap">
-    <h1>Ciao, <span id="vNome">Cascina Bellavista</span></h1>
-    <p>Ecco gli ordini della settimana. Metti i tuoi prodotti e decidi tu prezzi e quantità.</p>
-  </div></section>
-  <div class="wrap">
-    <div class="numeri">
-      <div class="num"><b id="vOrdini">0</b><span>ordini nuovi</span></div>
-      <div class="num"><b id="vIncasso">0 €</b><span>questa settimana</span></div>
-      <div class="num"><b id="vProdotti">0</b><span>prodotti in vendita</span></div>
-    </div>
-    <div class="piano" id="vPiano"><div class="ptesta"><b>Il tuo abbonamento</b><span class="prova">In prova</span></div>
-      <span>Periodo di prova fino al <b id="vFineProva"></b>. Dopo: <b>19 € al mese</b>, solo se lo confermi tu.</span></div>
-    <section class="sez"><h2>Ordini da preparare</h2><div id="ordini"></div></section>
-    <section class="sez"><h2>I miei clienti <small>chi ha già comprato da te</small></h2><div id="mieiClienti"></div></section>
-    <section class="sez"><h2>I miei prodotti <small>accendi o spegni</small></h2><div id="mieiProdotti"></div></section>
-    <section class="sez"><h2>Metti un prodotto</h2>
-      <form class="nuovo" id="formNuovo">
-        <label for="nNome">Prodotto<input id="nNome" required maxlength="40" placeholder="Es. Topinambur"></label>
-        <div class="due">
-          <label for="nCat">Categoria<select id="nCat"></select></label>
-          <label for="nUnita">Venduto a<select id="nUnita"><option>kg</option><option>pezzo</option><option>mazzo</option><option>vasetto 500 g</option><option>confezione</option><option>bottiglia 0,75 l</option></select></label>
-        </div>
-        <div class="due">
-          <label for="nPrezzo">Prezzo (€)<input id="nPrezzo" required inputmode="decimal" placeholder="3,20"></label>
-          <label for="nQta">Disponibili<input id="nQta" required inputmode="numeric" placeholder="20"></label>
-        </div>
-        <label for="nFoto">Foto del prodotto (scattala tu, dal telefono)<input id="nFoto" type="file" accept="image/*"></label>
-        <button class="grande" type="submit">Metti in vendita</button>
-        <p class="nota">Il prodotto compare subito al banco: prova a tornare su «Compro».</p>
-      </form>
-    </section>
-    <p class="esempio">Prototipo con dati di esempio</p>
-  </div>
-</main>
+<main id="vistaVendo" hidden><div id="vendo"></div></main>
 
 <div id="sheet" hidden></div>
-<div id="toast" class="toast" hidden></div>
+<div id="toast" class="toast" role="status" hidden></div>
 
+<script src="supabase.js"></script>
 <script>
-const CAT=["Tutto","Verdura","Frutta","Uova e latticini","Formaggi","Miele e conserve","Vino e olio","Pane e farine"];
-const PROD=[
- {id:"bel",nome:"Cascina Bellavista",paese:"Carmagnola",km:24,f:"f1",e:"🥬",tipo:"Orto e uova",storia:"Tre generazioni sullo stesso campo vicino al Po. Verdura di stagione raccolta il giorno prima della consegna.",cons:{casa:"Consegna a casa il giovedì · 4 €, inclusa sopra 40 €",azienda:"Ritiro in cascina · sabato 9–12"},bio:true},
- {id:"rov",nome:"Frutteto Il Rovere",paese:"Cavour",km:46,f:"f5",e:"🍎",tipo:"Mele, pere, kiwi",storia:"Frutteti ai piedi della Rocca di Cavour: mele antiche, pere Madernassa e kiwi.",cons:{casa:"Consegna a casa il martedì · 5 €",azienda:"Ritiro al frutteto · sabato 9–12"}},
- {id:"api",nome:"Apicoltura Val Sangone",paese:"Giaveno",km:28,f:"f2",e:"🍯",tipo:"Miele e conserve",storia:"Arnie tra castagni e prati di montagna. Miele di castagno, acacia e millefiori.",cons:{casa:"Spedizione con corriere in 48 ore · 7 €",azienda:"Ritiro in azienda su appuntamento"}},
- {id:"cas",nome:"Caseificio Prà d'la Fea",paese:"Villar Perosa",km:44,f:"f3",e:"🧀",tipo:"Formaggi di malga",storia:"Latte delle nostre mucche, lavorato ogni mattina. Toma, tomini e ricotta.",cons:{casa:"Consegna a casa il venerdì · 5 €",azienda:"Ritiro in caseificio · tutti i giorni 8–12"}},
- {id:"agr",zona:"italia",nome:"Agrumeto Terre di Ribera",paese:"Ribera",regione:"Sicilia",f:"f2",e:"🍊",tipo:"Arance e limoni",storia:"Arance raccolte su ordinazione e spedite il giorno stesso: arrivano in 48–72 ore.",cons:{spedizione:"Corriere in 48–72 ore · 9 €, inclusa sopra 49 €"}},
- {id:"fra",zona:"italia",nome:"Frantoio Masseria degli Ulivi",paese:"Andria",regione:"Puglia",f:"f4",e:"🫒",tipo:"Olio e mandorle",storia:"Ulivi di famiglia e frantoio in masseria. Olio dell'ultima raccolta, imbottigliato a mano.",cons:{spedizione:"Corriere in 48 ore · 9 €, inclusa sopra 49 €"}},
- {id:"pas",zona:"italia",nome:"Pastificio Antica Valle",paese:"Gragnano",regione:"Campania",f:"f3",e:"🍝",tipo:"Pasta e conserve",storia:"Pasta trafilata al bronzo ed essiccata lentamente, pomodorini del Vesuvio in vasetto.",cons:{spedizione:"Corriere in 48 ore · 8 €, inclusa sopra 39 €"}},
- {id:"vig",nome:"Cantina Colli del Pinerolese",paese:"Bricherasio",km:42,f:"f6",e:"🍇",tipo:"Vino e olio",storia:"Piccola cantina di famiglia: Barbera, Doux d'Henry e un olio da olive liguri.",cons:{casa:"Spedizione con corriere · 9 €, inclusa da 6 bottiglie"}},
-];
-let ART=[
- ["Zucca delica","Verdura","bel",1.9,"kg","🎃","raccolta ieri"],["Cavolo nero","Verdura","bel",2.5,"mazzo","🥬","di stagione"],["Porri","Verdura","bel",2.8,"kg","🧅"],
- ["Topinambur","Verdura","bel",3.6,"kg","🥔"],["Uova di galline a terra","Uova e latticini","bel",3.5,"confezione","🥚","6 uova"],
- ["Mele Grigia di Torriana","Frutta","rov",2.4,"kg","🍏","varietà antica"],["Pere Madernassa","Frutta","rov",3.2,"kg","🍐"],["Kiwi","Frutta","rov",2.9,"kg","🥝"],["Cachi","Frutta","rov",2.6,"kg","🟠"],
- ["Miele di castagno","Miele e conserve","api",9,"vasetto 500 g","🍯"],["Miele di acacia","Miele e conserve","api",10,"vasetto 500 g","🍯"],["Confettura di mirtilli","Miele e conserve","api",6.5,"vasetto","🫐"],
- ["Toma stagionata","Formaggi","cas",16,"kg","🧀"],["Tomini freschi","Formaggi","cas",4.2,"confezione","🧀","4 pezzi"],["Ricotta","Uova e latticini","cas",5,"pezzo","🥛","500 g"],
- ["Barbera","Vino e olio","vig",9.5,"bottiglia 0,75 l","🍷"],["Olio extravergine","Vino e olio","vig",14,"bottiglia 0,75 l","🫒"],
- ["Farina di mais otto file","Pane e farine","bel",4.5,"confezione","🌽","1 kg"],["Castagne","Frutta","api",5.5,"kg","🌰","raccolte in valle"],
- ["Arance tarocco","Frutta","agr",14,"cassetta 5 kg","🍊","raccolte su ordinazione"],["Limoni non trattati","Frutta","agr",8,"cassetta 3 kg","🍋"],
- ["Olio extravergine pugliese","Vino e olio","fra",16,"bottiglia 1 l","🫒","raccolta 2026"],["Mandorle sgusciate","Miele e conserve","fra",9,"confezione 500 g","🌰"],
- ["Pasta di Gragnano","Pane e farine","pas",5,"pacco 1 kg","🍝","trafilata al bronzo"],["Pomodorini del Vesuvio","Miele e conserve","pas",6,"vasetto","🍅"],
-].map((a,i)=>({id:"a"+i,nome:a[0],cat:a[1],prod:a[2],prezzo:a[3],unita:a[4],e:a[5],nota:a[6]||"",attivo:true,foto:null}));
-let zona="vicino",io="bel",cat="Tutto",testo="",carrello={},scelte={},ordini=[
- {id:"o1",prod:"bel",chi:"Laura B.",cosa:"2 kg zucca, 1 mazzo cavolo nero, 1 confezione uova",tot:11.3,come:"Consegna a casa · giovedì",stato:"nuovo"},
- {id:"o2",prod:"bel",chi:"Marco T.",cosa:"1 kg porri, 1 kg topinambur",tot:6.4,come:"Ritiro in cascina · sabato",stato:"nuovo"},
- {id:"o3",prod:"bel",chi:"Giulia R.",cosa:"1 confezione farina di mais, 2 kg zucca",tot:8.3,come:"Ritiro in cascina · sabato",stato:"pronto"}];
-const $=id=>document.getElementById(id);
-const euro=n=>n.toLocaleString("it-IT",{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2})+" €";
-const prod=id=>PROD.find(p=>p.id===id);
-const zonaDi=p=>p.zona||"vicino";
-const dove=p=>p.zona==="italia"?`📦 ${p.regione}`:`📍 ${p.km} km`;
-const ETI={casa:["🚚","A casa","Consegna"],azienda:["🏡","Ritiro in azienda","Ritiro in azienda"],spedizione:["📦","Spedizione","Spedizione con corriere"]};
-const CLIENTI={bel:[["Laura B.","Torino · Crocetta",6,"ogni settimana"],["Giulia R.","Moncalieri",3,"l'ultimo sabato"],["Marco T.","Torino · San Salvario",2,"10 giorni fa"]]};
-const foto=(cls,e,img)=>`<div class="foto ${cls}">${img?`<img src="${img}" alt="">`:`<span aria-hidden="true">${e}</span>`}</div>`;
-function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2200)}
+// ── configurazione: progetto Supabase di Ortaly (chiave pubblicabile: si può mostrare) ──
+const CONF={url:"",chiave:""};
+const PROVINCE={"AG":"Agrigento","AL":"Alessandria","AN":"Ancona","AO":"Aosta","AP":"Ascoli Piceno","AQ":"L'Aquila","AR":"Arezzo","AT":"Asti","AV":"Avellino","BA":"Bari","BG":"Bergamo","BI":"Biella","BL":"Belluno","BN":"Benevento","BO":"Bologna","BR":"Brindisi","BS":"Brescia","BT":"Barletta-Andria-Trani","BZ":"Bolzano","CA":"Cagliari","CB":"Campobasso","CE":"Caserta","CH":"Chieti","CL":"Caltanissetta","CN":"Cuneo","CO":"Como","CR":"Cremona","CS":"Cosenza","CT":"Catania","CZ":"Catanzaro","EN":"Enna","FC":"Forlì-Cesena","FE":"Ferrara","FG":"Foggia","FI":"Firenze","FM":"Fermo","FR":"Frosinone","GE":"Genova","GO":"Gorizia","GR":"Grosseto","IM":"Imperia","IS":"Isernia","KR":"Crotone","LC":"Lecco","LE":"Lecce","LI":"Livorno","LO":"Lodi","LT":"Latina","LU":"Lucca","MB":"Monza e Brianza","MC":"Macerata","ME":"Messina","MI":"Milano","MN":"Mantova","MO":"Modena","MS":"Massa-Carrara","MT":"Matera","NA":"Napoli","NO":"Novara","NU":"Nuoro","OR":"Oristano","PA":"Palermo","PC":"Piacenza","PD":"Padova","PE":"Pescara","PG":"Perugia","PI":"Pisa","PN":"Pordenone","PO":"Prato","PR":"Parma","PT":"Pistoia","PU":"Pesaro e Urbino","PV":"Pavia","PZ":"Potenza","RA":"Ravenna","RC":"Reggio Calabria","RE":"Reggio Emilia","RG":"Ragusa","RI":"Rieti","RM":"Roma","RN":"Rimini","RO":"Rovigo","SA":"Salerno","SI":"Siena","SO":"Sondrio","SP":"La Spezia","SR":"Siracusa","SS":"Sassari","SU":"Sud Sardegna","SV":"Savona","TA":"Taranto","TE":"Teramo","TN":"Trento","TO":"Torino","TP":"Trapani","TR":"Terni","TS":"Trieste","TV":"Treviso","UD":"Udine","VA":"Varese","VB":"Verbano-Cusio-Ossola","VC":"Vercelli","VE":"Venezia","VI":"Vicenza","VR":"Verona","VT":"Viterbo","VV":"Vibo Valentia"};
+const CAT=["Verdura","Frutta","Uova e latticini","Formaggi","Carne e salumi","Miele e conserve","Vino e olio","Pane e farine","Altro"];
+const EMOJI={"Verdura":"🥬","Frutta":"🍎","Uova e latticini":"🥚","Formaggi":"🧀","Carne e salumi":"🥩","Miele e conserve":"🍯","Vino e olio":"🍷","Pane e farine":"🌾","Altro":"🧺"};
+const COLORI=["f1","f2","f3","f4","f5","f6"];
+const STAGIONI=["cavolo nero, porri, arance, mandarini e radicchio","cavoli, finocchi, arance e topinambur","asparagi selvatici, spinaci, carciofi e uova fresche","asparagi, fave, piselli e le prime fragole","fragole, ciliegie, piselli e zucchine","albicocche, zucchine, fagiolini e i primi pomodori","pesche, pomodori, peperoni, melanzane e meloni","pesche, fichi, pomodori e angurie","uva, fichi, peperoni e i primi funghi","uva, castagne, zucca, mele e pere","zucca, castagne, cachi, mele, porri e cavolo nero","cavoli, porri, arance, mandarini e miele"];
+const MESI=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+const MODI={casa:["🚚","A casa","Consegna a casa","consegna_casa"],ritiro:["🏡","Ritiro","Ritiro in azienda","ritiro"],spedizione:["📦","Spedizione","Spedizione con corriere","spedizione"]};
+const STATI={nuovo:"Nuovo",accettato:"Accettato",pronto:"Pronto",consegnato:"Consegnato",annullato:"Annullato"};
 
+const $=id=>document.getElementById(id);
+const esc=t=>String(t??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+const euro=n=>Number(n).toLocaleString("it-IT",{minimumFractionDigits:Number(n)%1?2:0,maximumFractionDigits:2})+" €";
+const leggi=(k,d)=>{try{const v=localStorage.getItem("ortaly-"+k);return v?JSON.parse(v):d}catch(e){return d}};
+const salva=(k,v)=>{try{localStorage.setItem("ortaly-"+k,JSON.stringify(v))}catch(e){}};
+const colore=id=>COLORI[[...String(id)].reduce((s,c)=>s+c.charCodeAt(0),0)%COLORI.length];
+const fotoOk=u=>typeof u==="string"&&CONF.url&&u.startsWith(CONF.url+"/storage/v1/object/public/foto/");
+const foto=(cls,e,img)=>`<div class="foto ${cls}">${fotoOk(img)?`<img src="${esc(img)}" alt="" loading="lazy">`:`<span aria-hidden="true">${e}</span>`}</div>`;
+const numeroTel=t=>String(t||"").replace(/[^\d+]/g,"");
+const numeroWa=t=>{let n=String(t||"").replace(/\D/g,"");if(n.startsWith("00"))n=n.slice(2);else if(n.length<=10)n="39"+n;return n};
+function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2800)}
+function erroreDi(e){const m=(e&&(e.message||e.error_description))||"";
+  if(/Invalid login/i.test(m))return"Email o password sbagliate";
+  if(/already registered|already been registered/i.test(m))return"Questa email è già iscritta: tocca «Entra»";
+  if(/Password should be/i.test(m))return"La password deve avere almeno 8 caratteri";
+  if(/rate limit|too many/i.test(m))return"Troppi tentativi: riprova tra qualche minuto";
+  if(/piva|partita/i.test(m))return"Controlla la partita IVA: 11 cifre";
+  if(/telefono/i.test(m))return"Controlla il numero di telefono";
+  if(/check constraint/i.test(m))return"Controlla i campi: qualcosa è troppo corto o troppo lungo";
+  if(/Failed to fetch|NetworkError/i.test(m))return"Connessione assente: riprova";
+  return m||"Qualcosa non ha funzionato: riprova"}
+
+const pronto=!!(CONF.url&&CONF.chiave&&window.supabase);
+const sb=pronto?window.supabase.createClient(CONF.url,CONF.chiave,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
+
+// ── stato ──
+let BOT=[],ART=[],zona="vicino",cat="Tutto",testo="",prov=leggi("provincia","TO"),carrello=leggi("carrello",{}),scelte={},cliente=leggi("cliente",{});
+let utente=null,mia=null,mieiProd=[],mieiOrd=[],vendoScheda="ordini",recupero=false,timerOrdini=null;
+const bot=id=>BOT.find(b=>b.id===id);
+const zonaOk=b=>zona==="italia"?!!b.spedizione&&b.provincia!==prov:b.provincia===prov;
+
+// ── COMPRO ──
+function mostraStagione(){const m=new Date().getMonth();
+  $("stagione").innerHTML=zona==="italia"?`<b>Dall'Italia</b><span>Specialità spedite dai produttori di tutta Italia: arrivano con il corriere in pochi giorni.</span>`:`<b>${MESI[m]}</b><span>È il momento di ${STAGIONI[m]}.</span>`}
 function mostraProduttori(){
-  $("produttori").innerHTML=PROD.filter(p=>zonaDi(p)===zona).map(p=>`<button class="prod" data-p="${p.id}">${foto(p.f,p.e,p.foto)}<div class="t"><h3>${p.nome}</h3>
-  <div class="meta">${p.tipo} · ${p.paese}</div><span class="tag">${dove(p)}</span>${p.bio?'<span class="tag">🌱 bio</span>':""}${p.cons.casa?'<span class="tag">🚚 a casa</span>':""}</div></button>`).join("");
+  const lista=BOT.filter(zonaOk);
+  $("produttori").innerHTML=lista.length?lista.map(b=>`<button class="prod" data-p="${esc(b.id)}">${foto(colore(b.id),"🌾",b.foto)}<div class="t"><h3>${esc(b.nome)}</h3>
+  <div class="meta">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(b.provincia)})</div>${b.bio?'<span class="tag">🌱 bio</span>':""}${b.consegna_casa?'<span class="tag">🚚 a casa</span>':""}${b.ritiro?'<span class="tag">🏡 ritiro</span>':""}${b.spedizione?'<span class="tag">📦 spedisce</span>':""}</div></button>`).join("")
+  :`<div class="vuoto" style="grid-column:auto;min-width:260px"><b>${zona==="italia"?"Ancora nessuna specialità spedita":"Ancora nessun produttore in provincia di "+esc(PROVINCE[prov]||prov)}</b>Conosci un produttore? Digli di iscriversi su ortaly.it: i primi 3 mesi sono inclusi.</div>`;
 }
 function mostraCategorie(){
-  $("categorie").innerHTML=CAT.map(c=>`<button aria-pressed="${c===cat}" data-c="${c}">${c}</button>`).join("");
-  $("nCat").innerHTML=CAT.slice(1).map(c=>`<option>${c}</option>`).join("");
+  const presenti=new Set(ART.filter(a=>{const b=bot(a.bottega);return b&&zonaOk(b)}).map(a=>a.categoria));
+  $("categorie").innerHTML=["Tutto",...CAT.filter(c=>presenti.has(c))].map(c=>`<button aria-pressed="${c===cat}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
 }
-function qtaHtml(a){const q=carrello[a.id]||0;return q?`<div class="qta"><button data-meno="${a.id}" aria-label="Togli uno">−</button><span>${q}</span><button data-piu="${a.id}" aria-label="Aggiungi uno">+</button></div>`:`<button class="piu" data-piu="${a.id}">Aggiungi</button>`}
+function qtaHtml(id){const q=carrello[id]||0;return q?`<div class="qta"><button data-meno="${esc(id)}" aria-label="Togli uno">−</button><span>${q}</span><button data-piu="${esc(id)}" aria-label="Aggiungi uno">+</button></div>`:`<button class="piu" data-piu="${esc(id)}">Aggiungi</button>`}
 function mostraGriglia(){
+  if(!pronto){$("griglia").innerHTML=`<div class="vuoto"><b>Ortaly sta per aprire</b>Stiamo preparando il banco con i primi produttori.</div>`;$("conta").textContent="";return}
   const t=testo.trim().toLowerCase();
-  const lista=ART.filter(a=>a.attivo&&zonaDi(prod(a.prod))===zona&&(cat==="Tutto"||a.cat===cat)&&(!t||(a.nome+" "+prod(a.prod).nome).toLowerCase().includes(t)));
-  $("conta").textContent=lista.length+" prodotti";
-  $("griglia").innerHTML=lista.length?lista.map(a=>{const p=prod(a.prod);return `<article class="art">
-    <div style="position:relative">${foto(p.f,a.e,a.foto)}<div class="prezzo">${euro(a.prezzo)}<small>/${a.unita.split(" ")[0]}</small></div></div>
-    <div class="t"><h3>${a.nome}</h3><button class="chi" data-p="${p.id}">${p.nome}</button>${a.nota?`<div class="km" style="color:var(--tenue);font-weight:600">${a.nota}</div>`:""}
-    <div class="pie"><span class="km">${dove(p)}</span>${qtaHtml(a)}</div></div></article>`}).join(""):`<div class="vuoto">Nessun prodotto trovato. Prova un'altra parola o un'altra categoria.</div>`;
+  const lista=ART.filter(a=>{const b=bot(a.bottega);return b&&zonaOk(b)&&(cat==="Tutto"||a.categoria===cat)&&(!t||(a.nome+" "+b.nome+" "+(a.nota||"")).toLowerCase().includes(t))});
+  $("conta").textContent=lista.length?lista.length+" prodotti":"";
+  $("griglia").innerHTML=lista.length?lista.map(a=>{const b=bot(a.bottega);return `<article class="art">
+    <div style="position:relative">${foto(colore(b.id),EMOJI[a.categoria]||"🧺",a.foto)}<div class="prezzo">${euro(a.prezzo)}<small>/${esc(a.unita)}</small></div></div>
+    <div class="t"><h3>${esc(a.nome)}</h3><button class="chi" data-p="${esc(b.id)}">${esc(b.nome)}</button>${a.nota?`<div class="km" style="color:var(--tenue);font-weight:600">${esc(a.nota)}</div>`:""}
+    <div class="pie"><span class="km">${zona==="italia"?"📦 "+esc(b.provincia):"📍 "+esc(b.paese)}</span>${qtaHtml(a.id)}</div></div></article>`}).join("")
+    :`<div class="vuoto"><b>${t||cat!=="Tutto"?"Nessun prodotto trovato":"Il banco è ancora vuoto qui"}</b>${t||cat!=="Tutto"?"Prova un'altra parola o un'altra categoria.":"Prova «Dall'Italia» o un'altra provincia."}</div>`;
   $("nCarrello").textContent=Object.values(carrello).reduce((s,q)=>s+q,0);
 }
-function cambia(id,d){carrello[id]=Math.max(0,(carrello[id]||0)+d);if(!carrello[id])delete carrello[id];mostraGriglia();if(!$("sheet").hidden&&$("sheet").dataset.tipo==="carrello")apriCarrello()}
+function aggiornaCompro(){mostraStagione();mostraProduttori();mostraCategorie();mostraGriglia()}
+async function caricaBanco(){
+  if(!pronto){aggiornaCompro();return}
+  const [b,p]=await Promise.all([sb.from("vetrina_botteghe").select("*").order("creata",{ascending:false}),sb.from("vetrina_prodotti").select("*").order("creato",{ascending:false}).limit(2000)]);
+  if(b.error||p.error){$("griglia").innerHTML=`<div class="vuoto"><b>Non riesco a caricare il banco</b>Controlla la connessione e ricarica la pagina.</div>`;return}
+  BOT=b.data;ART=p.data;
+  for(const id of Object.keys(carrello))if(!ART.find(a=>a.id===id))delete carrello[id];salva("carrello",carrello);
+  aggiornaCompro();apriDaIndirizzo();
+}
+function cambia(id,d){carrello[id]=Math.max(0,Math.min(99,(carrello[id]||0)+d));if(!carrello[id])delete carrello[id];salva("carrello",carrello);mostraGriglia();
+  const s=$("sheet");if(!s.hidden&&s.dataset.tipo==="carrello")apriCarrello();else if(!s.hidden&&s.dataset.tipo==="prod")apriProduttore(s.dataset.id)}
 
-function apriSheet(html,tipo){const s=$("sheet");s.dataset.tipo=tipo;s.innerHTML=`<div class="sheet-bg" data-chiudi="1"><div class="sheet" role="dialog" aria-modal="true"><div class="ptesta"><button class="chiudi" data-chiudi="1" aria-label="Chiudi">✕</button></div>${html}</div></div>`;s.hidden=false}
-function apriProduttore(id){const p=prod(id);const suoi=ART.filter(a=>a.prod===id&&a.attivo);
-  apriSheet(`${foto(p.f+" banner",p.e,p.foto)}<div class="corpo"><h2>${p.nome}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">${p.tipo} · ${p.paese} · ${p.zona==="italia"?p.regione+", spedito dal produttore":p.km+" km da Torino"}</div>
-  <p class="storia">${p.storia}</p><div class="consegne">${Object.entries(p.cons).map(([k,v])=>`<div class="cons"><span>${ETI[k][0]}</span><div><b>${ETI[k][2]}</b>${v}</div></div>`).join("")}</div>
-  <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.map(a=>`<div class="riga"><span>${a.e} ${a.nome}</span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${a.unita.split(" ")[0]}</b>${qtaHtml(a)}</span></div>`).join("")}</div>`,"prod")}
+function apriSheet(html,tipo,id){const s=$("sheet");s.dataset.tipo=tipo;s.dataset.id=id||"";s.innerHTML=`<div class="sheet-bg" data-chiudi="1"><div class="sheet" role="dialog" aria-modal="true"><div class="testa"><button class="chiudi" data-chiudi="1" aria-label="Chiudi">✕</button></div>${html}</div></div>`;s.hidden=false}
+function chiudiSheet(){$("sheet").hidden=true;if(/^#bottega-/.test(location.hash))try{history.replaceState(null,"",location.pathname)}catch(e){}}
+function apriProduttore(id){const b=bot(id);if(!b)return;const suoi=ART.filter(a=>a.bottega===id);
+  apriSheet(`${foto(colore(b.id)+" banner","🌾",b.foto)}<div class="corpo"><h2>${esc(b.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(PROVINCE[b.provincia]||b.provincia)})${b.bio?" · 🌱 bio":""}</div>
+  ${b.storia?`<p class="storia">${esc(b.storia)}</p>`:""}<div class="consegne">${Object.entries(MODI).filter(([k,m])=>b[m[3]]).map(([k,m])=>`<div class="cons"><span>${m[0]}</span><div><b>${m[2]}</b>${esc(b[m[3]])}</div></div>`).join("")}</div>
+  <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.length?suoi.map(a=>`<div class="riga"><span>${EMOJI[a.categoria]||"🧺"} ${esc(a.nome)}${a.nota?`<br><small style="color:var(--tenue)">${esc(a.nota)}</small>`:""}</span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${esc(a.unita)}</b>${qtaHtml(a.id)}</span></div>`).join(""):`<p class="storia">Nessun prodotto al banco in questo momento.</p>`}</div>`,"prod",id);
+  try{history.replaceState(null,"","#bottega-"+id)}catch(e){}}
+function apriDaIndirizzo(){const m=location.hash.match(/^#bottega-([0-9a-f-]{36})$/);if(m&&bot(m[1])){const b=bot(m[1]);if(b.provincia!==prov&&!b.spedizione){prov=b.provincia;$("provincia").value=prov;salva("provincia",prov)}scegliZona(b.provincia===prov?"vicino":"italia",true);apriProduttore(m[1])}}
+
+function gruppiCarrello(){const g={};for(const id of Object.keys(carrello)){const a=ART.find(x=>x.id===id);if(a)(g[a.bottega]=g[a.bottega]||[]).push(a)}return g}
 function apriCarrello(){
-  const ids=Object.keys(carrello);
-  if(!ids.length){apriSheet(`<div class="corpo fatto"><div style="font-size:54px">🧺</div><h2>Il cestino è vuoto</h2><p class="storia" style="margin-inline:auto">Aggiungi qualcosa dal banco: ogni produttore prepara e consegna i suoi prodotti.</p></div>`,"carrello");return}
-  const gruppi={};ids.forEach(id=>{const a=ART.find(x=>x.id===id);(gruppi[a.prod]=gruppi[a.prod]||[]).push(a)});
-  let tot=0;
-  const html=Object.entries(gruppi).map(([pid,arts])=>{const p=prod(pid);const sub=arts.reduce((s,a)=>s+a.prezzo*carrello[a.id],0);
-    const opz=Object.entries(p.cons);if(!scelte[pid])scelte[pid]=opz[0][0];
-    let sped=0;const tx=p.cons[scelte[pid]];const m=tx.match(/· (\d+) €/);if(m&&!(/inclusa sopra (\d+)/.test(tx)&&sub>=Number(tx.match(/inclusa sopra (\d+)/)[1])))sped=Number(m[1]);
-    tot+=sub+sped;
-    return `<div class="gruppo"><h3><span>${p.nome}</span><span style="font-variant-numeric:tabular-nums">${euro(sub)}</span></h3>
-    ${arts.map(a=>`<div class="riga"><span>${a.e} ${a.nome}<br><small style="color:var(--tenue)">${euro(a.prezzo)}/${a.unita.split(" ")[0]}</small></span>${qtaHtml(a)}</div>`).join("")}
-    <div class="scelte" role="radiogroup" aria-label="Come ricevi da ${p.nome}">${opz.map(([k,v])=>`<label class="scelta"><input type="radio" name="c-${pid}" value="${k}" data-scelta="${pid}" ${scelte[pid]===k?"checked":""}><span><b>${ETI[k][0]} ${ETI[k][1]}</b><small>${v}</small></span></label>`).join("")}</div>
-    ${sped?`<div class="riga" style="border:0"><span>Consegna</span><span>${euro(sped)}</span></div>`:""}</div>`}).join("");
-  apriSheet(`<div class="corpo"><h2>Il tuo cestino</h2><p class="storia">Ogni produttore prepara e consegna il suo ordine: scegli come ricevere da ognuno.</p>${html}
-  <div class="totale"><span>Totale</span><b>${euro(Math.round(tot*100)/100)}</b></div>
-  <button class="grande" data-ordina="1">Ordina e paga</button><p class="nota">Nel prototipo non si paga davvero: nell'app vera il pagamento va direttamente a ogni produttore.</p></div>`,"carrello");
+  const g=gruppiCarrello();
+  if(!Object.keys(g).length){apriSheet(`<div class="corpo fatto"><div style="font-size:54px">🧺</div><h2>Il cestino è vuoto</h2><p class="storia" style="margin-inline:auto">Aggiungi qualcosa dal banco: ogni produttore prepara e consegna i suoi prodotti.</p></div>`,"carrello");return}
+  let tot=0,serveIndirizzo=false;
+  const html=Object.entries(g).map(([bid,arts])=>{const b=bot(bid);const sub=arts.reduce((s,a)=>s+a.prezzo*carrello[a.id],0);tot+=sub;
+    const opz=Object.entries(MODI).filter(([k,m])=>b[m[3]]);if(!scelte[bid]||!b[MODI[scelte[bid]][3]])scelte[bid]=opz[0][0];if(scelte[bid]!=="ritiro")serveIndirizzo=true;
+    return `<div class="gruppo"><h3><span>${esc(b.nome)}</span><span style="font-variant-numeric:tabular-nums">${euro(sub)}</span></h3>
+    ${arts.map(a=>`<div class="riga"><span>${esc(a.nome)}<br><small style="color:var(--tenue)">${euro(a.prezzo)}/${esc(a.unita)}</small></span>${qtaHtml(a.id)}</div>`).join("")}
+    <div class="scelte" role="radiogroup" aria-label="Come ricevi da ${esc(b.nome)}">${opz.map(([k,m])=>`<label class="scelta"><input type="radio" name="c-${esc(bid)}" value="${k}" data-scelta="${esc(bid)}" ${scelte[bid]===k?"checked":""}><span><b>${m[0]} ${m[2]}</b><small>${esc(b[m[3]])}</small></span></label>`).join("")}</div></div>`}).join("");
+  const n=Object.keys(g).length;
+  apriSheet(`<div class="corpo"><h2>Il tuo cestino</h2><p class="storia">${n>1?`Mandi ${n} ordini, uno per produttore: ognuno prepara e consegna i suoi prodotti.`:"Il produttore prepara il tuo ordine e ti contatta per confermare."}</p>${html}
+  <div class="totale"><span>Totale prodotti</span><b>${euro(Math.round(tot*100)/100)}</b></div>
+  <p class="nota" style="margin-top:2px">Le spese di consegna o spedizione, se ci sono, sono scritte sopra sotto ogni produttore.</p>
+  <form class="nuovo" id="formOrdine">
+    <label for="oNome">Nome e cognome<input id="oNome" required minlength="2" maxlength="60" autocomplete="name" value="${esc(cliente.nome||"")}"></label>
+    <div class="due"><label for="oTel">Telefono<input id="oTel" required type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="333 1234567" value="${esc(cliente.tel||"")}"></label>
+    <label for="oEmail">Email <span class="aiuto">(facoltativa)</span><input id="oEmail" type="email" maxlength="120" autocomplete="email" value="${esc(cliente.email||"")}"></label></div>
+    ${serveIndirizzo?`<label for="oInd">Indirizzo di consegna<input id="oInd" required minlength="8" maxlength="200" autocomplete="street-address" placeholder="Via, numero, città" value="${esc(cliente.ind||"")}"></label>`:""}
+    <label for="oNota">Nota per il produttore <span class="aiuto">(facoltativa)</span><textarea id="oNota" maxlength="300" placeholder="Es. citofono Rossi, meglio dopo le 18"></textarea></label>
+    <p class="errore" id="oErr" hidden></p>
+    <button class="grande" type="submit" id="oInvia">Manda ${n>1?"gli ordini":"l'ordine"}</button>
+    <p class="nota">Paghi direttamente al produttore alla consegna o al ritiro. Il tuo nome e il telefono arrivano solo ai produttori a cui ordini.</p>
+  </form></div>`,"carrello");
+  $("formOrdine").addEventListener("submit",mandaOrdini);
 }
-function ordina(){const n=Object.keys(carrello).length;const prods=[...new Set(Object.keys(carrello).map(id=>ART.find(a=>a.id===id).prod))].map(id=>prod(id).nome);
-  carrello={};mostraGriglia();
-  apriSheet(`<div class="corpo fatto"><div class="bollo">Ordinato!</div><h2>Grazie, il tuo ordine è partito</h2><p class="storia" style="margin-inline:auto">L'abbiamo mandato a ${prods.join(", ")}. Ti scriviamo quando è pronto o in consegna.</p><button class="grande" data-chiudi="1">Torna al banco</button></div>`,"fatto")}
+async function mandaOrdini(e){e.preventDefault();const btn=$("oInvia"),err=$("oErr");err.hidden=true;
+  const dati={nome:$("oNome").value.trim(),tel:$("oTel").value.trim(),email:$("oEmail").value.trim(),ind:$("oInd")?$("oInd").value.trim():(cliente.ind||""),nota:$("oNota").value.trim()};
+  if(String(dati.tel).replace(/\D/g,"").length<6){err.textContent="Scrivi un numero di telefono valido";err.hidden=false;return}
+  cliente={nome:dati.nome,tel:dati.tel,email:dati.email,ind:dati.ind};salva("cliente",cliente);
+  btn.disabled=true;btn.textContent="Invio…";
+  const fatti=[],errori=[];
+  for(const [bid,arts] of Object.entries(gruppiCarrello())){const b=bot(bid);
+    const {data,error}=await sb.rpc("ordina",{p_bottega:bid,p_righe:arts.map(a=>({id:a.id,qta:carrello[a.id]})),p_nome:dati.nome,p_telefono:dati.tel,p_email:dati.email||null,p_modo:scelte[bid],p_indirizzo:scelte[bid]==="ritiro"?null:dati.ind,p_nota:dati.nota||null});
+    if(error){errori.push(`${b.nome}: ${erroreDi(error)}`);continue}
+    fatti.push({b,o:data});arts.forEach(a=>delete carrello[a.id]);
+    fetch(location.hostname.endsWith("ortaly.it")?"/ortaly-avviso":"/.netlify/functions/ortaly-avviso",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:data.id}),keepalive:true}).catch(()=>{});
+  }
+  salva("carrello",carrello);mostraGriglia();
+  if(!fatti.length){btn.disabled=false;btn.textContent="Riprova";err.textContent=errori.join(" · ");err.hidden=false;return}
+  apriSheet(`<div class="corpo fatto"><div class="bollo">Ordinato!</div><h2>Grazie ${esc(dati.nome.split(" ")[0])}, ${fatti.length>1?"i tuoi ordini sono partiti":"il tuo ordine è partito"}</h2>
+  <p class="storia" style="margin-inline:auto">Il produttore ti contatta per confermare giorno e ora. Paghi a lui alla consegna o al ritiro.</p>
+  ${fatti.map(({b,o})=>`<div class="gruppo" style="text-align:left"><h3><span>${esc(b.nome)}</span><span>${euro(o.totale)}</span></h3><div style="font-size:14px;color:var(--tenue)">Codice ordine <b style="color:var(--inchiostro)">${esc(o.codice)}</b></div>
+    <div class="azioni" style="margin-top:8px"><a class="link" href="tel:${esc(numeroTel(o.telefono))}">📞 ${esc(o.telefono)}</a> · <a class="link" href="https://wa.me/${esc(numeroWa(o.telefono))}?text=${encodeURIComponent("Ciao, ho appena fatto l'ordine "+o.codice+" su Ortaly")}" target="_blank" rel="noopener">WhatsApp</a></div></div>`).join("")}
+  ${errori.length?`<p class="errore">Non partito: ${esc(errori.join(" · "))}. Il resto è ancora nel cestino.</p>`:""}
+  <button class="grande" data-chiudi="1">Torna al banco</button></div>`,"fatto");
+}
+function scegliZona(z,senzaChiudere){zona=z;cat="Tutto";$("zVicino").setAttribute("aria-pressed",z==="vicino");$("zItalia").setAttribute("aria-pressed",z==="italia");
+  $("titProd").textContent=z==="italia"?"Produttori da tutta Italia":"Produttori vicino a te";aggiornaCompro()}
 
-// iscrizione di un produttore nuovo
-function apriIscrizione(){
-  apriSheet(`<div class="corpo"><h2>Vendi con Ortaly</h2><p class="storia">Ti iscrivi tu, metti i tuoi prodotti con le tue foto e decidi prezzi e consegne. I clienti della tua zona ti trovano e ordinano.</p>
-  <form class="nuovo" id="formIscrizione">
-    <label for="iNome">Nome dell'azienda<input id="iNome" required maxlength="40" placeholder="Es. Cascina dei Noci"></label>
-    <div class="due"><label for="iPaese">Paese<input id="iPaese" required maxlength="30" placeholder="Es. Chieri"></label>
-    <label for="iKm">Km da Torino<input id="iKm" inputmode="numeric" placeholder="15"></label></div>
-    <label for="iTipo">Cosa produci<input id="iTipo" maxlength="40" placeholder="Es. Verdura e uova"></label>
-    <label for="iStoria">Due righe su di te<input id="iStoria" maxlength="160" placeholder="Es. Coltiviamo senza serre da 20 anni"></label>
-    <label for="iFoto">Foto della tua azienda<input id="iFoto" type="file" accept="image/*"></label>
-    <div class="spunte" role="group" aria-label="Come consegni">
-      <b style="font-size:13px">Come consegni</b>
-      <label class="scelta"><input type="checkbox" id="cCasa" checked><span><b>🚚 Porto io a casa del cliente</b></span></label>
-      <label class="scelta"><input type="checkbox" id="cAzienda" checked><span><b>🏡 Ritiro in azienda</b></span></label>
-    </div>
-    <div class="piano"><div class="ptesta"><b>Abbonamento bottega</b><span class="costo">19 € <small>al mese</small></span></div>
-      <span class="prova">Primi 3 mesi: 0 €</span>
-      <ul><li>Nessuna percentuale sulle tue vendite</li><li>Prodotti e clienti senza limiti</li><li>Disdici quando vuoi, anche durante i 3 mesi</li><li>Ti avvisiamo 7 giorni prima della fine dei 3 mesi</li></ul></div>
-    <button class="grande" type="submit">Crea la mia bottega · inizia i 3 mesi</button>
-    <p class="nota">Nel prototipo non serve email né password: nell'app vera ti iscrivi con email o telefono e controlliamo la partita IVA agricola. Dopo i 3 mesi l'abbonamento parte solo se lo confermi tu.</p>
-  </form></div>`,"iscrizione");
-  $("formIscrizione").addEventListener("submit",e=>{e.preventDefault();
-    const cons={};if($("cCasa").checked)cons.casa="Consegna a casa · giorni da concordare";if($("cAzienda").checked)cons.azienda="Ritiro in azienda";
-    if(!Object.keys(cons).length)cons.azienda="Ritiro in azienda";
-    const nuovo={id:"p"+Date.now(),nome:$("iNome").value.trim(),paese:$("iPaese").value.trim(),km:parseInt($("iKm").value,10)||15,f:"f4",e:"🌾",tipo:$("iTipo").value.trim()||"Prodotti della terra",storia:$("iStoria").value.trim()||"Nuovo produttore su Ortaly.",cons,foto:null};
-    const f=$("iFoto").files[0];
-    const fine=()=>{PROD.unshift(nuovo);io=nuovo.id;$("sheet").hidden=true;mostraProduttori();modo(true);toast("Benvenuto! Ora metti il tuo primo prodotto")};
-    if(f){const r=new FileReader();r.onload=()=>{nuovo.foto=r.result;fine()};r.readAsDataURL(f)}else fine();
+// ── VENDO ──
+const V=()=>$("vendo");
+function vendoCartello(titolo,sotto){return `<section class="cartello"><div class="wrap"><h1>${titolo}</h1><p>${sotto}</p></div></section>`}
+function vistaAccesso(modoReg){
+  V().innerHTML=vendoCartello(modoReg?"Vendi <span>con Ortaly</span>":"Bentornato <span>al banco</span>",modoReg?"Ti iscrivi tu, metti i tuoi prodotti con le tue foto e decidi prezzi e consegne. I clienti della tua zona ti trovano e ordinano.":"Entra per vedere gli ordini e i tuoi prodotti.")+`<div class="wrap">
+  <form class="nuovo" id="formAccesso" style="margin-top:16px">
+    <div class="schede" role="group"><button type="button" aria-pressed="${!!modoReg}" data-reg="1">Mi iscrivo</button><button type="button" aria-pressed="${!modoReg}" data-reg="">Entra</button></div>
+    <label for="aEmail">Email<input id="aEmail" type="email" required autocomplete="email" maxlength="120"></label>
+    <label for="aPass">Password${modoReg?' <span class="aiuto">(almeno 8 caratteri)</span>':""}<input id="aPass" type="password" required minlength="${modoReg?8:6}" autocomplete="${modoReg?"new-password":"current-password"}"></label>
+    <p class="errore" id="aErr" hidden></p>
+    <button class="grande" type="submit">${modoReg?"Crea il mio account":"Entra"}</button>
+    ${modoReg?"":`<button type="button" class="link" id="aDimenticata" style="justify-self:start">Ho dimenticato la password</button>`}
+  </form>
+  ${modoReg?pianoHtml():""}<p class="pie-sito">Dopo l'account crei la tua bottega: nome, paese, telefono, partita IVA e come consegni.</p></div>`;
+  $("formAccesso").addEventListener("submit",async e=>{e.preventDefault();const err=$("aErr");err.hidden=true;const btn=e.target.querySelector("[type=submit]");btn.disabled=true;
+    const email=$("aEmail").value.trim(),password=$("aPass").value;
+    const r=modoReg?await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+"/#vendo"}}):await sb.auth.signInWithPassword({email,password});
+    btn.disabled=false;
+    if(r.error){err.textContent=erroreDi(r.error);err.hidden=false;return}
+    if(modoReg&&!r.data.session){V().innerHTML=vendoCartello("Controlla <span>la tua email</span>","Ti abbiamo mandato un link a "+esc(email)+": aprilo per confermare l'account, poi torna qui.");return}
   });
+  const d=$("aDimenticata");if(d)d.onclick=async()=>{const email=$("aEmail").value.trim();const err=$("aErr");if(!email){err.textContent="Scrivi prima la tua email";err.hidden=false;return}
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+"/#vendo"});
+    err.textContent=error?erroreDi(error):"Ti abbiamo mandato un'email per scegliere una nuova password";err.hidden=false};
 }
-
-// lato produttore
+function vistaNuovaPassword(){
+  V().innerHTML=vendoCartello("Nuova <span>password</span>","Scegli la nuova password per entrare nella tua bottega.")+`<div class="wrap"><form class="nuovo" id="formNP" style="margin-top:16px">
+  <label for="npPass">Nuova password <span class="aiuto">(almeno 8 caratteri)</span><input id="npPass" type="password" required minlength="8" autocomplete="new-password"></label>
+  <p class="errore" id="npErr" hidden></p><button class="grande" type="submit">Salva la password</button></form></div>`;
+  $("formNP").addEventListener("submit",async e=>{e.preventDefault();const {error}=await sb.auth.updateUser({password:$("npPass").value});
+    if(error){$("npErr").textContent=erroreDi(error);$("npErr").hidden=false;return}recupero=false;toast("Password cambiata");caricaMia()});
+}
+function pianoHtml(b){
+  if(!b)return `<div class="piano"><div class="ptesta"><b>Abbonamento bottega</b><span class="costo">19 € <small>al mese</small></span></div>
+    <span class="prova">Primi 3 mesi: 0 €</span>
+    <ul><li>Nessuna percentuale sulle tue vendite</li><li>Prodotti e clienti senza limiti</li><li>Disdici quando vuoi, anche durante i 3 mesi</li><li>Ti avvisiamo 7 giorni prima della fine dei 3 mesi</li></ul></div>`;
+  const fine=new Date(b.prova_fino+"T12:00:00"),giorni=Math.ceil((fine-new Date())/864e5),data=fine.toLocaleDateString("it-IT",{day:"numeric",month:"long",year:"numeric"});
+  if(b.abbonamento==="attivo")return `<div class="piano"><div class="ptesta"><b>Il tuo abbonamento</b><span class="prova">Attivo</span></div><span>19 € al mese. Grazie di vendere con Ortaly!</span></div>`;
+  if(b.abbonamento==="prova"&&giorni>=0)return `<div class="piano"><div class="ptesta"><b>Il tuo abbonamento</b><span class="prova">In prova</span></div>
+    <span>Periodo di prova fino al <b>${data}</b> (${giorni===0?"ultimo giorno":giorni===1?"ancora 1 giorno":"ancora "+giorni+" giorni"}). Dopo: <b>19 € al mese</b>, solo se lo confermi tu.</span></div>`;
+  return `<div class="piano scaduta"><div class="ptesta"><b>Il tuo abbonamento</b><span class="prova" style="background:var(--pomodoro);color:#fff">${b.abbonamento==="disdetto"?"Disdetto":"Prova finita"}</span></div>
+    <span>La tua bottega non è visibile ai clienti. Per riaprirla con l'abbonamento da 19 € al mese scrivi a <b>info@eyedrones.it</b>.</span></div>`;
+}
+function formBottega(b){b=b||{};const pv=b.provincia||prov;
+  return `<form class="nuovo" id="formBottega">
+    <label for="bNome">Nome dell'azienda<input id="bNome" required minlength="2" maxlength="60" placeholder="Es. Cascina dei Noci" value="${esc(b.nome||"")}"></label>
+    <div class="due"><label for="bPaese">Paese<input id="bPaese" required minlength="2" maxlength="40" placeholder="Es. Chieri" value="${esc(b.paese||"")}"></label>
+    <label for="bProv">Provincia<select id="bProv">${Object.entries(PROVINCE).sort((x,y)=>x[1].localeCompare(y[1],"it")).map(([s,n])=>`<option value="${s}" ${s===pv?"selected":""}>${esc(n)}</option>`).join("")}</select></label></div>
+    <div class="due"><label for="bTel">Telefono per i clienti<input id="bTel" required type="tel" inputmode="tel" maxlength="20" placeholder="333 1234567" value="${esc(b.telefono||"")}"></label>
+    <label for="bPiva">Partita IVA<input id="bPiva" required inputmode="numeric" maxlength="13" placeholder="11 cifre" value="${esc(b.piva||"")}"></label></div>
+    <label for="bTipo">Cosa produci<input id="bTipo" maxlength="60" placeholder="Es. Verdura e uova" value="${esc(b.tipo||"")}"></label>
+    <label for="bStoria">Due righe su di te <span class="aiuto">(i clienti le leggono nella tua bottega)</span><textarea id="bStoria" maxlength="400" placeholder="Es. Coltiviamo senza serre da 20 anni, a 2 km dal Po">${esc(b.storia||"")}</textarea></label>
+    <label for="bFoto">Foto della tua azienda ${b.foto?'<span class="aiuto">(lascia vuoto per tenere quella di adesso)</span>':""}<input id="bFoto" type="file" accept="image/*"></label>
+    <div class="spunte" role="group" aria-label="Come consegni"><b style="font-size:13px">Come consegni <span class="aiuto">(almeno uno; scrivi giorni e costi)</span></b>
+      ${Object.entries(MODI).map(([k,m])=>`<label class="scelta"><input type="checkbox" id="k_${k}" ${b[m[3]]||(!b.id&&k!=="spedizione")?"checked":""}><span><b>${m[0]} ${m[2]}</b></span></label>
+      <input id="t_${k}" maxlength="120" placeholder="${k==="casa"?"Es. Il giovedì in zona Chieri · 4 €, inclusa sopra 40 €":k==="ritiro"?"Es. Sabato 9–12 in cascina":"Es. Corriere in 48 ore · 9 €, inclusa sopra 49 €"}" value="${esc(b[m[3]]||"")}">`).join("")}
+    </div>
+    <label class="scelta"><input type="checkbox" id="bBio" ${b.bio?"checked":""}><span><b>🌱 Ho la certificazione biologica</b></span></label>
+    ${b.id?"":pianoHtml()}
+    <p class="errore" id="bErr" hidden></p>
+    <button class="grande" type="submit">${b.id?"Salva la bottega":"Crea la mia bottega · inizia i 3 mesi"}</button>
+    ${b.id?"":`<p class="nota">Controlliamo la partita IVA prima di tenere la bottega aperta. Dopo i 3 mesi l'abbonamento parte solo se lo confermi tu.</p>`}
+  </form>`}
+function vistaNuovaBottega(){
+  V().innerHTML=vendoCartello("La tua <span>bottega</span>","Ultimo passo: come ti chiami, dove sei e come consegni. Poi metti i tuoi prodotti.")+`<div class="wrap">${formBottega()}<p class="pie-sito"><button class="link" data-esci="1">Esci</button></p></div>`;
+  $("formBottega").addEventListener("submit",salvaBottega);
+}
+async function caricaFoto(file,cartella){
+  const img=await new Promise((ok,ko)=>{const u=URL.createObjectURL(file);const i=new Image();i.onload=()=>{URL.revokeObjectURL(u);ok(i)};i.onerror=ko;i.src=u});
+  const lato=1400,sc=Math.min(1,lato/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+  c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+  const blob=await new Promise(ok=>c.toBlob(ok,"image/jpeg",.82));
+  const percorso=`${utente.id}/${cartella}-${Date.now()}.jpg`;
+  const {error}=await sb.storage.from("foto").upload(percorso,blob,{contentType:"image/jpeg",cacheControl:"31536000"});
+  if(error)throw error;
+  return sb.storage.from("foto").getPublicUrl(percorso).data.publicUrl;
+}
+async function salvaBottega(e){e.preventDefault();const err=$("bErr"),btn=e.target.querySelector("[type=submit]");err.hidden=true;
+  const v={nome:$("bNome").value.trim(),paese:$("bPaese").value.trim(),provincia:$("bProv").value,telefono:$("bTel").value.trim(),piva:$("bPiva").value.replace(/\s/g,""),
+    tipo:$("bTipo").value.trim()||null,storia:$("bStoria").value.trim()||null,bio:$("bBio").checked};
+  for(const [k,m] of Object.entries(MODI))v[m[3]]=$("k_"+k).checked?($("t_"+k).value.trim()||m[2]):null;
+  if(!v.consegna_casa&&!v.ritiro&&!v.spedizione){err.textContent="Scegli almeno un modo di consegna";err.hidden=false;return}
+  if(!/^\d{11}$/.test(v.piva.replace(/^IT/i,""))){err.textContent="La partita IVA ha 11 cifre";err.hidden=false;return}
+  v.piva=v.piva.replace(/^IT/i,"");
+  btn.disabled=true;btn.textContent="Salvo…";
+  try{const f=$("bFoto").files[0];if(f)v.foto=await caricaFoto(f,"bottega");
+    const r=mia?await sb.from("botteghe").update(v).eq("id",mia.id):await sb.from("botteghe").insert(v);
+    if(r.error)throw r.error;
+    toast(mia?"Bottega salvata":"Benvenuto! Ora metti il tuo primo prodotto");vendoScheda=mia?"bottega":"prodotti";await caricaMia();caricaBanco();
+  }catch(x){err.textContent=erroreDi(x);err.hidden=false;btn.disabled=false;btn.textContent="Riprova"}
+}
+async function caricaMia(){
+  if(!utente){vistaAccesso(leggi("registrato",false)?false:true);return}
+  if(recupero){vistaNuovaPassword();return}
+  const {data,error}=await sb.from("botteghe").select("*").eq("utente",utente.id).maybeSingle();
+  if(error){V().innerHTML=vendoCartello("Ops","Non riesco a caricare la tua bottega: controlla la connessione e riprova.");return}
+  salva("registrato",true);
+  mia=data;if(!mia){vistaNuovaBottega();return}
+  const [p,o]=await Promise.all([sb.from("prodotti").select("*").eq("bottega",mia.id).order("creato",{ascending:false}),sb.from("ordini").select("*").eq("bottega",mia.id).order("creato",{ascending:false}).limit(200)]);
+  mieiProd=p.data||[];mieiOrd=o.data||[];mostraVendo();
+  clearInterval(timerOrdini);timerOrdini=setInterval(aggiornaOrdini,60000);
+}
+async function aggiornaOrdini(){if(!mia||$("vistaVendo").hidden)return;const {data}=await sb.from("ordini").select("*").eq("bottega",mia.id).order("creato",{ascending:false}).limit(200);
+  if(data){const nuovi=data.filter(o=>o.stato==="nuovo"&&!mieiOrd.find(x=>x.id===o.id)).length;mieiOrd=data;if(nuovi){toast(nuovi===1?"È arrivato un ordine nuovo":`Sono arrivati ${nuovi} ordini nuovi`)}if(nuovi||vendoScheda==="ordini")mostraVendo()}}
 function mostraVendo(){
-  const miei=ART.filter(a=>a.prod===io),mieiOrd=ordini.filter(o=>o.prod===io),me=prod(io);
-  $("vNome").textContent=me.nome;
-  const fp=new Date();fp.setMonth(fp.getMonth()+3);$("vFineProva").textContent=fp.toLocaleDateString("it-IT",{day:"numeric",month:"long",year:"numeric"});
-  $("vOrdini").textContent=mieiOrd.filter(o=>o.stato==="nuovo").length;
-  $("vIncasso").textContent=euro(mieiOrd.reduce((s,o)=>s+o.tot,0));
-  const cl=CLIENTI[io]||[];
-  $("mieiClienti").innerHTML=cl.length?cl.map(c=>`<div class="cliente"><span><b>${c[0]}</b><small>${c[1]}</small></span><span style="text-align:right"><b>${c[2]} ordini</b><small>${c[3]}</small></span></div>`).join(""):`<div class="cliente"><span>Ancora nessun cliente: appena arriva il primo ordine lo trovi qui, e lui ritrova te per riordinare.</span></div>`;
-  $("vProdotti").textContent=miei.filter(a=>a.attivo).length;
-  $("ordini").innerHTML=mieiOrd.length?"":`<div class="cliente"><span>Nessun ordine per ora. Metti i tuoi prodotti qui sotto: i clienti della zona li vedono subito al banco.</span></div>`;
-  $("ordini").innerHTML+=mieiOrd.map(o=>`<div class="ordine"><div class="su"><b>${o.chi}</b><span class="stato ${o.stato==="nuovo"?"s-nuovo":"s-pronto"}">${o.stato==="nuovo"?"Nuovo":o.stato==="pronto"?"Pronto":"Consegnato"}</span></div>
-    <div style="font-size:14px">${o.cosa}</div><div style="font-size:12.5px;color:var(--tenue)">${o.come} · ${euro(o.tot)}</div>
-    <div class="azioni">${o.stato==="nuovo"?`<button class="si" data-pronto="${o.id}">✓ Accetto, lo preparo</button>`:o.stato==="pronto"?`<button data-consegnato="${o.id}">Consegnato</button>`:""}</div></div>`).join("");
-  $("mieiProdotti").innerHTML=(miei.length?"":`<div class="cliente"><span>Non hai ancora prodotti al banco.</span></div>`)+miei.map(a=>`<div class="mioart">${foto(me.f,a.e,a.foto)}<div class="t"><b>${a.nome}</b><div>${euro(a.prezzo)} / ${a.unita}</div></div>
-    <button class="inter" aria-pressed="${a.attivo}" data-attiva="${a.id}" aria-label="${a.attivo?"Togli dal banco":"Metti al banco"} ${a.nome}"></button></div>`).join("");
+  const b=mia,inizioSett=new Date();inizioSett.setDate(inizioSett.getDate()-7);
+  const nuovi=mieiOrd.filter(o=>o.stato==="nuovo").length,sett=mieiOrd.filter(o=>o.stato!=="annullato"&&new Date(o.creato)>inizioSett).reduce((s,o)=>s+Number(o.totale),0);
+  const link=location.origin+"/#bottega-"+b.id;
+  const schede=[["ordini","Ordini"+(nuovi?` (${nuovi})`:"")],["prodotti","Prodotti"],["bottega","Bottega"]];
+  V().innerHTML=vendoCartello(`Ciao, <span>${esc(b.nome)}</span>`,nuovi?`Hai ${nuovi===1?"un ordine nuovo":nuovi+" ordini nuovi"} da guardare.`:"Metti i tuoi prodotti e decidi tu prezzi e quantità.")+`<div class="wrap">
+  <div class="numeri"><div class="num"><b>${nuovi}</b><span>ordini nuovi</span></div><div class="num"><b>${euro(Math.round(sett))}</b><span>ultimi 7 giorni</span></div><div class="num"><b>${mieiProd.filter(a=>a.disponibile).length}</b><span>prodotti al banco</span></div></div>
+  ${pianoHtml(b)}
+  <div class="schede" role="group" aria-label="Sezioni" style="margin-top:16px">${schede.map(([k,t])=>`<button aria-pressed="${vendoScheda===k}" data-scheda="${k}">${t}</button>`).join("")}</div>
+  <div id="vCorpo"></div>
+  <p class="pie-sito"><button class="link" data-esci="1">Esci</button></p></div>`;
+  const c=$("vCorpo");
+  if(vendoScheda==="ordini"){
+    c.innerHTML=mieiOrd.length?mieiOrd.map(o=>`<div class="ordine"><div class="su"><b>${esc(o.cliente_nome)}</b><span class="stato s-${o.stato}">${STATI[o.stato]}</span></div>
+      <ul class="righe">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)})</span></li>`).join("")}</ul>
+      <div style="font-size:13px;color:var(--tenue)">${MODI[o.modo][0]} ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""} · <b style="color:var(--inchiostro)">${euro(o.totale)}</b> · ${new Date(o.creato).toLocaleString("it-IT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${esc(o.codice)}</div>
+      ${o.nota?`<div style="font-size:13.5px">📝 ${esc(o.nota)}</div>`:""}
+      <div style="font-size:13.5px"><a href="tel:${esc(numeroTel(o.cliente_telefono))}">📞 ${esc(o.cliente_telefono)}</a> · <a href="https://wa.me/${esc(numeroWa(o.cliente_telefono))}?text=${encodeURIComponent("Ciao "+o.cliente_nome+", sono "+b.nome+": ho ricevuto il tuo ordine "+o.codice+" su Ortaly.")}" target="_blank" rel="noopener">WhatsApp</a>${o.cliente_email?` · ${esc(o.cliente_email)}`:""}</div>
+      <div class="azioni">${o.stato==="nuovo"?`<button class="si" data-stato="accettato" data-o="${o.id}">✓ Accetto</button><button data-stato="annullato" data-o="${o.id}">Non posso</button>`:o.stato==="accettato"?`<button class="si" data-stato="pronto" data-o="${o.id}">È pronto</button><button data-stato="annullato" data-o="${o.id}">Annulla</button>`:o.stato==="pronto"?`<button class="si" data-stato="consegnato" data-o="${o.id}">Consegnato</button>`:""}</div></div>`).join("")
+      :`<div class="cliente"><span>Nessun ordine per ora. Metti i tuoi prodotti e condividi il link della tua bottega con i tuoi clienti: lo trovi nella scheda «Bottega».</span></div>`;
+  }else if(vendoScheda==="prodotti"){
+    c.innerHTML=`<form class="nuovo" id="formProdotto"><h3 style="font-size:18px">Metti un prodotto</h3>
+        <label for="nNome">Prodotto<input id="nNome" required minlength="2" maxlength="50" placeholder="Es. Topinambur"></label>
+        <div class="due"><label for="nCat">Categoria<select id="nCat">${CAT.map(x=>`<option>${x}</option>`).join("")}</select></label>
+          <label for="nUnita">Venduto a<input id="nUnita" required maxlength="30" list="unita" placeholder="kg"><datalist id="unita"><option>kg</option><option>pezzo</option><option>mazzo</option><option>confezione</option><option>vasetto 500 g</option><option>bottiglia 0,75 l</option><option>cassetta 5 kg</option></datalist></label></div>
+        <div class="due"><label for="nPrezzo">Prezzo (€)<input id="nPrezzo" required inputmode="decimal" placeholder="3,20"></label>
+          <label for="nNota">Nota <span class="aiuto">(facoltativa)</span><input id="nNota" maxlength="60" placeholder="Es. raccolta ieri"></label></div>
+        <label for="nFoto">Foto del prodotto <span class="aiuto">(scattala tu, dal telefono)</span><input id="nFoto" type="file" accept="image/*"></label>
+        <p class="errore" id="nErr" hidden></p><button class="grande" type="submit">Metti al banco</button></form>
+      <h3 style="font-size:18px;margin-top:20px">I miei prodotti <small style="font:600 12.5px var(--testo);color:var(--tenue)">accendi o spegni</small></h3>
+      ${mieiProd.length?mieiProd.map(a=>`<div class="mioart">${foto(colore(b.id),EMOJI[a.categoria]||"🧺",a.foto)}<div class="t"><b>${esc(a.nome)}</b><div>${euro(a.prezzo)} / ${esc(a.unita)}${a.disponibile?"":" · non al banco"}</div>
+        <div class="azioni" style="margin-top:6px"><button data-prezzo="${a.id}">Prezzo</button><button data-elimina="${a.id}">Elimina</button></div></div>
+        <button class="inter" aria-pressed="${a.disponibile}" data-attiva="${a.id}" aria-label="${a.disponibile?"Togli dal banco":"Metti al banco"} ${esc(a.nome)}"></button></div>`).join(""):`<div class="cliente"><span>Non hai ancora prodotti al banco: mettine uno qui sopra.</span></div>`}`;
+    $("formProdotto").addEventListener("submit",salvaProdotto);
+  }else{
+    c.innerHTML=`<div class="blocco"><b>Il link della tua bottega</b><p class="nota" style="margin-top:2px">Mandalo ai tuoi clienti su WhatsApp o mettilo sul cartello al banco: lo aprono e ordinano da te.</p>
+      <div class="condividi"><code id="linkB">${esc(link)}</code><button class="piu" data-copia="1">Copia</button><a class="piu" style="text-decoration:none" href="https://wa.me/?text=${encodeURIComponent("Ordina i miei prodotti su Ortaly: "+link)}" target="_blank" rel="noopener">WhatsApp</a></div></div>
+      ${formBottega(b)}`;
+    $("formBottega").addEventListener("submit",salvaBottega);
+  }
 }
-function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro").setAttribute("aria-pressed",!v);$("mVendo").setAttribute("aria-pressed",v);$("apriCarrello").hidden=v;
-  if(v)mostraVendo();else mostraGriglia();window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":"#compro")}catch(e){}}
+async function salvaProdotto(e){e.preventDefault();const err=$("nErr"),btn=e.target.querySelector("[type=submit]");err.hidden=true;
+  const prezzo=Number($("nPrezzo").value.replace(",","."));if(!(prezzo>0&&prezzo<10000)){err.textContent="Scrivi un prezzo, per esempio 3,20";err.hidden=false;return}
+  const v={bottega:mia.id,nome:$("nNome").value.trim(),categoria:$("nCat").value,unita:$("nUnita").value.trim()||"pezzo",prezzo:Math.round(prezzo*100)/100,nota:$("nNota").value.trim()||null};
+  btn.disabled=true;btn.textContent="Salvo…";
+  try{const f=$("nFoto").files[0];if(f)v.foto=await caricaFoto(f,"prodotto");
+    const {data,error}=await sb.from("prodotti").insert(v).select().single();if(error)throw error;
+    mieiProd.unshift(data);toast(data.nome+" è al banco");mostraVendo();caricaBanco();
+  }catch(x){err.textContent=erroreDi(x);err.hidden=false;btn.disabled=false;btn.textContent="Riprova"}
+}
 
-document.addEventListener("click",e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-ordina],[data-pronto],[data-consegnato],[data-attiva],[data-iscrivi]");if(!t)return;
-  if(t.dataset.iscrivi){apriIscrizione();return}
-  if(t.dataset.chiudi&&e.target!==t&&t.classList.contains("sheet-bg"))return;
-  if(t.dataset.piu){cambia(t.dataset.piu,1);if($("sheet").dataset.tipo==="prod"&&!$("sheet").hidden)apriProduttore(ART.find(a=>a.id===t.dataset.piu).prod)}
-  else if(t.dataset.meno){cambia(t.dataset.meno,-1);if($("sheet").dataset.tipo==="prod"&&!$("sheet").hidden)apriProduttore(ART.find(a=>a.id===t.dataset.meno).prod)}
+function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro").setAttribute("aria-pressed",!v);$("mVendo").setAttribute("aria-pressed",v);$("apriCarrello").hidden=v;
+  if(v){vendoScheda="ordini";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
+  window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":location.pathname)}catch(e){}}
+
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia]");if(!t)return;
+  if(t.dataset.chiudi!==undefined&&t.classList.contains("sheet-bg")&&e.target!==t)return;
+  if(t.dataset.iscrivi){chiudiSheet();modo(true)}
+  else if(t.dataset.piu)cambia(t.dataset.piu,1);
+  else if(t.dataset.meno)cambia(t.dataset.meno,-1);
   else if(t.dataset.p)apriProduttore(t.dataset.p);
-  else if(t.dataset.c){cat=t.dataset.c;mostraCategorie();mostraGriglia()}
-  else if(t.dataset.chiudi){$("sheet").hidden=true}
-  else if(t.dataset.ordina)ordina();
-  else if(t.dataset.pronto){ordini.find(o=>o.id===t.dataset.pronto).stato="pronto";mostraVendo();toast("Il cliente riceve un messaggio: ordine in preparazione")}
-  else if(t.dataset.consegnato){ordini.find(o=>o.id===t.dataset.consegnato).stato="consegnato";mostraVendo();toast("Segnato come consegnato")}
-  else if(t.dataset.attiva){const a=ART.find(x=>x.id===t.dataset.attiva);a.attivo=!a.attivo;mostraVendo();toast(a.attivo?"Di nuovo al banco":"Tolto dal banco")}
+  else if(t.dataset.c!==undefined){cat=t.dataset.c;mostraCategorie();mostraGriglia()}
+  else if(t.dataset.chiudi)chiudiSheet();
+  else if(t.dataset.reg!==undefined)vistaAccesso(!!t.dataset.reg);
+  else if(t.dataset.esci){await sb.auth.signOut();mia=null;clearInterval(timerOrdini);toast("Sei uscito")}
+  else if(t.dataset.scheda){vendoScheda=t.dataset.scheda;mostraVendo()}
+  else if(t.dataset.stato){t.disabled=true;const {error}=await sb.from("ordini").update({stato:t.dataset.stato}).eq("id",t.dataset.o);
+    if(error){toast(erroreDi(error));t.disabled=false;return}mieiOrd.find(o=>o.id===t.dataset.o).stato=t.dataset.stato;mostraVendo();
+    toast({accettato:"Accettato: chiama o scrivi al cliente per giorno e ora",pronto:"Segnato come pronto",consegnato:"Consegnato",annullato:"Ordine annullato: avvisa il cliente"}[t.dataset.stato])}
+  else if(t.dataset.attiva){const a=mieiProd.find(x=>x.id===t.dataset.attiva);const {error}=await sb.from("prodotti").update({disponibile:!a.disponibile}).eq("id",a.id);
+    if(error){toast(erroreDi(error));return}a.disponibile=!a.disponibile;mostraVendo();caricaBanco();toast(a.disponibile?"Di nuovo al banco":"Tolto dal banco")}
+  else if(t.dataset.prezzo){const a=mieiProd.find(x=>x.id===t.dataset.prezzo);const riga=t.closest(".t");
+    riga.querySelector(".azioni").innerHTML=`<input class="pz" inputmode="decimal" value="${String(a.prezzo).replace(".",",")}" aria-label="Nuovo prezzo"><button class="si" data-salvaprezzo="${a.id}">Salva</button>`;riga.querySelector(".pz").focus();
+    riga.querySelector("[data-salvaprezzo]").onclick=async()=>{const p=Number(riga.querySelector(".pz").value.replace(",","."));if(!(p>0&&p<10000)){toast("Prezzo non valido");return}
+      const {error}=await sb.from("prodotti").update({prezzo:Math.round(p*100)/100}).eq("id",a.id);if(error){toast(erroreDi(error));return}a.prezzo=Math.round(p*100)/100;mostraVendo();caricaBanco();toast("Prezzo aggiornato")}}
+  else if(t.dataset.elimina){const a=mieiProd.find(x=>x.id===t.dataset.elimina);
+    if(t.dataset.sicuro!=="1"){t.dataset.sicuro="1";t.textContent="Sicuro? Tocca ancora";setTimeout(()=>{if(t.isConnected){t.dataset.sicuro="";t.textContent="Elimina"}},4000);return}
+    const {error}=await sb.from("prodotti").delete().eq("id",a.id);if(error){toast(erroreDi(error));return}mieiProd=mieiProd.filter(x=>x.id!==a.id);mostraVendo();caricaBanco();toast("Prodotto eliminato")}
+  else if(t.dataset.copia){const l=$("linkB").textContent;try{await navigator.clipboard.writeText(l);toast("Link copiato")}catch(x){const r=document.createRange();r.selectNodeContents($("linkB"));getSelection().removeAllRanges();getSelection().addRange(r);toast("Tieni premuto per copiare")}}
 });
 document.addEventListener("change",e=>{if(e.target.dataset.scelta){scelte[e.target.dataset.scelta]=e.target.value;apriCarrello()}});
-document.addEventListener("keydown",e=>{if(e.key==="Escape")$("sheet").hidden=true});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")chiudiSheet()});
 $("cerca").addEventListener("input",e=>{testo=e.target.value;mostraGriglia()});
-function scegliZona(z){zona=z;cat="Tutto";$("zVicino").setAttribute("aria-pressed",z==="vicino");$("zItalia").setAttribute("aria-pressed",z==="italia");
-  $("titProd").textContent=z==="italia"?"Produttori da tutta Italia":"Produttori vicino a te";
-  $("stagione").innerHTML=z==="italia"?"<b>Dal Sud</b><span>Arance di Sicilia, olio pugliese e pasta di Gragnano: spediti dal produttore, arrivano in 2–3 giorni.</span>":"<b>Novembre</b><span>È il momento di cavolo nero, zucca, porri, castagne, cachi e mele.</span>";
-  mostraProduttori();mostraCategorie();mostraGriglia()}
+$("provincia").innerHTML=Object.entries(PROVINCE).sort((x,y)=>x[1].localeCompare(y[1],"it")).map(([s,n])=>`<option value="${s}" ${s===prov?"selected":""}>${esc(n)}</option>`).join("");
+$("provincia").addEventListener("change",e=>{prov=e.target.value;salva("provincia",prov);cat="Tutto";aggiornaCompro()});
 $("zVicino").onclick=()=>scegliZona("vicino");$("zItalia").onclick=()=>scegliZona("italia");
 $("apriCarrello").onclick=apriCarrello;$("mCompro").onclick=()=>modo(false);$("mVendo").onclick=()=>modo(true);
-$("formNuovo").addEventListener("submit",e=>{e.preventDefault();
-  const prezzo=Number($("nPrezzo").value.replace(",","."));if(!(prezzo>0)){toast("Scrivi un prezzo, per esempio 3,20");return}
-  const nuovo={id:"n"+Date.now(),nome:$("nNome").value.trim(),cat:$("nCat").value,prod:io,prezzo,unita:$("nUnita").value,e:"🧺",nota:"appena arrivato",attivo:true,foto:null};
-  const f=$("nFoto").files[0];
-  const fine=()=>{ART.unshift(nuovo);e.target.reset();mostraVendo();toast(nuovo.nome+" è al banco")};
-  if(f){const r=new FileReader();r.onload=()=>{nuovo.foto=r.result;fine()};r.readAsDataURL(f)}else fine();
-});
-mostraProduttori();mostraCategorie();mostraGriglia();
-if(location.hash==="#vendo")modo(true);
-window.addEventListener("hashchange",()=>modo(location.hash==="#vendo"));
-</script>
 
+if(sb)sb.auth.onAuthStateChange((ev,sess)=>{const prima=utente&&utente.id;utente=sess?sess.user:null;
+  if(ev==="PASSWORD_RECOVERY"){recupero=true;modo(true);return}
+  if((utente&&utente.id)!==prima&&!$("vistaVendo").hidden)setTimeout(caricaMia,0)});
+caricaBanco();
+if(location.hash==="#vendo")modo(true);
+</script>
 </body>
 </html>

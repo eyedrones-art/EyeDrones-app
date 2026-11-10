@@ -83,10 +83,12 @@ const prima = fs.existsSync(fileRedirects) ? fs.readFileSync(fileRedirects, "utf
 // così le pagine per Google restano su un solo dominio. trovapilota.it/to → /trova-pilota/to
 const dominiCorti = ["https://trovapilota.it", "https://www.trovapilota.it", "http://trovapilota.it", "http://www.trovapilota.it"]
   .flatMap((d) => [`${d}/ https://app.eyedrones.it/trova-pilota 301!`, `${d}/* https://app.eyedrones.it/trova-pilota/:splat 301!`]);
-// ortaly.it (mercato dei produttori, per ora in anteprima): mostra la pagina public/ortaly/index.html
+// ortaly.it (mercato dei produttori): mostra l'app public/ortaly/index.html (con il suo supabase.js e l'avviso degli ordini)
 // restando su ortaly.it; http e www passano prima a https://ortaly.it
 const ortaly = [
   ...["http://ortaly.it", "http://www.ortaly.it", "https://www.ortaly.it"].map((d) => `${d}/* https://ortaly.it/:splat 301!`),
+  "https://ortaly.it/supabase.js /ortaly/supabase.js 200!",
+  "https://ortaly.it/ortaly-avviso /.netlify/functions/ortaly-avviso 200!",
   "https://ortaly.it/* /ortaly/index.html 200!",
 ];
 fs.writeFileSync(fileRedirects, `# indirizzo corto trovapilota.it\n${dominiCorti.join("\n")}\n# ortaly.it\n${ortaly.join("\n")}\n# pagine per Google create da scripts/pagine-google.mjs\n${riscritture.join("\n")}\n${prima}`);
