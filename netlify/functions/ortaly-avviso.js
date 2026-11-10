@@ -3,7 +3,7 @@
 // prima segno «avvisato» nel database, poi scrivo; un secondo invio per lo stesso ordine non fa nulla.
 // Variabili su Netlify: ORTALY_SUPABASE_SECRET (chiave segreta del progetto Supabase di Ortaly), RESEND_API_KEY (c'è già).
 // indirizzo del progetto Supabase di Ortaly (lo stesso scritto in public/ortaly/index.html)
-const ORTALY_SUPABASE_URL = "";
+const ORTALY_SUPABASE_URL = "https://qqxzqiwxhyyzylmkvdew.supabase.co";
 
 const MITTENTE_PREDEFINITO = "Ortaly <avvisi@eyedrones.it>";
 const SITO = "https://ortaly.it";
