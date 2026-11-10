@@ -16,6 +16,9 @@
 const crypto = require("crypto");
 
 const APP_URL = "https://app.eyedrones.it";
+const SUPABASE_URL = "https://kywmesdqemxqjasixpzq.supabase.co";
+const SUPABASE_KEY = "sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ";
+const { inviaPush } = require("./push-chiave.js");
 const MITTENTE_PREDEFINITO = "Eyedrones <avvisi@eyedrones.it>";
 
 const risposta = (statusCode, testo) => ({ statusCode, headers: { "Content-Type": "text/plain; charset=utf-8" }, body: testo });
@@ -71,10 +74,32 @@ ${nota ? `<tr><td style="padding:4px 24px 22px 24px;font-size:12.5px;color:#8b95
     ...(secondo ? ["", `${secondo.testo}: ${secondo.href}`] : []),
     ...(nota ? ["", nota] : []),
   ].filter((x) => x !== undefined && x !== null).join("\n");
-  return { html: corpo, testo };
+  return { html: corpo, testo, sottotitolo, link: bottone && bottone.href };
 }
 
 // le email, una per tipo: { a: [destinatari], oggetto, html, testo }
+// notifica sul telefono a chi riceve l'email e ha attivato le notifiche (di solito i piloti nell'app)
+async function notificaTelefoni(segreto, email, m) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/push_destinatari`, {
+    method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_segreto: segreto, p_email: email }),
+  }).catch(() => null);
+  if (!r || !r.ok) return 0; // tabella non ancora creata o database non raggiungibile: restano le email
+  const telefoni = await r.json().catch(() => []);
+  const url = typeof m.link === "string" && m.link.startsWith(APP_URL) ? m.link : `${APP_URL}/?vai=richieste`;
+  const messaggio = { titolo: pulisci(m.oggetto, 90), testo: pulisci(m.sottotitolo, 160) || "Apri EyeDrones per i dettagli", url };
+  let ok = 0;
+  for (const t of (Array.isArray(telefoni) ? telefoni : []).slice(0, 200)) {
+    const esito = await inviaPush(segreto, t, messaggio);
+    if (esito === "ok") ok++;
+    if (esito === "via") await fetch(`${SUPABASE_URL}/rest/v1/rpc/push_togli`, {
+      method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_segreto: segreto, p_endpoint: t.endpoint }),
+    }).catch(() => null);
+  }
+  return ok;
+}
+
 function componiEmail(d) {
   const nome = pulisci(d.nome, 80);
   const servizio = pulisci(d.servizio, 80);
@@ -356,5 +381,6 @@ exports.handler = async (event) => {
       console.error("Resend ha rifiutato l'email:", invio && invio.status, invio && (await invio.text().catch(() => "")).slice(0, 300));
     }
   }
-  return errori === a.length ? risposta(502, "Invio non riuscito") : risposta(200, `Inviate ${a.length - errori}`);
+  const telefoni = await notificaTelefoni(segreto, a, m).catch(() => 0);
+  return errori === a.length ? risposta(502, "Invio non riuscito") : risposta(200, `Inviate ${a.length - errori}, notifiche ${telefoni}`);
 };

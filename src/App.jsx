@@ -12698,6 +12698,57 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
 }
 
 // «La mia pagina»: il pilota compone la sua pagina pubblica e legge le richieste arrivate
+// notifiche sul telefono per i piloti: nuove richieste in zona, «sei stato scelto», annullamenti (le manda avviso-lavori)
+function NotifichePush() {
+  const supportate = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const iPhone = typeof navigator !== "undefined" && (/iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+  const installata = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true);
+  const [stato, setStato] = useState(supportate ? "controllo" : "no"); // controllo | spente | attive | bloccate | lavoro | no
+  useEffect(() => {
+    if (!supportate) return;
+    if (Notification.permission === "denied") { setStato("bloccate"); return; }
+    navigator.serviceWorker.ready.then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => setStato(sub && Notification.permission === "granted" ? "attive" : "spente")).catch(() => setStato("spente"));
+  }, [supportate]);
+  const daBase64 = (t) => { const b = atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)); return Uint8Array.from(b, (c) => c.charCodeAt(0)); };
+  const attiva = async () => {
+    setStato("lavoro");
+    try {
+      if (await Notification.requestPermission() !== "granted") { setStato(Notification.permission === "denied" ? "bloccate" : "spente"); return; }
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        const r = await fetch("/.netlify/functions/push-chiave");
+        if (!r.ok) throw new Error("chiave");
+        const { chiave } = await r.json();
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: daBase64(chiave) });
+      }
+      const j = sub.toJSON();
+      await supabase.from("notifiche_push").delete().eq("endpoint", j.endpoint);
+      const { error } = await supabase.from("notifiche_push").insert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
+      if (error) throw error;
+      setStato("attive");
+    } catch (e) { console.error(e); setStato("errore"); }
+  };
+  const spegni = async () => {
+    setStato("lavoro");
+    try { const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription();
+      if (sub) { await supabase.from("notifiche_push").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); } } catch (e) { /* niente */ }
+    setStato("spente");
+  };
+  if (stato === "controllo") return null;
+  const riquadro = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "12px 14px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" };
+  const pulsante = { background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" };
+  const testo = (titolo, sotto) => <div style={{ flex: 1, minWidth: 180 }}><div style={{ fontWeight: 700, fontSize: 14, color: "#e7eaee" }}>{titolo}</div><div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2 }}>{sotto}</div></div>;
+  if (stato === "no") {
+    if (!iPhone || installata) return null;
+    return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Notifiche dei nuovi lavori", "Su iPhone prima aggiungi EyeDrones alla schermata Home (Safari → Condividi → Aggiungi alla schermata Home), poi aprila dall'icona e attiva qui le notifiche.")}</div>;
+  }
+  if (stato === "attive") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Notifiche attive su questo telefono", "Ti avvisiamo subito di nuove richieste in zona, quando un cliente ti sceglie e se un lavoro cambia.")}<button onClick={spegni} style={{ background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, cursor: "pointer" }}>Spegni</button></div>;
+  if (stato === "bloccate") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔕</span>{testo("Notifiche bloccate", "Le hai bloccate per EyeDrones: riattivale dalle impostazioni del browser (lucchetto accanto all'indirizzo → Notifiche), poi ricarica la pagina.")}</div>;
+  return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Avvisami dei nuovi lavori", stato === "errore" ? "Non sono riuscito ad attivarle su questo telefono: riprova tra poco." : "Una notifica sul telefono appena arriva una richiesta in zona o un cliente ti sceglie, anche ad app chiusa. Chi risponde prima vince più lavori.")}<button onClick={attiva} disabled={stato === "lavoro"} style={pulsante}>{stato === "lavoro" ? "Attivo…" : "Attiva"}</button></div>;
+}
+
 function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onRichiesteCambiate, onCreaPreventivo, onPermessi, onVai }) {
   const [scheda, setScheda] = useState(schedaIniziale); // "pagina" | "richieste"
   const [stato, setStato] = useState("carico"); // carico | pronto | manca-script
@@ -12961,6 +13012,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
 
       {scheda === "richieste" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <NotifichePush />
           {richiesteAperte.length === 0 && (
             <div style={{ ...sezione, alignItems: "center", textAlign: "center", color: "#8b95a3", fontSize: 13.5 }}>
               <div style={{ fontSize: 30 }}>📭</div>

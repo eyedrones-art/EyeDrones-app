@@ -52,3 +52,31 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(fetch(req).catch(() => caches.match(req)));
 });
+
+// notifiche sul telefono: nuove richieste in zona, «sei stato scelto», annullamenti... (le manda avviso-lavori)
+self.addEventListener("push", (event) => {
+  let m = {};
+  try { m = event.data ? event.data.json() : {}; } catch (e) { m = {}; }
+  const url = typeof m.url === "string" && m.url.startsWith(self.location.origin) ? m.url : "/?vai=richieste";
+  event.waitUntil(self.registration.showNotification(m.titolo || "EyeDrones", {
+    body: m.testo || "Hai un aggiornamento su EyeDrones",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    tag: "eyedrones-" + url,
+    renotify: true,
+    vibrate: [180, 80, 180],
+    data: { url },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/?vai=richieste";
+  event.waitUntil((async () => {
+    const finestre = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const f of finestre) {
+      if (new URL(f.url).origin === self.location.origin && "navigate" in f) { await f.focus(); return f.navigate(url); }
+    }
+    return self.clients.openWindow(url);
+  })());
+});
