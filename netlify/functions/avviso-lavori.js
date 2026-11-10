@@ -221,6 +221,70 @@ function componiEmail(d) {
     });
     return { a: [d.a], oggetto: `Com'è andata con ${pilota}? ⭐`, ...m };
   }
+  if (d.tipo === "data_spostata") {
+    const prima = dataItaliana(d.data_prima);
+    if (d.chi === "pilota") {
+      const m = impagina({
+        etichetta: "Data cambiata",
+        titolo: `${pilota} ha spostato la data`,
+        sottotitolo: `${servizio ? `«${servizio}»: ` : ""}la nuova data è ${quando || "da definire"}.`,
+        righe: [prima && ["Prima", prima], quando && ["Ora", quando]].filter(Boolean),
+        bottone: { href: linkOfferte, testo: "Vedi il lavoro" },
+        secondo: miei,
+        nota: "Se la nuova data non ti va bene, scrivi al pilota oppure annulla il lavoro dalla pagina del lavoro.",
+      });
+      return { a: [d.a], oggetto: `${pilota} ha spostato la data del lavoro`, ...m };
+    }
+    const m = impagina({
+      etichetta: "Data cambiata",
+      titolo: `${nome || "Il cliente"} ha spostato la data`,
+      sottotitolo: `${servizio ? `«${servizio}»${luogo ? ` a ${luogo}` : ""}: ` : ""}la nuova data è ${quando || "da definire"}.`,
+      righe: [prima && ["Prima", prima], quando && ["Ora", quando]].filter(Boolean),
+      bottone: { href: linkPilota, testo: "Vedi il lavoro" },
+      nota: "Se non sei libero in quella data, scrivi al cliente oppure annulla il lavoro in «Lavori in zona».",
+    });
+    return { a: [d.a], oggetto: `Data spostata: ${servizio || "lavoro"}${luogo ? ` a ${luogo}` : ""}`, ...m };
+  }
+  if (d.tipo === "annullato_pilota") {
+    const altre = Number(d.altre) || 0;
+    const m = impagina({
+      etichetta: "Lavoro annullato",
+      titolo: `${pilota} ha annullato il lavoro`,
+      sottotitolo: altre > 0
+        ? `Ci dispiace. ${altre === 1 ? "L'altra offerta è ancora disponibile" : `Le altre ${altre} offerte sono ancora disponibili`}: puoi sceglierne un'altra.`
+        : "Ci dispiace. Puoi chiudere la richiesta o aspettare nuove offerte; se vuoi, ti aiutiamo noi a trovare un altro pilota.",
+      riquadro: pulisci(d.motivo, 300) ? `Il motivo: ${pulisci(d.motivo, 300)}` : "",
+      bottone: { href: linkOfferte, testo: altre > 0 ? "Scegli un'altra offerta" : "Vedi la richiesta" },
+      secondo: miei,
+    });
+    return { a: [d.a], oggetto: `${pilota} ha annullato il lavoro`, ...m };
+  }
+  if (d.tipo === "annullato_cliente") {
+    const credito = Number(d.credito) || 0;
+    const m = impagina({
+      etichetta: "Lavoro annullato",
+      titolo: `${nome || "Il cliente"} ha annullato il lavoro`,
+      sottotitolo: `${servizio ? `«${servizio}»${luogo ? ` a ${luogo}` : ""}` : "Il lavoro"} non si fa più.`,
+      righe: lavoro,
+      riquadro: pulisci(d.motivo, 300) ? `Il motivo: ${pulisci(d.motivo, 300)}` : "",
+      bottone: { href: linkPilota, testo: "I tuoi lavori" },
+      nota: credito > 0
+        ? `La commissione che avevi pagato (${euro(credito)}) ti torna come credito per il prossimo lavoro, dopo la data prevista.`
+        : "Ci dispiace. Continua a mandare offerte: le nuove richieste ti arrivano per email.",
+    });
+    return { a: [d.a], oggetto: `Lavoro annullato dal cliente: ${servizio || "lavoro"}`, ...m };
+  }
+  if (d.tipo === "controllo_annullato") {
+    const m = impagina({
+      etichetta: "Una domanda veloce",
+      titolo: `Il lavoro con ${pilota} è stato fatto lo stesso?`,
+      sottotitolo: "Il lavoro era stato annullato. Ci serve sapere se poi l'avete fatto lo stesso, fuori da EyeDrones: rispondi con un tocco nella pagina del lavoro.",
+      bottone: { href: `${linkOfferte}#annullati`, testo: "Rispondi" },
+      secondo: miei,
+      nota: "Ci aiuti a tenere su EyeDrones solo piloti seri. La risposta non viene mostrata al pilota.",
+    });
+    return { a: [d.a], oggetto: `Una domanda sul lavoro con ${pilota}`, ...m };
+  }
   if (d.tipo === "miei_lavori") {
     if (!linkMiei) return null;
     const m = impagina({
@@ -246,6 +310,7 @@ async function avvisaTelegram(d) {
   const prov = pulisci(d.provincia, 4).toUpperCase();
   let testo = null;
   if (d.tipo === "richiesta_inviata") testo = `📍 Nuova richiesta su «Trova un pilota» in provincia di ${prov || "?"} · piloti avvisati: ${Number(d.piloti) || 0}${d.regione ? ` (girata alla regione ${pulisci(d.regione, 40)})` : ""}${Number(d.piloti) ? "" : " ⚠️ nessun pilota in zona"}`;
+  else if (d.tipo === "annullato_pilota" || d.tipo === "annullato_cliente") testo = `❌ Lavoro annullato dal ${d.tipo === "annullato_pilota" ? "pilota" : "cliente"} su «Trova un pilota»: ${pulisci(d.servizio, 80) || "lavoro"}${pulisci(d.motivo, 120) ? ` · motivo: ${pulisci(d.motivo, 120)}` : ""}`;
   else if (d.tipo === "confermato") testo = `✅ Lavoro confermato su «Trova un pilota»${Number(d.prezzo) ? ` · ${euro(d.prezzo)}` : ""}`;
   else if (d.tipo === "problema") {
     const MOTIVI = { non_paga: "il cliente non paga", sparito: "il cliente è sparito", non_presentato: "il pilota non si è presentato", non_consegna: "il pilota non consegna", altro: "altro" };
