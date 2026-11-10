@@ -72,6 +72,13 @@ h1,h2,h3{font-family:var(--titoli);margin:0;line-height:1.1;text-wrap:balance}
 .cat button{flex:none;border:1px solid var(--bordo);background:var(--bianco);border-radius:99px;padding:8px 13px;font-weight:600;font-size:13.5px;white-space:nowrap}
 .cat button[aria-pressed="true"]{background:var(--foglia);border-color:var(--foglia);color:var(--bianco)}
 
+.piano{text-align:left;margin-top:12px;border:2px solid var(--tuorlo);border-radius:16px;padding:12px 14px;background:var(--bianco);display:grid;gap:6px;font-size:13.5px}
+.piano .ptesta{display:flex;justify-content:space-between;width:100%;align-items:baseline;gap:10px;flex-wrap:wrap}
+.piano .ptesta b{font-size:15px}
+.piano .costo{font-weight:800;font-size:17px;font-variant-numeric:tabular-nums}
+.piano .costo small{font-weight:600;font-size:12px;color:var(--tenue)}
+.piano ul{margin:0;padding-left:18px;color:var(--tenue);display:grid;gap:2px}
+.piano .prova{display:inline-block;background:var(--tuorlo);color:var(--lavagna);font-weight:800;font-size:12px;border-radius:8px;padding:2px 8px;justify-self:start}
 .stagione{margin-top:14px;display:flex;gap:10px;align-items:center;background:var(--foglia-chiara);border-radius:16px;padding:12px 14px;font-size:14px}
 .stagione b{font-family:var(--gessetto);font-weight:400;font-size:22px;color:var(--foglia)}
 
@@ -198,7 +205,7 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
     <div class="stagione" id="stagione"><b>Novembre</b><span>È il momento di cavolo nero, zucca, porri, castagne, cachi e mele.</span></div>
     <section class="sez"><h2><span id="titProd">Produttori vicino a te</span> <small>tocca per conoscerli</small></h2>
       <div class="produttori" id="produttori"></div>
-      <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Iscriviti in 2 minuti, metti i tuoi prodotti con le tue foto e ricevi gli ordini dei clienti della tua zona.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
+      <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Iscriviti in 2 minuti, metti i tuoi prodotti con le tue foto e ricevi gli ordini dei clienti della tua zona. <span style="font-weight:700">I primi 3 mesi sono inclusi</span>, poi 19 € al mese.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
     <section class="sez"><h2>Al banco oggi <small id="conta"></small></h2>
       <div class="cat" id="categorie" role="group" aria-label="Categorie"></div>
       <div class="griglia" id="griglia"></div></section>
@@ -217,6 +224,8 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
       <div class="num"><b id="vIncasso">0 €</b><span>questa settimana</span></div>
       <div class="num"><b id="vProdotti">0</b><span>prodotti in vendita</span></div>
     </div>
+    <div class="piano" id="vPiano"><div class="ptesta"><b>Il tuo abbonamento</b><span class="prova">In prova</span></div>
+      <span>Periodo di prova fino al <b id="vFineProva"></b>. Dopo: <b>19 € al mese</b>, solo se lo confermi tu.</span></div>
     <section class="sez"><h2>Ordini da preparare</h2><div id="ordini"></div></section>
     <section class="sez"><h2>I miei clienti <small>chi ha già comprato da te</small></h2><div id="mieiClienti"></div></section>
     <section class="sez"><h2>I miei prodotti <small>accendi o spegni</small></h2><div id="mieiProdotti"></div></section>
@@ -302,7 +311,7 @@ function mostraGriglia(){
 }
 function cambia(id,d){carrello[id]=Math.max(0,(carrello[id]||0)+d);if(!carrello[id])delete carrello[id];mostraGriglia();if(!$("sheet").hidden&&$("sheet").dataset.tipo==="carrello")apriCarrello()}
 
-function apriSheet(html,tipo){const s=$("sheet");s.dataset.tipo=tipo;s.innerHTML=`<div class="sheet-bg" data-chiudi="1"><div class="sheet" role="dialog" aria-modal="true"><div class="testa"><button class="chiudi" data-chiudi="1" aria-label="Chiudi">✕</button></div>${html}</div></div>`;s.hidden=false}
+function apriSheet(html,tipo){const s=$("sheet");s.dataset.tipo=tipo;s.innerHTML=`<div class="sheet-bg" data-chiudi="1"><div class="sheet" role="dialog" aria-modal="true"><div class="ptesta"><button class="chiudi" data-chiudi="1" aria-label="Chiudi">✕</button></div>${html}</div></div>`;s.hidden=false}
 function apriProduttore(id){const p=prod(id);const suoi=ART.filter(a=>a.prod===id&&a.attivo);
   apriSheet(`${foto(p.f+" banner",p.e,p.foto)}<div class="corpo"><h2>${p.nome}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">${p.tipo} · ${p.paese} · ${p.zona==="italia"?p.regione+", spedito dal produttore":p.km+" km da Torino"}</div>
   <p class="storia">${p.storia}</p><div class="consegne">${Object.entries(p.cons).map(([k,v])=>`<div class="cons"><span>${ETI[k][0]}</span><div><b>${ETI[k][2]}</b>${v}</div></div>`).join("")}</div>
@@ -343,8 +352,11 @@ function apriIscrizione(){
       <label class="scelta"><input type="checkbox" id="cCasa" checked><span><b>🚚 Porto io a casa del cliente</b></span></label>
       <label class="scelta"><input type="checkbox" id="cAzienda" checked><span><b>🏡 Ritiro in azienda</b></span></label>
     </div>
-    <button class="grande" type="submit">Crea la mia bottega</button>
-    <p class="nota">Nel prototipo non serve email né password: nell'app vera ti iscrivi con email o telefono e controlliamo la partita IVA agricola.</p>
+    <div class="piano"><div class="ptesta"><b>Abbonamento bottega</b><span class="costo">19 € <small>al mese</small></span></div>
+      <span class="prova">Primi 3 mesi: 0 €</span>
+      <ul><li>Nessuna percentuale sulle tue vendite</li><li>Prodotti e clienti senza limiti</li><li>Disdici quando vuoi, anche durante i 3 mesi</li><li>Ti avvisiamo 7 giorni prima della fine dei 3 mesi</li></ul></div>
+    <button class="grande" type="submit">Crea la mia bottega · inizia i 3 mesi</button>
+    <p class="nota">Nel prototipo non serve email né password: nell'app vera ti iscrivi con email o telefono e controlliamo la partita IVA agricola. Dopo i 3 mesi l'abbonamento parte solo se lo confermi tu.</p>
   </form></div>`,"iscrizione");
   $("formIscrizione").addEventListener("submit",e=>{e.preventDefault();
     const cons={};if($("cCasa").checked)cons.casa="Consegna a casa · giorni da concordare";if($("cAzienda").checked)cons.azienda="Ritiro in azienda";
@@ -360,6 +372,7 @@ function apriIscrizione(){
 function mostraVendo(){
   const miei=ART.filter(a=>a.prod===io),mieiOrd=ordini.filter(o=>o.prod===io),me=prod(io);
   $("vNome").textContent=me.nome;
+  const fp=new Date();fp.setMonth(fp.getMonth()+3);$("vFineProva").textContent=fp.toLocaleDateString("it-IT",{day:"numeric",month:"long",year:"numeric"});
   $("vOrdini").textContent=mieiOrd.filter(o=>o.stato==="nuovo").length;
   $("vIncasso").textContent=euro(mieiOrd.reduce((s,o)=>s+o.tot,0));
   const cl=CLIENTI[io]||[];
