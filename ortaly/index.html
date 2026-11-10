@@ -541,7 +541,9 @@ function mostraVendo(){
   }else{
     c.innerHTML=`<div class="blocco"><b>Il link della tua bottega</b><p class="nota" style="margin-top:2px">Mandalo ai tuoi clienti su WhatsApp o mettilo sul cartello al banco: lo aprono e ordinano da te.</p>
       <div class="condividi"><code id="linkB">${esc(link)}</code><button class="piu" data-copia="1">Copia</button><a class="piu" style="text-decoration:none" href="https://wa.me/?text=${encodeURIComponent("Ordina i miei prodotti su Ortaly: "+link)}" target="_blank" rel="noopener">WhatsApp</a></div></div>
-      ${formBottega(b)}`;
+      ${formBottega(b)}
+      <div class="blocco" style="margin-top:22px"><b>Chiudi la bottega</b><p class="nota" style="margin-top:2px">Cancella per sempre la bottega con i suoi prodotti, ordini e notifiche. I clienti non la vedranno più.</p>
+      <button class="link" style="color:var(--pomodoro)" data-chiudibottega="1">Chiudi e cancella la bottega</button></div>`;
     $("formBottega").addEventListener("submit",salvaBottega);
   }
 }
@@ -588,18 +590,22 @@ async function installa(){
   <p class="nota">Funziona da Safari. Se hai aperto Ortaly da un'altra app (WhatsApp, Instagram), prima apri il link in Safari.</p></div>`,"installa")}
 const daBase64=t=>{const b=atob(t.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((t.length+3)%4));return Uint8Array.from(b,c=>c.charCodeAt(0))};
 async function attivaNotifiche(){
+  let passo="permesso";
   try{
     const perm=await Notification.requestPermission();
     if(perm!=="granted"){toast("Senza il permesso non possiamo avvisarti");mostraBoxApp();return}
-    const reg=await navigator.serviceWorker.ready;
+    passo="app";const reg=await Promise.race([navigator.serviceWorker.ready,new Promise((_,ko)=>setTimeout(()=>ko(new Error("service worker non pronto")),8000))]);
     let sub=await reg.pushManager.getSubscription();
-    if(!sub){const r=await fetch("/.netlify/functions/ortaly-push-chiave");if(!r.ok)throw new Error("chiave");const {chiave}=await r.json();
-      sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:daBase64(chiave)})}
+    if(!sub){passo="chiave";const r=await fetch("/.netlify/functions/ortaly-push-chiave");if(!r.ok)throw new Error("risposta "+r.status);const {chiave}=await r.json();
+      passo="iscrizione";sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:daBase64(chiave)})}
+    passo="salvataggio";
     await sb.from("notifiche").delete().eq("endpoint",sub.endpoint);
     const {error}=await sb.from("notifiche").insert({bottega:mia.id,endpoint:sub.endpoint});
     if(error)throw error;
     statoNotifiche="attive";mostraBoxApp();toast("Fatto: ti avvisiamo a ogni nuovo ordine");
-  }catch(e){console.error(e);toast("Non riesco ad attivare le notifiche su questo telefono");statoNotifiche="spente";mostraBoxApp()}}
+  }catch(e){console.error(e);const motivo=(e&&(e.message||e.name))||"errore";
+    toast(passo==="iscrizione"?"Il telefono non accetta le notifiche (servizi Google mancanti o bloccati). Dettaglio: "+motivo:"Notifiche non attivate (passo: "+passo+"). Dettaglio: "+motivo);
+    statoNotifiche="spente";mostraBoxApp()}}
 async function spegniNotifiche(){
   try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();
     if(sub){await sb.from("notifiche").delete().eq("endpoint",sub.endpoint);await sub.unsubscribe()}}catch(e){}
@@ -611,9 +617,16 @@ function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro"
   if(v){vendoScheda="ordini";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
   window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":location.pathname)}catch(e){}}
 
-document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche]");if(!t)return;
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega]");if(!t)return;
   if(t.dataset.chiudi!==undefined&&t.classList.contains("sheet-bg")&&e.target!==t)return;
   if(t.dataset.installa){installa();return}
+  if(t.dataset.chiudibottega){
+    if(t.dataset.sicuro!=="1"){t.dataset.sicuro="1";t.textContent="Sicuro? Tocca ancora per cancellare tutto";setTimeout(()=>{if(t.isConnected){t.dataset.sicuro="";t.textContent="Chiudi e cancella la bottega"}},5000);return}
+    t.disabled=true;
+    try{const reg=pushOk()?await navigator.serviceWorker.getRegistration():null;const sub=reg?await reg.pushManager.getSubscription():null;if(sub)await sub.unsubscribe()}catch(x){}
+    const {error}=await sb.from("botteghe").delete().eq("id",mia.id);
+    if(error){toast(erroreDi(error));t.disabled=false;return}
+    mia=null;mieiProd=[];mieiOrd=[];statoNotifiche="?";clearInterval(timerOrdini);toast("Bottega cancellata");caricaBanco();caricaMia();return}
   if(t.dataset.notifiche){t.disabled=true;if(t.dataset.notifiche==="attiva")await attivaNotifiche();else await spegniNotifiche();return}
   if(t.dataset.iscrivi){chiudiSheet();modo(true)}
   else if(t.dataset.piu)cambia(t.dataset.piu,1);
