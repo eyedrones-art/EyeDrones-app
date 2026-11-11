@@ -341,7 +341,7 @@ function notificaWeekend(u, giorni) {
     posto ? `📍 ${posto.nome} (${String(posto.km).replace(".", ",")} km).` : "",
   ].filter(Boolean);
   return {
-    titolo: `🌤️ Si vola vicino a ${zona}`.slice(0, 90),
+    titolo: `🌤️ Si vola vicino ${/^a/i.test(zona) ? "ad" : "a"} ${zona}`.slice(0, 90),
     testo: pezzi.join(" ").slice(0, 200),
     url: `${APP_URL}/?vai=pianificazione`,
   };
