@@ -5,6 +5,7 @@
 //   TELEGRAM_TOKEN    il token del bot (da @BotFather)
 //   TELEGRAM_CHAT_ID  il numero della chat dell'amministratore (da @userinfobot)
 //   AVVISO_SEGRETO    lo stesso delle email
+//   ORTALY_SUPABASE_SECRET  facoltativa: la stessa chiave del sito Ortaly; se c'è, nel messaggio ci sono anche i numeri di Ortaly
 const crypto = require("crypto");
 
 const risposta = (statusCode, testo) => ({ statusCode, headers: { "Content-Type": "text/plain; charset=utf-8" }, body: testo });
@@ -29,7 +30,32 @@ function oggiItalia() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
-function messaggioMattino(x) {
+// Ortaly (altro progetto Supabase): solo conteggi, con la chiave segreta di Ortaly. Se manca o non risponde, la parte non c'è
+const ORTALY_URL = "https://qqxzqiwxhyyzylmkvdew.supabase.co";
+async function numeriOrtaly(chiave) {
+  if (!chiave) return null;
+  const h = { apikey: chiave, Prefer: "count=exact", Range: "0-0" };
+  if (chiave.startsWith("eyJ")) h.Authorization = `Bearer ${chiave}`;
+  const ieri = new Date(Date.now() - 864e5).toISOString();
+  const conta = async (q) => {
+    const r = await fetch(`${ORTALY_URL}/rest/v1/${q}`, { headers: h }).catch(() => null);
+    if (!r || !r.ok) throw new Error("ortaly " + (r && r.status));
+    return Number(String(r.headers.get("content-range") || "").split("/")[1]) || 0;
+  };
+  try {
+    const [botteghe, nuove, aperte, prodotti, fermi] = await Promise.all([
+      conta("botteghe?select=id"), conta(`botteghe?select=id&creata=gte.${ieri}`), conta("vetrina_botteghe?select=id"),
+      conta("vetrina_prodotti?select=id"), conta(`ordini?select=id&stato=eq.nuovo&creato=lt.${ieri}`),
+    ]);
+    const r = await fetch(`${ORTALY_URL}/rest/v1/ordini?select=totale,stato&creato=gte.${ieri}`, { headers: { apikey: h.apikey, ...(h.Authorization ? { Authorization: h.Authorization } : {}) } });
+    const ordini = r.ok ? await r.json() : [];
+    const validi = ordini.filter((o) => o.stato !== "annullato");
+    return { botteghe, nuove, aperte, prodotti, fermi, ordini: ordini.length, incasso: validi.reduce((t, o) => t + (Number(o.totale) || 0), 0) };
+  } catch (e) { console.error("numeri Ortaly non disponibili:", e.message); return null; }
+}
+const euro = (v) => `${(Number(v) || 0).toLocaleString("it-IT", { maximumFractionDigits: 2 })} €`;
+
+function messaggioMattino(x, o) {
   const giorno = new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome", weekday: "long", day: "numeric", month: "long" });
   const r = [`☀️ <b>Buongiorno Ivan</b> · ${html(giorno)}`, ""];
   r.push(`👥 <b>Iscritti: ${n(x.iscritti)}</b> · ${n(x.nuovi) ? `+${n(x.nuovi)} da ieri` : "nessun nuovo da ieri"} · ${n(x.nuovi_7)} in 7 giorni`);
@@ -46,6 +72,13 @@ function messaggioMattino(x) {
   }
   if (n(x.richieste_pagine)) r.push(`✉️ ${plurale(n(x.richieste_pagine), "richiesta", "richieste")} dalle pagine dei piloti`);
   if (n(x.pagine_nuove)) r.push(`🌐 ${plurale(n(x.pagine_nuove), "pagina pilota nuova", "pagine pilota nuove")}`);
+  if (o) {
+    r.push("", "<b>Ortaly</b>");
+    r.push(`🧺 Produttori: ${o.botteghe}${o.nuove ? ` · +${o.nuove} da ieri` : ""} · ${o.aperte} con la bottega aperta`);
+    r.push(`🥕 Prodotti al banco: ${o.prodotti}`);
+    r.push(o.ordini ? `🛒 ${plurale(o.ordini, "ordine", "ordini")} da ieri · ${euro(o.incasso)} per i produttori` : "🛒 Nessun ordine da ieri");
+    if (o.fermi) r.push(`⚠️ ${plurale(o.fermi, "ordine aspetta", "ordini aspettano")} il produttore da più di un giorno`);
+  }
   if (x.errori != null) r.push("", n(x.errori) ? `🐞 ${plurale(n(x.errori), "errore", "errori")} nell'app (dettagli nell'email del mattino)` : "🐞 Nessun errore nell'app");
   const agenda = AGENDA[oggiItalia()];
   if (agenda) r.push("", "<b>Da fare oggi</b>", ...agenda.map((a) => `• ${html(a)}`));
@@ -67,7 +100,7 @@ exports.handler = async (event) => {
   const invio = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chat, text: messaggioMattino(d.numeri || {}), parse_mode: "HTML", disable_web_page_preview: true }),
+    body: JSON.stringify({ chat_id: chat, text: messaggioMattino(d.numeri || {}, await numeriOrtaly(process.env.ORTALY_SUPABASE_SECRET)), parse_mode: "HTML", disable_web_page_preview: true }),
   }).catch(() => null);
   if (!invio || !invio.ok) {
     console.error("Telegram ha rifiutato il messaggio:", invio && invio.status, invio && (await invio.text().catch(() => "")).slice(0, 300));
