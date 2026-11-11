@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/pagine-google.mjs",
+    "build": "vite build && node scripts/pagine-google.mjs && node scripts/pagine-solare.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

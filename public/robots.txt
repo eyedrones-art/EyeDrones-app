@@ -6,3 +6,4 @@ Disallow: /partner-
 Allow: /
 
 Sitemap: https://app.eyedrones.it/sitemap.xml
+Sitemap: https://app.eyedrones.it/sitemap-fotovoltaico.xml
