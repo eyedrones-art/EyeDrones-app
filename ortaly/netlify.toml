@@ -4,6 +4,9 @@
   publish = "."
   functions = "funzioni"
   command = ""
+  # se una modifica non tocca la cartella ortaly, Netlify non ripubblica Ortaly (ogni pubblicazione consuma crediti).
+  # Al primo deploy, o se si ripubblica lo stesso commit, CACHED_COMMIT_REF manca o è uguale: allora si pubblica sempre.
+  ignore = 'if [ -z "$CACHED_COMMIT_REF" ] || [ "$CACHED_COMMIT_REF" = "$COMMIT_REF" ]; then exit 1; fi; git diff --quiet "$CACHED_COMMIT_REF" "$COMMIT_REF" -- .'
 
 # sicurezza: nessun altro sito può mostrare Ortaly dentro una sua pagina, sempre https,
 # agli altri siti arriva solo l'indirizzo base; fotocamera solo per Ortaly (foto dei prodotti)
