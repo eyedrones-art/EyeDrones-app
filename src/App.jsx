@@ -4048,6 +4048,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         <div style={{ height: 18 }} />
         {bloccoScadenze}
         <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
+        <NotifichePush tema="impostazioni" inHome />
         {(droni || []).length > 0 && <AvvisoWeekend inHome />}
         {/* la pagina pilota a tutti: senza pagina non arrivano i lavori di «Trova un pilota» */}
         <InvitoPaginaPilota onNav={onNav} nome={nomeSaluto} />
@@ -12700,7 +12701,9 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
 
 // «La mia pagina»: il pilota compone la sua pagina pubblica e legge le richieste arrivate
 // notifiche sul telefono per i piloti: nuove richieste in zona, «sei stato scelto», annullamenti (le manda avviso-lavori)
-function NotifichePush({ tema }) {
+const CHIAVE_NOTIFICHE_CHIUSO = "eyedrones_notifiche_chiuso";
+function NotifichePush({ tema, inHome }) {
+  const [chiuso, setChiuso] = useState(() => inHome && leggiLocale(CHIAVE_NOTIFICHE_CHIUSO) === "si");
   const weekend = tema === "weekend";
   const generale = tema === "impostazioni";
   const supportate = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -12739,7 +12742,23 @@ function NotifichePush({ tema }) {
       if (sub) { await supabase.from("notifiche_push").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); } } catch (e) { /* niente */ }
     setStato("spente");
   };
-  if (stato === "controllo") return null;
+  if (stato === "controllo" || chiuso) return null;
+  // nella Home solo l'invito ad attivarle (con la × per non vederlo più): attive o bloccate si gestiscono da Impostazioni
+  if (inHome) {
+    if (!["spente", "errore", "lavoro"].includes(stato)) return null;
+    const chiudi = () => { scriviLocale(CHIAVE_NOTIFICHE_CHIUSO, "si"); setChiuso(true); };
+    return (
+      <div style={{ position: "relative", background: "linear-gradient(135deg, #1b2433, #151b2b)", border: "1px solid #ff8c4255", borderRadius: 12, padding: "14px 44px 14px 14px", marginBottom: 18, maxWidth: 640, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" onClick={chiudi} aria-label="Non mostrarlo più" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
+        <span style={{ fontSize: 24 }}>🔔</span>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5, color: "#e7eaee" }}>Attiva le notifiche sul telefono</div>
+          <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 3, lineHeight: 1.45 }}>{stato === "errore" ? "Non sono riuscito ad attivarle: riprova tra poco." : "Il meteo del volo di domani, le scadenze di assicurazione e attestati, i pagamenti e le nuove richieste in zona."}</div>
+        </div>
+        <button onClick={attiva} disabled={stato === "lavoro"} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "9px 16px", borderRadius: 8, fontWeight: 700, fontSize: 13.5, cursor: "pointer" }}>{stato === "lavoro" ? "Attivo…" : "Attiva"}</button>
+      </div>
+    );
+  }
   const riquadro = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "12px 14px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" };
   const pulsante = { background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", padding: "8px 14px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" };
   const testo = (titolo, sotto) => <div style={{ flex: 1, minWidth: 180 }}><div style={{ fontWeight: 700, fontSize: 14, color: "#e7eaee" }}>{titolo}</div><div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2 }}>{sotto}</div></div>;
@@ -16910,6 +16929,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <TestataPagina titolo="Impostazioni" sigla="SET · AZIENDA, LOGO E REPORT" icona={Settings} info="Come usi l'app, unità del vento, nome e logo per i report e i preventivi in PDF, account e privacy." />
+      <div style={{ maxWidth: 560, marginBottom: 16 }}><NotifichePush tema="impostazioni" /></div>
 
       <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 24, maxWidth: 560 }}>
         <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Come usi l'app</h3>
@@ -17000,7 +17020,6 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
             {(LINK_PRIVACY || LINK_TERMINI) && <> · <LinkLegali stile={{ color: "#3d8bfd" }} /></>}
           </p>
           <SpazioEPromemoria />
-          <div style={{ marginBottom: 12 }}><NotifichePush tema="impostazioni" /></div>
           <AvvisoWeekend />
           {AI_IN_PROVA.includes(String(userEmail || "").toLowerCase()) && (
             <button type="button" onClick={() => vaiA({ pagina: "numeri" })} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12, color: "#e7eaee" }}>
