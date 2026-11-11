@@ -59,7 +59,7 @@ async function messaggio(a) {
     const punto = coordinate(a.coordinate) || (await cercaPosto(a.zona)) || (await cercaPosto(a.nome));
     const m = await meteo(punto, a.data, a.ora);
     const quando = a.tipo === "volo_domani" ? `Domani${a.ora ? ` alle ${a.ora}` : ""}` : `Oggi${a.ora ? ` alle ${a.ora}` : ""}`;
-    const dopo = a.tipo === "volo_domani" ? " Carica le batterie e controlla D-Flight." : " Controlla D-Flight prima di decollare.";
+    const dopo = m && m.giudizio === "⛔" ? " Se lo sposti, allenati al simulatore." : a.tipo === "volo_domani" ? " Carica le batterie e controlla D-Flight." : " Controlla D-Flight prima di decollare.";
     return { titolo: `🛫 ${quando} voli: ${nome}`, testo: (testoMeteo(m) + dopo).slice(0, 220), url: `${APP_URL}/?vai=voli` };
   }
   if (a.tipo === "lavoro_domani") {

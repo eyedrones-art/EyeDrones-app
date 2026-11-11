@@ -347,6 +347,17 @@ function notificaWeekend(u, giorni) {
   };
 }
 
+// weekend brutto (né sabato né domenica hanno ore buone): niente email, ma la notifica invita al simulatore
+function notificaPioggia(u, giorni) {
+  if (giorni.some((g) => g && g.finestre.length) || !giorni.some(Boolean)) return null;
+  const zona = u.zona || "la tua zona";
+  return {
+    titolo: `🌧️ Weekend da non volare vicino ${/^a/i.test(zona) ? "ad" : "a"} ${zona}`.slice(0, 90),
+    testo: "Pioggia o troppo vento sabato e domenica. Allenati al simulatore: missioni per clienti veri, FPV e prova d'esame A1/A3.",
+    url: `${APP_URL}/simulatore/`,
+  };
+}
+
 // i telefoni con le notifiche attive di questa persona (stessa funzione del database usata per i lavori)
 async function notificaTelefoni(segreto, email, messaggio) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/push_destinatari`, {
@@ -455,7 +466,11 @@ exports.handler = async (event) => {
     if (!j) continue;
     const giorni = weekend.map((g) => finestreDelGiorno(j, g));
     const e = emailWeekend(u, giorni);
-    if (!e) continue; // weekend brutto: niente email e niente notifica
+    if (!e) { // weekend brutto: niente email, solo la notifica del simulatore
+      const p = notificaPioggia(u, giorni);
+      if (p) await notificaTelefoni(process.env.AVVISO_SEGRETO, u.email, p).catch((x) => console.error("notifica pioggia", x.message));
+      continue;
+    }
     const n = notificaWeekend(u, giorni);
     if (n) await notificaTelefoni(process.env.AVVISO_SEGRETO, u.email, n).catch((x) => console.error("notifica weekend", x.message));
     if (restano <= 0) continue;
@@ -483,4 +498,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailWeekend, notificaWeekend, notificaScadenze, finestreDelGiorno, giorniWeekend };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailWeekend, notificaWeekend, notificaScadenze, notificaPioggia, finestreDelGiorno, giorniWeekend };
