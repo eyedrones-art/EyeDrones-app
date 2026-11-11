@@ -12,7 +12,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[
  {"@type":"Organization","@id":"https://ortaly.it/#org","name":"Ortaly","url":"https://ortaly.it/","logo":"https://ortaly.it/icona-512.png","email":"info@ortaly.it","description":"Mercato online dei produttori agricoli: frutta, verdura, formaggi, miele e vino a km zero."},
  {"@type":"WebSite","@id":"https://ortaly.it/#sito","url":"https://ortaly.it/","name":"Ortaly","inLanguage":"it","publisher":{"@id":"https://ortaly.it/#org"}}]}</script>
-<meta name="theme-color" content="#22382a">
+<meta name="theme-color" content="#05634a">
 <meta property="og:title" content="Ortaly · dal campo a casa tua">
 <meta property="og:description" content="I prodotti dei contadini della tua zona: ordini qui, prepara tutto chi coltiva.">
 <meta property="og:url" content="https://ortaly.it/">
@@ -22,25 +22,31 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ortaly">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2048%2048%22%3E%3Crect%20width%3D%2248%22%20height%3D%2248%22%20rx%3D%2213%22%20fill%3D%22%23e9a514%22/%3E%3Cpath%20d%3D%22M24%2025V13%22%20stroke%3D%22%2322382a%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M24%2017c-1-5-5-7-10-6%200%205%204%208%2010%206zM24%2015c1-5%205-7%2010-6%200%205-4%208-10%206z%22%20fill%3D%22%233c6a2c%22/%3E%3Cpath%20d%3D%22M9%2024h30l-3%2015H12z%22%20fill%3D%22%2322382a%22/%3E%3Cpath%20d%3D%22M11%2029.5h26M12%2034.5h24%22%20stroke%3D%22%23e9a514%22%20stroke-width%3D%222%22/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2048%2048%22%3E%3Cdefs%3E%3ClinearGradient%20id=%22lg%22%20x1=%220%22%20y1=%220%22%20x2=%221%22%20y2=%221%22%3E%3Cstop%20offset=%220%22%20stop-color=%22%2310b981%22/%3E%3Cstop%20offset=%221%22%20stop-color=%22%23047857%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width=%2248%22%20height=%2248%22%20rx=%2213%22%20fill=%22url%28%23lg%29%22/%3E%3Cg%20transform=%22translate%2824%2024%29%20scale%281.05%29%20translate%28-24%20-26%29%22%3E%3Cpath%20d=%22M24%2025V13%22%20stroke=%22%23ffffff%22%20stroke-width=%223%22%20stroke-linecap=%22round%22/%3E%3Cpath%20d=%22M24%2017c-1-5-5-7-10-6%200%205%204%208%2010%206z%22%20fill=%22%23fbbf24%22/%3E%3Cpath%20d=%22M24%2015c1-5%205-7%2010-6%200%205-4%208-10%206z%22%20fill=%22%23a7f3d0%22/%3E%3Cpath%20d=%22M9%2024h30l-3%2015H12z%22%20fill=%22%23ffffff%22/%3E%3Cpath%20d=%22M11%2029.5h26M12%2034.5h24%22%20stroke=%22%23059669%22%20stroke-width=%222%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=Caveat+Brush&display=swap">
 <style>
 /* Layout: un banco di mercato sul telefono — lavagna verde in alto, cassette di prodotti sotto, prezzi scritti col gesso */
 :root{
-  --carta:#f1f3ea; --carta2:#e6eadb; --bianco:#fffefa; --inchiostro:#1e2a1d; --tenue:#5d6a57;
-  --foglia:#3c6a2c; --foglia-chiara:#e1ecd3; --lavagna:#22382a; --gesso:#f4f1e4; --tuorlo:#e9a514; --pomodoro:#c8412e; --bordo:#d5dbc7;
+  --carta:#f2faf6; --carta2:#dcf2e8; --bianco:#ffffff; --inchiostro:#0f2a24; --tenue:#4a675e;
+  --foglia:#047857; --foglia-chiara:#d3f4e5; --lavagna:#05634a; --gesso:#effcf6; --tuorlo:#fbbf24; --pomodoro:#d63a40; --bordo:#cce6db;
+  --corallo:#e5484d; --su-corallo:#ffffff; --scuro:#0f2a24; --su-lavagna:#c4ecdb;
+  --p1:#fff0e6; --p2:#fde8f0; --p3:#fff7d6; --p4:#e7f0ff; --p5:#efe9ff;
   --ombra:0 1px 0 rgba(30,42,29,.06),0 8px 24px -14px rgba(30,42,29,.35);
   --titoli:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
   --testo:"Figtree","Segoe UI",system-ui,sans-serif;
   --gessetto:"Caveat Brush","Comic Sans MS",cursive;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --carta:#151c15; --carta2:#1d261c; --bianco:#1f2a1e; --inchiostro:#eef1e6; --tenue:#a7b39d;
-  --foglia:#8fc46d; --foglia-chiara:#2a3a24; --lavagna:#0f1a12; --gesso:#f1eedf; --tuorlo:#f2b937; --pomodoro:#ef7560; --bordo:#33402f; color-scheme:dark}}
+  --carta:#0b1714; --carta2:#12241e; --bianco:#14261f; --inchiostro:#e6f6ef; --tenue:#9cb9ad;
+  --foglia:#34d399; --foglia-chiara:#123a2d; --lavagna:#052e24; --gesso:#ecfdf5; --tuorlo:#fcd34d; --pomodoro:#f87171; --bordo:#22413a;
+  --corallo:#ff8a92; --su-corallo:#2a0d10; --scuro:#0f2a24; --su-lavagna:#a8dcc6;
+  --p1:#2e211a; --p2:#2e1a24; --p3:#2c2914; --p4:#16233a; --p5:#221a38; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --carta:#151c15; --carta2:#1d261c; --bianco:#1f2a1e; --inchiostro:#eef1e6; --tenue:#a7b39d;
-  --foglia:#8fc46d; --foglia-chiara:#2a3a24; --lavagna:#0f1a12; --gesso:#f1eedf; --tuorlo:#f2b937; --pomodoro:#ef7560; --bordo:#33402f; color-scheme:dark}
+  --carta:#0b1714; --carta2:#12241e; --bianco:#14261f; --inchiostro:#e6f6ef; --tenue:#9cb9ad;
+  --foglia:#34d399; --foglia-chiara:#123a2d; --lavagna:#052e24; --gesso:#ecfdf5; --tuorlo:#fcd34d; --pomodoro:#f87171; --bordo:#22413a;
+  --corallo:#ff8a92; --su-corallo:#2a0d10; --scuro:#0f2a24; --su-lavagna:#a8dcc6;
+  --p1:#2e211a; --p2:#2e1a24; --p3:#2c2914; --p4:#16233a; --p5:#221a38; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--carta);color:var(--inchiostro);font:15px/1.5 var(--testo);margin:0}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--lavagna)}
@@ -52,7 +58,7 @@ h1,h2,h3{font-family:var(--titoli);margin:0;line-height:1.1;text-wrap:balance}
 
 /* lavagna */
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--lavagna);color:var(--gesso);
-  background-image:radial-gradient(120% 80% at 20% 0%,rgba(255,255,255,.06),transparent 60%)}
+  background-image:radial-gradient(120% 80% at 20% 0%,rgba(255,255,255,.10),transparent 60%)}
 .top .wrap{display:flex;align-items:center;gap:12px;padding-block:12px}
 .marchio{font:800 21px var(--titoli);letter-spacing:-.4px;display:flex;align-items:center;gap:8px}
 .marchio .logo{width:34px;height:34px;flex:none}
@@ -64,16 +70,16 @@ h1,h2,h3{font-family:var(--titoli);margin:0;line-height:1.1;text-wrap:balance}
 .modo{margin-left:auto;display:flex;background:rgba(255,255,255,.08);border-radius:99px;padding:3px}
 .modo button{border:0;background:none;color:var(--gesso);padding:7px 14px;border-radius:99px;font-weight:700;font-size:13.5px;opacity:.75}
 .modo button[aria-pressed="true"]{background:var(--gesso);color:var(--lavagna);opacity:1}
-.carrello{position:relative;border:0;background:var(--tuorlo);color:#1e2a1d;border-radius:12px;padding:8px 11px;font-weight:800;font-size:14px;display:flex;gap:6px;align-items:center}
-.carrello b{background:#1e2a1d;color:var(--tuorlo);border-radius:99px;min-width:20px;height:20px;font-size:12px;display:grid;place-items:center;padding:0 5px}
+.carrello{position:relative;border:0;background:var(--tuorlo);color:var(--scuro);border-radius:12px;padding:8px 11px;font-weight:800;font-size:14px;display:flex;gap:6px;align-items:center}
+.carrello b{background:var(--scuro);color:var(--tuorlo);border-radius:99px;min-width:20px;height:20px;font-size:12px;display:grid;place-items:center;padding:0 5px}
 
-.cartello{background:var(--lavagna);color:var(--gesso);padding-block:6px 26px}
+.cartello{background:var(--lavagna);color:var(--gesso);padding-block:6px 26px;background-image:radial-gradient(90% 120% at 100% 100%,rgba(16,185,129,.45),transparent 60%),radial-gradient(60% 80% at 0% 100%,rgba(251,191,36,.14),transparent 60%)}
 .cartello h1{font-size:clamp(30px,8vw,46px);letter-spacing:-1px;font-weight:800}
 .cartello h1 span{font-family:var(--gessetto);font-weight:400;color:var(--tuorlo);letter-spacing:0}
-.cartello p{margin:8px 0 0;max-width:52ch;color:#cdd6c4}
+.cartello p{margin:8px 0 0;max-width:52ch;color:var(--su-lavagna)}
 .dove{display:inline-flex;gap:6px;align-items:center;margin-top:14px;background:rgba(255,255,255,.08);border:1px dashed rgba(244,241,228,.35);border-radius:99px;padding:6px 12px;font-size:13.5px}
 .cerca{margin-top:14px;display:flex;gap:8px}
-.cerca input{flex:1;min-width:0;border:0;border-radius:14px;padding:13px 14px;font:inherit;background:var(--gesso);color:#1e2a1d}
+.cerca input{flex:1;min-width:0;border:0;border-radius:14px;padding:13px 14px;font:inherit;background:var(--gesso);color:var(--scuro)}
 
 /* sezioni */
 .sez{padding-block:22px 4px}
@@ -81,6 +87,7 @@ h1,h2,h3{font-family:var(--titoli);margin:0;line-height:1.1;text-wrap:balance}
 .sez h2 small{font:600 12.5px var(--testo);color:var(--tenue)}
 .cat{display:flex;gap:8px;overflow-x:auto;padding-block:12px 4px;scrollbar-width:none}
 .cat button{flex:none;border:1px solid var(--bordo);background:var(--bianco);border-radius:99px;padding:8px 13px;font-weight:600;font-size:13.5px;white-space:nowrap}
+.cat button:nth-child(5n+2){background:var(--p1)}.cat button:nth-child(5n+3){background:var(--p2)}.cat button:nth-child(5n+4){background:var(--p3)}.cat button:nth-child(5n+5){background:var(--p4)}.cat button:nth-child(5n+6){background:var(--p5)}
 .cat button[aria-pressed="true"]{background:var(--foglia);border-color:var(--foglia);color:var(--bianco)}
 
 .piano{text-align:left;margin-top:12px;border:2px solid var(--tuorlo);border-radius:16px;padding:12px 14px;background:var(--bianco);display:grid;gap:6px;font-size:13.5px}
@@ -106,14 +113,14 @@ h1,h2,h3{font-family:var(--titoli);margin:0;line-height:1.1;text-wrap:balance}
 .foto{position:relative;display:grid;place-items:center;font-size:52px;overflow:hidden;background:var(--carta2)}
 .foto::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 34px,rgba(0,0,0,.035) 34px 36px)}
 .foto img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.f1{background:linear-gradient(160deg,#9cc27a,#5e8f3d)}.f2{background:linear-gradient(160deg,#f0c36a,#d98a2b)}.f3{background:linear-gradient(160deg,#d8b98a,#a8794a)}
-.f4{background:linear-gradient(160deg,#b9d7a0,#7aa65c)}.f5{background:linear-gradient(160deg,#e8a28c,#c8573f)}.f6{background:linear-gradient(160deg,#c7b7e0,#8b72b8)}
+.f1{background:linear-gradient(160deg,#6ee7b7,#059669)}.f2{background:linear-gradient(160deg,#fde68a,#f59e0b)}.f3{background:linear-gradient(160deg,#fecaca,#ef4f5f)}
+.f4{background:linear-gradient(160deg,#fbcfe8,#ec4899)}.f5{background:linear-gradient(160deg,#bae6fd,#0ea5e9)}.f6{background:linear-gradient(160deg,#ddd6fe,#8b5cf6)}
 
 .griglia{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-block:12px}
 @media (min-width:640px){.griglia{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .art{background:var(--bianco);border-radius:18px;overflow:hidden;box-shadow:var(--ombra);display:flex;flex-direction:column;min-width:0}
 .art .foto{aspect-ratio:4/3;max-width:100%}
-.prezzo{position:absolute;right:8px;bottom:8px;z-index:2;background:var(--lavagna);color:var(--gesso);border-radius:10px 10px 10px 2px;padding:3px 9px 4px;font:400 21px/1 var(--gessetto);transform:rotate(-3deg);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.prezzo{position:absolute;right:8px;bottom:8px;z-index:2;background:var(--corallo);color:var(--su-corallo);border-radius:10px 10px 10px 2px;padding:3px 9px 4px;font:400 21px/1 var(--gessetto);transform:rotate(-3deg);box-shadow:0 2px 6px rgba(0,0,0,.25)}
 .prezzo small{font:600 11px var(--testo);opacity:.85;margin-left:2px}
 .art .t{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
 .art h3{font-size:15.5px;font-weight:700}
@@ -182,8 +189,8 @@ form.nuovo input,form.nuovo select{border:1px solid var(--bordo);border-radius:1
 .due{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .invito{margin-top:14px;display:flex;gap:14px;align-items:center;background:var(--lavagna);color:var(--gesso);border-radius:18px;padding:16px;box-shadow:var(--ombra)}
 .invito b{font:400 25px/1.05 var(--gessetto);color:var(--tuorlo);display:block}
-.invito p{margin:4px 0 0;font-size:13.5px;color:#cdd6c4}
-.invito button{flex:none;border:0;background:var(--tuorlo);color:#1e2a1d;border-radius:12px;padding:10px 14px;font-weight:800}
+.invito p{margin:4px 0 0;font-size:13.5px;color:var(--su-lavagna)}
+.invito button{flex:none;border:0;background:var(--tuorlo);color:var(--scuro);border-radius:12px;padding:10px 14px;font-weight:800}
 .spunte{display:grid;gap:6px}
 form.nuovo label.scelta{display:flex;font-weight:600}
 form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
@@ -195,7 +202,7 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 <style>
 /* aggiunte dell'app vera */
 .dove select{border:0;background:none;color:var(--gesso);font:inherit;font-weight:700;padding:0 2px;max-width:60vw}
-.dove select option{color:#1e2a1d}
+.dove select option{color:var(--scuro)}
 form.nuovo textarea{border:1px solid var(--bordo);border-radius:12px;padding:11px 12px;font:inherit;background:var(--carta);color:var(--inchiostro);min-width:0;width:100%;resize:vertical;min-height:70px}
 form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
 .blocco{background:var(--bianco);border-radius:18px;padding:16px;margin-top:12px;box-shadow:var(--ombra)}
@@ -262,7 +269,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
 <h2>Sei un produttore?</h2><p>Apri la tua bottega su Ortaly: metti i tuoi prodotti con le tue foto, decidi prezzi e consegne e ricevi gli ordini dei clienti della tua zona. Scrivi a info@ortaly.it.</p>
 <p>Per usare Ortaly attiva JavaScript nel browser. <a href="/privacy">Privacy</a></p></div></noscript>
 <header class="top"><div class="wrap">
-  <div class="marchio"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="13" fill="var(--tuorlo)"/><path d="M24 25V13" stroke="#22382a" stroke-width="3" stroke-linecap="round"/><path d="M24 17c-1-5-5-7-10-6 0 5 4 8 10 6zM24 15c1-5 5-7 10-6 0 5-4 8-10 6z" fill="#3c6a2c"/><path d="M9 24h30l-3 15H12z" fill="#22382a"/><path d="M11 29.5h26M12 34.5h24" stroke="var(--tuorlo)" stroke-width="2"/></svg>ortaly</div>
+  <div class="marchio"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#047857"/></linearGradient></defs><rect width="48" height="48" rx="13" fill="url(#lg)"/><rect x=".75" y=".75" width="46.5" height="46.5" rx="12.4" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="1.5"/><g transform="translate(24 24) scale(1.05) translate(-24 -26)"><path d="M24 25V13" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/><path d="M24 17c-1-5-5-7-10-6 0 5 4 8 10 6z" fill="#fbbf24"/><path d="M24 15c1-5 5-7 10-6 0 5-4 8-10 6z" fill="#a7f3d0"/><path d="M9 24h30l-3 15H12z" fill="#ffffff"/><path d="M11 29.5h26M12 34.5h24" stroke="#059669" stroke-width="2"/></g></svg>ortaly</div>
   <div class="modo" role="group" aria-label="Modalità">
     <button id="mCompro" aria-pressed="true">Compro</button>
     <button id="mVendo" aria-pressed="false">Vendo</button>

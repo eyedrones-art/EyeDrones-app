@@ -31,7 +31,7 @@ async function manda(chiaveResend, a, oggetto, html, testo) {
 }
 const pagina = (titolo, sotto, href, bottone) => `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1e2a1d;max-width:560px">
   <h2 style="margin:0 0 6px">${esc(titolo)}</h2><p style="margin:0;color:#5d6a57">${esc(sotto)}</p>
-  <p style="margin:18px 0"><a href="${href}" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">${esc(bottone)}</a></p>
+  <p style="margin:18px 0"><a href="${href}" style="background:#047857;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">${esc(bottone)}</a></p>
   <p style="color:#5d6a57;font-size:13px">Per la tua privacy il testo del messaggio lo leggi solo nella chat di Ortaly.</p></div>`;
 
 exports.handler = async (event) => {

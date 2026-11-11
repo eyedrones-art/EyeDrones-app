@@ -67,7 +67,7 @@ exports.handler = async (event) => {
       const html = `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1e2a1d;max-width:560px">
         <h2 style="margin:0 0 6px">${esc(o.cliente_nome)} ha annullato l'ordine ${esc(o.codice)}</h2>
         ${o.motivo_annullo ? `<p style="margin:4px 0">Motivo: «${esc(o.motivo_annullo)}»</p>` : ""}<p style="margin:0;color:#5d6a57">Non serve prepararlo.</p>
-        <p style="margin:18px 0"><a href="${SITO}/#vendo" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Apri i tuoi ordini</a></p></div>`;
+        <p style="margin:18px 0"><a href="${SITO}/#vendo" style="background:#047857;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Apri i tuoi ordini</a></p></div>`;
       inviata = await manda(resend, u.email, `Ordine ${o.codice} annullato dal cliente · Ortaly`, html,
         `${o.cliente_nome} ha annullato l'ordine ${o.codice}.${o.motivo_annullo ? `\nMotivo: «${o.motivo_annullo}»` : ""}\nNon serve prepararlo.\n${SITO}/#vendo`);
     }
@@ -98,9 +98,9 @@ exports.handler = async (event) => {
   if (resend && emailValida(o.cliente_email)) {
     const html = `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1e2a1d;max-width:560px">
       <h2 style="margin:0 0 6px">${esc(nome)} ${esc(cosa)}</h2><p style="margin:0;color:#5d6a57">Ordine ${esc(o.codice)}. ${esc(poi)}</p>
-      ${linkPacco ? `<p style="margin:18px 0 0"><a href="${esc(linkPacco)}" style="background:#e9a514;color:#1e2a1d;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:800">📦 Segui il pacco</a></p>` : ""}
-      ${linkPaga ? `<p style="margin:18px 0 0"><a href="${esc(linkPaga)}" style="background:#e9a514;color:#1e2a1d;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:800">💳 Paga ora</a></p>` : ""}
-      <p style="margin:18px 0"><a href="${link}" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Apri l'ordine e la chat</a></p></div>`;
+      ${linkPacco ? `<p style="margin:18px 0 0"><a href="${esc(linkPacco)}" style="background:#fbbf24;color:#1e2a1d;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:800">📦 Segui il pacco</a></p>` : ""}
+      ${linkPaga ? `<p style="margin:18px 0 0"><a href="${esc(linkPaga)}" style="background:#fbbf24;color:#1e2a1d;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:800">💳 Paga ora</a></p>` : ""}
+      <p style="margin:18px 0"><a href="${link}" style="background:#047857;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Apri l'ordine e la chat</a></p></div>`;
     inviata = await manda(resend, o.cliente_email, `${nome} ${cosa} · ordine ${o.codice}`, html, `${nome} ${cosa}.\nOrdine ${o.codice}. ${poi}${linkPaga ? `\nPaga ora: ${linkPaga}` : ""}${linkPacco ? `\nSegui il pacco: ${linkPacco}` : ""}\n\nApri l'ordine e la chat: ${link}`);
   }
   return risposta(200, `notifiche ${telefoni}, email ${inviata ? 1 : 0}`);

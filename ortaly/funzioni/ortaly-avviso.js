@@ -87,7 +87,7 @@ exports.handler = async (event) => {
       <p style="margin:4px 0"><b>Come:</b> ${esc(consegna)}</p>
       ${o.nota ? `<p style="margin:4px 0"><b>Nota:</b> ${esc(o.nota)}</p>` : ""}
       <p style="margin:4px 0"><b>${esc(pagaTesto)}</b>${o.pagamento === "online" ? " — controlla di averlo ricevuto e segnalo come pagato nell'app" : ""}</p>
-      <p style="margin:18px 0"><a href="${SITO}/#vendo" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Apri l'ordine</a></p>
+      <p style="margin:18px 0"><a href="${SITO}/#vendo" style="background:#047857;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Apri l'ordine</a></p>
       <p style="color:#5d6a57;font-size:13px">Accettalo e mettiti d'accordo con il cliente su giorno e ora nella chat dell'ordine. Il cliente paga a te alla consegna o al ritiro.</p></div>`;
     if (await manda(resend, emailProduttore, `Nuovo ordine da ${o.cliente_nome} · Ortaly`, html, testo)) inviate++;
   }
@@ -100,7 +100,7 @@ exports.handler = async (event) => {
       <h2 style="margin:0 0 6px">Ordine inviato a ${esc(b.nome)}</h2><p style="margin:0;color:#5d6a57">Codice ${esc(o.codice)}</p>${lista}
       <p style="margin:4px 0"><b>Come:</b> ${esc(consegna)}</p>
       ${o.pagamento === "online" ? `<p style="margin:8px 0;color:#5d6a57">💳 Paghi online: quando il produttore accetta l'ordine ti mandiamo il link per pagare.</p>` : ""}
-      <p style="margin:18px 0"><a href="${linkCliente}" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Segui l'ordine e scrivi al produttore</a></p>
+      <p style="margin:18px 0"><a href="${linkCliente}" style="background:#047857;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Segui l'ordine e scrivi al produttore</a></p>
       <p style="color:#5d6a57;font-size:13px">Conserva questa email: il link è solo tuo. Il produttore ti risponde lì per giorno e ora.${o.pagamento === "online" ? "" : " Paghi a lui alla consegna o al ritiro."}</p>
       ${linkVia ? `<p style="color:#5d6a57;font-size:12px">Ti sei iscritto a ricette, promozioni e novità di stagione. <a href="${linkVia}" style="color:#5d6a57">Non le voglio più</a></p>` : ""}</div>`;
     if (await manda(resend, o.cliente_email, `Ordine ${o.codice} inviato a ${b.nome} · Ortaly`, html, testo)) inviate++;

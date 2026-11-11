@@ -75,7 +75,7 @@ exports.handler = async (event) => {
     const html = `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1e2a1d;max-width:560px">
       <h2 style="margin:0 0 10px">Nuovo produttore: ${esc(b.nome)}</h2>
       <table style="border-collapse:collapse">${righe.map(([k, v]) => `<tr><td style="padding:3px 12px 3px 0;color:#5d6a57">${esc(k)}</td><td style="padding:3px 0"><b>${esc(v)}</b></td></tr>`).join("")}</table>
-      <p style="margin:18px 0"><a href="${link}" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Guarda la bottega</a></p>
+      <p style="margin:18px 0"><a href="${link}" style="background:#047857;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Guarda la bottega</a></p>
       <p style="color:#5d6a57;font-size:13px">Controlla la partita IVA. Per nascondere la bottega: Supabase → Table Editor → botteghe → visibile = false.</p></div>`;
     if (await manda(resend, admin, `Nuovo produttore su Ortaly: ${b.nome}`, html, testo, u.email)) inviate++;
   }
@@ -89,9 +89,9 @@ exports.handler = async (event) => {
       <h2 style="margin:0 0 8px">Benvenuto su Ortaly, ${esc(b.nome)}!</h2>
       <p style="margin:0 0 10px">La tua bottega è aperta: i clienti della tua zona la vedono e possono ordinare.</p>
       <p style="margin:0 0 6px"><b>Il link della tua bottega</b>, da mandare ai tuoi clienti su WhatsApp o da mettere sul cartello al banco:</p>
-      <p style="margin:0 0 16px"><a href="${link}" style="color:#3c6a2c;font-weight:700;word-break:break-all">${esc(link)}</a></p>
+      <p style="margin:0 0 16px"><a href="${link}" style="color:#047857;font-weight:700;word-break:break-all">${esc(link)}</a></p>
       <p style="margin:0 0 10px">Primi 3 mesi inclusi, fino al <b>${esc(prova)}</b>. Dopo, 19 € al mese, solo se lo confermi tu.</p>
-      <p style="margin:18px 0"><a href="${SITO}/#vendo" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Metti i tuoi prodotti</a></p>
+      <p style="margin:18px 0"><a href="${SITO}/#vendo" style="background:#047857;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">Metti i tuoi prodotti</a></p>
       <p style="color:#5d6a57;font-size:13px">Quando arriva un ordine ti scriviamo qui. Per qualsiasi cosa rispondi a questa email.</p></div>`;
     if (await manda(resend, u.email, "Benvenuto su Ortaly", html, testo, admin)) inviate++;
   }
