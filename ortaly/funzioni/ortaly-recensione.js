@@ -30,7 +30,7 @@ async function manda(chiaveResend, a, oggetto, html, testo) {
 }
 const pagina = (titolo, righe, href, bottone) => `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1e2a1d;max-width:560px">
   <h2 style="margin:0 0 8px">${esc(titolo)}</h2>${righe.filter(Boolean).map((r) => `<p style="margin:4px 0">${r}</p>`).join("")}
-  <p style="margin:18px 0"><a href="${href}" style="background:#3c6a2c;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">${esc(bottone)}</a></p></div>`;
+  <p style="margin:18px 0"><a href="${href}" style="background:#047857;color:#fff;padding:11px 18px;border-radius:12px;text-decoration:none;font-weight:700">${esc(bottone)}</a></p></div>`;
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return risposta(405, "Solo POST");
