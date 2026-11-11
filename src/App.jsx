@@ -10953,6 +10953,56 @@ const CLIENTE = {
   bottone: { background: "linear-gradient(90deg, #e0552f, #ff8c42)", color: "#fff", border: "none", borderRadius: 12, padding: "14px 18px", fontWeight: 800, fontSize: 16, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer", textDecoration: "none", boxShadow: "0 8px 20px rgba(224,85,47,.25)" },
 };
 
+// «Trova un pilota»: il cliente (senza account) attiva le notifiche per la sua richiesta: nuove offerte, conferma, consegna
+const CHIAVE_AVVISI_CLIENTE = "eyedrones_avvisi_cliente";
+function AvvisiCliente({ codice, compatto }) {
+  const supportate = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const iPhone = typeof navigator !== "undefined" && (/iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+  const installata = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true);
+  const attiviQui = () => { try { return JSON.parse(localStorage.getItem(CHIAVE_AVVISI_CLIENTE) || "[]"); } catch { return []; } };
+  const [stato, setStato] = useState(() => !supportate ? "no" : Notification.permission === "denied" ? "bloccate" : Notification.permission === "granted" && attiviQui().includes(codice) ? "attive" : "spente");
+  const daBase64 = (t) => { const b = atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)); return Uint8Array.from(b, (c) => c.charCodeAt(0)); };
+  const segna = (si) => { try { const l = attiviQui().filter((c) => c !== codice); localStorage.setItem(CHIAVE_AVVISI_CLIENTE, JSON.stringify(si ? [...l, codice].slice(-20) : l)); } catch { /* niente */ } };
+  const attiva = async () => {
+    setStato("lavoro");
+    try {
+      if (await Notification.requestPermission() !== "granted") { setStato(Notification.permission === "denied" ? "bloccate" : "spente"); return; }
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        const r = await fetch("/.netlify/functions/push-chiave");
+        if (!r.ok) throw new Error("chiave");
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: daBase64((await r.json()).chiave) });
+      }
+      const j = sub.toJSON();
+      const { error } = await supabase.rpc("avvisi_cliente_zona", { p_codice: codice, p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_attiva: true });
+      if (error) throw error;
+      segna(true); setStato("attive");
+    } catch (e) { console.error(e); setStato("errore"); }
+  };
+  const spegni = async () => {
+    setStato("lavoro");
+    try { const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+      if (sub) await supabase.rpc("avvisi_cliente_zona", { p_codice: codice, p_endpoint: sub.endpoint, p_attiva: false }); } catch { /* niente */ }
+    segna(false); setStato("spente");
+  };
+  const box = { background: "#fff", border: "1px solid #ece4da", borderRadius: 14, padding: "12px 14px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", textAlign: "left", marginTop: compatto ? 14 : 0 };
+  const testo = (t, sotto) => <div style={{ flex: 1, minWidth: 180 }}><div style={{ fontWeight: 700, fontSize: 14.5, color: "#1f2328" }}>{t}</div><div style={{ fontSize: 13, color: "#6b6258", marginTop: 2, lineHeight: 1.45 }}>{sotto}</div></div>;
+  if (stato === "no") {
+    if (!iPhone || installata) return null;
+    return <div style={box}><span style={{ fontSize: 22 }}>🔔</span>{testo("Avvisi sul telefono", "Su iPhone aggiungi prima questa pagina alla schermata Home (Safari → Condividi → Aggiungi alla schermata Home), poi aprila dall'icona. Intanto ti scriviamo per email.")}</div>;
+  }
+  if (stato === "attive") return <div style={box}><span style={{ fontSize: 22 }}>🔔</span>{testo("Avvisi attivi su questo telefono", "Ti avvisiamo quando arriva un'offerta, quando il pilota conferma e quando consegna il lavoro.")}<button type="button" onClick={spegni} style={{ background: "none", border: "none", color: "#8a8076", textDecoration: "underline", fontSize: 13, cursor: "pointer" }}>Spegni</button></div>;
+  if (stato === "bloccate") return <div style={box}><span style={{ fontSize: 22 }}>🔕</span>{testo("Notifiche bloccate", "Le hai bloccate per EyeDrones: riattivale dalle impostazioni del browser. Intanto ti scriviamo per email.")}</div>;
+  return (
+    <div style={{ ...box, borderColor: "#ffc9a8", background: "#fff8f2" }}>
+      <span style={{ fontSize: 22 }}>🔔</span>
+      {testo("Avvisami su questo telefono", stato === "errore" ? "Non sono riuscito ad attivarle: riprova tra poco." : "Una notifica appena arriva un'offerta, quando il pilota conferma e quando consegna il lavoro. Oltre all'email.")}
+      <button type="button" onClick={attiva} disabled={stato === "lavoro"} style={{ ...CLIENTE.bottone, padding: "10px 16px", fontSize: 14.5 }}>{stato === "lavoro" ? "Attivo…" : "Attiva"}</button>
+    </div>
+  );
+}
+
 // «Trova un pilota»: pagina pubblica per i clienti. Scelgono cosa serve e la provincia, la richiesta arriva ai piloti
 // della zona che mandano un'offerta; il cliente riceve per email il link alle offerte (/offerte/<codice>) e sceglie.
 // Funzioni Supabase in supabase/trova-pilota.sql
@@ -11149,6 +11199,7 @@ function TrovaPilota() {
                   : <>Nella tua zona non ci sono ancora piloti iscritti per questo lavoro: cerchiamo noi un pilota per te e ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>}
               </p>
               {invio.codice && <a href={`/offerte/${invio.codice}`} style={CLIENTE.bottone}>Vai alle tue offerte</a>}
+              {invio.codice && <AvvisiCliente codice={invio.codice} compatto />}
               <p style={{ fontSize: 12.5, color: "#8a8076", margin: "14px 0 0 0" }}>Conserva l'email che ti abbiamo mandato: il link alle offerte è solo tuo.</p>
             </div>
           ) : (
@@ -11739,6 +11790,7 @@ function OfferteCliente({ codice }) {
           </h1>
           <p style={{ fontSize: 14.5, color: "#6b6258", margin: 0 }}>{[r.servizio, r.luogo, quando].filter(Boolean).join(" · ")}</p>
         </header>
+        {r.stato !== "chiusa" && <AvvisiCliente codice={codice} />}
 
         {r.stato === "aperta" && (dati.rinunce || []).map((x, i) => (
           <div key={"r" + i} style={{ ...CLIENTE.scheda, background: "#fffaf0", borderColor: "#f3dfb0" }}>
