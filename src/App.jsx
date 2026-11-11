@@ -12701,6 +12701,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
 // notifiche sul telefono per i piloti: nuove richieste in zona, «sei stato scelto», annullamenti (le manda avviso-lavori)
 function NotifichePush({ tema }) {
   const weekend = tema === "weekend";
+  const generale = tema === "impostazioni";
   const supportate = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
   const iPhone = typeof navigator !== "undefined" && (/iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
   const installata = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true);
@@ -12745,9 +12746,9 @@ function NotifichePush({ tema }) {
     if (!iPhone || installata) return null;
     return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo(weekend ? "Anche come notifica sul telefono" : "Notifiche dei nuovi lavori", "Su iPhone prima aggiungi EyeDrones alla schermata Home (Safari → Condividi → Aggiungi alla schermata Home), poi aprila dall'icona e attiva qui le notifiche.")}</div>;
   }
-  if (stato === "attive") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Notifiche attive su questo telefono", weekend ? "Il giovedì ti arriva anche qui quando e dove volare nel weekend." : "Ti avvisiamo subito di nuove richieste in zona, quando un cliente ti sceglie e se un lavoro cambia.")}<button onClick={spegni} style={{ background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, cursor: "pointer" }}>Spegni</button></div>;
+  if (stato === "attive") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Notifiche attive su questo telefono", weekend ? "Il giovedì ti arriva anche qui quando e dove volare nel weekend." : "Ti avvisiamo di nuove richieste in zona, dei voli pianificati con il meteo, dei pagamenti in scadenza e dei lavori da consegnare.")}<button onClick={spegni} style={{ background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, cursor: "pointer" }}>Spegni</button></div>;
   if (stato === "bloccate") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔕</span>{testo("Notifiche bloccate", "Le hai bloccate per EyeDrones: riattivale dalle impostazioni del browser (lucchetto accanto all'indirizzo → Notifiche), poi ricarica la pagina.")}</div>;
-  return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo(weekend ? "Anche come notifica sul telefono" : "Avvisami dei nuovi lavori", stato === "errore" ? "Non sono riuscito ad attivarle su questo telefono: riprova tra poco." : weekend ? "Il giovedì ti arriva una notifica con le ore buone del weekend e il posto consigliato più vicino." : "Una notifica sul telefono appena arriva una richiesta in zona o un cliente ti sceglie, anche ad app chiusa. Chi risponde prima vince più lavori.")}<button onClick={attiva} disabled={stato === "lavoro"} style={pulsante}>{stato === "lavoro" ? "Attivo…" : "Attiva"}</button></div>;
+  return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo(weekend ? "Anche come notifica sul telefono" : generale ? "Notifiche sul telefono" : "Avvisami dei nuovi lavori", stato === "errore" ? "Non sono riuscito ad attivarle su questo telefono: riprova tra poco." : generale ? "La sera prima e la mattina del volo ti avviso con il meteo all'ora giusta; poi pagamenti in scadenza, lavori da consegnare e nuove richieste in zona." : weekend ? "Il giovedì ti arriva una notifica con le ore buone del weekend e il posto consigliato più vicino." : "Una notifica sul telefono appena arriva una richiesta in zona o un cliente ti sceglie, anche ad app chiusa. Chi risponde prima vince più lavori.")}<button onClick={attiva} disabled={stato === "lavoro"} style={pulsante}>{stato === "lavoro" ? "Attivo…" : "Attiva"}</button></div>;
 }
 
 function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onRichiesteCambiate, onCreaPreventivo, onPermessi, onVai }) {
@@ -16998,6 +16999,7 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
             {(LINK_PRIVACY || LINK_TERMINI) && <> · <LinkLegali stile={{ color: "#3d8bfd" }} /></>}
           </p>
           <SpazioEPromemoria />
+          <div style={{ marginBottom: 12 }}><NotifichePush tema="impostazioni" /></div>
           <AvvisoWeekend />
           {AI_IN_PROVA.includes(String(userEmail || "").toLowerCase()) && (
             <button type="button" onClick={() => vaiA({ pagina: "numeri" })} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12, color: "#e7eaee" }}>
