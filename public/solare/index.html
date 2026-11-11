@@ -67,6 +67,13 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid c
 .fatto{text-align:center;padding:26px 10px}
 .fatto .ico{font-size:48px}
 footer{color:var(--faint);font-size:13px;padding-block:34px 90px}
+.vicini{display:flex;flex-wrap:wrap;gap:6px 12px;margin:8px 0 18px}
+.vicini a{color:var(--muted)}
+.tabella{width:100%;border-collapse:collapse;margin-top:12px;font-size:15px}
+.tabella th,.tabella td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+.tabella th{color:var(--muted);font-weight:600}
+.tab-scroll{overflow-x:auto}
+.faq h3{font-size:17px;margin-top:16px}.faq p{margin:6px 0 0;color:var(--muted)}
 .trappola{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 /* assistente */
 .apri-chat{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--sky-2);color:#fff;border:0;border-radius:999px;padding:13px 18px;font-weight:700;box-shadow:0 10px 25px -8px rgba(0,0,0,.45);cursor:pointer;display:flex;gap:8px;align-items:center}
@@ -89,8 +96,8 @@ footer{color:var(--faint);font-size:13px;padding-block:34px 90px}
 <header class="testa">
   <div class="wrap">
     <div class="marchio"><img src="/favicon.svg" alt="">EyeDrones · Solare</div>
-    <h1>Il tuo tetto, <span>visto dal drone.</span></h1>
-    <p>Scopri in un minuto quanto può produrre il tuo tetto con il fotovoltaico e quanto puoi risparmiare. Se ti interessa, un pilota fa le foto del tetto dall'alto e un installatore della tua zona ti prepara il preventivo.</p>
+    <!--TESTA--><h1>Il tuo tetto, <span>visto dal drone.</span></h1>
+    <p>Scopri in un minuto quanto può produrre il tuo tetto con il fotovoltaico e quanto puoi risparmiare. Se ti interessa, un pilota fa le foto del tetto dall'alto e un installatore della tua zona ti prepara il preventivo.</p><!--/TESTA-->
     <a class="cta" href="#calcola">☀️ Calcola il tuo tetto</a>
   </div>
 </header>
@@ -101,7 +108,7 @@ footer{color:var(--faint);font-size:13px;padding-block:34px 90px}
     <p class="sotto">Usiamo i dati solari ufficiali della Commissione europea (PVGIS) per il punto esatto della tua casa.</p>
     <form class="scheda" id="formStima" style="margin-top:16px" novalidate>
       <div class="griglia">
-        <label for="indirizzo">Indirizzo o comune<input id="indirizzo" autocomplete="street-address" placeholder="Es. via Roma 10, Avigliana" required></label>
+        <label for="indirizzo">Indirizzo o comune<input id="indirizzo" autocomplete="street-address" placeholder="Es. via Roma 10, Avigliana" required value=""></label>
         <label for="bolletta">Quanto spendi di luce al mese (€)<input id="bolletta" type="number" inputmode="decimal" min="20" max="2000" step="5" value="90" required></label>
       </div>
       <div class="griglia" style="margin-top:12px">
@@ -122,6 +129,7 @@ footer{color:var(--faint);font-size:13px;padding-block:34px 90px}
     </form>
   </section>
 
+  <!--LOCALE--><!--/LOCALE-->
   <section class="sezione">
     <h2>Come funziona</h2>
     <div class="passi">
@@ -151,7 +159,7 @@ footer{color:var(--faint);font-size:13px;padding-block:34px 90px}
     </form>
   </section>
 </main>
-<footer class="wrap">Stime indicative: la produzione reale dipende da orientamento, ombre e impianto; il preventivo dell'installatore è quello che conta. Dati solari: PVGIS © Unione europea. · EyeDrones · app.eyedrones.it</footer>
+<footer class="wrap"><!--LINK--><!--/LINK-->Stime indicative: la produzione reale dipende da orientamento, ombre e impianto; il preventivo dell'installatore è quello che conta. Dati solari: PVGIS © Unione europea. · EyeDrones · app.eyedrones.it</footer>
 
 <button class="apri-chat" id="apriChat" type="button">💬 Domande? Chiedi all'assistente</button>
 <div class="chat" id="chat" hidden role="dialog" aria-label="Assistente fotovoltaico">
