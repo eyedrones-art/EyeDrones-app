@@ -47,6 +47,7 @@ const QuiEOra = pigro(() => import("./QuiEOra.jsx"));
 const Collaboratori = pigro(() => import("./Collaboratori.jsx"));
 const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
 const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
+const PraticaEnac = pigro(() => import("./PraticaEnac.jsx"));
 const AnalisiAI = pigro(() => import("./AnalisiAI.jsx"));
 const IspezioneAI = pigro(() => import("./IspezioneAI.jsx"));
 const Anteprima3D = pigro(() => import("./Anteprima3D.jsx"));
@@ -1903,7 +1904,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2465,6 +2466,11 @@ function AppShell({ session }) {
           </Suspense>
         )}
         {page === "rilievi" && <PaginaRilievi voli={voliDashboard} droni={droni} azienda={azienda} piano={piano} onCambiato={caricaVoli} onNav={vai} onNuovo={() => { setPrefillVolo({ tipo_attivita: "rilievo" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "pratica-enac" && (
+          <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
+            <PraticaEnac supabase={supabase} inputStyle={inputStyle} azienda={azienda} attestati={attestati} droni={droni} emailUtente={session.user.email} />
+          </Suspense>
+        )}
         {page === "campi" && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
             <Agricoltura supabase={supabase} inputStyle={inputStyle} clienti={clienti} droni={droni} azienda={azienda} />
@@ -3142,6 +3148,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "simulatore", label: "Simulatore di volo", icon: Gamepad2, esterno: "/simulatore/", stessaScheda: true },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ClipboardCheck },
+    { key: "pratica-enac", label: "Pratica ENAC (STS)", icon: FileText },
     { key: "attestati", label: "Attestati", icon: Award },
     { key: "droni", label: "I miei droni", icon: Plane },
     { intestazione: "Lavoro" },
@@ -3177,6 +3184,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "simulatore", label: "Simulatore di volo", icon: Gamepad2, esterno: "/simulatore/", stessaScheda: true },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ClipboardCheck },
+    { key: "pratica-enac", label: "Pratica ENAC (STS)", icon: FileText },
     { key: "attestati", label: "Attestati", icon: Award },
     { key: "droni", label: "I miei droni", icon: Plane },
     { intestazione: "Lavoro" },
