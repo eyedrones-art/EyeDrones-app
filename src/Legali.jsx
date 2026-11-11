@@ -36,6 +36,7 @@ export function Privacy() {
           <><strong>Dati operativi che inserisci tu</strong>: droni, attestati e documenti (anche assicurazione e permessi), voli con data, luogo e coordinate GPS, foto e video, batterie, manutenzioni, piani di volo, preventivi, incassi.</>,
           <><strong>Dati di altre persone che inserisci tu</strong>: clienti (rubrica), collaboratori, persone riprese e liberatorie firmate, richieste di preventivo ricevute dalla tua pagina pubblica. Vedi il punto 6.</>,
           <><strong>Richieste da «Trova un pilota»</strong>: se cerchi un pilota su app.eyedrones.it/trova-pilota, i piloti EyeDrones della provincia scelta vedono cosa ti serve, dove (il comune e, se lo segni, il punto sulla mappa, per controllare zone e permessi) e quando, senza i tuoi contatti, e ti mandano un'offerta. Nome, email e telefono li riceve solo il pilota che scegli tu, quando conferma il lavoro. Usiamo la tua email per mandarti il link alle offerte e gli avvisi sulla richiesta. Allo stesso modo tu vedi i contatti del pilota solo dopo la sua conferma. In «I miei lavori» ritrovi tutte le tue richieste: il link personale arriva solo alla tua email. Dopo il lavoro ti chiediamo, se vuoi, le stelle per il pilota: le stelle e le due righe che scrivi si vedono nelle offerte e nella pagina del pilota, con il tuo nome abbreviato (es. «Laura B.»), senza email né telefono.</>,
+          <><strong>Richieste di preventivo fotovoltaico</strong> (pagine app.eyedrones.it/solare e /fotovoltaico): nome, telefono, email se la scrivi, indirizzo dell'impianto, spesa in bolletta, tipo di tetto, orario preferito, la stima calcolata e da quale pagina o pubblicità sei arrivato. Le usiamo, con il tuo consenso, per farti ricontattare per il sopralluogo con il drone e il preventivo: le inviamo all'installatore fotovoltaico partner indicato nel modulo, che diventa a sua volta titolare per il preventivo e il contratto. Le domande all'assistente della pagina sono elaborate da Anthropic (fornitore dell'intelligenza artificiale) e non vengono salvate da noi.</>,
           <><strong>Posizione del telefono</strong>: solo quando tocchi un pulsante che la usa (es. «Vicino a me» o «Usa la mia posizione»), per cercare luoghi, meteo e zone. Viene salvata solo se la usi per riempire un volo, un piano o un posto consigliato.</>,
           <><strong>Posti consigliati</strong>: nome, coordinate, nota e voto dei posti che consigli. Sono visibili agli altri utenti registrati, senza il tuo nome né la tua email.</>,
           <><strong>Dati tecnici</strong>: quando l'app ha un errore annotiamo la pagina, il messaggio d'errore e il tipo di browser o dispositivo (gli indirizzi email nel messaggio vengono oscurati). Annotiamo anche da quale link sei arrivato quando ti registri (es. un post o una galleria condivisa).</>,
@@ -59,6 +60,9 @@ export function Privacy() {
           <><strong>Resend</strong>: invio delle email (server in Irlanda).</>,
           <><strong>OpenStreetMap, Nominatim e Overpass</strong>: mappe, ricerca degli indirizzi e dei posti. Ricevono il testo cercato o le coordinate.</>,
           <><strong>Open-Meteo</strong> e <strong>NOAA</strong>: meteo e indice geomagnetico. Ricevono solo le coordinate del luogo, nessun dato personale.</>,
+          <><strong>Anthropic</strong>: l'intelligenza artificiale dell'Esperto e dell'assistente fotovoltaico. Riceve le foto o le domande inviate, non il tuo account.</>,
+          <><strong>Commissione europea (PVGIS)</strong>: dati solari per la stima del fotovoltaico. Riceve solo le coordinate, nessun dato personale.</>,
+          <><strong>Telegram</strong>: ci avvisa delle nuove richieste di preventivo fotovoltaico.</>,
           <><strong>Google Fonts</strong>: i caratteri dell'app. Il browser li scarica dai server di Google, che vedono l'indirizzo IP.</>,
         ]} />
         <p>Alcuni di questi fornitori hanno sede negli Stati Uniti: in quel caso il trasferimento avviene con le garanzie previste dal GDPR (decisione di adeguatezza EU-USA o clausole contrattuali standard). Quando tocchi un collegamento esterno (WhatsApp, Google Calendar, Google Maps, D-Flight) passi al servizio di quell'azienda, con la sua informativa.</p>
@@ -67,6 +71,7 @@ export function Privacy() {
         <Lista voci={[
           "I dati dell'account e quelli che inserisci: finché l'account è attivo. Se lo elimini, li cancelliamo entro 30 giorni (le copie di sicurezza si sovrascrivono nei giorni successivi).",
           "Le segnalazioni di errore: 60 giorni.",
+          "Le richieste di preventivo fotovoltaico: al massimo 12 mesi, poi le cancelliamo (puoi chiederlo prima scrivendoci).",
           "Le richieste di «Trova un pilota» non confermate: 90 giorni (quella confermata arriva al pilota scelto e resta a lui, come le altre richieste).",
           "I dati che la legge ci obbliga a tenere (per esempio fatture): per il tempo previsto dalla legge.",
         ]} />

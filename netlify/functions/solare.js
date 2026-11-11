@@ -108,7 +108,8 @@ async function contatto(d) {
   const dati = {
     nome: pulisci(d.nome, 80), telefono: pulisci(d.telefono, 30), email: pulisci(d.email, 120).toLowerCase(),
     indirizzo: pulisci(d.indirizzo, 160), tipo: d.tipo === "azienda" ? "azienda" : "casa", tetto: pulisci(d.tetto, 40),
-    bolletta: Number(d.bolletta) || null, nota: pulisci(d.nota, 500),
+    bolletta: Number(d.bolletta) || null, nota: pulisci(d.nota, 500), fascia: pulisci(d.fascia, 30),
+    origine: d.origine && typeof d.origine === "object" ? Object.fromEntries(["pagina", "source", "medium", "campaign", "da"].filter((k) => d.origine[k]).map((k) => [k, pulisci(d.origine[k], 80)])) : null,
     stima: d.stima && typeof d.stima === "object" ? { kw: Number(d.stima.kw) || null, produzione: Number(d.stima.produzione) || null, risparmio: Number(d.stima.risparmio) || null } : null,
     consenso: d.consenso === true, partner: partner() || null, quando: new Date().toISOString(),
   };
@@ -127,13 +128,20 @@ async function contatto(d) {
   if (esito === "doppione") return { ok: true, doppione: true }; // già arrivato nelle ultime 24 ore: niente avvisi doppi
 
   const s = dati.stima;
+  const o = dati.origine || {};
+  const daDove = [o.source, o.campaign, o.pagina && o.pagina !== "/solare/" && o.pagina !== "/solare" ? o.pagina.replace("/fotovoltaico/", "pagina ") : "", o.da && !o.source ? o.da : ""].filter(Boolean).join(" · ");
+  const cifre = dati.telefono.replace(/\D/g, "");
+  const wa = cifre.length >= 9 ? `https://wa.me/${cifre.startsWith("39") && cifre.length > 10 ? cifre : `39${cifre.replace(/^0+(?=3)/, "")}`}` : "";
   const righe = [
     `☀️ <b>Nuovo contatto fotovoltaico</b>${dati.partner ? ` → ${esc(dati.partner)}` : ""}`,
     `${esc(dati.nome)} · ${esc(dati.telefono)}${dati.email ? ` · ${esc(dati.email)}` : ""}`,
     `📍 ${esc(dati.indirizzo)} · ${dati.tipo === "azienda" ? "azienda" : "casa"}${dati.tetto ? ` · tetto ${esc(dati.tetto)}` : ""}`,
     dati.bolletta ? `💡 bolletta circa ${dati.bolletta} €/mese` : "",
     s && s.kw ? `🔆 stima: ${s.kw} kW · ${s.produzione} kWh/anno · risparmio ~${s.risparmio} €/anno` : "",
+    dati.fascia ? `🕑 preferisce essere chiamato: ${esc(dati.fascia)}` : "",
     dati.nota ? `📝 ${esc(dati.nota)}` : "",
+    daDove ? `🔎 arrivato da: ${esc(daDove)}` : "",
+    wa ? `<a href="${wa}">💬 Scrivigli su WhatsApp</a>` : "",
     salvato ? "" : "⚠️ non salvato nel database: controlla supabase/solare.sql",
   ].filter(Boolean);
   await telegram(righe.join("\n"));
@@ -141,6 +149,12 @@ async function contatto(d) {
   if (dest && dati.partner) {
     const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#1d232b"><h2 style="margin:0 0 8px">Nuova richiesta di preventivo fotovoltaico</h2>${righe.slice(1).map((x) => `<p style="margin:4px 0">${x}</p>`).join("")}<p style="font-size:12px;color:#777;margin-top:16px">Contatto raccolto da EyeDrones sulla pagina app.eyedrones.it/solare, con il consenso della persona a essere ricontattata da ${esc(dati.partner)} per un preventivo.</p></div>`;
     await email(dest, `Nuovo contatto fotovoltaico: ${dati.nome} (${dati.indirizzo})`, html, righe.slice(1).join("\n").replace(/<[^>]+>/g, ""));
+  }
+  // conferma alla persona, se ha lasciato l'email: sa chi la chiamerà e ritrova la sua stima
+  if (dati.email) {
+    const chi = dati.partner ? esc(dati.partner) : "un installatore fotovoltaico della tua zona";
+    const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2430;max-width:540px"><h2 style="margin:0 0 8px">☀️ Abbiamo ricevuto la tua richiesta</h2><p>Ciao ${esc(dati.nome.split(" ")[0])}, ti chiamerà ${chi}${dati.fascia ? ` (preferibilmente ${esc(dati.fascia)})` : ""} per fissare il sopralluogo con il drone e prepararti il preventivo, senza impegno.</p>${s && s.kw ? `<p style="background:#fff3e0;border-radius:10px;padding:12px">La tua stima: <b>${s.kw} kW</b>, circa <b>${s.produzione} kWh</b> l'anno, risparmio indicativo circa <b>${s.risparmio} € l'anno</b>.</p>` : ""}<p style="font-size:12.5px;color:#777">Hai ricevuto questa email perché hai chiesto un preventivo su app.eyedrones.it/solare. Per cancellare i tuoi dati scrivi a info@eyedrones.it.</p></div>`;
+    await email(dati.email, "Abbiamo ricevuto la tua richiesta di preventivo fotovoltaico", html, `Ciao, ti chiamerà ${dati.partner || "un installatore fotovoltaico della tua zona"} per fissare il sopralluogo con il drone e il preventivo.${s && s.kw ? ` La tua stima: ${s.kw} kW, circa ${s.produzione} kWh l'anno, risparmio indicativo circa ${s.risparmio} € l'anno.` : ""}`);
   }
   return { ok: true };
 }

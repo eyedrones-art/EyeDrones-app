@@ -27,5 +27,21 @@ end $$;
 revoke all on function public.solare_salva(text, jsonb) from public;
 grant execute on function public.solare_salva(text, jsonb) to anon;
 
+-- per il messaggio Telegram del mattino: quanti contatti da ieri e negli ultimi 30 giorni (solo numeri)
+create or replace function public.solare_conta(p_segreto text)
+returns json language plpgsql stable security definer set search_path = public as $$
+begin
+  if p_segreto is null or p_segreto is distinct from (select valore from privato.impostazioni where chiave = 'avviso_segreto') then
+    raise exception 'non autorizzato';
+  end if;
+  return json_build_object(
+    'ieri', (select count(*) from privato.solare_contatti where creato > now() - interval '24 hours'),
+    'mese', (select count(*) from privato.solare_contatti where creato > now() - interval '30 days'),
+    'contratti', (select count(*) from privato.solare_contatti where stato = 'contratto'));
+end $$;
+revoke all on function public.solare_conta(text) from public;
+grant execute on function public.solare_conta(text) to anon;
+
+-- per segnare come va un contatto: update privato.solare_contatti set stato = 'contratto' where id = 1;
 -- per vedere i contatti: select creato, dati->>'nome' nome, dati->>'telefono' telefono, dati->>'indirizzo' dove, stato from privato.solare_contatti order by creato desc;
 select 'Contatti solare pronti' as fatto;

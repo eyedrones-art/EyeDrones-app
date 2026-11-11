@@ -124,7 +124,7 @@ footer{color:var(--faint);font-size:13px;padding-block:34px 90px}
           <div class="numero"><b id="rRisp">–</b><span>risparmio stimato in un anno</span></div>
         </div>
         <p class="nota" id="rNota"></p>
-        <a class="cta" href="#contatto" style="margin-top:12px">📸 Voglio il sopralluogo con il drone e il preventivo</a>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><a class="cta" href="#contatto" style="margin-top:0">📸 Voglio il sopralluogo con il drone e il preventivo</a><a class="cta" id="condividi" href="#" target="_blank" rel="noopener" style="margin-top:0;background:var(--surface-2);color:var(--fg);border:1px solid var(--line)">💬 Manda la stima su WhatsApp</a></div>
       </div>
     </form>
   </section>
@@ -141,13 +141,14 @@ footer{color:var(--faint);font-size:13px;padding-block:34px 90px}
 
   <section class="sezione" id="contatto">
     <h2>Chiedi il sopralluogo e il preventivo</h2>
-    <p class="sotto">Lascia i tuoi dati: ti richiamiamo per fissare il sopralluogo con il drone.</p>
+    <p class="sotto" id="sottoContatto">Lascia i tuoi dati: ti richiama un installatore fotovoltaico della tua zona per fissare il sopralluogo con il drone e il preventivo.</p>
     <form class="scheda" id="formContatto" style="margin-top:16px" novalidate>
       <div class="griglia">
         <label for="nome">Nome e cognome<input id="nome" autocomplete="name" required maxlength="80"></label>
         <label for="telefono">Telefono<input id="telefono" type="tel" autocomplete="tel" inputmode="tel" required maxlength="30"></label>
         <label for="email">Email (facoltativa)<input id="email" type="email" autocomplete="email" maxlength="120"></label>
         <label for="indirizzoC">Indirizzo dell'impianto<input id="indirizzoC" autocomplete="street-address" required maxlength="160"></label>
+        <label for="fascia">Quando preferisci essere chiamato?<select id="fascia"><option value="">Quando volete</option><option>mattina</option><option>pausa pranzo</option><option>pomeriggio</option><option>sera (dopo le 18)</option></select></label>
         <label for="tetto">Il tetto è<select id="tetto"><option value="">Non so</option><option>a falde con coppi o tegole</option><option>in lamiera</option><option>piano</option><option>altro</option></select></label>
       </div>
       <label for="notaC" style="margin-top:12px">Qualcosa da aggiungere? (facoltativo)<textarea id="notaC" rows="3" maxlength="500" placeholder="Es. vorrei anche la colonnina per l'auto"></textarea></label>
@@ -177,7 +178,20 @@ const euro = (n) => n.toLocaleString("it-IT") + " €";
 let tipo = "casa", batteria = false, ultimaStima = null;
 
 // nome dell'installatore partner nel consenso (solo se è impostato sul server)
-chiama({ azione: "config" }).then((c) => { if (c.partner) $("testoConsenso").textContent = `Acconsento a essere ricontattato per il sopralluogo e il preventivo, e che i miei dati siano inviati a ${c.partner}, installatore fotovoltaico partner di EyeDrones, solo per questo scopo.`; }).catch(() => {});
+let nomePartner = "";
+chiama({ azione: "config" }).then((c) => {
+  if (!c.partner) return;
+  nomePartner = c.partner;
+  $("testoConsenso").textContent = `Acconsento a essere ricontattato per il sopralluogo e il preventivo, e che i miei dati siano inviati a ${c.partner}, installatore fotovoltaico partner di EyeDrones, solo per questo scopo.`;
+  $("sottoContatto").textContent = `Lascia i tuoi dati: ti richiama ${c.partner}, installatore fotovoltaico della zona, per fissare il sopralluogo con il drone e il preventivo.`;
+}).catch(() => {});
+// da dove arriva la persona (pubblicità, QR, gruppi, Google): serve a capire cosa funziona. Nessun dato personale.
+const origine = (() => {
+  const q = new URLSearchParams(location.search), o = { pagina: location.pathname };
+  for (const k of ["utm_source", "utm_medium", "utm_campaign"]) if (q.get(k)) o[k.replace("utm_", "")] = q.get(k).slice(0, 60);
+  try { if (document.referrer) { const h = new URL(document.referrer).hostname; if (h && h !== location.hostname) o.da = h; } } catch {}
+  return o;
+})();
 
 document.querySelectorAll("[data-tipo]").forEach((b) => b.addEventListener("click", () => { tipo = b.dataset.tipo; document.querySelectorAll("[data-tipo]").forEach((x) => x.setAttribute("aria-pressed", x === b)); }));
 document.querySelectorAll("[data-batt]").forEach((b) => b.addEventListener("click", () => { batteria = b.dataset.batt === "si"; document.querySelectorAll("[data-batt]").forEach((x) => x.setAttribute("aria-pressed", x === b)); }));
@@ -203,6 +217,7 @@ $("formStima").addEventListener("submit", async (e) => {
     $("rProd").textContent = `${s.produzione.toLocaleString("it-IT")} kWh`;
     $("rRisp").textContent = `circa ${euro(s.risparmio)}`;
     $("rNota").textContent = `Circa ${s.pannelli} pannelli. Stima indicativa: consumo di circa ${s.consumo.toLocaleString("it-IT")} kWh l'anno ricavato dalla bolletta, ${s.resa} kWh per kW installato (${s.fonte}), autoconsumo ${s.batteria ? "70% con batteria" : "35% senza batteria"}, 0,27 €/kWh in bolletta e 0,09 €/kWh per l'energia ceduta. Il risparmio non tiene conto di incentivi e detrazioni.`;
+    $("condividi").href = `https://wa.me/?text=${encodeURIComponent(`☀️ Ho calcolato il fotovoltaico per il mio tetto: ${String(s.kw).replace(".", ",")} kW, circa ${s.produzione.toLocaleString("it-IT")} kWh l'anno e circa ${euro(s.risparmio)} di risparmio. Prova anche tu: ${location.origin}${location.pathname}?utm_source=whatsapp`)}`;
     $("risultato").hidden = false;
     if (!$("indirizzoC").value) $("indirizzoC").value = indirizzo;
     $("risultato").scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -216,8 +231,8 @@ $("formContatto").addEventListener("submit", async (e) => {
   if (!$("consenso").checked) { err.textContent = "Spunta il consenso per poterti ricontattare"; err.hidden = false; return; }
   btn.disabled = true; btn.textContent = "Invio…";
   try {
-    await chiama({ azione: "contatto", dati: { nome: $("nome").value, telefono: $("telefono").value, email: $("email").value, indirizzo: $("indirizzoC").value, tipo, tetto: $("tetto").value, nota: $("notaC").value, bolletta: Number($("bolletta").value) || null, stima: ultimaStima, consenso: true, sito: $("sito").value } });
-    $("formContatto").innerHTML = `<div class="fatto"><div class="ico">☀️</div><h3 style="font-size:24px">Grazie, richiesta inviata!</h3><p class="sotto" style="margin:8px auto 0">Ti richiamiamo presto per fissare il sopralluogo con il drone. Se vuoi, intanto fai le tue domande all'assistente.</p></div>`;
+    await chiama({ azione: "contatto", dati: { nome: $("nome").value, telefono: $("telefono").value, email: $("email").value, indirizzo: $("indirizzoC").value, tipo, tetto: $("tetto").value, fascia: $("fascia").value, origine, nota: $("notaC").value, bolletta: Number($("bolletta").value) || null, stima: ultimaStima, consenso: true, sito: $("sito").value } });
+    $("formContatto").innerHTML = `<div class="fatto"><div class="ico">☀️</div><h3 style="font-size:24px">Grazie, richiesta inviata!</h3><p class="sotto" style="margin:8px auto 0">${nomePartner ? `Ti richiamerà ${nomePartner}` : "Ti richiamerà un installatore della tua zona"}${$("fascia").value ? ` (${$("fascia").value})` : ""} per fissare il sopralluogo con il drone. Se vuoi, intanto fai le tue domande all'assistente.</p></div>`;
   } catch (x) { err.textContent = x.message; err.hidden = false; btn.disabled = false; btn.textContent = "Invia la richiesta"; }
 });
 

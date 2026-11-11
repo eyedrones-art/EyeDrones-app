@@ -53,9 +53,17 @@ async function numeriOrtaly(chiave) {
     return { botteghe, nuove, aperte, prodotti, fermi, ordini: ordini.length, incasso: validi.reduce((t, o) => t + (Number(o.totale) || 0), 0) };
   } catch (e) { console.error("numeri Ortaly non disponibili:", e.message); return null; }
 }
+// contatti della pagina /solare (fotovoltaico): solo i conteggi, con il codice segreto delle email
+async function numeriSolare(segreto) {
+  const r = await fetch("https://kywmesdqemxqjasixpzq.supabase.co/rest/v1/rpc/solare_conta", {
+    method: "POST", headers: { apikey: "sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ", "Content-Type": "application/json" },
+    body: JSON.stringify({ p_segreto: segreto }),
+  }).catch(() => null);
+  return r && r.ok ? r.json().catch(() => null) : null;
+}
 const euro = (v) => `${(Number(v) || 0).toLocaleString("it-IT", { maximumFractionDigits: 2 })} €`;
 
-function messaggioMattino(x, o) {
+function messaggioMattino(x, o, sol) {
   const giorno = new Date().toLocaleDateString("it-IT", { timeZone: "Europe/Rome", weekday: "long", day: "numeric", month: "long" });
   const r = [`☀️ <b>Buongiorno Ivan</b> · ${html(giorno)}`, ""];
   r.push(`👥 <b>Iscritti: ${n(x.iscritti)}</b> · ${n(x.nuovi) ? `+${n(x.nuovi)} da ieri` : "nessun nuovo da ieri"} · ${n(x.nuovi_7)} in 7 giorni`);
@@ -79,6 +87,7 @@ function messaggioMattino(x, o) {
     r.push(o.ordini ? `🛒 ${plurale(o.ordini, "ordine", "ordini")} da ieri · ${euro(o.incasso)} per i produttori` : "🛒 Nessun ordine da ieri");
     if (o.fermi) r.push(`⚠️ ${plurale(o.fermi, "ordine aspetta", "ordini aspettano")} il produttore da più di un giorno`);
   }
+  if (sol && (n(sol.mese) || n(sol.ieri))) r.push("", "<b>Fotovoltaico</b>", `☀️ ${n(sol.ieri) ? plurale(n(sol.ieri), "contatto nuovo", "contatti nuovi") : "Nessun contatto nuovo"} · ${n(sol.mese)} in 30 giorni${n(sol.contratti) ? ` · ${plurale(n(sol.contratti), "contratto", "contratti")}` : ""}`);
   if (x.errori != null) r.push("", n(x.errori) ? `🐞 ${plurale(n(x.errori), "errore", "errori")} nell'app (dettagli nell'email del mattino)` : "🐞 Nessun errore nell'app");
   const agenda = AGENDA[oggiItalia()];
   if (agenda) r.push("", "<b>Da fare oggi</b>", ...agenda.map((a) => `• ${html(a)}`));
@@ -100,7 +109,7 @@ exports.handler = async (event) => {
   const invio = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chat, text: messaggioMattino(d.numeri || {}, await numeriOrtaly(process.env.ORTALY_SUPABASE_SECRET)), parse_mode: "HTML", disable_web_page_preview: true }),
+    body: JSON.stringify({ chat_id: chat, text: messaggioMattino(d.numeri || {}, await numeriOrtaly(process.env.ORTALY_SUPABASE_SECRET), await numeriSolare(segreto)), parse_mode: "HTML", disable_web_page_preview: true }),
   }).catch(() => null);
   if (!invio || !invio.ok) {
     console.error("Telegram ha rifiutato il messaggio:", invio && invio.status, invio && (await invio.text().catch(() => "")).slice(0, 300));

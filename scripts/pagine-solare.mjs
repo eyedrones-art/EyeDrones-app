@@ -1,15 +1,20 @@
 // Dopo «vite build»: crea le pagine «Fotovoltaico a <comune>» per tutti i comuni del Piemonte, più una pagina per
 // provincia e una per la regione, partendo da public/solare/index.html (calcolatore, assistente e modulo restano gli stessi).
 // Ogni pagina ha dati suoi: provincia, CAP, posizione, produzione indicativa per 3 / 4,5 / 6 kW, comuni vicini.
-// Elenco comuni: scripts/dati/comuni-piemonte.json (dal pacchetto open source italian-cap-comuni-province, licenza MIT,
-// dati ISTAT con coordinate). Le pagine vanno in dist/fotovoltaico/… e in dist/sitemap-fotovoltaico.xml.
+// Elenco comuni: scripts/dati/comuni-piemonte.json (coordinate dal pacchetto open source italian-cap-comuni-province,
+// abitanti dal pacchetto comuni-json, entrambi licenza MIT, dati ISTAT). Le pagine vanno in dist/fotovoltaico/… e in
+// dist/sitemap-fotovoltaico.xml. Pagina propria solo per i comuni con almeno 5.000 abitanti (circa 135): tante pagine quasi
+// uguali per paesini piccoli Google le vede come «fatte in serie» e possono pesare su tutto il sito. Gli altri comuni
+// sono comunque coperti dalla pagina della loro provincia e dal calcolatore.
 import fs from "fs";
 import path from "path";
 
 const SITO = "https://app.eyedrones.it";
 const DIST = path.resolve("dist");
 const base = fs.readFileSync(path.join(DIST, "solare", "index.html"), "utf8");
-const comuni = JSON.parse(fs.readFileSync(path.resolve("scripts/dati/comuni-piemonte.json"), "utf8"));
+const tutti = JSON.parse(fs.readFileSync(path.resolve("scripts/dati/comuni-piemonte.json"), "utf8"));
+const MIN_ABITANTI = 5000;
+const comuni = tutti.filter((c) => (c.abitanti || 0) >= MIN_ABITANTI);
 const OGGI = new Date().toISOString().slice(0, 10);
 
 const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -30,7 +35,7 @@ function sostituisci(html, cerca, nuovo) {
 // indirizzi: /fotovoltaico/<comune>, /fotovoltaico/provincia-di-<provincia>, /fotovoltaico/piemonte
 const usati = new Set();
 for (const c of comuni) { let s = slug(c.nome); if (usati.has(s)) s = `${s}-${c.sigla.toLowerCase()}`; usati.add(s); c.slug = s; }
-const province = [...new Map(comuni.map((c) => [c.sigla, c.provincia])).entries()].map(([sigla, nome]) => ({ sigla, nome, slug: `provincia-di-${slug(nome)}`, comuni: comuni.filter((c) => c.sigla === sigla) })).sort((x, y) => x.nome.localeCompare(y.nome, "it"));
+const province = [...new Map(tutti.map((c) => [c.sigla, c.provincia])).entries()].map(([sigla, nome]) => ({ sigla, nome, slug: `provincia-di-${slug(nome)}`, comuni: comuni.filter((c) => c.sigla === sigla), tutti: tutti.filter((c) => c.sigla === sigla) })).sort((x, y) => x.nome.localeCompare(y.nome, "it"));
 const urlComune = (c) => `/fotovoltaico/${c.slug}`;
 
 function pagina({ percorso, titolo, descrizione, testa, locale, link, prefill, domande }) {
@@ -92,9 +97,9 @@ for (const c of comuni) {
 }
 // ---------- province ----------
 for (const p of province) {
-  const latMedia = p.comuni.reduce((s, c) => s + c.lat, 0) / p.comuni.length;
+  const latMedia = p.tutti.reduce((s, c) => s + c.lat, 0) / p.tutti.length;
   const r = resa(latMedia);
-  const capo = p.comuni.find((c) => c.capoluogo) || p.comuni.find((c) => c.nome === p.nome);
+  const capo = [...p.comuni].sort((x, y) => (y.abitanti || 0) - (x.abitanti || 0))[0];
   const domande = faq(`in provincia di ${p.nome}`, r);
   urls.push(pagina({
     percorso: `/fotovoltaico/${p.slug}`,
@@ -103,7 +108,8 @@ for (const p of province) {
     testa: `<h1>Fotovoltaico in provincia di ${esc(p.nome)}: <span>il tuo tetto, visto dal drone.</span></h1>
     <p>In provincia di ${esc(p.nome)} ogni kW di pannelli produce in media circa ${num(r)} kWh l'anno. Calcola quanto produce il tuo tetto e chiedi il sopralluogo con il drone e il preventivo.</p>`,
     locale: `<section class="sezione"><h2>Il fotovoltaico in provincia di ${esc(p.nome)}</h2>${schedaNumeri(`la provincia di ${p.nome}`, r)}
-      <h2 style="margin-top:26px">Scegli il tuo comune</h2><p class="vicini">${p.comuni.map((c) => `<a href="${urlComune(c)}">${esc(c.nome)}</a>`).join("")}</p>
+      <h2 style="margin-top:26px">I comuni principali</h2><p class="vicini">${p.comuni.map((c) => `<a href="${urlComune(c)}">${esc(c.nome)}</a>`).join("")}</p>
+      <p class="sotto">Il tuo comune non c'è? Scrivilo nel calcolatore qui sopra: la stima è per il tuo indirizzo, in tutti i ${p.tutti.length} comuni della provincia.</p>
       <h2 style="margin-top:26px">Domande frequenti</h2>${blocchiFaq(domande)}</section>`,
     link: `<b>Altre province:</b><span class="vicini">${province.filter((x) => x !== p).map((x) => `<a href="/fotovoltaico/${x.slug}">${esc(x.nome)}</a>`).join("")}</span><a href="/fotovoltaico/piemonte">Piemonte</a><br>`,
     prefill: capo ? capo.nome : "",
@@ -112,7 +118,7 @@ for (const p of province) {
 }
 // ---------- regione ----------
 {
-  const r = resa(comuni.reduce((s, c) => s + c.lat, 0) / comuni.length);
+  const r = resa(tutti.reduce((s, c) => s + c.lat, 0) / tutti.length);
   const domande = faq("in Piemonte", r);
   urls.push(pagina({
     percorso: "/fotovoltaico/piemonte",
@@ -121,7 +127,7 @@ for (const p of province) {
     testa: `<h1>Fotovoltaico in Piemonte: <span>il tuo tetto, visto dal drone.</span></h1>
     <p>In Piemonte ogni kW di pannelli produce in media circa ${num(r)} kWh l'anno, un po' di più al sud e in pianura. Calcola quanto produce il tuo tetto e chiedi il sopralluogo con il drone e il preventivo.</p>`,
     locale: `<section class="sezione"><h2>Il fotovoltaico in Piemonte</h2>${schedaNumeri("il Piemonte", r)}
-      <h2 style="margin-top:26px">Scegli la tua provincia</h2><p class="vicini">${province.map((p) => `<a href="/fotovoltaico/${p.slug}">${esc(p.nome)} (${p.comuni.length} comuni)</a>`).join("")}</p>
+      <h2 style="margin-top:26px">Scegli la tua provincia</h2><p class="vicini">${province.map((p) => `<a href="/fotovoltaico/${p.slug}">${esc(p.nome)} (${p.tutti.length} comuni)</a>`).join("")}</p>
       <h2 style="margin-top:26px">Domande frequenti</h2>${blocchiFaq(domande)}</section>`,
     link: "",
     prefill: "",
@@ -130,4 +136,4 @@ for (const p of province) {
 }
 
 fs.writeFileSync(path.join(DIST, "sitemap-fotovoltaico.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${[`${SITO}/solare`, ...urls].map((u) => `  <url><loc>${u}</loc><lastmod>${OGGI}</lastmod></url>`).join("\n")}\n</urlset>\n`);
-console.log(`pagine fotovoltaico: ${urls.length} (${comuni.length} comuni, ${province.length} province, 1 regione)`);
+console.log(`pagine fotovoltaico: ${urls.length} (${comuni.length} comuni sopra i ${MIN_ABITANTI} abitanti, ${province.length} province, 1 regione)`);
