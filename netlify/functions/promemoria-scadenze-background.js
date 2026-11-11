@@ -367,6 +367,19 @@ async function notificaTelefoni(segreto, email, messaggio) {
   return ok;
 }
 
+// la notifica delle scadenze: tocchi e si apre la pagina giusta (attestati e assicurazione, oppure droni e D-Flight)
+function notificaScadenze(u) {
+  const voci = (u.voci || []).filter((v) => v && v.titolo);
+  if (!voci.length) return null;
+  const prima = voci.slice().sort((a, b) => a.giorni - b.giorni)[0];
+  const pagina = /^(Manutenzione|Abbonamento D-Flight)/.test(prima.titolo) ? "droni" : "attestati";
+  return {
+    titolo: (voci.length === 1 ? `⏰ ${prima.titolo}: ${quando(prima.giorni)}` : `⏰ ${voci.length} scadenze in arrivo`).slice(0, 90),
+    testo: (voci.length === 1 ? `Il ${dataItaliana(prima.data)}. Rinnova in tempo e aggiorna la data in EyeDrones.` : voci.slice(0, 4).map((v) => `${v.titolo}: ${quando(v.giorni)}`).join(" · ")).slice(0, 200),
+    url: `${APP_URL}/?vai=${pagina}&da=notifica`,
+  };
+}
+
 // sabato e domenica che vengono (l'email parte il giovedì)
 function giorniWeekend(oggi = new Date()) {
   const fmt = (d) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome" }).format(d);
@@ -410,6 +423,11 @@ exports.handler = async (event) => {
 
   // Resend gratuito: 100 email al giorno in tutto. Prima le scadenze, poi i «primi passi» con quelle che restano
   let restano = 90;
+  // le scadenze anche come notifica sul telefono, a tutti (le notifiche non hanno il limite di Resend)
+  for (const u of (dati.utenti || []).slice(0, 300)) {
+    const n = emailValida(u.email) && notificaScadenze(u);
+    if (n) await notificaTelefoni(process.env.AVVISO_SEGRETO, u.email, n).catch((x) => console.error("notifica scadenze", x.message));
+  }
   for (const u of (dati.utenti || []).slice(0, restano)) {
     if (!emailValida(u.email) || !(u.voci || []).length) continue;
     await invia(chiave, mittente, u.email, emailUtente(u));
@@ -465,4 +483,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailWeekend, notificaWeekend, finestreDelGiorno, giorniWeekend };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailWeekend, notificaWeekend, notificaScadenze, finestreDelGiorno, giorniWeekend };

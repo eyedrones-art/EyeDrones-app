@@ -1916,7 +1916,8 @@ function AppShell({ session }) {
   // link dalle email: ?vai=droni, ?vai=attestati… apre quella pagina (con la barra della guida); ?vai=primi la Home con i primi passi
   const [vaiAltro] = useState(() => {
     const v = new URLSearchParams(window.location.search).get("vai");
-    const passo = { droni: "drone", attestati: "attestato", "registro-voli": "primovolo" }[v];
+    // dalle notifiche (&da=notifica) si apre solo la pagina, senza la barra della guida dei primi passi
+    const passo = new URLSearchParams(window.location.search).get("da") === "notifica" ? null : { droni: "drone", attestati: "attestato", "registro-voli": "primovolo" }[v];
     if (v === "importa") { try { sessionStorage.setItem("eyedrones_guida_passo", "primovolo"); } catch { /* niente */ } return "registro-voli"; }
     // ritorno dal pagamento di un pacchetto dell'Esperto: la pagina mostra il grazie
     if ((v === "analisi-ai" || v === "ispezione-ai") && new URLSearchParams(window.location.search).get("esperto") === "grazie") { try { sessionStorage.setItem("eyedrones_esperto_grazie", "1"); } catch { /* niente */ } }
