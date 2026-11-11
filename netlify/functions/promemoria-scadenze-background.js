@@ -9,6 +9,9 @@
 //   AVVISO_SEGRETO   il codice mostrato alla fine dello script SQL
 //   AVVISO_MITTENTE  facoltativa, es. "EyeDrones <avvisi@eyedrones.it>"
 const crypto = require("crypto");
+const { inviaPush } = require("./push-chiave.js");
+const SUPABASE_URL = "https://kywmesdqemxqjasixpzq.supabase.co";
+const SUPABASE_KEY = "sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ";
 
 const APP_URL = "https://app.eyedrones.it";
 const MITTENTE_PREDEFINITO = "EyeDrones <avvisi@eyedrones.it>";
@@ -323,6 +326,47 @@ function emailWeekend(u, giorni, oggi = new Date()) {
   return { oggetto, testo, corpo };
 }
 
+// la notifica sul telefono del giovedì: il momento migliore, l'altro giorno buono e il posto consigliato più vicino
+function notificaWeekend(u, giorni) {
+  const buoni = giorni.filter((g) => g && g.finestre.length);
+  if (!buoni.length) return null;
+  const zona = u.zona || "la tua zona";
+  const [primo, secondo] = buoni.map((g) => testoFinestra(g, g.finestre[0]));
+  const giorno = (t) => t.nome.split(" ")[0];
+  const ore = (t) => t.orario.replace("dalle ", "").replace(" alle ", "–");
+  const posto = (u.posti || []).find((p) => p && p.nome);
+  const pezzi = [
+    `${giorno(primo).charAt(0).toUpperCase() + giorno(primo).slice(1)} ${ore(primo)}: ${primo.dettagli.split(" · ").slice(0, 2).join(", ")}.`,
+    secondo ? `Anche ${giorno(secondo)} ${ore(secondo)}.` : "",
+    posto ? `📍 ${posto.nome} (${String(posto.km).replace(".", ",")} km).` : "",
+  ].filter(Boolean);
+  return {
+    titolo: `🌤️ Si vola vicino ${/^a/i.test(zona) ? "ad" : "a"} ${zona}`.slice(0, 90),
+    testo: pezzi.join(" ").slice(0, 200),
+    url: `${APP_URL}/?vai=pianificazione`,
+  };
+}
+
+// i telefoni con le notifiche attive di questa persona (stessa funzione del database usata per i lavori)
+async function notificaTelefoni(segreto, email, messaggio) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/push_destinatari`, {
+    method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_segreto: segreto, p_email: [email] }),
+  }).catch(() => null);
+  if (!r || !r.ok) return 0; // notifiche-push.sql non ancora eseguito: resta l'email
+  const telefoni = await r.json().catch(() => []);
+  let ok = 0;
+  for (const t of (Array.isArray(telefoni) ? telefoni : []).slice(0, 10)) {
+    const esito = await inviaPush(segreto, t, messaggio);
+    if (esito === "ok") ok++;
+    if (esito === "via") await fetch(`${SUPABASE_URL}/rest/v1/rpc/push_togli`, {
+      method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_segreto: segreto, p_endpoint: t.endpoint }),
+    }).catch(() => null);
+  }
+  return ok;
+}
+
 // sabato e domenica che vengono (l'email parte il giovedì)
 function giorniWeekend(oggi = new Date()) {
   const fmt = (d) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome" }).format(d);
@@ -385,14 +429,18 @@ exports.handler = async (event) => {
     await pausa(600);
   }
   const weekend = giorniWeekend();
+  // la notifica sul telefono parte a tutti (non conta nel limite di Resend), l'email finché ce ne sono
   for (const u of (dati.weekend || [])) {
-    if (restano <= 0) break;
     if (!emailValida(u.email) || u.lat == null || u.lon == null) continue;
     let j = null;
     try { j = await meteoWeekend(u.lat, u.lon); } catch (e) { console.error("meteo non disponibile", e.message); }
     if (!j) continue;
-    const e = emailWeekend(u, weekend.map((g) => finestreDelGiorno(j, g)));
-    if (!e) continue; // weekend brutto: niente email
+    const giorni = weekend.map((g) => finestreDelGiorno(j, g));
+    const e = emailWeekend(u, giorni);
+    if (!e) continue; // weekend brutto: niente email e niente notifica
+    const n = notificaWeekend(u, giorni);
+    if (n) await notificaTelefoni(process.env.AVVISO_SEGRETO, u.email, n).catch((x) => console.error("notifica weekend", x.message));
+    if (restano <= 0) continue;
     await invia(chiave, mittente, u.email, e);
     restano -= 1;
     await pausa(600);
@@ -417,4 +465,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailWeekend, finestreDelGiorno, giorniWeekend };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailWeekend, notificaWeekend, finestreDelGiorno, giorniWeekend };

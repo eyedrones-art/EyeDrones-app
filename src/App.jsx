@@ -12699,7 +12699,8 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
 
 // «La mia pagina»: il pilota compone la sua pagina pubblica e legge le richieste arrivate
 // notifiche sul telefono per i piloti: nuove richieste in zona, «sei stato scelto», annullamenti (le manda avviso-lavori)
-function NotifichePush() {
+function NotifichePush({ tema }) {
+  const weekend = tema === "weekend";
   const supportate = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
   const iPhone = typeof navigator !== "undefined" && (/iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
   const installata = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true);
@@ -12742,11 +12743,11 @@ function NotifichePush() {
   const testo = (titolo, sotto) => <div style={{ flex: 1, minWidth: 180 }}><div style={{ fontWeight: 700, fontSize: 14, color: "#e7eaee" }}>{titolo}</div><div style={{ fontSize: 12.5, color: "#8b95a3", marginTop: 2 }}>{sotto}</div></div>;
   if (stato === "no") {
     if (!iPhone || installata) return null;
-    return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Notifiche dei nuovi lavori", "Su iPhone prima aggiungi EyeDrones alla schermata Home (Safari → Condividi → Aggiungi alla schermata Home), poi aprila dall'icona e attiva qui le notifiche.")}</div>;
+    return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo(weekend ? "Anche come notifica sul telefono" : "Notifiche dei nuovi lavori", "Su iPhone prima aggiungi EyeDrones alla schermata Home (Safari → Condividi → Aggiungi alla schermata Home), poi aprila dall'icona e attiva qui le notifiche.")}</div>;
   }
-  if (stato === "attive") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Notifiche attive su questo telefono", "Ti avvisiamo subito di nuove richieste in zona, quando un cliente ti sceglie e se un lavoro cambia.")}<button onClick={spegni} style={{ background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, cursor: "pointer" }}>Spegni</button></div>;
+  if (stato === "attive") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Notifiche attive su questo telefono", weekend ? "Il giovedì ti arriva anche qui quando e dove volare nel weekend." : "Ti avvisiamo subito di nuove richieste in zona, quando un cliente ti sceglie e se un lavoro cambia.")}<button onClick={spegni} style={{ background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, cursor: "pointer" }}>Spegni</button></div>;
   if (stato === "bloccate") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔕</span>{testo("Notifiche bloccate", "Le hai bloccate per EyeDrones: riattivale dalle impostazioni del browser (lucchetto accanto all'indirizzo → Notifiche), poi ricarica la pagina.")}</div>;
-  return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Avvisami dei nuovi lavori", stato === "errore" ? "Non sono riuscito ad attivarle su questo telefono: riprova tra poco." : "Una notifica sul telefono appena arriva una richiesta in zona o un cliente ti sceglie, anche ad app chiusa. Chi risponde prima vince più lavori.")}<button onClick={attiva} disabled={stato === "lavoro"} style={pulsante}>{stato === "lavoro" ? "Attivo…" : "Attiva"}</button></div>;
+  return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo(weekend ? "Anche come notifica sul telefono" : "Avvisami dei nuovi lavori", stato === "errore" ? "Non sono riuscito ad attivarle su questo telefono: riprova tra poco." : weekend ? "Il giovedì ti arriva una notifica con le ore buone del weekend e il posto consigliato più vicino." : "Una notifica sul telefono appena arriva una richiesta in zona o un cliente ti sceglie, anche ad app chiusa. Chi risponde prima vince più lavori.")}<button onClick={attiva} disabled={stato === "lavoro"} style={pulsante}>{stato === "lavoro" ? "Attivo…" : "Attiva"}</button></div>;
 }
 
 function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onRichiesteCambiate, onCreaPreventivo, onPermessi, onVai }) {
@@ -16735,11 +16736,12 @@ function AvvisoWeekend({ inHome }) {
       <div style={{ fontSize: inHome ? 14.5 : 13, fontWeight: 700, paddingRight: inHome ? 30 : 0 }}>🌤️ Il weekend giusto per volare</div>
       {stato.attivo && !cambio ? (
         <>
-          <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4 }}>✅ Attivo per <strong>{stato.zona || "la tua zona"}</strong>: il giovedì ti scrivo quando e dove volare nel weekend, se il tempo è buono.</div>
+          <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4 }}>✅ Attivo per <strong>{stato.zona || "la tua zona"}</strong>: il giovedì ti scrivo (email e, se le attivi, notifica) quando e dove volare nel weekend, se il tempo è buono.</div>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <button type="button" onClick={() => setCambio(true)} style={{ background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Cambia zona</button>
             <button type="button" onClick={() => salva({ avviso_weekend: false })} style={{ background: "none", color: "#ff9c9c", border: "1px solid #5a2a2a", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Spegni</button>
           </div>
+          <div style={{ marginTop: 10 }}><NotifichePush tema="weekend" /></div>
         </>
       ) : (
         <>
