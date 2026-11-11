@@ -234,6 +234,11 @@ form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
 .passi span.no{background:color-mix(in srgb,var(--pomodoro) 18%,transparent);color:var(--pomodoro)}
 .badge{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:var(--pomodoro);color:#fff;font-size:11.5px;font-weight:800;margin-left:4px}
 .miei-ordini{display:grid;gap:8px;margin-top:12px}
+.filtri{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.filtri .cat{flex:1;min-width:0}
+.ordina{font-size:13px;color:var(--tenue);display:flex;gap:6px;align-items:center;white-space:nowrap}
+.ordina select{border:1px solid var(--bordo);border-radius:10px;padding:6px 8px;font:inherit;background:var(--bianco);color:var(--inchiostro)}
+.cerca-prod{width:100%;border:1px solid var(--bordo);border-radius:12px;padding:10px 12px;font:inherit;background:var(--bianco);color:var(--inchiostro);margin-top:8px}
 .stelle{display:flex;gap:4px}
 .stelle button{border:0;background:none;font-size:32px;line-height:1;padding:2px;color:var(--bordo);cursor:pointer}
 .stelle button[aria-pressed="true"]{color:var(--tuorlo)}
@@ -283,7 +288,10 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
       <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Iscriviti in 2 minuti, metti i tuoi prodotti con le tue foto e ricevi gli ordini dei clienti della tua zona.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
     <section class="sez"><h2>Al banco oggi <small id="conta"></small></h2>
       <div class="cat" id="categorie" role="group" aria-label="Categorie"></div>
-      <div class="griglia" id="griglia"><div class="attesa">Carico il banco…</div></div></section>
+      <div class="filtri"><div class="cat" id="filtri" role="group" aria-label="Filtri" style="padding-top:2px"></div>
+        <label class="ordina">Ordina <select id="ordina" aria-label="Ordina i prodotti"><option value="nuovi">più nuovi</option><option value="prezzo">prezzo più basso</option><option value="nome">nome</option></select></label></div>
+      <div class="griglia" id="griglia"><div class="attesa">Carico il banco…</div></div>
+      <div id="altri" style="text-align:center"></div></section>
     <section class="sez" id="sezMieiOrdini" hidden><h2>I tuoi ordini <small>stato e chat</small></h2><div class="miei-ordini" id="mieiOrdiniCliente"></div></section>
     <div id="boxInstallaCompro"></div>
     <p class="pie-sito">Ortaly mette in contatto clienti e produttori: ogni produttore vende, consegna e incassa da sé.<br><a href="/privacy" style="color:inherit">Privacy</a> · <a href="mailto:info@ortaly.it" style="color:inherit">info@ortaly.it</a></p>
@@ -306,6 +314,9 @@ const COLORI=["f1","f2","f3","f4","f5","f6"];
 const STAGIONI=["cavolo nero, porri, arance, mandarini e radicchio","cavoli, finocchi, arance e topinambur","asparagi selvatici, spinaci, carciofi e uova fresche","asparagi, fave, piselli e le prime fragole","fragole, ciliegie, piselli e zucchine","albicocche, zucchine, fagiolini e i primi pomodori","pesche, pomodori, peperoni, melanzane e meloni","pesche, fichi, pomodori e angurie","uva, fichi, peperoni e i primi funghi","uva, castagne, zucca, mele e pere","zucca, castagne, cachi, mele, porri e cavolo nero","cavoli, porri, arance, mandarini e miele"];
 const MESI=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 const MODI={casa:["🚚","A casa","Consegna a casa","consegna_casa"],ritiro:["🏡","Ritiro","Ritiro in azienda","ritiro"],spedizione:["📦","Spedizione","Spedizione con corriere","spedizione"]};
+const CORRIERI=["BRT","GLS","SDA","Poste Italiane","DHL","UPS","TNT/FedEx","Nexive","Altro"];
+const linkPacco=t=>"https://t.17track.net/it#nums="+encodeURIComponent(String(t||"").replace(/\s+/g,""));
+const nomeStato=o=>o.stato==="pronto"&&o.modo==="spedizione"?"Spedito":STATI[o.stato];
 const STATI={nuovo:"Nuovo",accettato:"Accettato",pronto:"Pronto",consegnato:"Consegnato",annullato:"Annullato",non_ritirato:"Non ritirato"};
 
 const $=id=>document.getElementById(id);
@@ -351,16 +362,30 @@ function mostraCategorie(){
   $("categorie").innerHTML=["Tutto",...CAT.filter(c=>presenti.has(c))].map(c=>`<button aria-pressed="${c===cat}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
 }
 function qtaHtml(id){const q=carrello[id]||0;return q?`<div class="qta"><button data-meno="${esc(id)}" aria-label="Togli uno">−</button><span>${q}</span><button data-piu="${esc(id)}" aria-label="Aggiungi uno">+</button></div>`:`<button class="piu" data-piu="${esc(id)}">Aggiungi</button>`}
+// ricerca: più parole insieme, senza badare ad accenti e maiuscole
+const semplice=t=>String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+let filtri={bio:false,casa:false,sped:false},ordine="nuovi",mostrati=24;
+const FILTRI=[["bio","🌱 Bio"],["casa","🚚 A casa"],["sped","📦 Spedisce"]];
+function mostraFiltri(){$("filtri").innerHTML=FILTRI.map(([k,t])=>`<button aria-pressed="${filtri[k]}" data-filtro="${k}">${t}</button>`).join("")}
+function trova(zonaVoluta){
+  const parole=semplice(testo).split(/\s+/).filter(Boolean);
+  return ART.filter(a=>{const b=bot(a.bottega);if(!b)return false;
+    if(zonaVoluta==="italia"?!(b.spedizione&&b.provincia!==prov):b.provincia!==prov)return false;
+    if(cat!=="Tutto"&&a.categoria!==cat)return false;
+    if(filtri.bio&&!b.bio)return false;if(filtri.casa&&!b.consegna_casa)return false;if(filtri.sped&&!b.spedizione)return false;
+    if(!parole.length)return true;const tutto=semplice([a.nome,a.categoria,a.nota,b.nome,b.tipo,b.paese].join(" "));return parole.every(p=>tutto.includes(p))})}
 function mostraGriglia(){
-  if(!pronto){$("griglia").innerHTML=`<div class="vuoto"><b>Ortaly sta per aprire</b>Stiamo preparando il banco con i primi produttori.</div>`;$("conta").textContent="";return}
-  const t=testo.trim().toLowerCase();
-  const lista=ART.filter(a=>{const b=bot(a.bottega);return b&&zonaOk(b)&&(cat==="Tutto"||a.categoria===cat)&&(!t||(a.nome+" "+b.nome+" "+(a.nota||"")).toLowerCase().includes(t))});
-  $("conta").textContent=lista.length?lista.length+" prodotti":"";
-  $("griglia").innerHTML=lista.length?lista.map(a=>{const b=bot(a.bottega);return `<article class="art">
+  if(!pronto){$("griglia").innerHTML=`<div class="vuoto"><b>Ortaly sta per aprire</b>Stiamo preparando il banco con i primi produttori.</div>`;$("conta").textContent="";$("altri").innerHTML="";return}
+  const t=testo.trim();
+  const lista=trova(zona).sort(ordine==="prezzo"?(x,y)=>x.prezzo-y.prezzo:ordine==="nome"?(x,y)=>x.nome.localeCompare(y.nome,"it"):(x,y)=>String(y.creato).localeCompare(String(x.creato)));
+  $("conta").textContent=lista.length?lista.length+(lista.length===1?" prodotto":" prodotti"):"";
+  const altrove=!lista.length&&(t||cat!=="Tutto"||filtri.bio||filtri.casa||filtri.sped)?trova(zona==="italia"?"vicino":"italia").length:0;
+  $("altri").innerHTML=lista.length>mostrati?`<button class="piu" data-altri="1" style="margin-top:4px">Mostra altri ${Math.min(24,lista.length-mostrati)} (${lista.length-mostrati} in tutto)</button>`:"";
+  $("griglia").innerHTML=lista.length?lista.slice(0,mostrati).map(a=>{const b=bot(a.bottega);return `<article class="art">
     <div style="position:relative">${foto(colore(b.id),EMOJI[a.categoria]||"🧺",a.foto)}<div class="prezzo">${euro(a.prezzo)}<small>/${esc(a.unita)}</small></div></div>
     <div class="t"><h3>${esc(a.nome)}</h3><button class="chi" data-p="${esc(b.id)}">${esc(b.nome)}</button>${a.nota?`<div class="km" style="color:var(--tenue);font-weight:600">${esc(a.nota)}</div>`:""}
     <div class="pie"><span class="km">${zona==="italia"?"📦 "+esc(b.provincia):"📍 "+esc(b.paese)}</span>${qtaHtml(a.id)}</div></div></article>`}).join("")
-    :`<div class="vuoto"><b>${t||cat!=="Tutto"?"Nessun prodotto trovato":"Il banco è ancora vuoto qui"}</b>${t||cat!=="Tutto"?"Prova un'altra parola o un'altra categoria.":"Prova «Dall'Italia» o un'altra provincia."}</div>`;
+    :`<div class="vuoto"><b>${t||cat!=="Tutto"||filtri.bio||filtri.casa||filtri.sped?"Nessun prodotto trovato":"Il banco è ancora vuoto qui"}</b>${altrove?`<button class="link" data-altrazona="1">${altrove===1?"C'è 1 prodotto":"Ci sono "+altrove+" prodotti"} ${zona==="italia"?"nella tua provincia":"in «Dall'Italia»"} ›</button>`:filtri.bio||filtri.casa||filtri.sped?"Prova a togliere qualche filtro.":t||cat!=="Tutto"?"Prova un'altra parola o un'altra categoria.":"Prova «Dall'Italia» o un'altra provincia."}</div>`;
   $("nCarrello").textContent=Object.values(carrello).reduce((s,q)=>s+q,0);
 }
 function aggiornaCompro(){mostraStagione();mostraProduttori();mostraCategorie();mostraGriglia()}
@@ -460,7 +485,7 @@ async function mandaOrdini(e){e.preventDefault();const btn=$("oInvia"),err=$("oE
   ${errori.length?`<p class="errore">Non partito: ${esc(errori.join(" · "))}. Il resto è ancora nel cestino.</p>`:""}
   <button class="grande" data-chiudi="1">Torna al banco</button></div>`,"fatto");
 }
-function scegliZona(z,senzaChiudere){zona=z;cat="Tutto";$("zVicino").setAttribute("aria-pressed",z==="vicino");$("zItalia").setAttribute("aria-pressed",z==="italia");
+function scegliZona(z,senzaChiudere){zona=z;cat="Tutto";mostrati=24;$("zVicino").setAttribute("aria-pressed",z==="vicino");$("zItalia").setAttribute("aria-pressed",z==="italia");
   $("titProd").textContent=z==="italia"?"Produttori da tutta Italia":"Produttori vicino a te";aggiornaCompro()}
 
 // ── VENDO ──
@@ -624,7 +649,7 @@ function mostraVendo(){
   mostraBoxApp();
   const c=$("vCorpo");
   if(vendoScheda==="ordini"){
-    c.innerHTML=mieiOrd.length?mieiOrd.map(o=>`<div class="ordine"><div class="su"><b>${esc(o.cliente_nome)}</b><span class="stato s-${o.stato}">${STATI[o.stato]}</span></div>
+    c.innerHTML=mieiOrd.length?mieiOrd.map(o=>`<div class="ordine"><div class="su"><b>${esc(o.cliente_nome)}</b><span class="stato s-${o.stato}">${nomeStato(o)}</span></div>
       <ul class="righe">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)})</span></li>`).join("")}</ul>
       <div style="font-size:13px;color:var(--tenue)">${MODI[o.modo][0]} ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""} · <b style="color:var(--inchiostro)">${euro(o.totale)}</b> · ${new Date(o.creato).toLocaleString("it-IT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${esc(o.codice)}</div>
       ${o.nota?`<div style="font-size:13.5px">📝 ${esc(o.nota)}</div>`:""}
@@ -636,7 +661,9 @@ function mostraVendo(){
       ${mieSegn.filter(x=>x.ordine===o.id).map(x=>`<div class="segn${x.risolta?" ok":""}"><div>${x.risolta?"✅ Risolta":"⚠️ Segnalazione"} · <b>${esc(TIPI_PROBLEMA[x.tipo]||x.tipo)}</b></div><div>${esc(x.testo)}</div>${x.risolta?"":`<div class="azioni"><button data-chat="${o.id}">💬 Scrivi al cliente</button><button data-risolta="${x.id}">✓ Risolta</button></div>`}</div>`).join("")}
       ${mieRec.filter(x=>x.ordine===o.id).map(x=>`<div class="rec"><div>${voto(x.stelle)} <b>${esc(x.nome)}</b></div>${x.commento?`<div>${esc(x.commento)}</div>`:""}${x.risposta?`<div class="risp"><b>La tua risposta:</b> ${esc(x.risposta)}</div>`:`<div id="risp-${x.id}"><button class="link" data-rispondi="${x.id}">Rispondi (la risposta è pubblica)</button></div>`}
         ${x.contestata?`<div style="font-size:12.5px;color:var(--tenue)">🚩 Segnalata a Ortaly: la controlliamo</div>`:`<button class="link" style="justify-self:start;color:var(--tenue);font-size:12.5px" data-contesta="${x.id}">🚩 Sembra falsa? Segnala a Ortaly</button>`}</div>`).join("")}
-      <div class="azioni"><button data-chat="${o.id}">💬 Chat${nonLetti(o.id)?`<span class="badge">${nonLetti(o.id)}</span>`:""}</button>${o.stato==="nuovo"?`<button class="si" data-stato="accettato" data-o="${o.id}">✓ Accetto</button><button data-stato="annullato" data-o="${o.id}">Non posso</button>`:o.stato==="accettato"?`<button class="si" data-stato="pronto" data-o="${o.id}">È pronto</button><button data-stato="annullato" data-o="${o.id}">Annulla</button>`:o.stato==="pronto"?`<button class="si" data-stato="consegnato" data-o="${o.id}">Consegnato</button><button data-stato="non_ritirato" data-o="${o.id}">❌ Non si è presentato</button>`:o.stato==="non_ritirato"?`<button data-stato="consegnato" data-o="${o.id}">Mi sono sbagliato: l'ha ritirato</button>`:""}</div></div>`).join("")
+      ${o.tracking?`<div style="font-size:13.5px">📦 ${esc(o.corriere||"Corriere")} · n. <b>${esc(o.tracking)}</b> · <a href="${linkPacco(o.tracking)}" target="_blank" rel="noopener">segui</a></div>`:""}
+      <div id="sped-${o.id}"></div>
+      <div class="azioni"><button data-chat="${o.id}">💬 Chat${nonLetti(o.id)?`<span class="badge">${nonLetti(o.id)}</span>`:""}</button>${o.stato==="nuovo"?`<button class="si" data-stato="accettato" data-o="${o.id}">✓ Accetto</button><button data-stato="annullato" data-o="${o.id}">Non posso</button>`:o.stato==="accettato"?`${o.modo==="spedizione"?`<button class="si" data-spedito="${o.id}">📦 Spedito</button>`:`<button class="si" data-stato="pronto" data-o="${o.id}">È pronto</button>`}<button data-stato="annullato" data-o="${o.id}">Annulla</button>`:o.stato==="pronto"?`<button class="si" data-stato="consegnato" data-o="${o.id}">${o.modo==="spedizione"?"Arrivato":"Consegnato"}</button>${o.modo==="spedizione"?"":`<button data-stato="non_ritirato" data-o="${o.id}">❌ Non si è presentato</button>`}`:o.stato==="non_ritirato"?`<button data-stato="consegnato" data-o="${o.id}">Mi sono sbagliato: l'ha ritirato</button>`:""}</div></div>`).join("")
       :`<div class="cliente"><span>Nessun ordine per ora. Metti i tuoi prodotti e condividi il link della tua bottega con i tuoi clienti: lo trovi nella scheda «Bottega».</span></div>`;
   }else if(vendoScheda==="prodotti"){
     c.innerHTML=`<form class="nuovo" id="formProdotto"><h3 style="font-size:18px">Metti un prodotto</h3>
@@ -648,10 +675,13 @@ function mostraVendo(){
         <label for="nFoto">Foto del prodotto <span class="aiuto">(scattala tu, dal telefono)</span><input id="nFoto" type="file" accept="image/*"></label>
         <p class="errore" id="nErr" hidden></p><button class="grande" type="submit">Metti al banco</button></form>
       <h3 style="font-size:18px;margin-top:20px">I miei prodotti <small style="font:600 12.5px var(--testo);color:var(--tenue)">accendi o spegni</small></h3>
-      ${mieiProd.length?mieiProd.map(a=>`<div class="mioart">${foto(colore(b.id),EMOJI[a.categoria]||"🧺",a.foto)}<div class="t"><b>${esc(a.nome)}</b><div>${euro(a.prezzo)} / ${esc(a.unita)}${a.disponibile?"":" · non al banco"}</div>
+      ${mieiProd.length>8?`<input class="cerca-prod" id="cercaMiei" type="search" placeholder="Cerca tra i tuoi ${mieiProd.length} prodotti…" aria-label="Cerca tra i tuoi prodotti">`:""}
+      <div id="listaMiei">${mieiProd.length?mieiProd.map(a=>`<div class="mioart" data-nome="${esc(semplice(a.nome+" "+a.categoria))}">${foto(colore(b.id),EMOJI[a.categoria]||"🧺",a.foto)}<div class="t"><b>${esc(a.nome)}</b><div>${euro(a.prezzo)} / ${esc(a.unita)}${a.disponibile?"":" · non al banco"}</div>
         <div class="azioni" style="margin-top:6px"><button data-prezzo="${a.id}">Prezzo</button><button data-elimina="${a.id}">Elimina</button></div></div>
-        <button class="inter" aria-pressed="${a.disponibile}" data-attiva="${a.id}" aria-label="${a.disponibile?"Togli dal banco":"Metti al banco"} ${esc(a.nome)}"></button></div>`).join(""):`<div class="cliente"><span>Non hai ancora prodotti al banco: mettine uno qui sopra.</span></div>`}`;
+        <button class="inter" aria-pressed="${a.disponibile}" data-attiva="${a.id}" aria-label="${a.disponibile?"Togli dal banco":"Metti al banco"} ${esc(a.nome)}"></button></div>`).join(""):`<div class="cliente"><span>Non hai ancora prodotti al banco: mettine uno qui sopra.</span></div>`}</div>`;
     $("formProdotto").addEventListener("submit",salvaProdotto);
+    const cm=$("cercaMiei");if(cm)cm.addEventListener("input",()=>{const parole=semplice(cm.value).split(/\s+/).filter(Boolean);
+      document.querySelectorAll("#listaMiei .mioart").forEach(el=>{el.hidden=!parole.every(p=>el.dataset.nome.includes(p))})});
   }else{
     c.innerHTML=`<div class="blocco"><b>Il link della tua bottega</b><p class="nota" style="margin-top:2px">Mandalo ai tuoi clienti su WhatsApp o mettilo sul cartello al banco: lo aprono e ordinano da te.</p>
       <div class="condividi"><code id="linkB">${esc(link)}</code><button class="piu" data-copia="1">Copia</button><a class="piu" style="text-decoration:none" href="https://wa.me/?text=${encodeURIComponent("Ordina i miei prodotti su Ortaly: "+link)}" target="_blank" rel="noopener">WhatsApp</a></div></div>
@@ -672,7 +702,7 @@ async function salvaProdotto(e){e.preventDefault();const err=$("nErr"),btn=e.tar
 }
 
 // ── ordine del cliente (link segreto ortaly.it/#ordine-...) ──
-const COL_ORDINI="id,codice,bottega,cliente_nome,modo,indirizzo,nota,righe,totale,stato,creato,annullato_da,motivo_annullo,mancati_precedenti,pagamento,pagato,spese,rimborsato";
+const COL_ORDINI="id,codice,bottega,cliente_nome,modo,indirizzo,nota,righe,totale,stato,creato,annullato_da,motivo_annullo,mancati_precedenti,pagamento,pagato,spese,rimborsato,corriere,tracking";
 function ricordaOrdine(o){const l=leggi("ordini",[]).filter(x=>x.segreto!==o.segreto);l.unshift(o);salva("ordini",l.slice(0,15));mostraMieiOrdini()}
 function mostraMieiOrdini(){const l=leggi("ordini",[]);const s=$("sezMieiOrdini");if(!s)return;s.hidden=!l.length;
   $("mieiOrdiniCliente").innerHTML=l.map(o=>`<button class="cliente" style="width:100%;text-align:left;border:0;cursor:pointer" data-ordinecliente="${esc(o.segreto)}"><span><b>${esc(o.bottega)}</b><small>Ordine ${esc(o.codice)} · ${new Date(o.creato).toLocaleDateString("it-IT",{day:"numeric",month:"short"})}</small></span><span style="text-align:right"><b>${euro(o.totale)}</b><small>stato e chat ›</small></span></button>`).join("")}
@@ -731,9 +761,10 @@ async function apriOrdineCliente(segreto,aggiorna,forza){
   const scritto=aggiorna&&$("chatTesto")?$("chatTesto").value:"";
   ricordaOrdine({segreto,codice:o.codice,bottega:o.bottega.nome,totale:o.totale,creato:o.creato});
   const ordine=["nuovo","accettato","pronto","consegnato"],i=ordine.indexOf(o.stato);
-  const passi=o.stato==="non_ritirato"?`<div class="passi"><span class="no">Segnato come non ritirato</span></div><p class="nota">Se è un errore scrivi al produttore qui sotto o a info@ortaly.it.</p>`:o.stato==="annullato"?`<div class="passi"><span class="no">${o.annullato_da==="cliente"?"Annullato da te":"Annullato dal produttore"}</span></div>`:`<div class="passi">${["Inviato","Accettato","Pronto","Consegnato"].map((t,k)=>`<span class="${k<=i?"ok":""}">${t}</span>`).join("")}</div>`;
+  const passi=o.stato==="non_ritirato"?`<div class="passi"><span class="no">Segnato come non ritirato</span></div><p class="nota">Se è un errore scrivi al produttore qui sotto o a info@ortaly.it.</p>`:o.stato==="annullato"?`<div class="passi"><span class="no">${o.annullato_da==="cliente"?"Annullato da te":"Annullato dal produttore"}</span></div>`:`<div class="passi">${["Inviato","Accettato",o.modo==="spedizione"?"Spedito":"Pronto",o.modo==="spedizione"?"Arrivato":"Consegnato"].map((t,k)=>`<span class="${k<=i?"ok":""}">${t}</span>`).join("")}</div>`;
   apriSheet(`<div class="corpo"><h2>${esc(o.bottega.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">Ordine ${esc(o.codice)} · ${euro(o.totale)} · ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""}</div>
   ${passi}
+  ${o.tracking&&o.stato!=="annullato"?`<div class="rec" style="margin-top:10px"><b>📦 Spedito con ${esc(o.corriere||"corriere")}</b><div>Numero di spedizione: <b>${esc(o.tracking)}</b></div><a class="piu" style="text-decoration:none;justify-self:start" href="${linkPacco(o.tracking)}" target="_blank" rel="noopener">Segui il pacco ›</a></div>`:""}
   ${Number(o.spese)?`<p class="nota" style="margin-top:6px">Il totale comprende ${o.modo==="spedizione"?"la spedizione":"la consegna"}: ${euro(o.spese)}</p>`:""}
   ${o.stato==="annullato"&&o.pagato?`<div class="segn${o.rimborsato?" ok":""}" style="margin-top:10px">${o.rimborsato?`✅ <b>Il produttore ti ha restituito ${euro(o.totale)}</b>`:`<b>Il produttore deve restituirti ${euro(o.totale)}</b><div>Se non li ricevi entro qualche giorno usa «Qualcosa non è andato bene?» o scrivi a info@ortaly.it.</div>`}</div>`:""}
   ${o.pagamento==="online"&&!["annullato","non_ritirato"].includes(o.stato)?(o.pagato?`<div class="rec" style="margin-top:10px">✅ <b>Pagamento ricevuto</b> dal produttore</div>`:o.stato==="nuovo"?`<div class="rec" style="margin-top:10px"><b>Da pagare online: ${euro(o.totale)}</b><div class="nota" style="margin:0">Potrai pagare quando il produttore accetta l'ordine: ti avvisiamo.</div></div>`:`<div class="rec" style="margin-top:10px"><b>Da pagare online: ${euro(o.totale)}</b>${bottonePaga(o.bottega.link_pagamento,o.totale,o.codice)}</div>`):o.pagamento==="consegna"&&!["annullato","non_ritirato"].includes(o.stato)?`<p class="nota">💶 Paghi al produttore alla consegna o al ritiro.</p>`:""}
@@ -853,11 +884,25 @@ function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro"
   if(v){vendoScheda="ordini";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
   window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":location.pathname)}catch(e){}}
 
-document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui],[data-correggi],[data-rispondi],[data-risolta],[data-contesta],[data-pagato],[data-rimborsato]");if(!t)return;
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui],[data-correggi],[data-rispondi],[data-risolta],[data-contesta],[data-pagato],[data-rimborsato],[data-filtro],[data-altri],[data-altrazona],[data-spedito]");if(!t)return;
   if(t.dataset.chiudi!==undefined&&t.classList.contains("sheet-bg")&&e.target!==t)return;
   if(t.dataset.installa){installa();return}
   if(t.dataset.chat){apriChatProduttore(t.dataset.chat);return}
   if(t.dataset.correggi){correggoValutazione=t.dataset.correggi;apriOrdineCliente(t.dataset.correggi,true,true);return}
+  if(t.dataset.spedito){const id=t.dataset.spedito,box=$("sped-"+id);
+    box.innerHTML=`<form class="nuovo" style="margin-top:6px;padding:10px"><div class="due"><label>Corriere<select>${CORRIERI.map(c=>`<option>${c}</option>`).join("")}</select></label>
+      <label>Numero di spedizione<input required minlength="4" maxlength="60" placeholder="Es. 0123456789"></label></div>
+      <button class="grande" type="submit" style="margin-top:0">📦 Segna come spedito e avvisa il cliente</button></form>`;
+    const f=box.querySelector("form");f.querySelector("input").focus();
+    f.addEventListener("submit",async e=>{e.preventDefault();const corriere=f.querySelector("select").value,tracking=f.querySelector("input").value.trim();
+      const btn=f.querySelector("button");btn.disabled=true;
+      const {error}=await sb.from("ordini").update({stato:"pronto",corriere,tracking}).eq("id",id);btn.disabled=false;
+      if(error){toast(erroreDi(error));return}
+      mieiOrd.forEach(x=>{if(x.id===id)Object.assign(x,{stato:"pronto",corriere,tracking})});mostraVendo();toast("Spedito: il cliente riceve il numero per seguire il pacco");
+      fetch("/.netlify/functions/ortaly-stato",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id}),keepalive:true}).catch(()=>{})});return}
+  if(t.dataset.filtro){filtri[t.dataset.filtro]=!filtri[t.dataset.filtro];mostrati=24;mostraFiltri();mostraGriglia();return}
+  if(t.dataset.altri){mostrati+=24;mostraGriglia();return}
+  if(t.dataset.altrazona){scegliZona(zona==="italia"?"vicino":"italia");return}
   if(t.dataset.rimborsato){t.disabled=true;const {error}=await sb.from("ordini").update({rimborsato:true}).eq("id",t.dataset.rimborsato);if(error){toast(erroreDi(error));t.disabled=false;return}
     mieiOrd.forEach(x=>{if(x.id===t.dataset.rimborsato)x.rimborsato=true});mostraVendo();toast("Segnato come rimborsato");return}
   if(t.dataset.pagato){t.disabled=true;const {error}=await sb.from("ordini").update({pagato:true}).eq("id",t.dataset.pagato);if(error){toast(erroreDi(error));t.disabled=false;return}
@@ -888,7 +933,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu]
   else if(t.dataset.piu)cambia(t.dataset.piu,1);
   else if(t.dataset.meno)cambia(t.dataset.meno,-1);
   else if(t.dataset.p)apriProduttore(t.dataset.p);
-  else if(t.dataset.c!==undefined){cat=t.dataset.c;mostraCategorie();mostraGriglia()}
+  else if(t.dataset.c!==undefined){cat=t.dataset.c;mostrati=24;mostraCategorie();mostraGriglia()}
   else if(t.dataset.chiudi)chiudiSheet();
   else if(t.dataset.reg!==undefined)vistaAccesso(!!t.dataset.reg);
   else if(t.dataset.esci){await sb.auth.signOut();mia=null;statoNotifiche="?";clearInterval(timerOrdini);toast("Sei uscito")}
@@ -911,7 +956,9 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu]
 });
 document.addEventListener("change",e=>{if(e.target.dataset.scelta){scelte[e.target.dataset.scelta]=e.target.value;apriCarrello()}if(e.target.dataset.pagscelta){pagScelte[e.target.dataset.pagscelta]=e.target.value}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")chiudiSheet()});
-$("cerca").addEventListener("input",e=>{testo=e.target.value;mostraGriglia()});
+$("cerca").addEventListener("input",e=>{testo=e.target.value;mostrati=24;mostraGriglia()});
+$("ordina").addEventListener("change",e=>{ordine=e.target.value;mostrati=24;mostraGriglia()});
+mostraFiltri();
 $("provincia").innerHTML=Object.entries(PROVINCE).sort((x,y)=>x[1].localeCompare(y[1],"it")).map(([s,n])=>`<option value="${s}" ${s===prov?"selected":""}>${esc(n)}</option>`).join("");
 $("provincia").addEventListener("change",e=>{prov=e.target.value;salva("provincia",prov);cat="Tutto";aggiornaCompro()});
 $("zVicino").onclick=()=>scegliZona("vicino");$("zItalia").onclick=()=>scegliZona("italia");
