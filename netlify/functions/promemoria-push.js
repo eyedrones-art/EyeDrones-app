@@ -74,6 +74,13 @@ async function messaggio(a) {
     const d = a.data ? new Date(`${a.data}T12:00:00`) : null;
     return { titolo: `📦 Consegna il lavoro a ${nome}`, testo: `${corto(a.servizio, 40) || "Il lavoro"}${d ? ` di ${GIORNI_IT[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}` : ""}: carica il link o le foto in «Richieste» e il cliente ti lascia la recensione.`, url: `${APP_URL}/?vai=richieste` };
   }
+  if (a.tipo === "pagina") {
+    const n = Number(a.richieste) || 0;
+    const quanti = n >= 3 ? `Nell'ultimo mese ${n} clienti hanno cercato un pilota su EyeDrones. ` : "";
+    return a.ha_pagina
+      ? { titolo: "📣 La tua pagina non è ancora visibile", testo: `${quanti}Attivala e compari in «Trova un pilota»: le richieste della tua zona arrivano a te.`, url: `${APP_URL}/?vai=richieste` }
+      : { titolo: "📣 I clienti cercano piloti: fatti trovare", testo: `${quanti}Crea la tua pagina in 2 minuti: compari in «Trova un pilota» e ricevi le richieste della tua zona.`, url: `${APP_URL}/?vai=richieste` };
+  }
   return null;
 }
 

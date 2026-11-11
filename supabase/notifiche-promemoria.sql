@@ -2,6 +2,7 @@
 --   sera (circa 18-19):   «Domani voli a …» con il meteo all'ora del volo · «Domani hai il lavoro per …» (Trova un pilota)
 --   mattina (circa 7-8):  «Oggi alle … voli a …» con il meteo · pagamenti dei preventivi che scadono oggi o in ritardo
 --                         · lavori di Trova un pilota fatti ma non ancora consegnati
+--                         · il martedì, una volta al mese: «fatti trovare», a chi non ha la pagina pubblica attiva
 -- Solo a chi ha attivato le notifiche su almeno un telefono (notifiche-push.sql). Ogni avviso parte una volta sola.
 -- Il meteo lo calcola la funzione Netlify promemoria-push. Serve aver già eseguito errori-spazio-promemoria.sql,
 -- notifiche-push.sql, pagamenti-collaboratori.sql e trova-pilota.sql.
@@ -61,6 +62,14 @@ begin
     from public.offerte_zona o join public.richieste_zona r on r.id = o.richiesta_id
     where p_momento = 'mattina' and o.stato = 'confermata' and o.consegnata_il is null
       and (v_oggi - r.data_desiderata) in (2, 5)
+    union all
+    -- il martedì, una volta al mese: chi non ha ancora la pagina pubblica attiva in «Trova un pilota»
+    select 'pagina-' || u.id || '-' || ((v_oggi - date '2026-01-01') / 28), u.id,
+      jsonb_build_object('tipo', 'pagina', 'ha_pagina', exists (select 1 from public.pagine_pilota x where x.user_id = u.id),
+        'richieste', (select count(*) from public.richieste_zona z where z.created_at > now() - interval '30 days'))
+    from auth.users u
+    where p_momento = 'mattina' and extract(dow from v_oggi) = 2
+      and not exists (select 1 from public.pagine_pilota x where x.user_id = u.id and x.attiva and x.in_elenco)
   ), scelti as (
     select c.* from candidati c
     where exists (select 1 from telefoni t where t.utente = c.utente)
@@ -92,4 +101,5 @@ select cron.schedule('eyedrones-push-mattina', '35 5 * * *', $c$select privato.i
 select 'Notifiche di voli, pagamenti e consegne attive' as fatto,
   (select count(*) from (select v.user_id, v.impianto_id, v.luogo_coordinate, v.checklist_stato, v.ora_prevista, v.data_prevista from public.piani_volo v limit 1) a) as prova_voli,
   (select count(*) from (select p.user_id, p.cliente, p.prezzo, p.pagato, p.scadenza_pagamento from public.preventivi p limit 1) b) as prova_pagamenti,
+  (select count(*) from (select x.user_id, x.attiva, x.in_elenco from public.pagine_pilota x limit 1) c) as prova_pagine,
   (select count(*) from public.notifiche_push) as telefoni_con_notifiche;
