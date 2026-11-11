@@ -347,6 +347,17 @@ function notificaWeekend(u, giorni) {
   };
 }
 
+// weekend brutto (né sabato né domenica hanno ore buone): niente email, ma la notifica invita al simulatore
+function notificaPioggia(u, giorni) {
+  if (giorni.some((g) => g && g.finestre.length) || !giorni.some(Boolean)) return null;
+  const zona = u.zona || "la tua zona";
+  return {
+    titolo: `🌧️ Weekend da non volare vicino ${/^a/i.test(zona) ? "ad" : "a"} ${zona}`.slice(0, 90),
+    testo: "Pioggia o troppo vento sabato e domenica. Allenati al simulatore: missioni per clienti veri, FPV e prova d'esame A1/A3.",
+    url: `${APP_URL}/simulatore/`,
+  };
+}
+
 // i telefoni con le notifiche attive di questa persona (stessa funzione del database usata per i lavori)
 async function notificaTelefoni(segreto, email, messaggio) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/push_destinatari`, {
@@ -365,6 +376,19 @@ async function notificaTelefoni(segreto, email, messaggio) {
     }).catch(() => null);
   }
   return ok;
+}
+
+// la notifica delle scadenze: tocchi e si apre la pagina giusta (attestati e assicurazione, oppure droni e D-Flight)
+function notificaScadenze(u) {
+  const voci = (u.voci || []).filter((v) => v && v.titolo);
+  if (!voci.length) return null;
+  const prima = voci.slice().sort((a, b) => a.giorni - b.giorni)[0];
+  const pagina = /^(Manutenzione|Abbonamento D-Flight)/.test(prima.titolo) ? "droni" : "attestati";
+  return {
+    titolo: (voci.length === 1 ? `⏰ ${prima.titolo}: ${quando(prima.giorni)}` : `⏰ ${voci.length} scadenze in arrivo`).slice(0, 90),
+    testo: (voci.length === 1 ? `Il ${dataItaliana(prima.data)}. Rinnova in tempo e aggiorna la data in EyeDrones.` : voci.slice(0, 4).map((v) => `${v.titolo}: ${quando(v.giorni)}`).join(" · ")).slice(0, 200),
+    url: `${APP_URL}/?vai=${pagina}&da=notifica`,
+  };
 }
 
 // sabato e domenica che vengono (l'email parte il giovedì)
@@ -410,6 +434,11 @@ exports.handler = async (event) => {
 
   // Resend gratuito: 100 email al giorno in tutto. Prima le scadenze, poi i «primi passi» con quelle che restano
   let restano = 90;
+  // le scadenze anche come notifica sul telefono, a tutti (le notifiche non hanno il limite di Resend)
+  for (const u of (dati.utenti || []).slice(0, 300)) {
+    const n = emailValida(u.email) && notificaScadenze(u);
+    if (n) await notificaTelefoni(process.env.AVVISO_SEGRETO, u.email, n).catch((x) => console.error("notifica scadenze", x.message));
+  }
   for (const u of (dati.utenti || []).slice(0, restano)) {
     if (!emailValida(u.email) || !(u.voci || []).length) continue;
     await invia(chiave, mittente, u.email, emailUtente(u));
@@ -437,7 +466,11 @@ exports.handler = async (event) => {
     if (!j) continue;
     const giorni = weekend.map((g) => finestreDelGiorno(j, g));
     const e = emailWeekend(u, giorni);
-    if (!e) continue; // weekend brutto: niente email e niente notifica
+    if (!e) { // weekend brutto: niente email, solo la notifica del simulatore
+      const p = notificaPioggia(u, giorni);
+      if (p) await notificaTelefoni(process.env.AVVISO_SEGRETO, u.email, p).catch((x) => console.error("notifica pioggia", x.message));
+      continue;
+    }
     const n = notificaWeekend(u, giorni);
     if (n) await notificaTelefoni(process.env.AVVISO_SEGRETO, u.email, n).catch((x) => console.error("notifica weekend", x.message));
     if (restano <= 0) continue;
@@ -465,4 +498,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailWeekend, notificaWeekend, finestreDelGiorno, giorniWeekend };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailWeekend, notificaWeekend, notificaScadenze, notificaPioggia, finestreDelGiorno, giorniWeekend };
