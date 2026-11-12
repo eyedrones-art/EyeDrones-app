@@ -119,3 +119,5 @@ exports.handler = async (event) => {
 };
 
 exports.messaggioMattino = messaggioMattino;
+exports.numeriOrtaly = numeriOrtaly;
+exports.numeriSolare = numeriSolare;
