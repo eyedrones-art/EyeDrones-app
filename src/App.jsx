@@ -12774,8 +12774,24 @@ function NotifichePush({ tema, inHome }) {
     if (!supportate) return;
     if (Notification.permission === "denied") { setStato("bloccate"); return; }
     navigator.serviceWorker.ready.then((reg) => reg.pushManager.getSubscription())
-      .then((sub) => setStato(sub && Notification.permission === "granted" ? "attive" : "spente")).catch(() => setStato("spente"));
+      .then(async (sub) => {
+        const ok = sub && Notification.permission === "granted";
+        setStato(ok ? "attive" : "spente");
+        // il telefono è iscritto: mi assicuro che sia anche nel database (se era stato tolto, le notifiche non arrivavano)
+        if (ok) { try { const j = sub.toJSON(); const { data } = await supabase.from("notifiche_push").select("endpoint").eq("endpoint", j.endpoint).maybeSingle(); if (!data) await supabase.from("notifiche_push").insert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }); } catch (e) { /* riprova la prossima volta */ } }
+      }).catch(() => setStato("spente"));
   }, [supportate]);
+  const [prova, setProva] = useState(""); // "" | invio | testo dell'esito
+  const mandaProva = async () => {
+    setProva("invio");
+    try {
+      const { data } = await supabase.auth.getSession();
+      const r = await fetch("/.netlify/functions/prova-notifica", { method: "POST", headers: { Authorization: `Bearer ${data?.session?.access_token || ""}` } });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.errore || "errore");
+      setProva(j.inviate ? "Inviata: deve arrivare tra pochi secondi. Se non arriva, controlla che le notifiche di Chrome (o Safari) siano permesse nelle impostazioni del telefono." : j.telefoni ? "Il telefono non ha risposto: tocca Spegni e poi riattiva le notifiche." : "Questo telefono non risulta iscritto: tocca Spegni e poi riattiva le notifiche.");
+    } catch (e) { setProva("Non riesco a mandare la prova adesso: riprova tra poco."); }
+  };
   const daBase64 = (t) => { const b = atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)); return Uint8Array.from(b, (c) => c.charCodeAt(0)); };
   const attiva = async () => {
     setStato("lavoro");
@@ -12826,7 +12842,7 @@ function NotifichePush({ tema, inHome }) {
     if (!iPhone || installata) return null;
     return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo(weekend ? "Anche come notifica sul telefono" : "Notifiche dei nuovi lavori", "Su iPhone prima aggiungi EyeDrones alla schermata Home (Safari → Condividi → Aggiungi alla schermata Home), poi aprila dall'icona e attiva qui le notifiche.")}</div>;
   }
-  if (stato === "attive") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Notifiche attive su questo telefono", weekend ? "Il giovedì ti arriva anche qui quando e dove volare nel weekend." : "Ti avvisiamo di nuove richieste in zona, dei voli pianificati con il meteo, dei pagamenti in scadenza e dei lavori da consegnare.")}<button onClick={spegni} style={{ background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, cursor: "pointer" }}>Spegni</button></div>;
+  if (stato === "attive") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Notifiche attive su questo telefono", weekend ? "Il giovedì ti arriva anche qui quando e dove volare nel weekend." : "Ti avvisiamo di nuove richieste in zona, dei voli pianificati con il meteo, dei pagamenti in scadenza e dei lavori da consegnare.")}<button onClick={mandaProva} disabled={prova === "invio"} style={{ ...pulsante, background: "#222b3d", color: "#e7eaee", border: "1px solid #3a4560" }}>{prova === "invio" ? "Invio…" : "Prova"}</button><button onClick={spegni} style={{ background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, cursor: "pointer" }}>Spegni</button>{prova && prova !== "invio" && <div style={{ flexBasis: "100%", fontSize: 12.5, color: "#c3cad4" }}>{prova}</div>}</div>;
   if (stato === "bloccate") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔕</span>{testo("Notifiche bloccate", "Le hai bloccate per EyeDrones: riattivale dalle impostazioni del browser (lucchetto accanto all'indirizzo → Notifiche), poi ricarica la pagina.")}</div>;
   return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo(weekend ? "Anche come notifica sul telefono" : generale ? "Notifiche sul telefono" : "Avvisami dei nuovi lavori", stato === "errore" ? "Non sono riuscito ad attivarle su questo telefono: riprova tra poco." : generale ? "La sera prima e la mattina del volo ti avviso con il meteo all'ora giusta; poi pagamenti in scadenza, lavori da consegnare e nuove richieste in zona." : weekend ? "Il giovedì ti arriva una notifica con le ore buone del weekend e il posto consigliato più vicino." : "Una notifica sul telefono appena arriva una richiesta in zona o un cliente ti sceglie, anche ad app chiusa. Chi risponde prima vince più lavori.")}<button onClick={attiva} disabled={stato === "lavoro"} style={pulsante}>{stato === "lavoro" ? "Attivo…" : "Attiva"}</button></div>;
 }
