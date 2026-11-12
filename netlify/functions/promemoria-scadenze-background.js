@@ -212,6 +212,41 @@ function emailLavori(u) {
   return { oggetto, testo, corpo };
 }
 
+// --- «Crea la tua pagina pilota»: una volta sola a chi non ha ancora la pagina in Trova un pilota ----------------
+function emailPagina(u) {
+  const link = `${APP_URL}/?vai=pagina-pilota`;
+  const ciao = `Ciao${u.nome ? ` ${u.nome}` : ""}!`;
+  const oggetto = "I clienti cercano un pilota: crea la tua pagina in 3 minuti 📍";
+  const perche = [
+    ["🔎", "Ti trovano anche da Google", "Chi cerca «drone matrimonio Torino» o «ispezione tetto con drone» può arrivare su Trova un pilota e vede i piloti della sua provincia."],
+    ["📩", "Ti scriviamo noi", "Quando un cliente della tua provincia chiede un lavoro ti arriva un'email (e la notifica sul telefono)."],
+    ["💶", "Decidi tu il prezzo", "Mandi la tua offerta: gli altri piloti non la vedono. Se il cliente ti sceglie, ricevi i suoi contatti."],
+    ["🌐", "È anche il tuo sito", "La pagina ha un suo indirizzo (app.eyedrones.it/p/il-tuo-nome) da mettere su Instagram, WhatsApp e biglietti da visita."],
+  ];
+  const passi = ["apri «La mia pagina» in EyeDrones;", "scrivi chi sei, la provincia e i servizi, e metti 2 o 3 foto;", "spunta «Mostrami in Trova un pilota» e pubblica."];
+  const testo = [
+    ciao, "",
+    "In molte province ci sono ancora pochissimi piloti in Trova un pilota: chi arriva adesso è tra i primi che i clienti vedono.", "",
+    ...perche.map(([, t, d]) => `• ${t}: ${d}`), "",
+    "Bastano 3 minuti:", ...passi.map((t, i) => `${i + 1}. ${t}`), "",
+    `Crea la tua pagina: ${link}`, "",
+    "Buoni voli!", "EyeDrones", "",
+    "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
+  ].join("\n");
+  const righe = perche.map(([e, t, d]) => `<tr><td style="font-size:20px;padding:6px 10px 6px 0;vertical-align:top">${e}</td><td style="font-size:15px;padding:6px 0"><b>${html(t)}</b><br><span style="color:#555">${html(d)}</span></td></tr>`).join("");
+  const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
+    <h2 style="color:#e0552f;margin:0 0 12px">📍 I clienti cercano un pilota</h2>
+    <p style="font-size:15px">${html(ciao)} In molte province ci sono ancora pochissimi piloti in <b>Trova un pilota</b>: chi arriva adesso è tra i primi che i clienti vedono.</p>
+    <table style="border-collapse:collapse;margin:0 0 14px 0">${righe}</table>
+    <p style="font-size:15px;margin-bottom:6px"><b>Bastano 3 minuti</b></p>
+    <ol style="font-size:15px;padding-left:20px;margin-top:0">${passi.map((t) => `<li style="margin:0 0 6px 0">${html(t)}</li>`).join("")}</ol>
+    <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Crea la tua pagina ›</a></p>
+    <p style="font-size:15px">Buoni voli!<br>EyeDrones</p>
+    <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
+  </div>`;
+  return { oggetto, testo, corpo };
+}
+
 // --- «Il weekend giusto per volare» (il giovedì, a chi l'ha attivato) -------------------------------------------
 // Ore buone: pioggia ≤ 30% e quasi zero, vento ≤ 20 km/h, raffiche ≤ 32 km/h, tra alba e tramonto.
 // Se né sabato né domenica hanno almeno un'ora buona, l'email non parte
@@ -490,6 +525,12 @@ exports.handler = async (event) => {
     restano -= 1;
     await pausa(600);
   }
+  for (const u of (dati.pagina || []).slice(0, Math.max(0, restano))) {
+    if (!emailValida(u.email)) continue;
+    await invia(chiave, mittente, u.email, emailPagina(u));
+    restano -= 1;
+    await pausa(600);
+  }
   const amm = dati.amministratore;
   if (amm && emailValida(amm.email)) {
     const spazioAlto = amm.spazio_byte != null && amm.spazio_byte / LIMITE_STORAGE_BYTE >= 0.7;
@@ -498,4 +539,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailWeekend, notificaWeekend, notificaScadenze, notificaPioggia, finestreDelGiorno, giorniWeekend };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailPagina, emailWeekend, notificaWeekend, notificaScadenze, notificaPioggia, finestreDelGiorno, giorniWeekend };

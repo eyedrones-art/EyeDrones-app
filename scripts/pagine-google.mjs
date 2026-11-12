@@ -17,7 +17,25 @@ function sostituisci(html, cerca, nuovo) {
   return html.replace(cerca, nuovo);
 }
 
-function pagina({ percorso, titolo, descrizione, h1, sottotitolo, immagine, domande, link }) {
+// Piemonte (dove c'è EyeDrones): nelle pagine per provincia anche i comuni principali e una domanda in più sul posto,
+// così non sono pagine tutte uguali e chi cerca «drone Moncalieri» trova la provincia giusta
+const COMUNI_PIEMONTE = JSON.parse(fs.readFileSync(path.resolve("scripts/dati/comuni-piemonte.json"), "utf8"));
+const AEROPORTI = { TO: "aeroporto di Torino-Caselle", CN: "aeroporto di Cuneo-Levaldigi" };
+function locale(sigla) {
+  const comuni = COMUNI_PIEMONTE.filter((c) => c.sigla === sigla).sort((a, b) => (b.abitanti || 0) - (a.abitanti || 0));
+  if (!comuni.length) return null;
+  const capoluogo = comuni.find((c) => c.capoluogo) || comuni[0];
+  const principali = comuni.slice(0, 14).map((c) => c.nome);
+  const aeroporto = AEROPORTI[sigla];
+  return {
+    testo: `I piloti EyeDrones lavorano in tutta la provincia di ${capoluogo.provincia} (${comuni.length} comuni), anche a ${principali.slice(0, 6).join(", ")} e dintorni.`,
+    comuni: principali,
+    domanda: [`Si può volare con il drone a ${capoluogo.nome} e in provincia?`, `Sì, in gran parte della provincia. Ci sono zone con limiti o permessi${aeroporto ? `, per esempio vicino all'${aeroporto}` : ", per esempio vicino agli aeroporti"} e in alcune aree protette o centri abitati: il pilota controlla la zona su D-Flight prima del lavoro e, se servono, chiede i permessi. Voi raccontate solo cosa vi serve.`],
+  };
+}
+
+function pagina({ percorso, titolo, descrizione, h1, sottotitolo, immagine, domande, link, posto }) {
+  if (posto) domande = [...(domande || []), posto.domanda];
   const url = `${SITO}${percorso}`;
   const grafo = [
     { "@type": "Organization", "@id": `${SITO}/#org`, name: "EyeDrones", url: `${SITO}/`, logo: `${SITO}/icon-512.png` },
@@ -41,6 +59,8 @@ function pagina({ percorso, titolo, descrizione, h1, sottotitolo, immagine, doma
         <h1 style="font-size: 26px; margin: 0 0 10px 0;">${esc(h1)}</h1>
         <p style="color: #c3cad4; margin: 0 0 16px 0;">${esc(sottotitolo)}</p>
         <p><a href="${percorso}" style="color: #ff8c42;">Ricevi le offerte dei piloti della zona →</a></p>
+        ${posto ? `<p style="color: #c3cad4; margin: 0 0 8px 0;">${esc(posto.testo)}</p>
+        <p style="color: #9aa4b1; font-size: 14px; margin: 0 0 16px 0;">Comuni principali: ${posto.comuni.map(esc).join(", ")}.</p>` : ""}
         ${domande && domande.length ? `<h2 style="font-size: 20px; margin: 24px 0 8px 0;">Le domande di tutti</h2>
         ${domande.map(([d, r]) => `<h3 style="font-size: 16px; margin: 14px 0 4px 0;">${esc(d)}</h3><p style="color: #c3cad4; margin: 0;">${esc(r)}</p>`).join("\n        ")}` : ""}
         ${link.map(([titoloLink, voci]) => `<h2 style="font-size: 18px; margin: 24px 0 8px 0;">${esc(titoloLink)}</h2>
@@ -67,7 +87,7 @@ const G = SEO_TROVA_GENERALE;
 pagina({ percorso: "/trova-pilota", titolo: G.titoloPagina(""), descrizione: G.descrizionePagina(""), h1: G.h1, sottotitolo: G.sottotitolo, link: [...linkServizi(""), ...linkProvince("/trova-pilota")] }); n++;
 for (const [sigla, nome] of province) {
   const s = sigla.toLowerCase();
-  pagina({ percorso: `/trova-pilota/${s}`, titolo: G.titoloPagina(nome), descrizione: G.descrizionePagina(nome), h1: G.h1Provincia(nome), sottotitolo: G.sottotitolo, link: linkServizi(s) }); n++;
+  pagina({ percorso: `/trova-pilota/${s}`, titolo: G.titoloPagina(nome), descrizione: G.descrizionePagina(nome), h1: G.h1Provincia(nome), sottotitolo: G.sottotitolo, link: linkServizi(s), posto: locale(sigla) }); n++;
 }
 // pagine per servizio, anche per provincia
 for (const k of sezioni) {
@@ -75,7 +95,7 @@ for (const k of sezioni) {
   pagina({ percorso: `/trova-pilota/${k}`, titolo: S.titoloPagina(""), descrizione: S.descrizionePagina(""), h1: S.h1, sottotitolo: S.sottotitolo, immagine: S.immagine, domande: S.domande, link: [...linkServizi(""), ...linkProvince(`/trova-pilota/${k}`)] }); n++;
   for (const [sigla, nome] of province) {
     const s = sigla.toLowerCase();
-    pagina({ percorso: `/trova-pilota/${k}/${s}`, titolo: S.titoloPagina(nome), descrizione: S.descrizionePagina(nome), h1: S.h1Provincia(nome), sottotitolo: S.sottotitolo, immagine: S.immagine, domande: S.domande, link: linkServizi(s) }); n++;
+    pagina({ percorso: `/trova-pilota/${k}/${s}`, titolo: S.titoloPagina(nome), descrizione: S.descrizionePagina(nome), h1: S.h1Provincia(nome), sottotitolo: S.sottotitolo, immagine: S.immagine, domande: S.domande, link: linkServizi(s), posto: locale(sigla) }); n++;
   }
 }
 // le riscritture vanno prima delle regole di netlify.toml (/trova-pilota/* → index.html), che restano per tutto il resto
