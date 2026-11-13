@@ -61,7 +61,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(m.titolo || "EyeDrones", {
     body: m.testo || "Hai un aggiornamento su EyeDrones",
     icon: "/icon-192.png",
-    badge: "/icon-192.png",
+    badge: "/badge-96.png",
     tag: "eyedrones-" + url,
     renotify: true,
     vibrate: [180, 80, 180],
