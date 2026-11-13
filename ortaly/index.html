@@ -224,6 +224,24 @@ form.nuovo textarea{border:1px solid var(--bordo);border-radius:12px;padding:11p
 form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
 .blocco{background:var(--bianco);border-radius:18px;padding:16px;margin-top:12px;box-shadow:var(--ombra)}
 .blocco h2{font-size:21px}
+.tab-ante{margin:12px 0;display:flex;justify-content:center}
+.tabellina{width:250px;aspect-ratio:2/3;background:#05634a;color:#effcf6;border-radius:16px;padding:18px 16px 14px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;box-shadow:var(--ombra);font-family:Figtree,system-ui,sans-serif}
+.tabellina .tl-marca{display:flex;align-items:center;gap:6px;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px}
+.tabellina .tl-marca img{width:22px;height:22px;border-radius:6px}
+.tabellina .tl-oggi{font-family:'Caveat Brush',cursive;color:#fbbf24;font-size:26px;line-height:1;margin-top:4px;transform:rotate(-2deg)}
+.tabellina .tl-nome{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:19px;line-height:1.1;overflow-wrap:anywhere}
+.tabellina .tl-qr{background:#fff;border-radius:12px;padding:9px;width:62%;margin-top:4px}
+.tabellina .tl-qr svg{display:block;width:100%;height:auto}
+.tabellina .tl-sotto{font-size:11.5px;line-height:1.35;color:#c4ecdb}
+.tabellina .tl-nfc{margin-top:auto;display:flex;align-items:center;gap:6px;font-size:10.5px;color:#c4ecdb}
+.tabellina .tl-nfc i{font-style:normal;width:26px;height:26px;border-radius:50%;border:2px dashed #8fcdb6;display:grid;place-items:center;font-size:13px}
+.tabellina .tl-url{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;color:#fbbf24;font-size:14px}
+#stampaTab{display:none}
+@media print{@page{size:A4;margin:0}body>*:not(#stampaTab){display:none!important}html,body{background:#fff!important}#stampaTab{display:grid!important;grid-template-rows:148mm 148mm;width:210mm;height:296mm;overflow:hidden;background:#fff}
+#stampaTab .meta-t{display:flex;align-items:center;justify-content:center;border-bottom:.3mm dashed #999}#stampaTab .meta-t:first-child{transform:rotate(180deg)}#stampaTab .meta-t:last-child{border:0}
+#stampaTab .tabellina{height:138mm;aspect-ratio:auto;padding:7mm 12mm 6mm;width:190mm;overflow:hidden;border-radius:6mm;box-shadow:none;-webkit-print-color-adjust:exact;print-color-adjust:exact;gap:2mm}
+#stampaTab .tl-marca{font-size:18pt}#stampaTab .tl-marca img{width:9mm;height:9mm}#stampaTab .tl-oggi{font-size:28pt}#stampaTab .tl-nome{font-size:24pt}
+#stampaTab .tl-qr{width:52mm;padding:3.5mm}#stampaTab .tl-sotto{font-size:12pt}#stampaTab .tl-nfc{font-size:11pt}#stampaTab .tl-nfc i{width:11mm;height:11mm;font-size:16pt}#stampaTab .tl-url{font-size:18pt}}
 .link{border:0;background:none;padding:0;color:var(--foglia);font-weight:700;text-decoration:underline;text-underline-offset:3px}
 .errore{color:var(--pomodoro);font-weight:700;font-size:13.5px}
 .schede{display:flex;gap:6px;background:var(--carta2);border-radius:14px;padding:4px;margin-bottom:12px}
@@ -727,10 +745,15 @@ function mostraVendo(){
   }else{
     c.innerHTML=`<div class="blocco"><b>Il link della tua bottega</b><p class="nota" style="margin-top:2px">Mandalo ai tuoi clienti su WhatsApp o mettilo sul cartello al banco: lo aprono e ordinano da te.</p>
       <div class="condividi"><code id="linkB">${esc(link)}</code><button class="piu" data-copia="1">Copia</button><a class="piu" style="text-decoration:none" href="https://wa.me/?text=${encodeURIComponent("Ordina i miei prodotti su Ortaly: "+link)}" target="_blank" rel="noopener">WhatsApp</a></div></div>
+      <div class="blocco"><b>🏷️ La tabellina per il banco</b><p class="nota" style="margin-top:2px">Stampala e mettila sul banco: i clienti inquadrano il codice, o appoggiano il telefono sull'adesivo NFC, e aprono la tua bottega con i prodotti di oggi. Così riordinano da te anche da casa.<br><b>Stampa</b> su un foglio A4, piegalo a metà e mettilo in piedi sul banco. <b>Scarica immagine</b> serve per farla stampare in tipografia o su cartoncino.</p>
+      <div class="tab-ante" id="tabAnte"></div>
+      <div class="azioni"><button class="si" data-tabellina="stampa">🖨️ Stampa</button><button data-tabellina="immagine">📥 Scarica immagine</button><button data-tabellina="nfc" id="btnNfc" hidden>📲 Scrivi l'adesivo NFC</button></div>
+      <p class="nota" id="tabNota" style="margin-top:8px"></p></div>
       ${formBottega(b)}
       <div class="blocco" style="margin-top:22px"><b>Chiudi la bottega</b><p class="nota" style="margin-top:2px">Cancella per sempre la bottega con i suoi prodotti, ordini e notifiche. I clienti non la vedranno più.</p>
       <button class="link" style="color:var(--pomodoro)" data-chiudibottega="1">Chiudi e cancella la bottega</button></div>`;
     $("formBottega").addEventListener("submit",salvaBottega);
+    preparaTabellina(b,link);
   }
 }
 async function salvaProdotto(e){e.preventDefault();const err=$("nErr"),btn=e.target.querySelector("[type=submit]");err.hidden=true;
@@ -1031,6 +1054,45 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-foto-cam],
 document.addEventListener("change",e=>{const i=e.target;if(!i.matches||!i.matches('input[type=file][id$="Foto"]'))return;
   const a=document.getElementById(i.id+"Ante");const f=i.files&&i.files[0];if(!a)return;
   if(a.src&&a.src.startsWith("blob:"))URL.revokeObjectURL(a.src);if(f){a.src=URL.createObjectURL(f);a.hidden=false}else a.hidden=true});
+</script>
+<script>
+// ── tabellina per il banco: QR (e adesivo NFC) che apre la bottega con i prodotti di oggi ──
+let TAB=null;
+function caricaQr(){return window.qrcode?Promise.resolve():new Promise((ok,ko)=>{const s=document.createElement("script");s.src="/qr.js";s.onload=ok;s.onerror=ko;document.head.appendChild(s)})}
+function qrMatrice(testo){const q=qrcode(0,"M");q.addData(testo);q.make();const n=q.getModuleCount(),m=[];for(let r=0;r<n;r++){m.push([]);for(let c=0;c<n;c++)m[r].push(q.isDark(r,c))}return m}
+function qrSvg(m){const n=m.length;let d="";for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(m[r][c])d+=`M${c} ${r}h1v1h-1z`;return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges"><path fill="#0f2a24" d="${d}"/></svg>`}
+function tabHtml(){const e=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  return `<div class="tabellina"><div class="tl-marca"><img src="/icona-192.png" alt="">ortaly</div><div class="tl-oggi">Oggi al banco</div><div class="tl-nome">${e(TAB.nome)}</div>
+  <div class="tl-qr">${qrSvg(TAB.m)}</div><div class="tl-sotto">Inquadra il codice e ordina da noi<br>anche da casa</div>
+  <div class="tl-nfc"><i>📲</i>oppure appoggia qui il telefono</div><div class="tl-url">ortaly.it</div></div>`}
+async function preparaTabellina(b,link){const box=document.getElementById("tabAnte");if(!box)return;
+  try{await caricaQr()}catch(e){box.textContent="Non riesco a creare il codice: controlla la connessione e riprova.";return}
+  TAB={nome:b.nome,link,m:qrMatrice(link)};box.innerHTML=tabHtml();
+  const nfc=document.getElementById("btnNfc"),nota=document.getElementById("tabNota");
+  if("NDEFReader" in window)nfc.hidden=false;
+  else nota.textContent="Adesivo NFC: compra degli adesivi NFC (tipo NTAG213) e scrivici il link della tua bottega con l'app NFC Tools. Da questo telefono non si può scrivere direttamente.";
+}
+function scaricaTabellina(){const W=1200,H=1800,cv=document.createElement("canvas");cv.width=W;cv.height=H;const x=cv.getContext("2d");
+  const tondo=(X,Y,w,h,r)=>{x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);x.arcTo(X+w,Y+h,X,Y+h,r);x.arcTo(X,Y+h,X,Y,r);x.arcTo(X,Y,X+w,Y,r);x.closePath()};
+  x.fillStyle="#05634a";x.fillRect(0,0,W,H);x.textAlign="center";
+  const fine=()=>{x.fillStyle="#effcf6";x.font="800 70px 'Bricolage Grotesque',sans-serif";x.fillText("ortaly",W/2+45,200);
+    x.save();x.translate(W/2,345);x.rotate(-0.035);x.fillStyle="#fbbf24";x.font="130px 'Caveat Brush',cursive";x.fillText("Oggi al banco",0,0);x.restore();
+    x.fillStyle="#ffffff";let f=96;x.font=`800 ${f}px 'Bricolage Grotesque',sans-serif`;while(x.measureText(TAB.nome).width>W-160&&f>40){f-=4;x.font=`800 ${f}px 'Bricolage Grotesque',sans-serif`}x.fillText(TAB.nome,W/2,500);
+    const lato=640,X=(W-lato)/2,Y=570;x.fillStyle="#fff";tondo(X,Y,lato,lato,50);x.fill();const n=TAB.m.length,cel=(lato-80)/n;x.fillStyle="#0f2a24";
+    for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(TAB.m[r][c])x.fillRect(Math.floor(X+40+c*cel),Math.floor(Y+40+r*cel),Math.ceil(cel),Math.ceil(cel));
+    x.fillStyle="#c4ecdb";x.font="500 52px Figtree,sans-serif";x.fillText("Inquadra il codice e ordina da noi",W/2,1330);x.fillText("anche da casa",W/2,1400);
+    x.font="500 42px Figtree,sans-serif";x.fillText("📲  oppure appoggia qui il telefono",W/2,1560);
+    x.fillStyle="#fbbf24";x.font="800 80px 'Bricolage Grotesque',sans-serif";x.fillText("ortaly.it",W/2,1700);
+    cv.toBlob(bl=>{const a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download="tabellina-ortaly.png";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)},"image/png")};
+  const img=new Image();img.onload=()=>{x.drawImage(img,W/2-175,135,90,90);fine()};img.onerror=fine;img.src="/icona-192.png";
+}
+function stampaTabellina(){let d=document.getElementById("stampaTab");if(!d){d=document.createElement("div");d.id="stampaTab";document.body.appendChild(d)}
+  d.innerHTML=`<div class="meta-t">${tabHtml()}</div><div class="meta-t">${tabHtml()}</div>`;setTimeout(()=>window.print(),300)}
+async function scriviNfc(){const nota=document.getElementById("tabNota");
+  try{const w=new NDEFReader();nota.textContent="Avvicina l'adesivo NFC al retro del telefono…";await w.write({records:[{recordType:"url",data:TAB.link}]});nota.textContent="✅ Fatto! Attacca l'adesivo sulla tabellina, sul cerchio «appoggia qui il telefono»."}
+  catch(e){nota.textContent=e&&e.name==="NotAllowedError"?"Serve il permesso NFC: attiva l'NFC nelle impostazioni del telefono e riprova.":"Non sono riuscito a scrivere l'adesivo. Riprova tenendolo fermo dietro al telefono."}}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-tabellina]");if(!b||!TAB)return;const k=b.dataset.tabellina;
+  if(k==="stampa")stampaTabellina();else if(k==="immagine")scaricaTabellina();else if(k==="nfc")scriviNfc()});
 </script>
 </body>
 </html>
