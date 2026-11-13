@@ -393,6 +393,15 @@ function notificaPioggia(u, giorni) {
   };
 }
 
+// la notifica che accompagna l'email «Crea la tua pagina»
+function notificaPagina() {
+  return {
+    titolo: "📍 I clienti cercano un pilota",
+    testo: "Crea la tua pagina in 3 minuti e ricevi le richieste di lavoro della tua provincia.",
+    url: `${APP_URL}/?vai=pagina-pilota&da=notifica`,
+  };
+}
+
 // i telefoni con le notifiche attive di questa persona (stessa funzione del database usata per i lavori)
 async function notificaTelefoni(segreto, email, messaggio) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/push_destinatari`, {
@@ -525,6 +534,10 @@ exports.handler = async (event) => {
     restano -= 1;
     await pausa(600);
   }
+  // «Crea la tua pagina» anche come notifica sul telefono (solo a chi ha acceso le notifiche nell'app)
+  for (const u of (dati.pagina || []).slice(0, 100)) {
+    if (emailValida(u.email)) await notificaTelefoni(process.env.AVVISO_SEGRETO, u.email, notificaPagina()).catch((x) => console.error("notifica pagina", x.message));
+  }
   for (const u of (dati.pagina || []).slice(0, Math.max(0, restano))) {
     if (!emailValida(u.email)) continue;
     await invia(chiave, mittente, u.email, emailPagina(u));
@@ -539,4 +552,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailPagina, emailWeekend, notificaWeekend, notificaScadenze, notificaPioggia, finestreDelGiorno, giorniWeekend };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailPagina, emailWeekend, notificaWeekend, notificaScadenze, notificaPioggia, notificaPagina, finestreDelGiorno, giorniWeekend };
