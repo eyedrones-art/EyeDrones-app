@@ -10,6 +10,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- su trovapilota.it si installa l'app «Trova un pilota» per i clienti -->
+    <script>if (/(^|\.)trovapilota\.it$/i.test(location.hostname)) { document.querySelector('link[rel="manifest"]').href = "/manifest-trovapilota.webmanifest"; document.title = "Trova un pilota di droni"; }</script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="EyeDrones" />
