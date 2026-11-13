@@ -104,6 +104,13 @@ h1,h2,h3{font-family:var(--titoli);margin:0;line-height:1.1;text-wrap:balance}
 @media (min-width:640px){.produttori{grid-auto-columns:calc(33.33% - 8px)}}
 .prod{scroll-snap-align:start;border:0;text-align:left;background:var(--bianco);border-radius:18px;overflow:hidden;box-shadow:var(--ombra);padding:0;display:flex;flex-direction:column}
 .prod .foto{height:110px}
+.preferiti{display:grid;gap:10px;padding-top:10px}
+.pref{display:flex;align-items:center;gap:10px;background:var(--bianco);border-radius:16px;box-shadow:var(--ombra);padding:10px 12px}
+.pref-apri{flex:1;min-width:0;border:0;background:none;text-align:left;padding:4px 0;cursor:pointer;font:inherit;color:inherit}
+.pref-apri b{display:block;font-size:16px}.pref-apri small{display:block;font-size:12.5px;color:var(--tenue);margin-top:2px}
+.pref .piu{white-space:nowrap}
+.cuore{margin-top:8px;border:1px solid var(--bordo);background:var(--bianco);border-radius:999px;padding:7px 14px;font:inherit;font-weight:700;font-size:13.5px;cursor:pointer}
+.cuore[aria-pressed=true]{background:#fde8ea;border-color:#f3b4ba;color:#9b1c24}
 .prod div.t{padding:11px 13px 13px}
 .prod h3{font-size:16.5px}
 .prod .meta{font-size:12.5px;color:var(--tenue);margin-top:3px}
@@ -325,6 +332,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
   </div></section>
   <div class="wrap">
     <div class="stagione" id="stagione"></div>
+    <section class="sez" id="sezPreferiti" hidden><h2>❤️ I tuoi produttori <small>da chi compri sempre</small></h2><div class="preferiti" id="preferiti"></div></section>
     <section class="sez"><h2><span id="titProd">Produttori vicino a te</span> <small>tocca per conoscerli</small></h2>
       <div class="produttori" id="produttori"></div>
       <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Metti i tuoi prodotti con la foto una volta sola, poi ogni mattina tocchi quelli che hai al banco. Gli ordini dei clienti arrivano a te.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
@@ -437,7 +445,19 @@ function mostraGriglia(){
     :`<div class="vuoto"><b>${t||cat!=="Tutto"||filtri.bio||filtri.casa||filtri.sped?"Nessun prodotto trovato":"Il banco è ancora vuoto qui"}</b>${altrove?`<button class="link" data-altrazona="1">${altrove===1?"C'è 1 prodotto":"Ci sono "+altrove+" prodotti"} ${zona==="italia"?"nella tua provincia":"in «Dall'Italia»"} ›</button>`:filtri.bio||filtri.casa||filtri.sped?"Prova a togliere qualche filtro.":t||cat!=="Tutto"?"Prova un'altra parola o un'altra categoria.":"Prova «Dall'Italia» o un'altra provincia."}</div>`;
   $("nCarrello").textContent=Object.values(carrello).reduce((s,q)=>s+q,0);
 }
-function aggiornaCompro(){mostraStagione();mostraProduttori();mostraCategorie();mostraGriglia()}
+function aggiornaCompro(){mostraStagione();mostraPreferiti();mostraProduttori();mostraCategorie();mostraGriglia()}
+// ── i produttori salvati dal cliente (solo su questo telefono) e «Ordina di nuovo» ──
+const PREF=()=>leggi("preferiti",[]);
+function salvaPref(id,on){const l=PREF().filter(x=>x!==id);if(on)l.unshift(id);salva("preferiti",l.slice(0,30));mostraPreferiti()}
+function mostraPreferiti(){const s=$("sezPreferiti");if(!s)return;const l=PREF().map(bot).filter(Boolean);s.hidden=!l.length;if(!l.length)return;
+  const ordini=leggi("ordini",[]),oggi=new Date().toDateString();
+  $("preferiti").innerHTML=l.map(b=>{const n=ART.filter(a=>a.bottega===b.id).length,agg=b.banco_aggiornato&&new Date(b.banco_aggiornato).toDateString()===oggi;
+    const ult=ordini.find(o=>o.bid===b.id&&o.righe&&o.righe.length);
+    return `<div class="pref"><button class="pref-apri" data-p="${esc(b.id)}"><b>${esc(b.nome)}</b><small>${esc(b.paese)} · ${agg?"🟢 banco aggiornato oggi":n===1?"1 prodotto al banco":n+" prodotti al banco"}</small></button>${ult?`<button class="piu" data-riordina="${esc(ult.segreto)}">🔁 Ordina di nuovo</button>`:""}</div>`}).join("")}
+function riordina(segreto){const o=leggi("ordini",[]).find(x=>x.segreto===segreto);if(!o||!o.righe)return;let messi=0;const manca=[];
+  for(const r of o.righe){const a=ART.find(x=>x.id===r.id);if(a){carrello[a.id]=Math.max(1,Math.min(99,Number(r.qta)||1));messi++}else manca.push(r.nome||"un prodotto")}
+  salva("carrello",carrello);mostraGriglia();if(messi)apriCarrello();
+  toast(!messi?"Oggi questi prodotti non ci sono: guarda cosa c'è al banco":manca.length?"Nel cestino. Oggi non c'è: "+manca.join(", "):"Ho rimesso nel cestino la tua solita spesa")}
 async function caricaBanco(){
   if(!pronto){aggiornaCompro();return}
   const [b,p,st]=await Promise.all([sb.from("vetrina_botteghe").select("*").order("creata",{ascending:false}),sb.from("vetrina_prodotti").select("*").order("creato",{ascending:false}).limit(2000),sb.from("vetrina_stelle").select("bottega,media,numero")]);
@@ -472,12 +492,12 @@ function valutazioniBottega(id){
   <div style="display:grid;gap:8px;margin-top:8px">${l.slice(0,6).map(x=>`<div class="rec"><div>${voto(x.stelle)} <b>${esc(x.nome)}</b> <small style="color:var(--tenue)">${new Date(x.creata).toLocaleDateString("it-IT",{month:"short",year:"numeric"})}</small></div>${x.commento?`<div>${esc(x.commento)}</div>`:""}${x.risposta?`<div class="risp"><b>Risposta:</b> ${esc(x.risposta)}</div>`:""}</div>`).join("")}</div>`}
 
 function apriProduttore(id){const b=bot(id);if(!b)return;const suoi=ART.filter(a=>a.bottega===id);
-  apriSheet(`${foto(colore(b.id)+" banner","🌾",b.foto)}<div class="corpo"><h2>${esc(b.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(PROVINCE[b.provincia]||b.provincia)})${b.bio?" · 🌱 bio":""}</div>${b.banco_aggiornato&&new Date(b.banco_aggiornato).toDateString()===new Date().toDateString()?`<div class="meta" style="color:var(--foglia);font-weight:700;margin-top:4px">🟢 Banco aggiornato oggi alle ${new Date(b.banco_aggiornato).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}</div>`:""}
+  apriSheet(`${foto(colore(b.id)+" banner","🌾",b.foto)}<div class="corpo"><h2>${esc(b.nome)}</h2><button class="cuore" data-pref="${esc(b.id)}" aria-pressed="${PREF().includes(b.id)}">${PREF().includes(b.id)?"❤️ Tra i tuoi produttori":"🤍 Salva tra i tuoi produttori"}</button><div class="meta" style="color:var(--tenue);margin-top:4px">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(PROVINCE[b.provincia]||b.provincia)})${b.bio?" · 🌱 bio":""}</div>${b.banco_aggiornato&&new Date(b.banco_aggiornato).toDateString()===new Date().toDateString()?`<div class="meta" style="color:var(--foglia);font-weight:700;margin-top:4px">🟢 Banco aggiornato oggi alle ${new Date(b.banco_aggiornato).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}</div>`:""}
   ${b.storia?`<p class="storia">${esc(b.storia)}</p>`:""}<div class="consegne">${Object.entries(MODI).filter(([k,m])=>b[m[3]]).map(([k,m])=>`<div class="cons"><span>${m[0]}</span><div><b>${m[2]}</b>${esc(b[m[3]])}</div></div>`).join("")}</div>
   ${valutazioniBottega(b.id)}
   <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.length?suoi.map(a=>`<div class="riga"><span>${EMOJI[a.categoria]||"🧺"} ${esc(a.nome)}${a.nota?`<br><small style="color:var(--tenue)">${esc(a.nota)}</small>`:""}</span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${esc(a.unita)}</b>${qtaHtml(a.id)}</span></div>`).join(""):`<p class="storia">Nessun prodotto al banco in questo momento.</p>`}</div>`,"prod",id);
   try{history.replaceState(null,"","#bottega-"+id)}catch(e){}}
-function apriDaIndirizzo(){const m=location.hash.match(/^#bottega-([0-9a-f-]{36})$/);if(m&&bot(m[1])){const b=bot(m[1]);if(b.provincia!==prov&&!b.spedizione){prov=b.provincia;$("provincia").value=prov;salva("provincia",prov)}scegliZona(b.provincia===prov?"vicino":"italia",true);apriProduttore(m[1])}}
+function apriDaIndirizzo(){const m=location.hash.match(/^#bottega-([0-9a-f-]{36})$/);if(m&&bot(m[1])){const b=bot(m[1]);if(b.provincia!==prov&&!b.spedizione){prov=b.provincia;$("provincia").value=prov;salva("provincia",prov)}scegliZona(b.provincia===prov?"vicino":"italia",true);if(!PREF().includes(m[1])){salvaPref(m[1],true);setTimeout(()=>toast("❤️ "+b.nome+" è tra i tuoi produttori: lo ritrovi in alto"),600)}apriProduttore(m[1])}}
 
 function gruppiCarrello(){const g={};for(const id of Object.keys(carrello)){const a=ART.find(x=>x.id===id);if(a)(g[a.bottega]=g[a.bottega]||[]).push(a)}return g}
 function apriCarrello(){
@@ -518,8 +538,10 @@ async function mandaOrdini(e){e.preventDefault();const btn=$("oInvia"),err=$("oE
   for(const [bid,arts] of Object.entries(gruppiCarrello())){const b=bot(bid);
     const {data,error}=await sb.rpc("ordina",{p_bottega:bid,p_righe:arts.map(a=>({id:a.id,qta:carrello[a.id]})),p_nome:dati.nome,p_email:dati.email,p_novita:dati.novita,p_modo:scelte[bid],p_indirizzo:scelte[bid]==="ritiro"?null:dati.ind,p_nota:dati.nota||null,p_pagamento:pagScelte[bid]||"consegna"});
     if(error){errori.push(`${b.nome}: ${erroreDi(error)}`);continue}
+    const righeMie=arts.map(a=>({id:a.id,qta:carrello[a.id],nome:a.nome}));
     fatti.push({b,o:data});arts.forEach(a=>delete carrello[a.id]);
-    ricordaOrdine({segreto:data.segreto,codice:data.codice,bottega:b.nome,totale:data.totale,creato:new Date().toISOString()});
+    ricordaOrdine({segreto:data.segreto,codice:data.codice,bottega:b.nome,bid,righe:righeMie,totale:data.totale,creato:new Date().toISOString()});
+    if(!PREF().includes(bid))salvaPref(bid,true);
     fetch("/.netlify/functions/ortaly-avviso",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:data.id}),keepalive:true}).catch(()=>{});
   }
   salva("carrello",carrello);mostraGriglia();
@@ -768,7 +790,7 @@ async function salvaProdotto(e){e.preventDefault();const err=$("nErr"),btn=e.tar
 
 // ── ordine del cliente (link segreto ortaly.it/#ordine-...) ──
 const COL_ORDINI="id,codice,bottega,cliente_nome,modo,indirizzo,nota,righe,totale,stato,creato,annullato_da,motivo_annullo,mancati_precedenti,pagamento,pagato,spese,rimborsato,corriere,tracking";
-function ricordaOrdine(o){const l=leggi("ordini",[]).filter(x=>x.segreto!==o.segreto);l.unshift(o);salva("ordini",l.slice(0,15));mostraMieiOrdini()}
+function ricordaOrdine(o){const prima=leggi("ordini",[]).find(x=>x.segreto===o.segreto);if(prima)o={...prima,...o};const l=leggi("ordini",[]).filter(x=>x.segreto!==o.segreto);l.unshift(o);salva("ordini",l.slice(0,15));mostraMieiOrdini()}
 function mostraMieiOrdini(){const l=leggi("ordini",[]);const s=$("sezMieiOrdini");if(!s)return;s.hidden=!l.length;
   $("mieiOrdiniCliente").innerHTML=l.map(o=>`<button class="cliente" style="width:100%;text-align:left;border:0;cursor:pointer" data-ordinecliente="${esc(o.segreto)}"><span><b>${esc(o.bottega)}</b><small>Ordine ${esc(o.codice)} · ${new Date(o.creato).toLocaleDateString("it-IT",{day:"numeric",month:"short"})}</small></span><span style="text-align:right"><b>${euro(o.totale)}</b><small>stato e chat ›</small></span></button>`).join("")}
 const TIPI_PROBLEMA={mancava:"Mancava qualcosa",qualita:"Qualità non buona",ritardo:"Ritardo o consegna",quantita:"Quantità o peso sbagliati",altro:"Altro"};
@@ -1091,6 +1113,9 @@ function stampaTabellina(){let d=document.getElementById("stampaTab");if(!d){d=d
 async function scriviNfc(){const nota=document.getElementById("tabNota");
   try{const w=new NDEFReader();nota.textContent="Avvicina l'adesivo NFC al retro del telefono…";await w.write({records:[{recordType:"url",data:TAB.link}]});nota.textContent="✅ Fatto! Attacca l'adesivo sulla tabellina, sul cerchio «appoggia qui il telefono»."}
   catch(e){nota.textContent=e&&e.name==="NotAllowedError"?"Serve il permesso NFC: attiva l'NFC nelle impostazioni del telefono e riprova.":"Non sono riuscito a scrivere l'adesivo. Riprova tenendolo fermo dietro al telefono."}}
+document.addEventListener("click",e=>{const p=e.target.closest("[data-pref],[data-riordina]");if(!p)return;
+  if(p.dataset.riordina){riordina(p.dataset.riordina);return}
+  const id=p.dataset.pref,on=!PREF().includes(id);salvaPref(id,on);toast(on?"❤️ Salvato: lo ritrovi in alto nella pagina":"Tolto dai tuoi produttori");apriProduttore(id)});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-tabellina]");if(!b||!TAB)return;const k=b.dataset.tabellina;
   if(k==="stampa")stampaTabellina();else if(k==="immagine")scaricaTabellina();else if(k==="nfc")scriviNfc()});
 </script>
