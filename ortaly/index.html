@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ortaly · dal campo a casa tua</title>
-<meta name="description" content="Frutta, verdura, formaggi, miele e vino dei produttori della tua zona: ordini su Ortaly, il contadino prepara e consegna. Ritiro in azienda, consegna a casa o spedizione in tutta Italia.">
+<meta name="description" content="Compra direttamente dai produttori italiani: frutta, verdura, formaggi, miele e vino della tua zona e di tutta Italia, senza intermediari. Ritiro in azienda, consegna a casa o spedizione. Made in Italy, dal campo a casa tua.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Ortaly">
 <meta property="og:locale" content="it_IT">
@@ -14,7 +14,7 @@
  {"@type":"WebSite","@id":"https://ortaly.it/#sito","url":"https://ortaly.it/","name":"Ortaly","inLanguage":"it","publisher":{"@id":"https://ortaly.it/#org"}}]}</script>
 <meta name="theme-color" content="#05634a">
 <meta property="og:title" content="Ortaly · dal campo a casa tua">
-<meta property="og:description" content="I prodotti dei contadini della tua zona: ordini qui, prepara tutto chi coltiva.">
+<meta property="og:description" content="Dai produttori italiani a casa tua, senza intermediari: frutta, verdura, formaggi, miele e vino made in Italy.">
 <meta property="og:url" content="https://ortaly.it/">
 <link rel="canonical" href="https://ortaly.it/">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -176,6 +176,22 @@ h1,h2,h3{font-family:var(--titoli);margin:0;line-height:1.1;text-wrap:balance}
 .azioni{display:flex;gap:8px;flex-wrap:wrap}
 .azioni button{border:1px solid var(--bordo);background:var(--carta);border-radius:10px;padding:7px 12px;font-weight:700;font-size:13px}
 .azioni .si{background:var(--foglia);border-color:var(--foglia);color:var(--bianco)}
+.oggi-testa h3{font-size:20px;margin:6px 0 4px}
+.oggi-testa .azioni{margin:10px 0 6px}
+.oggi-griglia{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:8px}
+.oggi-art{position:relative;display:flex;flex-direction:column;gap:3px;text-align:left;background:var(--bianco);border:2px solid var(--bordo);border-radius:16px;padding:8px;color:var(--inchiostro);font:inherit;cursor:pointer;box-shadow:var(--ombra);opacity:.6;filter:saturate(.4);transition:opacity .15s,filter .15s,border-color .15s}
+.oggi-art .foto{width:100%;aspect-ratio:4/3;height:auto;border-radius:11px;font-size:34px}
+.oggi-art b{font-size:14.5px;line-height:1.2}
+.oggi-art small{font-size:12.5px;color:var(--tenue)}
+.oggi-art .spunta{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.9);color:var(--tenue);font-weight:800;border:2px solid var(--bordo)}
+.oggi-art[aria-pressed="true"]{opacity:1;filter:none;border-color:var(--foglia)}
+.oggi-art[aria-pressed="true"] .spunta{background:var(--foglia);color:#fff;border-color:var(--foglia)}
+.perche{display:grid;gap:10px;margin:8px 0 6px}
+.perche>div{display:flex;gap:12px;align-items:flex-start;background:var(--bianco);border-radius:16px;padding:12px 14px;box-shadow:var(--ombra)}
+.perche>div>div{flex:1;min-width:0}
+.perche span{font-size:26px;line-height:1}
+.perche b{display:block;font-family:var(--titoli);font-size:16px}
+.perche p{margin:2px 0 0;font-size:14px;color:var(--tenue)}
 .mioart{display:flex;gap:12px;align-items:center;background:var(--bianco);border-radius:16px;padding:10px;margin-top:10px;box-shadow:var(--ombra)}
 .mioart .foto{width:58px;height:58px;border-radius:12px;font-size:28px;flex:none}
 .mioart .t{flex:1;min-width:0}
@@ -280,7 +296,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
 <main id="vistaCompro">
   <section class="cartello"><div class="wrap">
     <h1>Dal campo <span>a casa tua</span></h1>
-    <p>Frutta, verdura, formaggi, miele e vino dei produttori della tua zona. Ordini qui, prepara tutto chi coltiva, paghi a lui alla consegna o al ritiro.</p>
+    <p>Compri direttamente dai produttori italiani: frutta, verdura, formaggi, miele e vino della tua zona e di tutta Italia. Niente intermediari: il giusto va a chi coltiva, a te arriva fresco.</p>
     <label class="dove">📍 Sei in provincia di <select id="provincia" aria-label="La tua provincia"></select></label>
     <div class="zone" role="group" aria-label="Da dove">
       <button id="zVicino" aria-pressed="true">📍 Vicino a te<small>fresco, dalla tua provincia</small></button>
@@ -292,13 +308,20 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
     <div class="stagione" id="stagione"></div>
     <section class="sez"><h2><span id="titProd">Produttori vicino a te</span> <small>tocca per conoscerli</small></h2>
       <div class="produttori" id="produttori"></div>
-      <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Iscriviti in 2 minuti, metti i tuoi prodotti con le tue foto e ricevi gli ordini dei clienti della tua zona.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
+      <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Metti i tuoi prodotti con la foto una volta sola, poi ogni mattina tocchi quelli che hai al banco. Gli ordini dei clienti arrivano a te.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
     <section class="sez"><h2>Al banco oggi <small id="conta"></small></h2>
       <div class="cat" id="categorie" role="group" aria-label="Categorie"></div>
       <div class="filtri"><div class="cat" id="filtri" role="group" aria-label="Filtri" style="padding-top:2px"></div>
         <label class="ordina">Ordina <select id="ordina" aria-label="Ordina i prodotti"><option value="nuovi">più nuovi</option><option value="prezzo">prezzo più basso</option><option value="nome">nome</option></select></label></div>
       <div class="griglia" id="griglia"><div class="attesa">Carico il banco…</div></div>
       <div id="altri" style="text-align:center"></div></section>
+    <section class="sez"><h2>Perché Ortaly <small>made in Italy, dal produttore a te</small></h2>
+      <div class="perche">
+        <div><span>🇮🇹</span><div><b>Solo produttori italiani</b><p>Contadini, allevatori e artigiani del cibo con partita IVA italiana: compri da chi produce, in Italia.</p></div></div>
+        <div><span>🤝</span><div><b>Dal produttore a te</b><p>Nessun intermediario: ordini da chi produce, paghi a lui e ci parli in chat. Il prezzo giusto resta a chi lavora la terra.</p></div></div>
+        <div><span>🌱</span><div><b>Fresco e di stagione</b><p>Ogni produttore mette al banco solo quello che ha oggi. Ritiri in azienda, te lo porta a casa o lo spedisce.</p></div></div>
+      </div>
+      <p class="nota" style="text-align:center">Ortaly è nato per aiutare chi produce in Italia e chi vuole mangiare italiano. Sei un produttore? <button class="link" id="perchevendo">Apri la tua bottega ›</button></p></section>
     <section class="sez" id="sezMieiOrdini" hidden><h2>I tuoi ordini <small>stato e chat</small></h2><div class="miei-ordini" id="mieiOrdiniCliente"></div></section>
     <div id="boxInstallaCompro"></div>
     <p class="pie-sito">Ortaly mette in contatto clienti e produttori: ogni produttore vende, consegna e incassa da sé.<br><a href="/privacy" style="color:inherit">Privacy</a> · <a href="mailto:info@ortaly.it" style="color:inherit">info@ortaly.it</a></p>
@@ -351,7 +374,7 @@ const sb=pronto?window.supabase.createClient(CONF.url,CONF.chiave,{auth:{persist
 
 // ── stato ──
 let STELLE={},RECENSIONI={},BOT=[],ART=[],zona="vicino",cat="Tutto",testo="",prov=leggi("provincia","TO"),carrello=leggi("carrello",{}),scelte={},cliente=leggi("cliente",{});
-let utente=null,mia=null,mieiProd=[],mieiOrd=[],vendoScheda="ordini",recupero=false,timerOrdini=null;
+let utente=null,mia=null,mieiProd=[],mieiOrd=[],vendoScheda="auto",recupero=false,timerOrdini=null;
 const bot=id=>BOT.find(b=>b.id===id);
 const zonaOk=b=>zona==="italia"?!!b.spedizione&&b.provincia!==prov:b.provincia===prov;
 
@@ -430,7 +453,7 @@ function valutazioniBottega(id){
   <div style="display:grid;gap:8px;margin-top:8px">${l.slice(0,6).map(x=>`<div class="rec"><div>${voto(x.stelle)} <b>${esc(x.nome)}</b> <small style="color:var(--tenue)">${new Date(x.creata).toLocaleDateString("it-IT",{month:"short",year:"numeric"})}</small></div>${x.commento?`<div>${esc(x.commento)}</div>`:""}${x.risposta?`<div class="risp"><b>Risposta:</b> ${esc(x.risposta)}</div>`:""}</div>`).join("")}</div>`}
 
 function apriProduttore(id){const b=bot(id);if(!b)return;const suoi=ART.filter(a=>a.bottega===id);
-  apriSheet(`${foto(colore(b.id)+" banner","🌾",b.foto)}<div class="corpo"><h2>${esc(b.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(PROVINCE[b.provincia]||b.provincia)})${b.bio?" · 🌱 bio":""}</div>
+  apriSheet(`${foto(colore(b.id)+" banner","🌾",b.foto)}<div class="corpo"><h2>${esc(b.nome)}</h2><div class="meta" style="color:var(--tenue);margin-top:4px">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(PROVINCE[b.provincia]||b.provincia)})${b.bio?" · 🌱 bio":""}</div>${b.banco_aggiornato&&new Date(b.banco_aggiornato).toDateString()===new Date().toDateString()?`<div class="meta" style="color:var(--foglia);font-weight:700;margin-top:4px">🟢 Banco aggiornato oggi alle ${new Date(b.banco_aggiornato).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}</div>`:""}
   ${b.storia?`<p class="storia">${esc(b.storia)}</p>`:""}<div class="consegne">${Object.entries(MODI).filter(([k,m])=>b[m[3]]).map(([k,m])=>`<div class="cons"><span>${m[0]}</span><div><b>${m[2]}</b>${esc(b[m[3]])}</div></div>`).join("")}</div>
   ${valutazioniBottega(b.id)}
   <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.length?suoi.map(a=>`<div class="riga"><span>${EMOJI[a.categoria]||"🧺"} ${esc(a.nome)}${a.nota?`<br><small style="color:var(--tenue)">${esc(a.nota)}</small>`:""}</span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${esc(a.unita)}</b>${qtaHtml(a.id)}</span></div>`).join(""):`<p class="storia">Nessun prodotto al banco in questo momento.</p>`}</div>`,"prod",id);
@@ -645,8 +668,9 @@ function mostraVendo(){
   const b=mia,inizioSett=new Date();inizioSett.setDate(inizioSett.getDate()-7);
   const nuovi=mieiOrd.filter(o=>o.stato==="nuovo").length,sett=mieiOrd.filter(o=>o.stato!=="annullato"&&new Date(o.creato)>inizioSett).reduce((s,o)=>s+Number(o.totale),0);
   const link=location.origin+"/#bottega-"+b.id;
-  const schede=[["ordini","Ordini"+(nuovi?` (${nuovi})`:"")+(nonLetti()?" 💬":"")],["prodotti","Prodotti"],["bottega","Bottega"]];
-  V().innerHTML=vendoCartello(`Ciao, <span>${esc(b.nome)}</span>`,(nuovi?`Hai ${nuovi===1?"un ordine nuovo":nuovi+" ordini nuovi"} da guardare.`:"Metti i tuoi prodotti e decidi tu prezzi e quantità.")+(mieRec.length?` · ★ ${(mieRec.reduce((s,x)=>s+x.stelle,0)/mieRec.length).toFixed(1).replace(".",",")} da ${mieRec.length} ${mieRec.length===1?"valutazione":"valutazioni"}`:""))+`<div class="wrap">
+  if(vendoScheda==="auto")vendoScheda=nuovi?"ordini":mieiProd.length?"oggi":"prodotti";
+  const schede=[["oggi","☀️ Oggi"],["ordini","Ordini"+(nuovi?` (${nuovi})`:"")+(nonLetti()?" 💬":"")],["prodotti","Prodotti"],["bottega","Bottega"]];
+  V().innerHTML=vendoCartello(`Ciao, <span>${esc(b.nome)}</span>`,(nuovi?`Hai ${nuovi===1?"un ordine nuovo":nuovi+" ordini nuovi"} da guardare.`:"Ortaly è fatto per i produttori italiani: vendi direttamente a chi ti cerca, al tuo prezzo.")+(mieRec.length?` · ★ ${(mieRec.reduce((s,x)=>s+x.stelle,0)/mieRec.length).toFixed(1).replace(".",",")} da ${mieRec.length} ${mieRec.length===1?"valutazione":"valutazioni"}`:""))+`<div class="wrap">
   <div class="numeri"><div class="num"><b>${nuovi}</b><span>ordini nuovi</span></div><div class="num"><b>${euro(Math.round(sett))}</b><span>ultimi 7 giorni</span></div><div class="num"><b>${mieiProd.filter(a=>a.disponibile).length}</b><span>prodotti al banco</span></div></div>
   ${pianoHtml(b)}
   <div id="boxNotifiche"></div><div id="boxInstallaVendo"></div>
@@ -655,7 +679,17 @@ function mostraVendo(){
   <p class="pie-sito"><button class="link" data-esci="1">Esci</button></p></div>`;
   mostraBoxApp();
   const c=$("vCorpo");
-  if(vendoScheda==="ordini"){
+  if(vendoScheda==="oggi"){
+    const accesi=mieiProd.filter(a=>a.disponibile).length;
+    const agg=b.banco_aggiornato?new Date(b.banco_aggiornato):null,oggi=agg&&agg.toDateString()===new Date().toDateString();
+    c.innerHTML=mieiProd.length?`<div class="oggi-testa"><h3>Cosa hai oggi al banco?</h3>
+      <p class="nota">Tocca i prodotti che hai oggi: diventano verdi e i clienti li vedono subito. Gli altri restano salvati, con foto e prezzo, per la prossima volta.</p>
+      <div class="azioni"><button class="si" data-banco="tutti">✓ Tutto al banco</button><button data-banco="nessuno">Svuota il banco</button></div>
+      <p class="nota" id="oggiConta"><b>${accesi}</b> di ${mieiProd.length} al banco${agg?` · aggiornato ${oggi?"oggi alle "+agg.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"il "+agg.toLocaleDateString("it-IT",{day:"numeric",month:"short"})}`:""}</p></div>
+      <div class="oggi-griglia">${mieiProd.map(a=>`<button class="oggi-art" aria-pressed="${a.disponibile}" data-oggi="${a.id}" aria-label="${esc(a.nome)}">${foto(colore(b.id),EMOJI[a.categoria]||"🧺",a.foto)}<span class="spunta" aria-hidden="true">✓</span><b>${esc(a.nome)}</b><small>${euro(a.prezzo)} / ${esc(a.unita)}</small></button>`).join("")}</div>
+      <p class="nota" style="text-align:center;margin-top:14px">Hai un prodotto nuovo? <button class="link" data-scheda="prodotti">Aggiungilo con la foto ›</button></p>`
+      :`<div class="cliente"><span>Prima metti i tuoi prodotti con la foto, una volta sola. Poi ogni giorno qui tocchi quelli che hai al banco. <button class="link" data-scheda="prodotti">Metti il primo prodotto ›</button></span></div>`;
+  }else if(vendoScheda==="ordini"){
     c.innerHTML=mieiOrd.length?mieiOrd.map(o=>`<div class="ordine"><div class="su"><b>${esc(o.cliente_nome)}</b><span class="stato s-${o.stato}">${nomeStato(o)}</span></div>
       <ul class="righe">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)})</span></li>`).join("")}</ul>
       <div style="font-size:13px;color:var(--tenue)">${MODI[o.modo][0]} ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""} · <b style="color:var(--inchiostro)">${euro(o.totale)}</b> · ${new Date(o.creato).toLocaleString("it-IT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${esc(o.codice)}</div>
@@ -679,7 +713,7 @@ function mostraVendo(){
           <label for="nUnita">Venduto a<input id="nUnita" required maxlength="30" list="unita" placeholder="kg"><datalist id="unita"><option>kg</option><option>pezzo</option><option>mazzo</option><option>confezione</option><option>vasetto 500 g</option><option>bottiglia 0,75 l</option><option>cassetta 5 kg</option></datalist></label></div>
         <div class="due"><label for="nPrezzo">Prezzo (€)<input id="nPrezzo" required inputmode="decimal" placeholder="3,20"></label>
           <label for="nNota">Nota <span class="aiuto">(facoltativa)</span><input id="nNota" maxlength="60" placeholder="Es. raccolta ieri"></label></div>
-        <label for="nFoto">Foto del prodotto <span class="aiuto">(scattala tu, dal telefono)</span><input id="nFoto" type="file" accept="image/*"></label>
+        <label for="nFoto">Foto del prodotto <span class="aiuto">(scattala tu, dal telefono: la metti una volta sola)</span><input id="nFoto" type="file" accept="image/*"></label>
         <p class="errore" id="nErr" hidden></p><button class="grande" type="submit">Metti al banco</button></form>
       <h3 style="font-size:18px;margin-top:20px">I miei prodotti <small style="font:600 12.5px var(--testo);color:var(--tenue)">accendi o spegni</small></h3>
       ${mieiProd.length>8?`<input class="cerca-prod" id="cercaMiei" type="search" placeholder="Cerca tra i tuoi ${mieiProd.length} prodotti…" aria-label="Cerca tra i tuoi prodotti">`:""}
@@ -888,10 +922,10 @@ if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catc
     const m=e.data.tipo==="apri"&&String(e.data.url).match(/^\/#ordine-([0-9a-f]{64})$/);if(m){if($("vistaCompro").hidden)modo(false);apriOrdineCliente(m[1])}})}
 
 function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro").setAttribute("aria-pressed",!v);$("mVendo").setAttribute("aria-pressed",v);$("apriCarrello").hidden=v;
-  if(v){vendoScheda="ordini";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
+  if(v){vendoScheda="auto";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
   window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":location.pathname)}catch(e){}}
 
-document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui],[data-correggi],[data-rispondi],[data-risolta],[data-contesta],[data-pagato],[data-rimborsato],[data-filtro],[data-altri],[data-altrazona],[data-spedito]");if(!t)return;
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-oggi],[data-banco],[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui],[data-correggi],[data-rispondi],[data-risolta],[data-contesta],[data-pagato],[data-rimborsato],[data-filtro],[data-altri],[data-altrazona],[data-spedito]");if(!t)return;
   if(t.dataset.chiudi!==undefined&&t.classList.contains("sheet-bg")&&e.target!==t)return;
   if(t.dataset.installa){installa();return}
   if(t.dataset.chat){apriChatProduttore(t.dataset.chat);return}
@@ -950,6 +984,13 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-piu]
     if(error){toast(erroreDi(error));t.disabled=false;return}mieiOrd.find(o=>o.id===t.dataset.o).stato=t.dataset.stato;mostraVendo();
     fetch("/.netlify/functions/ortaly-stato",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:t.dataset.o}),keepalive:true}).catch(()=>{});
     toast({non_ritirato:"Segnato come non ritirato: il cliente è avvisato",accettato:"Accettato: scrivi al cliente nella chat per giorno e ora",pronto:"Segnato come pronto",consegnato:"Consegnato",annullato:"Ordine annullato: avvisa il cliente"}[t.dataset.stato])}
+  else if(t.dataset.oggi){const a=mieiProd.find(x=>x.id===t.dataset.oggi);if(!a||t.dataset.lavoro)return;t.dataset.lavoro="1";const nuovo=!a.disponibile;
+    t.setAttribute("aria-pressed",nuovo);const {error}=await sb.from("prodotti").update({disponibile:nuovo}).eq("id",a.id);delete t.dataset.lavoro;
+    if(error){t.setAttribute("aria-pressed",a.disponibile);toast(erroreDi(error));return}a.disponibile=nuovo;mia.banco_aggiornato=new Date().toISOString();
+    const n=mieiProd.filter(x=>x.disponibile).length,cc=$("oggiConta");if(cc)cc.innerHTML=`<b>${n}</b> di ${mieiProd.length} al banco · aggiornato oggi alle ${new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}`;
+    clearTimeout(caricaBanco.t);caricaBanco.t=setTimeout(caricaBanco,1500)}
+  else if(t.dataset.banco){const tutti=t.dataset.banco==="tutti";t.disabled=true;const {error}=await sb.from("prodotti").update({disponibile:tutti}).eq("bottega",mia.id);t.disabled=false;
+    if(error){toast(erroreDi(error));return}mieiProd.forEach(x=>x.disponibile=tutti);mia.banco_aggiornato=new Date().toISOString();mostraVendo();caricaBanco();toast(tutti?"Tutto al banco":"Banco svuotato: tocca i prodotti che hai")}
   else if(t.dataset.attiva){const a=mieiProd.find(x=>x.id===t.dataset.attiva);const {error}=await sb.from("prodotti").update({disponibile:!a.disponibile}).eq("id",a.id);
     if(error){toast(erroreDi(error));return}a.disponibile=!a.disponibile;mostraVendo();caricaBanco();toast(a.disponibile?"Di nuovo al banco":"Tolto dal banco")}
   else if(t.dataset.prezzo){const a=mieiProd.find(x=>x.id===t.dataset.prezzo);const riga=t.closest(".t");
@@ -969,7 +1010,7 @@ mostraFiltri();
 $("provincia").innerHTML=Object.entries(PROVINCE).sort((x,y)=>x[1].localeCompare(y[1],"it")).map(([s,n])=>`<option value="${s}" ${s===prov?"selected":""}>${esc(n)}</option>`).join("");
 $("provincia").addEventListener("change",e=>{prov=e.target.value;salva("provincia",prov);cat="Tutto";aggiornaCompro()});
 $("zVicino").onclick=()=>scegliZona("vicino");$("zItalia").onclick=()=>scegliZona("italia");
-$("apriCarrello").onclick=apriCarrello;$("mCompro").onclick=()=>modo(false);$("mVendo").onclick=()=>modo(true);
+$("apriCarrello").onclick=apriCarrello;$("mCompro").onclick=()=>modo(false);$("mVendo").onclick=()=>modo(true);$("perchevendo").onclick=()=>{modo(true);scrollTo(0,0)};
 
 if(sb)sb.auth.onAuthStateChange((ev,sess)=>{const prima=utente&&utente.id;utente=sess?sess.user:null;
   if(ev==="PASSWORD_RECOVERY"){recupero=true;modo(true);return}
