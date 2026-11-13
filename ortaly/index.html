@@ -201,6 +201,7 @@ h1,h2,h3{font-family:var(--titoli);margin:0;line-height:1.1;text-wrap:balance}
 .inter[aria-pressed="true"]{background:var(--foglia)}.inter[aria-pressed="true"]::after{transform:translateX(18px)}
 form.nuovo{background:var(--bianco);border-radius:18px;padding:14px;margin-top:12px;box-shadow:var(--ombra);display:grid;gap:10px}
 form.nuovo label{font-size:13px;font-weight:700;display:grid;gap:5px}
+.foto-scelta{display:flex;gap:8px;flex-wrap:wrap}.foto-btn{font:inherit;font-weight:700;font-size:14px;padding:11px 14px;border-radius:12px;border:0;background:var(--foglia);color:#fff;cursor:pointer}.foto-btn.chiaro{background:var(--foglia-chiara);color:var(--inchiostro)}.foto-ante{width:120px;height:120px;object-fit:cover;border-radius:12px;border:1px solid var(--bordo)}
 form.nuovo input,form.nuovo select{border:1px solid var(--bordo);border-radius:12px;padding:11px 12px;font:inherit;background:var(--carta);color:var(--inchiostro);min-width:0;width:100%}
 .due{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .invito{margin-top:14px;display:flex;gap:14px;align-items:center;background:var(--lavagna);color:var(--gesso);border-radius:18px;padding:16px;box-shadow:var(--ombra)}
@@ -570,7 +571,7 @@ function formBottega(b){b=b||{};const pv=b.provincia||prov;
     <label for="bPiva">Partita IVA<input id="bPiva" required inputmode="numeric" maxlength="13" placeholder="11 cifre" value="${esc(b.piva||"")}"></label></div>
     <label for="bTipo">Cosa produci<input id="bTipo" maxlength="60" placeholder="Es. Verdura e uova" value="${esc(b.tipo||"")}"></label>
     <label for="bStoria">Due righe su di te <span class="aiuto">(i clienti le leggono nella tua bottega)</span><textarea id="bStoria" maxlength="400" placeholder="Es. Coltiviamo senza serre da 20 anni, a 2 km dal Po">${esc(b.storia||"")}</textarea></label>
-    <label for="bFoto">Foto della tua azienda ${b.foto?'<span class="aiuto">(lascia vuoto per tenere quella di adesso)</span>':""}<input id="bFoto" type="file" accept="image/*"></label>
+    <label for="bFoto">Foto della tua azienda ${b.foto?'<span class="aiuto">(lascia vuoto per tenere quella di adesso)</span>':""}<div class="foto-scelta"><button type="button" class="foto-btn" data-foto-cam="bFoto">📷 Scatta foto</button><button type="button" class="foto-btn chiaro" data-foto-gal="bFoto">🖼️ Dalla galleria</button></div><img class="foto-ante" id="bFotoAnte" hidden alt="Anteprima della foto"><input id="bFoto" type="file" accept="image/*" hidden></label>
     <div class="spunte" role="group" aria-label="Come consegni"><b style="font-size:13px">Come consegni <span class="aiuto">(almeno uno; scrivi giorni e costi)</span></b>
       ${Object.entries(MODI).map(([k,m])=>`<label class="scelta"><input type="checkbox" id="k_${k}" ${b[m[3]]||(!b.id&&k!=="spedizione")?"checked":""}><span><b>${m[0]} ${m[2]}</b></span></label>
       <input id="t_${k}" maxlength="120" placeholder="${k==="casa"?"Es. Il giovedì in zona Chieri":k==="ritiro"?"Es. Sabato 9–12 in cascina":"Es. Corriere in 48 ore"}" value="${esc(b[m[3]]||"")}">
@@ -713,7 +714,7 @@ function mostraVendo(){
           <label for="nUnita">Venduto a<input id="nUnita" required maxlength="30" list="unita" placeholder="kg"><datalist id="unita"><option>kg</option><option>pezzo</option><option>mazzo</option><option>confezione</option><option>vasetto 500 g</option><option>bottiglia 0,75 l</option><option>cassetta 5 kg</option></datalist></label></div>
         <div class="due"><label for="nPrezzo">Prezzo (€)<input id="nPrezzo" required inputmode="decimal" placeholder="3,20"></label>
           <label for="nNota">Nota <span class="aiuto">(facoltativa)</span><input id="nNota" maxlength="60" placeholder="Es. raccolta ieri"></label></div>
-        <label for="nFoto">Foto del prodotto <span class="aiuto">(scattala tu, dal telefono: la metti una volta sola)</span><input id="nFoto" type="file" accept="image/*"></label>
+        <label for="nFoto">Foto del prodotto <span class="aiuto">(scattala tu, dal telefono: la metti una volta sola)</span><div class="foto-scelta"><button type="button" class="foto-btn" data-foto-cam="nFoto">📷 Scatta foto</button><button type="button" class="foto-btn chiaro" data-foto-gal="nFoto">🖼️ Dalla galleria</button></div><img class="foto-ante" id="nFotoAnte" hidden alt="Anteprima della foto"><input id="nFoto" type="file" accept="image/*" hidden></label>
         <p class="errore" id="nErr" hidden></p><button class="grande" type="submit">Metti al banco</button></form>
       <h3 style="font-size:18px;margin-top:20px">I miei prodotti <small style="font:600 12.5px var(--testo);color:var(--tenue)">accendi o spegni</small></h3>
       ${mieiProd.length>8?`<input class="cerca-prod" id="cercaMiei" type="search" placeholder="Cerca tra i tuoi ${mieiProd.length} prodotti…" aria-label="Cerca tra i tuoi prodotti">`:""}
@@ -1021,6 +1022,15 @@ if(location.hash==="#vendo")modo(true);
 {const m=location.hash.match(/^#disiscrivi-([0-9a-f]{64})$/);if(m&&sb){apriSheet(`<div class="corpo fatto"><div style="font-size:48px">✉️</div><h2>Non vuoi più le nostre email?</h2><p class="storia" style="margin-inline:auto">Smetti di ricevere ricette, promozioni e novità di stagione. Gli avvisi dei tuoi ordini continuano ad arrivare.</p><button class="grande" id="btnDisiscrivi">Sì, toglimi</button></div>`,"disiscrivi");
   $("btnDisiscrivi").onclick=async()=>{const {data,error}=await sb.rpc("disiscrivi",{p_token:m[1]});$("sheet").querySelector(".corpo").innerHTML=error||!data?`<h2>Link non valido</h2><p class="storia" style="margin-inline:auto">Scrivici a info@ortaly.it e ti togliamo noi.</p>`:`<div class="bollo">Fatto</div><h2>Non riceverai più le nostre email</h2><p class="storia" style="margin-inline:auto">Se cambi idea, al prossimo ordine rimetti la spunta.</p>`;try{history.replaceState(null,"",location.pathname)}catch(e){}}}}
 window.addEventListener("hashchange",()=>{const m=location.hash.match(/^#ordine-([0-9a-f]{64})$/);if(m&&sb){if($("vistaCompro").hidden)modo(false);apriOrdineCliente(m[1])}});
+</script>
+<script>
+// foto dei prodotti e della bottega: «Scatta foto» apre subito la fotocamera, «Dalla galleria» le foto del telefono
+document.addEventListener("click",e=>{const b=e.target.closest("[data-foto-cam],[data-foto-gal]");if(!b)return;e.preventDefault();
+  const i=document.getElementById(b.dataset.fotoCam||b.dataset.fotoGal);if(!i)return;
+  if(b.dataset.fotoCam)i.setAttribute("capture","environment");else i.removeAttribute("capture");i.click()});
+document.addEventListener("change",e=>{const i=e.target;if(!i.matches||!i.matches('input[type=file][id$="Foto"]'))return;
+  const a=document.getElementById(i.id+"Ante");const f=i.files&&i.files[0];if(!a)return;
+  if(a.src&&a.src.startsWith("blob:"))URL.revokeObjectURL(a.src);if(f){a.src=URL.createObjectURL(f);a.hidden=false}else a.hidden=true});
 </script>
 </body>
 </html>
