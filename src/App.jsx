@@ -1687,7 +1687,7 @@ const CATEGORIE_PER_TIPO = {
 
 export default function App() {
   // informativa privacy e condizioni d'uso: pagine pubbliche
-  const percorso = window.location.pathname.replace(/\/+$/, "");
+  const percorso = percorsoPagina();
   if (percorso === "/privacy") return <Suspense fallback={null}><PaginaPrivacy /></Suspense>;
   if (percorso === "/termini") return <Suspense fallback={null}><PaginaTermini /></Suspense>;
   // link di consegna al cliente: pagina pubblica, senza login
@@ -10833,11 +10833,22 @@ const mediaSicuro = (m) => m && typeof m.url === "string" && /^https:\/\//i.test
 
 // province italiane: sigla → nome (per «Trova un pilota»)
 // PROVINCE_ITALIA e i testi delle pagine per i clienti (anche per Google) stanno in seoTrovaPilota.js
+// trovapilota.it: lo stesso «Trova un pilota» con indirizzi corti (trovapilota.it/to = /trova-pilota/to).
+// L'app legge l'indirizzo «come se» fosse quello lungo, e i link verso Trova un pilota restano corti.
+const SU_TROVAPILOTA = typeof window !== "undefined" && /(^|\.)trovapilota\.it$/i.test(window.location.hostname);
+const PERCORSI_APP = /^\/(trova-pilota|miei-lavori|offerte|p|privacy|termini)(\/|$)/i;
+function percorsoPagina() {
+  const p = window.location.pathname.replace(/\/+$/, "");
+  if (!SU_TROVAPILOTA || PERCORSI_APP.test(p)) return p;
+  return `/trova-pilota${p}`;
+}
+const linkTrova = (percorso) => (SU_TROVAPILOTA ? percorso.replace(/^\/trova-pilota/, "") || "/" : percorso);
+
 const PROVINCE_IN_ORDINE = Object.entries(PROVINCE_ITALIA).sort((a, b) => a[1].localeCompare(b[1], "it"));
 
 // app.eyedrones.it/trova-pilota (o /trova-pilota/fr): la provincia scritta nell'indirizzo, se c'è
 function provinciaDaIndirizzo() {
-  const m = window.location.pathname.match(/^\/trova-pilota(?:\/[a-z]{4,})?\/([a-z]{2})\/?$/i);
+  const m = percorsoPagina().match(/^\/trova-pilota(?:\/[a-z]{4,})?\/([a-z]{2})\/?$/i);
   const q = new URLSearchParams(window.location.search).get("provincia");
   const sigla = String((m && m[1]) || q || "").toUpperCase();
   return PROVINCE_ITALIA[sigla] ? sigla : "";
@@ -10916,7 +10927,7 @@ const SCELTE_CLIENTE = [
   ["ispezioni", "Tetti e fotovoltaico", "🔍"], ["agricoltura", "Agricoltura", "🌱"],
 ];
 function sezioneDaIndirizzo() {
-  const m = window.location.pathname.match(/^\/trova-pilota\/([a-z]{4,})(?:\/[a-z]{2})?\/?$/i);
+  const m = percorsoPagina().match(/^\/trova-pilota\/([a-z]{4,})(?:\/[a-z]{2})?\/?$/i);
   const k = m ? m[1].toLowerCase() : "";
   return SEZIONI_CLIENTE[k] ? { chiave: k, ...SEZIONI_CLIENTE[k] } : null;
 }
@@ -11014,6 +11025,33 @@ function AvvisiCliente({ codice, compatto }) {
 // «Trova un pilota»: pagina pubblica per i clienti. Scelgono cosa serve e la provincia, la richiesta arriva ai piloti
 // della zona che mandano un'offerta; il cliente riceve per email il link alle offerte (/offerte/<codice>) e sceglie.
 // Funzioni Supabase in supabase/trova-pilota.sql
+// «Scarica l'app» su trovapilota.it: su Android il browser la installa con un tocco, su iPhone si spiega come fare
+let richiestaInstalla = null;
+if (typeof window !== "undefined") window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); richiestaInstalla = e; });
+function ScaricaApp() {
+  const installata = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true);
+  const iPhone = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const [chiusa, setChiusa] = useState(() => leggiLocale("trovapilota_app_chiusa") === "si");
+  const [spiega, setSpiega] = useState(false);
+  if (installata || chiusa) return null;
+  const tocca = async () => {
+    if (richiestaInstalla) { richiestaInstalla.prompt(); try { await richiestaInstalla.userChoice; } catch { /* niente */ } richiestaInstalla = null; setChiusa(true); return; }
+    setSpiega(true);
+  };
+  const chiudi = () => { scriviLocale("trovapilota_app_chiusa", "si"); setChiusa(true); };
+  return (
+    <div style={{ position: "fixed", left: 12, right: 12, bottom: "calc(12px + env(safe-area-inset-bottom))", zIndex: 50, maxWidth: 520, margin: "0 auto", background: "#fff", border: "1px solid #e2d8cc", borderRadius: 16, boxShadow: "0 10px 30px rgba(60,40,20,.18)", padding: "12px 44px 12px 14px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <button type="button" onClick={chiudi} aria-label="Chiudi" style={{ position: "absolute", top: 4, right: 4, width: 36, height: 36, background: "none", border: "none", color: "#8a8076", fontSize: 18 }}>×</button>
+      <img src="/icon-192.png" alt="" style={{ width: 40, height: 40, borderRadius: 10 }} />
+      <div style={{ flex: 1, minWidth: 160 }}>
+        <div style={{ fontWeight: 800, fontSize: 14.5, color: "#2b2622" }}>Scarica l'app Trova un pilota</div>
+        <div style={{ fontSize: 12.5, color: "#6b6258", marginTop: 2 }}>{spiega ? (iPhone ? "Tocca Condividi (il quadrato con la freccia) e poi «Aggiungi alla schermata Home»." : "Apri il menu del browser (⋮) e tocca «Installa app» o «Aggiungi a schermata Home».") : "Le tue richieste e le offerte dei piloti sempre a portata di mano."}</div>
+      </div>
+      {!spiega && <button type="button" onClick={tocca} style={{ ...CLIENTE.bottone, padding: "9px 14px", fontSize: 14 }}>Scarica</button>}
+    </div>
+  );
+}
+
 function TrovaPilota() {
   const [sezione] = useState(sezioneDaIndirizzo); // pagina dedicata (es. matrimoni) o null
   const [provincia, setProvincia] = useState(provinciaDaIndirizzo);
@@ -11036,7 +11074,7 @@ function TrovaPilota() {
     let annullato = false;
     setPiloti(null);
     supabase.rpc("piloti_in_zona", { p_provincia: provincia }).then(({ data, error }) => { if (!annullato) setPiloti(error ? [] : Array.isArray(data) ? data : []); });
-    try { window.history.replaceState(null, "", `${base}/${provincia.toLowerCase()}`); } catch { /* niente */ }
+    try { window.history.replaceState(null, "", linkTrova(`${base}/${provincia.toLowerCase()}`)); } catch { /* niente */ }
     return () => { annullato = true; };
   }, [provincia]);
 
@@ -11088,6 +11126,7 @@ function TrovaPilota() {
 
   return (
     <div style={CLIENTE.pagina}>
+      {SU_TROVAPILOTA && <ScaricaApp />}
       <style>{`
         .tp-hero { position: relative; min-height: 640px; display: flex; align-items: flex-end; color: #fff; overflow: hidden; }
         .tp-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; }
@@ -11166,7 +11205,7 @@ function TrovaPilota() {
           <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 20, margin: "0 0 12px 0" }}>Cosa ti serve?</h2>
           <div className="tp-scelte">
             {SCELTE_CLIENTE.map(([k, nome, emoji]) => (
-              <a key={k} href={`/trova-pilota/${k}${provincia ? `/${provincia.toLowerCase()}` : ""}`}>
+              <a key={k} href={linkTrova(`/trova-pilota/${k}${provincia ? `/${provincia.toLowerCase()}` : ""}`)}>
                 <img src={`/trova-pilota/${k}.webp`} alt="" loading="lazy" />
                 <span>{emoji} {nome} ›</span>
               </a>
@@ -11320,7 +11359,7 @@ function TrovaPilota() {
           </section>
         )}
 
-        {sezione && <p style={{ textAlign: "center", fontSize: 13.5, color: "#6b6258", margin: 0 }}>Ti serve un pilota per altro? <a href={provincia ? `/trova-pilota/${provincia.toLowerCase()}` : "/trova-pilota"} style={{ color: "#e0552f", fontWeight: 700 }}>Vedi tutti i servizi</a></p>}
+        {sezione && <p style={{ textAlign: "center", fontSize: 13.5, color: "#6b6258", margin: 0 }}>Ti serve un pilota per altro? <a href={linkTrova(provincia ? `/trova-pilota/${provincia.toLowerCase()}` : "/trova-pilota")} style={{ color: "#e0552f", fontWeight: 700 }}>Vedi tutti i servizi</a></p>}
 
         <footer style={{ textAlign: "center", fontSize: 13, color: "#8a8076", padding: "10px 0" }}>
           <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ color: "#6b6258", textDecoration: "none" }}>Sei un pilota di droni? <span style={{ color: "#e0552f", fontWeight: 700 }}>Iscriviti a EyeDrones e ricevi le richieste della tua zona</span></a>
@@ -11499,7 +11538,7 @@ function MieiLavori() {
   };
 
   const testa = (
-    <a href="/trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#6b6258", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20 }} /> EyeDrones · Trova un pilota</a>
+    <a href={linkTrova("/trova-pilota")} style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#6b6258", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20 }} /> EyeDrones · Trova un pilota</a>
   );
   const contenitore = (figli) => <div style={CLIENTE.pagina}><main style={{ maxWidth: 680, margin: "0 auto", padding: "22px 16px 40px", display: "flex", flexDirection: "column", gap: 14 }}>{testa}{figli}</main></div>;
 
@@ -11517,7 +11556,7 @@ function MieiLavori() {
             <button type="submit" disabled={mandato === "invio"} style={{ ...CLIENTE.bottone, padding: "12px 18px", fontSize: 15 }}>{mandato === "invio" ? "Invio…" : "Mandami il link"}</button>
           </form>
         )}
-        <p style={{ fontSize: 13, color: "#8a8076", margin: "14px 0 0 0" }}>Non hai ancora fatto richieste? <a href="/trova-pilota" style={{ color: "#e0552f", fontWeight: 700 }}>Trova un pilota</a></p>
+        <p style={{ fontSize: 13, color: "#8a8076", margin: "14px 0 0 0" }}>Non hai ancora fatto richieste? <a href={linkTrova("/trova-pilota")} style={{ color: "#e0552f", fontWeight: 700 }}>Trova un pilota</a></p>
       </div>
     );
   }
@@ -11532,11 +11571,11 @@ function MieiLavori() {
           <h1 style={{ fontSize: 26, margin: "0 0 4px 0" }}>I miei lavori</h1>
           <p style={{ fontSize: 14, color: "#6b6258", margin: 0 }}>{dati.nome ? `Ciao ${dati.nome}! ` : ""}Qui trovi tutte le tue richieste.</p>
         </div>
-        <a href="/trova-pilota" style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14 }}>+ Nuova richiesta</a>
+        <a href={linkTrova("/trova-pilota")} style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14 }}>+ Nuova richiesta</a>
       </header>
       <InstallaCliente />
       {inviata && inviata !== "invio" && <div role="status" style={{ ...CLIENTE.scheda, background: "#eaf6ef", borderColor: "#bfe3cd", fontSize: 14.5 }}>✓ Richiesta mandata a <strong>{inviata}</strong>. Ti scriviamo appena manda l'offerta.</div>}
-      {lavori.length === 0 && <div style={{ ...CLIENTE.scheda, fontSize: 14.5, color: "#5b534b" }}>Per ora non ci sono richieste. <a href="/trova-pilota" style={{ color: "#e0552f", fontWeight: 700 }}>Fai la prima</a>.</div>}
+      {lavori.length === 0 && <div style={{ ...CLIENTE.scheda, fontSize: 14.5, color: "#5b534b" }}>Per ora non ci sono richieste. <a href={linkTrova("/trova-pilota")} style={{ color: "#e0552f", fontWeight: 700 }}>Fai la prima</a>.</div>}
       {lavori.map((l) => {
         const p = l.pilota;
         const c = (p && p.contatti) || {};
@@ -11689,7 +11728,7 @@ function OfferteCliente({ codice }) {
           <div style={{ fontSize: 40 }}>🔎</div>
           <h1 style={{ fontSize: 20 }}>Richiesta non trovata</h1>
           <p style={{ color: "#6b6258", fontSize: 14 }}>Il link non è corretto oppure la richiesta è scaduta.</p>
-          <a href="/trova-pilota" style={CLIENTE.bottone}>Fai una nuova richiesta</a>
+          <a href={linkTrova("/trova-pilota")} style={CLIENTE.bottone}>Fai una nuova richiesta</a>
         </div>
       </div>
     );
@@ -11789,7 +11828,7 @@ function OfferteCliente({ codice }) {
     <div style={CLIENTE.pagina}>
       <main style={{ maxWidth: 720, margin: "0 auto", padding: "22px 16px 40px", display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          <a href="/trova-pilota" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#6b6258", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20 }} /> EyeDrones · Trova un pilota</a>
+          <a href={linkTrova("/trova-pilota")} style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#6b6258", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}><img src={LOGO_EYEDRONES} alt="" style={{ width: 20, height: 20 }} /> EyeDrones · Trova un pilota</a>
           <a href="/miei-lavori" style={{ color: "#e0552f", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}>📨 I miei lavori</a>
         </div>
         <header>
@@ -11897,7 +11936,7 @@ function OfferteCliente({ codice }) {
         {r.stato === "aperta" && offerte.length > 0 && (
           <p style={{ fontSize: 12.5, color: "#8a8076", textAlign: "center", margin: 0 }}>Puoi aspettare altre offerte: ti scriviamo quando arrivano. <button type="button" onClick={() => { if (confirm("Non ti serve più? Chiudo la richiesta e i piloti non manderanno altre offerte.")) scegli(null); }} style={{ background: "none", border: "none", color: "#8a8076", textDecoration: "underline", fontSize: 12.5, padding: 0 }}>Non mi serve più</button></p>
         )}
-        {r.stato === "chiusa" && <p style={{ ...CLIENTE.scheda, fontSize: 14, color: "#6b6258", margin: 0 }}>{annulli.some((a) => a.da === "cliente") ? "Hai annullato il lavoro e chiuso la richiesta." : "Hai chiuso questa richiesta."} Se ti serve di nuovo un pilota, <a href="/trova-pilota" style={{ color: "#e0552f" }}>fai una nuova richiesta</a>.</p>}
+        {r.stato === "chiusa" && <p style={{ ...CLIENTE.scheda, fontSize: 14, color: "#6b6258", margin: 0 }}>{annulli.some((a) => a.da === "cliente") ? "Hai annullato il lavoro e chiuso la richiesta." : "Hai chiuso questa richiesta."} Se ti serve di nuovo un pilota, <a href={linkTrova("/trova-pilota")} style={{ color: "#e0552f" }}>fai una nuova richiesta</a>.</p>}
       </main>
 
       {scelgo && (
@@ -12774,8 +12813,24 @@ function NotifichePush({ tema, inHome }) {
     if (!supportate) return;
     if (Notification.permission === "denied") { setStato("bloccate"); return; }
     navigator.serviceWorker.ready.then((reg) => reg.pushManager.getSubscription())
-      .then((sub) => setStato(sub && Notification.permission === "granted" ? "attive" : "spente")).catch(() => setStato("spente"));
+      .then(async (sub) => {
+        const ok = sub && Notification.permission === "granted";
+        setStato(ok ? "attive" : "spente");
+        // il telefono è iscritto: mi assicuro che sia anche nel database (se era stato tolto, le notifiche non arrivavano)
+        if (ok) { try { const j = sub.toJSON(); const { data } = await supabase.from("notifiche_push").select("endpoint").eq("endpoint", j.endpoint).maybeSingle(); if (!data) await supabase.from("notifiche_push").insert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }); } catch (e) { /* riprova la prossima volta */ } }
+      }).catch(() => setStato("spente"));
   }, [supportate]);
+  const [prova, setProva] = useState(""); // "" | invio | testo dell'esito
+  const mandaProva = async () => {
+    setProva("invio");
+    try {
+      const { data } = await supabase.auth.getSession();
+      const r = await fetch("/.netlify/functions/prova-notifica", { method: "POST", headers: { Authorization: `Bearer ${data?.session?.access_token || ""}` } });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.errore || "errore");
+      setProva(j.inviate ? "Inviata: deve arrivare tra pochi secondi. Se non arriva, controlla che le notifiche di Chrome (o Safari) siano permesse nelle impostazioni del telefono." : j.telefoni ? "Il telefono non ha risposto: tocca Spegni e poi riattiva le notifiche." : "Questo telefono non risulta iscritto: tocca Spegni e poi riattiva le notifiche.");
+    } catch (e) { setProva("Non riesco a mandare la prova adesso: riprova tra poco."); }
+  };
   const daBase64 = (t) => { const b = atob(t.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((t.length + 3) % 4)); return Uint8Array.from(b, (c) => c.charCodeAt(0)); };
   const attiva = async () => {
     setStato("lavoro");
@@ -12826,7 +12881,7 @@ function NotifichePush({ tema, inHome }) {
     if (!iPhone || installata) return null;
     return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo(weekend ? "Anche come notifica sul telefono" : "Notifiche dei nuovi lavori", "Su iPhone prima aggiungi EyeDrones alla schermata Home (Safari → Condividi → Aggiungi alla schermata Home), poi aprila dall'icona e attiva qui le notifiche.")}</div>;
   }
-  if (stato === "attive") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Notifiche attive su questo telefono", weekend ? "Il giovedì ti arriva anche qui quando e dove volare nel weekend." : "Ti avvisiamo di nuove richieste in zona, dei voli pianificati con il meteo, dei pagamenti in scadenza e dei lavori da consegnare.")}<button onClick={spegni} style={{ background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, cursor: "pointer" }}>Spegni</button></div>;
+  if (stato === "attive") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo("Notifiche attive su questo telefono", weekend ? "Il giovedì ti arriva anche qui quando e dove volare nel weekend." : "Ti avvisiamo di nuove richieste in zona, dei voli pianificati con il meteo, dei pagamenti in scadenza e dei lavori da consegnare.")}<button onClick={mandaProva} disabled={prova === "invio"} style={{ ...pulsante, background: "#222b3d", color: "#e7eaee", border: "1px solid #3a4560" }}>{prova === "invio" ? "Invio…" : "Prova"}</button><button onClick={spegni} style={{ background: "none", border: "none", color: "#8b95a3", textDecoration: "underline", fontSize: 12.5, cursor: "pointer" }}>Spegni</button>{prova && prova !== "invio" && <div style={{ flexBasis: "100%", fontSize: 12.5, color: "#c3cad4" }}>{prova}</div>}</div>;
   if (stato === "bloccate") return <div style={riquadro}><span style={{ fontSize: 22 }}>🔕</span>{testo("Notifiche bloccate", "Le hai bloccate per EyeDrones: riattivale dalle impostazioni del browser (lucchetto accanto all'indirizzo → Notifiche), poi ricarica la pagina.")}</div>;
   return <div style={riquadro}><span style={{ fontSize: 22 }}>🔔</span>{testo(weekend ? "Anche come notifica sul telefono" : generale ? "Notifiche sul telefono" : "Avvisami dei nuovi lavori", stato === "errore" ? "Non sono riuscito ad attivarle su questo telefono: riprova tra poco." : generale ? "La sera prima e la mattina del volo ti avviso con il meteo all'ora giusta; poi pagamenti in scadenza, lavori da consegnare e nuove richieste in zona." : weekend ? "Il giovedì ti arriva una notifica con le ore buone del weekend e il posto consigliato più vicino." : "Una notifica sul telefono appena arriva una richiesta in zona o un cliente ti sceglie, anche ad app chiusa. Chi risponde prima vince più lavori.")}<button onClick={attiva} disabled={stato === "lavoro"} style={pulsante}>{stato === "lavoro" ? "Attivo…" : "Attiva"}</button></div>;
 }

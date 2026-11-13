@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Trova un pilota",
+  "short_name": "Trova pilota",
+  "description": "Trova un pilota di droni nella tua zona: matrimoni, case, eventi, ispezioni. Ricevi le offerte e scegli tu.",
+  "lang": "it",
+  "start_url": "/?utm_source=app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbf7f2",
+  "theme_color": "#fbf7f2",
+  "categories": ["lifestyle", "photo"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

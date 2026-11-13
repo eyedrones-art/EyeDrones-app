@@ -73,7 +73,7 @@ function emailPrimiPassi(u) {
     `L'app ti guida passo passo. Comincia da qui: ${link}`, "",
     "È tutto gratis fino al 31 gennaio 2027.",
     "Se qualcosa non è chiaro, o manca qualcosa che ti servirebbe, scrivi a info@eyedrones.it: leggo tutto io.", "",
-    "Buoni voli!", "Ivan · EyeDrones", "",
+    "Buoni voli!", "EyeDrones", "",
     "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
   ].join("\n");
   const passo = (n, t) => `<tr><td style="width:34px;padding:6px 0;vertical-align:top"><span style="display:inline-block;width:26px;height:26px;line-height:26px;border-radius:50%;background:#e0552f;color:#fff;text-align:center;font-weight:bold;font-size:14px">${n}</span></td><td style="padding:8px 0;font-size:15px">${t}</td></tr>`;
@@ -86,7 +86,7 @@ function emailPrimiPassi(u) {
     <p style="font-size:15px">L'app ti guida passo passo.</p>
     <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Comincia da qui ›</a></p>
     <p style="font-size:14px;color:#444">È tutto gratis fino al 31 gennaio 2027. Se qualcosa non è chiaro, o manca qualcosa che ti servirebbe, scrivi a <a href="mailto:info@eyedrones.it">info@eyedrones.it</a>: leggo tutto io.</p>
-    <p style="font-size:15px">Buoni voli!<br>Ivan · EyeDrones</p>
+    <p style="font-size:15px">Buoni voli!<br>EyeDrones</p>
     <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
   </div>`;
   return { oggetto, testo, corpo };
@@ -107,7 +107,7 @@ function emailPrimoVolo(u) {
     `Comincia da qui: ${link}`, "",
     "I file restano sul tuo telefono: l'app legge solo data, ora, posizione e altezza.",
     "Se qualcosa non va, scrivi a info@eyedrones.it: leggo tutto io.", "",
-    "Buoni voli!", "Ivan · EyeDrones", "",
+    "Buoni voli!", "EyeDrones", "",
     "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
   ].join("\n");
   const passo = (n, t) => `<tr><td style="width:34px;padding:6px 0;vertical-align:top"><span style="display:inline-block;width:26px;height:26px;line-height:26px;border-radius:50%;background:#e0552f;color:#fff;text-align:center;font-weight:bold;font-size:14px">${n}</span></td><td style="padding:8px 0;font-size:15px">${t}</td></tr>`;
@@ -118,7 +118,7 @@ function emailPrimoVolo(u) {
     <table style="border-collapse:collapse">${passo(1, "Apri il <b>registro automatico</b>")}${passo(2, "Scegli le foto e i video del drone, dalla scheda SD o scaricati con DJI Fly")}${passo(3, "L'app crea da sola i voli, con data, ora, durata e luogo")}</table>
     <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Registra i tuoi voli ›</a></p>
     <p style="font-size:14px;color:#444">I file restano sul tuo telefono: l'app legge solo data, ora, posizione e altezza. Se qualcosa non va, scrivi a <a href="mailto:info@eyedrones.it">info@eyedrones.it</a>: leggo tutto io.</p>
-    <p style="font-size:15px">Buoni voli!<br>Ivan · EyeDrones</p>
+    <p style="font-size:15px">Buoni voli!<br>EyeDrones</p>
     <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
   </div>`;
   return { oggetto, testo, corpo };
@@ -139,7 +139,7 @@ function emailCommunity(u) {
     "Gli altri piloti vedono il posto e la tua nota, mai il tuo nome.", "",
     `Consiglia un posto da qui: ${link}`, "",
     "Lo trovi anche in Home («⭐ Conosci un bel posto dove volare?») e su ogni volo del registro.", "",
-    "Grazie, buoni voli!", "Ivan · EyeDrones", "",
+    "Grazie, buoni voli!", "EyeDrones", "",
     "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
   ].join("\n");
   const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
@@ -150,7 +150,7 @@ function emailCommunity(u) {
     <p style="font-size:14px;color:#444">Gli altri piloti vedono il posto e la tua nota, <b>mai il tuo nome</b>.</p>
     <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">⭐ Consiglia un posto ›</a></p>
     <p style="font-size:14px;color:#444">Lo trovi anche in Home («⭐ Conosci un bel posto dove volare?») e su ogni volo del registro.</p>
-    <p style="font-size:15px">Grazie, buoni voli!<br>Ivan · EyeDrones</p>
+    <p style="font-size:15px">Grazie, buoni voli!<br>EyeDrones</p>
     <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
   </div>`;
   return { oggetto, testo, corpo };
@@ -188,7 +188,7 @@ function emailLavori(u) {
       : ["Per ricevere i lavori:", ...passi.map((t) => `• ${t}`), "", `Attiva la tua pagina da qui: ${link}`]),
     "",
     `Conosci qualcuno che cerca un pilota? Mandagli questo link: ${APP_URL}/trova-pilota`, "",
-    "Buoni voli!", "Ivan · EyeDrones", "",
+    "Buoni voli!", "EyeDrones", "",
     "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
   ].join("\n");
   const punto = (t) => `<li style="margin:0 0 6px 0">${t}</li>`;
@@ -206,7 +206,42 @@ function emailLavori(u) {
     <ul style="font-size:15px;padding-left:20px;margin-top:0">${passi.map((t) => punto(html(t))).join("")}</ul>
     ${bottone("Attiva la tua pagina ›")}`}
     <p style="font-size:14px;color:#444">Conosci qualcuno che cerca un pilota? Mandagli questo link: <a href="${APP_URL}/trova-pilota">app.eyedrones.it/trova-pilota</a></p>
-    <p style="font-size:15px">Buoni voli!<br>Ivan · EyeDrones</p>
+    <p style="font-size:15px">Buoni voli!<br>EyeDrones</p>
+    <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
+  </div>`;
+  return { oggetto, testo, corpo };
+}
+
+// --- «Crea la tua pagina pilota»: una volta sola a chi non ha ancora la pagina in Trova un pilota ----------------
+function emailPagina(u) {
+  const link = `${APP_URL}/?vai=pagina-pilota`;
+  const ciao = `Ciao${u.nome ? ` ${u.nome}` : ""}!`;
+  const oggetto = "I clienti cercano un pilota: crea la tua pagina in 3 minuti 📍";
+  const perche = [
+    ["🔎", "Ti trovano anche da Google", "Chi cerca «drone matrimonio Torino» o «ispezione tetto con drone» può arrivare su Trova un pilota e vede i piloti della sua provincia."],
+    ["📩", "Ti scriviamo noi", "Quando un cliente della tua provincia chiede un lavoro ti arriva un'email (e la notifica sul telefono)."],
+    ["💶", "Decidi tu il prezzo", "Mandi la tua offerta: gli altri piloti non la vedono. Se il cliente ti sceglie, ricevi i suoi contatti."],
+    ["🌐", "È anche il tuo sito", "La pagina ha un suo indirizzo (app.eyedrones.it/p/il-tuo-nome) da mettere su Instagram, WhatsApp e biglietti da visita."],
+  ];
+  const passi = ["apri «La mia pagina» in EyeDrones;", "scrivi chi sei, la provincia e i servizi, e metti 2 o 3 foto;", "spunta «Mostrami in Trova un pilota» e pubblica."];
+  const testo = [
+    ciao, "",
+    "In molte province ci sono ancora pochissimi piloti in Trova un pilota: chi arriva adesso è tra i primi che i clienti vedono.", "",
+    ...perche.map(([, t, d]) => `• ${t}: ${d}`), "",
+    "Bastano 3 minuti:", ...passi.map((t, i) => `${i + 1}. ${t}`), "",
+    `Crea la tua pagina: ${link}`, "",
+    "Buoni voli!", "EyeDrones", "",
+    "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
+  ].join("\n");
+  const righe = perche.map(([e, t, d]) => `<tr><td style="font-size:20px;padding:6px 10px 6px 0;vertical-align:top">${e}</td><td style="font-size:15px;padding:6px 0"><b>${html(t)}</b><br><span style="color:#555">${html(d)}</span></td></tr>`).join("");
+  const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
+    <h2 style="color:#e0552f;margin:0 0 12px">📍 I clienti cercano un pilota</h2>
+    <p style="font-size:15px">${html(ciao)} In molte province ci sono ancora pochissimi piloti in <b>Trova un pilota</b>: chi arriva adesso è tra i primi che i clienti vedono.</p>
+    <table style="border-collapse:collapse;margin:0 0 14px 0">${righe}</table>
+    <p style="font-size:15px;margin-bottom:6px"><b>Bastano 3 minuti</b></p>
+    <ol style="font-size:15px;padding-left:20px;margin-top:0">${passi.map((t) => `<li style="margin:0 0 6px 0">${html(t)}</li>`).join("")}</ol>
+    <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Crea la tua pagina ›</a></p>
+    <p style="font-size:15px">Buoni voli!<br>EyeDrones</p>
     <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
   </div>`;
   return { oggetto, testo, corpo };
@@ -305,7 +340,7 @@ function emailWeekend(u, giorni, oggi = new Date()) {
     `Consiglio della settimana: ${consiglio}`, "",
     "Prima di volare controlla la zona e i NOTAM su D-Flight.",
     `Meteo ora per ora, zona e luce del posto: ${link}`, "",
-    "Buoni voli!", "Ivan · EyeDrones", "",
+    "Buoni voli!", "EyeDrones", "",
     "Non vuoi più questa email? Spegnila in EyeDrones → Impostazioni → «Il weekend giusto per volare».",
   ].join("\n");
   const riga = ({ t, f }) => `<tr><td style="padding:10px 12px;border-bottom:1px solid #eee;vertical-align:top"><div style="font-size:15px;font-weight:bold;text-transform:capitalize">${html(t.nome)}</div><div style="font-size:15px;color:#e0552f;font-weight:bold">${html(t.orario)}${f.oroSera || f.oroMattina ? " ✨" : ""}</div><div style="font-size:13px;color:#555">${html(t.dettagli)}</div></td></tr>`;
@@ -320,7 +355,7 @@ function emailWeekend(u, giorni, oggi = new Date()) {
     <p style="font-size:14px;background:#f4f6f8;border-radius:8px;padding:10px 12px;margin-top:18px">💡 <b>Consiglio della settimana:</b> ${html(consiglio)}</p>
     <p style="font-size:13px;color:#a33">Prima di volare controlla la zona e i NOTAM su D-Flight.</p>
     <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Prepara il volo ›</a></p>
-    <p style="font-size:15px">Buoni voli!<br>Ivan · EyeDrones</p>
+    <p style="font-size:15px">Buoni voli!<br>EyeDrones</p>
     <p style="font-size:12px;color:#888">Non vuoi più questa email? Spegnila in EyeDrones → Impostazioni → «Il weekend giusto per volare».</p>
   </div>`;
   return { oggetto, testo, corpo };
@@ -490,6 +525,12 @@ exports.handler = async (event) => {
     restano -= 1;
     await pausa(600);
   }
+  for (const u of (dati.pagina || []).slice(0, Math.max(0, restano))) {
+    if (!emailValida(u.email)) continue;
+    await invia(chiave, mittente, u.email, emailPagina(u));
+    restano -= 1;
+    await pausa(600);
+  }
   const amm = dati.amministratore;
   if (amm && emailValida(amm.email)) {
     const spazioAlto = amm.spazio_byte != null && amm.spazio_byte / LIMITE_STORAGE_BYTE >= 0.7;
@@ -498,4 +539,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailWeekend, notificaWeekend, notificaScadenze, notificaPioggia, finestreDelGiorno, giorniWeekend };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailPagina, emailWeekend, notificaWeekend, notificaScadenze, notificaPioggia, finestreDelGiorno, giorniWeekend };
