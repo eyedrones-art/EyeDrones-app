@@ -157,6 +157,7 @@ h1,h2,h3{font-family:var(--titoli);margin:0;line-height:1.1;text-wrap:balance}
 .gruppo{background:var(--bianco);border-radius:18px;padding:14px;margin-top:12px;box-shadow:var(--ombra)}
 .gruppo h3{font-size:16px;display:flex;justify-content:space-between;gap:8px}
 .riga{display:flex;justify-content:space-between;gap:10px;align-items:center;padding-block:8px;border-bottom:1px dashed var(--bordo);font-size:14px}
+.cons small.costo{display:block;margin-top:4px;font-size:13px;font-weight:700;color:var(--foglia)}
 .riga-nome{display:flex;align-items:center;gap:10px;min-width:0}
 .mini{width:54px;height:54px;border-radius:12px;object-fit:cover;flex:none;cursor:zoom-in}
 .mini-e{width:54px;height:54px;border-radius:12px;background:var(--carta2);display:grid;place-items:center;font-size:26px;flex:none}
@@ -489,6 +490,12 @@ function speseDi(b,modo,sub){const c=modo==="casa"?["costo_casa","gratis_casa"]:
   const costo=Number(b[c[0]])||0,gratis=b[c[1]]==null?null:Number(b[c[1]]);return gratis!=null&&sub>=gratis?0:costo}
 function speseTesto(b,k){const c=k==="casa"?["costo_casa","gratis_casa"]:k==="spedizione"?["costo_spedizione","gratis_spedizione"]:null;if(!c||b[c[0]]==null)return"";
   return Number(b[c[0]])?` · ${euro(Number(b[c[0]]))}${b[c[1]]!=null?`, inclusa sopra ${euro(Number(b[c[1]]))}`:""}`:" · inclusa"}
+// costo di consegna a casa o spedizione, scritto chiaro nella scheda del produttore
+function costoConsegna(b,k){const c=k==="casa"?["costo_casa","gratis_casa"]:["costo_spedizione","gratis_spedizione"];
+  if(b[c[0]]==null)return "💶 Costo non indicato: chiedilo al produttore in chat dopo l'ordine";
+  const costo=Number(b[c[0]]),sopra=b[c[1]]==null?null:Number(b[c[1]]);
+  if(!costo)return "💶 Costo compreso nel prezzo";
+  return `💶 Costa ${euro(costo)}${sopra!=null?` · compresa se spendi almeno ${euro(sopra)}`:""}`}
 const voto=n=>`<span class="voto" aria-label="${n} su 5">${"★".repeat(n)}${"☆".repeat(5-n)}</span>`;
 function valutazioniBottega(id){
   const l=RECENSIONI[id];
@@ -500,7 +507,7 @@ function valutazioniBottega(id){
 
 function apriProduttore(id){const b=bot(id);if(!b)return;const suoi=ART.filter(a=>a.bottega===id);
   apriSheet(`${foto(colore(b.id)+" banner","🌾",b.foto)}<div class="corpo"><h2>${esc(b.nome)}</h2><button class="cuore" data-pref="${esc(b.id)}" aria-pressed="${PREF().includes(b.id)}">${PREF().includes(b.id)?"❤️ Tra i tuoi produttori":"🤍 Salva tra i tuoi produttori"}</button><div class="meta" style="color:var(--tenue);margin-top:4px">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(PROVINCE[b.provincia]||b.provincia)})${b.bio?" · 🌱 bio":""}</div>${b.banco_aggiornato&&new Date(b.banco_aggiornato).toDateString()===new Date().toDateString()?`<div class="meta" style="color:var(--foglia);font-weight:700;margin-top:4px">🟢 Banco aggiornato oggi alle ${new Date(b.banco_aggiornato).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}</div>`:""}
-  ${b.storia?`<p class="storia">${esc(b.storia)}</p>`:""}<div class="consegne">${Object.entries(MODI).filter(([k,m])=>b[m[3]]).map(([k,m])=>`<div class="cons"><span>${m[0]}</span><div><b>${m[2]}</b>${esc(b[m[3]])}</div></div>`).join("")}<div class="cons"><span>${(b.pagamento||"consegna")==="consegna"?"💶":"💳"}</span><div><b>Come si paga</b>${b.pagamento==="online"?"Online: quando il produttore accetta l'ordine ti arriva il link per pagare":b.pagamento==="entrambi"?"Scegli tu: al produttore alla consegna o al ritiro, oppure online con il link che ti arriva quando accetta l'ordine":"Al produttore, alla consegna o al ritiro"}</div></div></div>
+  ${b.storia?`<p class="storia">${esc(b.storia)}</p>`:""}<div class="consegne">${Object.entries(MODI).filter(([k,m])=>b[m[3]]).map(([k,m])=>`<div class="cons"><span>${m[0]}</span><div><b>${m[2]}</b>${esc(b[m[3]])}${k==="ritiro"?"":`<small class="costo">${costoConsegna(b,k)}</small>`}</div></div>`).join("")}<div class="cons"><span>${(b.pagamento||"consegna")==="consegna"?"💶":"💳"}</span><div><b>Come si paga</b>${b.pagamento==="online"?"Online: quando il produttore accetta l'ordine ti arriva il link per pagare":b.pagamento==="entrambi"?"Scegli tu: al produttore alla consegna o al ritiro, oppure online con il link che ti arriva quando accetta l'ordine":"Al produttore, alla consegna o al ritiro"}</div></div></div>
   ${valutazioniBottega(b.id)}
   <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.length?suoi.map(a=>`<div class="riga"><span class="riga-nome">${fotoOk(a.foto)?`<img class="mini" src="${esc(a.foto)}" alt="${esc(a.nome)}" data-zoom="1" loading="lazy">`:`<span class="mini-e">${EMOJI[a.categoria]||"🧺"}</span>`}<span>${esc(a.nome)}${a.nota?`<br><small style="color:var(--tenue)">${esc(a.nota)}</small>`:""}</span></span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${esc(a.unita)}</b>${qtaHtml(a.id)}</span></div>`).join(""):`<p class="storia">Nessun prodotto al banco in questo momento.</p>`}</div>`,"prod",id);
   try{history.replaceState(null,"","#bottega-"+id)}catch(e){}}
@@ -721,6 +728,7 @@ function mostraVendo(){
   V().innerHTML=vendoCartello(`Ciao, <span>${esc(b.nome)}</span>`,(nuovi?`Hai ${nuovi===1?"un ordine nuovo":nuovi+" ordini nuovi"} da guardare.`:"Ortaly è fatto per i produttori italiani: vendi direttamente a chi ti cerca, al tuo prezzo.")+(mieRec.length?` · ★ ${(mieRec.reduce((s,x)=>s+x.stelle,0)/mieRec.length).toFixed(1).replace(".",",")} da ${mieRec.length} ${mieRec.length===1?"valutazione":"valutazioni"}`:""))+`<div class="wrap">
   <div class="numeri"><div class="num"><b>${nuovi}</b><span>ordini nuovi</span></div><div class="num"><b>${euro(Math.round(sett))}</b><span>ultimi 7 giorni</span></div><div class="num"><b>${mieiProd.filter(a=>a.disponibile).length}</b><span>prodotti al banco</span></div></div>
   ${pianoHtml(b)}
+  ${(b.consegna_casa&&b.costo_casa==null)||(b.spedizione&&b.costo_spedizione==null)?`<div class="blocco" style="border:2px solid var(--tuorlo)"><b>💶 Scrivi quanto costa la consegna</b><p class="nota" style="margin-top:2px">I clienti vogliono saperlo prima di ordinare. Scrivilo nella scheda «Bottega», sotto ${b.consegna_casa&&b.costo_casa==null?"«Consegna a casa»":"«Spedizione»"}: metti 0 se è compresa nel prezzo.</p><button class="link" data-scheda="bottega">Vai a Bottega ›</button></div>`:""}
   <div id="boxNotifiche"></div><div id="boxInstallaVendo"></div>
   <div class="schede" role="group" aria-label="Sezioni" style="margin-top:16px">${schede.map(([k,t])=>`<button aria-pressed="${vendoScheda===k}" data-scheda="${k}">${t}</button>`).join("")}</div>
   <div id="vCorpo"></div>
