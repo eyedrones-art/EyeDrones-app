@@ -247,6 +247,42 @@ function emailPagina(u) {
   return { oggetto, testo, corpo };
 }
 
+// --- «Una domanda veloce: cosa ti mancava?»: una volta sola a chi si è iscritto e non ha mai usato davvero l'app ----
+// I tasti aprono app.eyedrones.it/cosa-ti-mancava.html, che salva la risposta con il codice dell'email (niente accesso)
+const RISPOSTE_MANCAVA = [
+  ["non_capito", "🤔 Non ho capito come funziona"],
+  ["niente_drone", "🚁 Non ho ancora un drone, o volo poco"],
+  ["funzione", "🧩 Mi mancava una cosa che mi serve"],
+  ["complicata", "😵 È troppo complicata"],
+  ["altra_app", "📱 Uso già un'altra app"],
+  ["lavori", "💼 Cercavo lavori come pilota"],
+];
+function emailMancava(u) {
+  const ciao = `Ciao${u.nome ? ` ${u.nome}` : ""}!`;
+  const oggetto = "Una domanda veloce: cosa ti mancava? 🙏";
+  const link = (k) => `${APP_URL}/cosa-ti-mancava.html?c=${encodeURIComponent(u.codice)}&r=${k}`;
+  const testo = [
+    ciao, "",
+    "Qualche giorno fa hai creato il tuo account EyeDrones, ma poi l'app non l'hai più usata. Va benissimo: ci aiuti a capire perché?",
+    "Basta un tocco su una risposta (nessun accesso, ci vogliono 5 secondi):", "",
+    ...RISPOSTE_MANCAVA.map(([k, t]) => `• ${t}: ${link(k)}`), "",
+    "Se preferisci, rispondi a questa email con due parole: le leggiamo tutte.", "",
+    "Grazie davvero!", "EyeDrones", "",
+    "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
+  ].join("\n");
+  const tasti = RISPOSTE_MANCAVA.map(([k, t]) => `<a href="${link(k)}" style="display:block;background:#f4f6f9;border:1px solid #dde3ea;color:#222;text-decoration:none;padding:12px 14px;border-radius:8px;font-size:15px;margin:0 0 8px 0">${html(t)}</a>`).join("");
+  const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
+    <h2 style="color:#e0552f;margin:0 0 12px">🙏 Una domanda veloce</h2>
+    <p style="font-size:15px">${html(ciao)} Qualche giorno fa hai creato il tuo account <b>EyeDrones</b>, ma poi l'app non l'hai più usata. Va benissimo: ci aiuti a capire perché?</p>
+    <p style="font-size:15px"><b>Basta un tocco su una risposta</b> (nessun accesso, 5 secondi):</p>
+    ${tasti}
+    <p style="font-size:15px">Se preferisci, rispondi a questa email con due parole: le leggiamo tutte.</p>
+    <p style="font-size:15px">Grazie davvero!<br>EyeDrones</p>
+    <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
+  </div>`;
+  return { oggetto, testo, corpo, rispondiA: "info@eyedrones.it" };
+}
+
 // --- «Il weekend giusto per volare» (il giovedì, a chi l'ha attivato) -------------------------------------------
 // Ore buone: pioggia ≤ 30% e quasi zero, vento ≤ 20 km/h, raffiche ≤ 32 km/h, tra alba e tramonto.
 // Se né sabato né domenica hanno almeno un'ora buona, l'email non parte
@@ -458,11 +494,11 @@ function emailAmministratore(a) {
   return { oggetto, testo, corpo };
 }
 
-async function invia(chiave, mittente, a, { oggetto, testo, corpo }) {
+async function invia(chiave, mittente, a, { oggetto, testo, corpo, rispondiA }) {
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${chiave}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: mittente, to: [a], subject: oggetto, text: testo, html: corpo }),
+    body: JSON.stringify({ from: mittente, to: [a], subject: oggetto, text: testo, html: corpo, ...(rispondiA ? { reply_to: rispondiA } : {}) }),
   });
   if (!r.ok) console.error("invio non riuscito", a, r.status, (await r.text()).slice(0, 200));
 }
@@ -544,6 +580,12 @@ exports.handler = async (event) => {
     restano -= 1;
     await pausa(600);
   }
+  for (const u of (dati.mancava || []).slice(0, Math.max(0, restano))) {
+    if (!emailValida(u.email) || !/^[0-9a-f-]{36}$/i.test(String(u.codice || ""))) continue;
+    await invia(chiave, mittente, u.email, emailMancava(u));
+    restano -= 1;
+    await pausa(600);
+  }
   const amm = dati.amministratore;
   if (amm && emailValida(amm.email)) {
     const spazioAlto = amm.spazio_byte != null && amm.spazio_byte / LIMITE_STORAGE_BYTE >= 0.7;
@@ -552,4 +594,4 @@ exports.handler = async (event) => {
   return { statusCode: 202 };
 };
 
-exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailPagina, emailWeekend, notificaWeekend, notificaScadenze, notificaPioggia, notificaPagina, finestreDelGiorno, giorniWeekend };
+exports._prova = { emailUtente, emailAmministratore, emailPrimiPassi, emailPrimoVolo, emailCommunity, emailLavori, emailPagina, emailMancava, emailWeekend, notificaWeekend, notificaScadenze, notificaPioggia, notificaPagina, finestreDelGiorno, giorniWeekend };

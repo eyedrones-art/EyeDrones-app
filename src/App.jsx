@@ -2512,10 +2512,10 @@ function passiPrimi({ droni, attestati, voli, preventivi, haPiano }) {
   return [
     { chiave: "account", fatto: true, titolo: "Crea il tuo account" },
     { chiave: "drone", regola: true, fatto: (droni || []).length > 0, titolo: "Aggiungi il tuo drone", bottone: "Aggiungi il drone", perche: "così l'app sa le regole della sua classe e fin dove puoi volare", pagina: "droni", aiuto: "Tocca «+ Nuovo drone», scegli il modello e salva. Bastano marca e modello; il codice operatore D-Flight se ce l'hai." },
-    { chiave: "primovolo", regola: true, fatto: (voli || []).length > 0, titolo: "Registra il tuo primo volo", bottone: "Registra i voli", perche: "scegli foto e video della scheda SD: i voli si creano da soli, con data, ora, durata e luogo", pagina: "registro-voli", aiuto: "Tocca «⚡ Registro automatico» e scegli le foto e i video del drone (dalla scheda SD o scaricati con DJI Fly): creo io i voli. Oppure «+ Nuovo volo» per scriverlo a mano." },
     { chiave: "attestato", regola: true, fatto: haAttestato && haAssicurazione, titolo: "Carica attestato e assicurazione", bottone: "Carica i documenti", perche: haAttestato && !haAssicurazione ? "manca l'assicurazione: in Italia è obbligatoria" : !haAttestato && haAssicurazione ? "manca l'attestato del pilota" : "se ti fermano per un controllo li mostri con un tocco, anche senza campo", pagina: "attestati", aiuto: "Tocca «+ Nuovo attestato»: aggiungi l'attestato (A1/A3 o A2) e poi l'assicurazione, con la data di scadenza. Puoi allegare la foto o il PDF." },
+    { chiave: "controllo", regola: true, fatto: !!leggiLocale(CHIAVE_CONTROLLO_PROVATO), titolo: "Prova il tasto 👮 Controllo", bottone: "Prova il Controllo", perche: "è quello che mostri se ti fermano: documenti, drone e zona a schermo pieno", pagina: "documenti-controllo", aiuto: "Questa è la schermata da mostrare in caso di controllo. Una copia resta sul telefono, anche senza campo." },
+    { chiave: "primovolo", fatto: (voli || []).length > 0, titolo: "Registra il tuo primo volo", bottone: "Registra i voli", perche: "scegli foto e video della scheda SD: i voli si creano da soli, con data, ora, durata e luogo", pagina: "registro-voli", aiuto: "Tocca «⚡ Registro automatico» e scegli le foto e i video del drone (dalla scheda SD o scaricati con DJI Fly): creo io i voli. Oppure «+ Nuovo volo» per scriverlo a mano." },
     { chiave: "zone", fatto: !!leggiLocale("eyedrones_zone_caricate"), titolo: "Carica il file zone di D-Flight", bottone: "Carica il file zone", perche: "si fa una volta sola: poi scrivi la via e sai subito dove puoi volare", pagina: "pianificazione", aiuto: "Nel riquadro «🛡️ Zona di volo» trovi i passi per scaricarlo da D-Flight e il pulsante per caricarlo." },
-    { chiave: "controllo", fatto: !!leggiLocale(CHIAVE_CONTROLLO_PROVATO), titolo: "Prova il tasto 👮 Controllo", bottone: "Prova il Controllo", perche: "è quello che mostri se ti fermano: documenti, drone e zona a schermo pieno", pagina: "documenti-controllo", aiuto: "Questa è la schermata da mostrare in caso di controllo. Una copia resta sul telefono, anche senza campo." },
     { chiave: "piano", fatto: !!haPiano, titolo: "Prepara il prossimo volo", bottone: "Prepara un volo", perche: "meteo, luce, zona, regole e le riprese da fare, tutto in una pagina", pagina: "pianificazione" },
     { chiave: "preventivo", fatto: (preventivi || []).length > 0, titolo: "Fai il tuo primo preventivo", bottone: "Fai un preventivo", perche: "in PDF, con i pacchetti pronti e il prezzo consigliato", pagina: "preventivi" },
   ];
@@ -2571,14 +2571,14 @@ function PrimiPassi({ droni, attestati, voli, preventivi, onNav }) {
             <ElioDice espr={inRegola ? "contento" : "felice"} size={56} style={{ paddingRight: 30 }}>
               {inRegola
                 ? <><strong>✅ Tutto pronto!</strong> Adesso, se vuoi, ti mostro le altre cose utili.</>
-                : <><strong>Ciao, sono Elio!</strong> Tre passi e l'app è pronta: il drone, il primo volo e i documenti per i controlli. Passo {Math.min(fattiRegole + 1, regole.length)} di {regole.length}.</>}
+                : <><strong>Ciao, sono Elio!</strong> Tre passi e l'app è pronta: il drone, i documenti e il tasto Controllo. Se ti fermano hai tutto sul telefono, anche senza campo. Passo {Math.min(fattiRegole + 1, regole.length)} di {regole.length}.</>}
             </ElioDice>
           ) : inRegola ? (
             <div style={{ fontSize: 15, fontWeight: 800, color: "#4ade80", paddingRight: 32 }}>✅ Tutto pronto!</div>
           ) : (
             <div style={{ paddingRight: 32 }}>
               <div style={{ fontSize: 15.5, fontWeight: 800, color: "#e7eaee" }}>🚀 Pronto in tre passi</div>
-              <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>Il drone, il primo volo e i documenti per i controlli. Passo {Math.min(fattiRegole + 1, regole.length)} di {regole.length}.</div>
+              <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>Il drone, i documenti e il tasto Controllo: se ti fermano hai tutto sul telefono. Passo {Math.min(fattiRegole + 1, regole.length)} di {regole.length}.</div>
             </div>
           )}
           <div style={{ height: 6, background: "#232b3f", borderRadius: 3, margin: "10px 0", overflow: "hidden" }}>
@@ -2626,7 +2626,7 @@ function BarraPrimiPassi({ pagina, droni, attestati, voli, preventivi, onNav }) 
       <div style={{ flex: "1 1 220px", fontSize: 12.5, color: "#c3cad4", lineHeight: 1.45 }}>
         {qui.fatto
           ? <><strong style={{ color: "#4ade80" }}>✅ Fatto!</strong> {dopo ? `Prossimo passo: ${dopo.titolo.charAt(0).toLowerCase() + dopo.titolo.slice(1)}.` : "Tutto pronto: se arriva un controllo hai tutto sul telefono."}</>
-          : <><strong style={{ color: "#7fb0ff" }}>🚀 Passo {n} di {passi.filter((x) => x.regola).length} · {qui.titolo}</strong><br />{qui.aiuto}</>}
+          : <><strong style={{ color: "#7fb0ff" }}>🚀 {n > 0 ? `Passo ${n} di ${passi.filter((x) => x.regola).length} · ` : ""}{qui.titolo}</strong><br />{qui.aiuto}</>}
       </div>
       {qui.fatto
         ? <button type="button" onClick={vaiDopo} style={{ background: "#4ade80", color: "#0d111c", border: "none", borderRadius: 8, padding: "9px 14px", minHeight: 42, fontSize: 13.5, fontWeight: 800 }}>{dopo ? `${dopo.bottone} ›` : "Torna alla Home"}</button>
