@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Grazie · EyeDrones</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: #0d111c; color: #e7eaee; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+  .box { width: 100%; max-width: 460px; background: #151b2b; border: 1px solid #232b3f; border-radius: 16px; padding: 26px 22px; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  p { color: #aab3bf; margin: 0 0 14px; }
+  .scelta { display: inline-block; background: #3d8bfd22; border: 1px solid #3d8bfd66; color: #cfe0ff; border-radius: 999px; padding: 6px 12px; font-size: 14px; margin-bottom: 16px; }
+  label { display: block; font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  textarea { width: 100%; min-height: 110px; background: #0f1422; color: #e7eaee; border: 1px solid #2c3550; border-radius: 10px; padding: 10px 12px; font: inherit; resize: vertical; }
+  button { margin-top: 12px; width: 100%; background: linear-gradient(90deg, #3d8bfd, #5aa2ff); color: #0f1216; border: 0; border-radius: 10px; padding: 13px; font-weight: 800; font-size: 15px; cursor: pointer; }
+  button:disabled { opacity: .6; }
+  a { color: #7fb0ff; }
+  .piccolo { font-size: 13px; color: #8b95a3; margin-top: 14px; }
+</style>
+</head>
+<body>
+<main class="box" id="box">
+  <h1>Un attimo…</h1>
+  <p>Salvo la tua risposta.</p>
+</main>
+<script>
+(function () {
+  var URL_DB = "https://kywmesdqemxqjasixpzq.supabase.co";
+  var CHIAVE = "sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ";
+  var NOMI = {
+    non_capito: "🤔 Non ho capito come funziona",
+    niente_drone: "🚁 Non ho ancora un drone, o volo poco",
+    funzione: "🧩 Mi mancava una cosa che mi serve",
+    complicata: "😵 È troppo complicata",
+    altra_app: "📱 Uso già un'altra app",
+    lavori: "💼 Cercavo lavori come pilota",
+    altro: "✏️ Altro"
+  };
+  var DOMANDA = {
+    non_capito: "Cosa non era chiaro? Da dove ti sei perso?",
+    niente_drone: "Cosa ti piacerebbe trovare nell'app quando inizierai a volare?",
+    funzione: "Cosa ti serviva che non hai trovato?",
+    complicata: "Quale parte ti è sembrata più complicata?",
+    altra_app: "Quale app usi? Cosa fa meglio di EyeDrones?",
+    lavori: "Che lavori cerchi, e in quale zona?",
+    altro: "Raccontaci pure:"
+  };
+  var q = new URLSearchParams(location.search);
+  var codice = q.get("c") || "", risposta = q.get("r") || "";
+  var box = document.getElementById("box");
+  var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+
+  function salva(nota) {
+    return fetch(URL_DB + "/rest/v1/rpc/mancava_rispondi", {
+      method: "POST",
+      headers: { apikey: CHIAVE, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_codice: codice, p_risposta: risposta, p_nota: nota || null })
+    }).then(function (r) { return r.ok ? r.json() : false; }).catch(function () { return false; });
+  }
+  function errore() {
+    box.innerHTML = "<h1>Ops</h1><p>Non riesco a salvare la risposta: il link potrebbe essere incompleto. Puoi rispondere direttamente all'email, la leggiamo comunque.</p>";
+  }
+  if (!/^[0-9a-f-]{36}$/i.test(codice) || !NOMI[risposta]) { errore(); return; }
+
+  salva(null).then(function (ok) {
+    if (!ok) { errore(); return; }
+    box.innerHTML =
+      "<h1>Grazie! 🙏</h1>" +
+      "<p>Abbiamo salvato la tua risposta:</p>" +
+      "<div class='scelta'>" + esc(NOMI[risposta]) + "</div>" +
+      "<form id='f'><label for='nota'>" + esc(DOMANDA[risposta]) + " <span style='font-weight:400;color:#8b95a3'>(facoltativo)</span></label>" +
+      "<textarea id='nota' maxlength='1000' placeholder='Scrivi qui…'></textarea>" +
+      "<button type='submit'>Invia</button></form>" +
+      "<p class='piccolo'>Vuoi riprovare l'app? <a href='https://app.eyedrones.it/?vai=primi'>Apri EyeDrones</a></p>";
+    document.getElementById("f").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var t = document.getElementById("nota").value.trim();
+      if (!t) return;
+      var b = e.target.querySelector("button"); b.disabled = true; b.textContent = "Invio…";
+      salva(t).then(function (ok) {
+        if (!ok) { b.disabled = false; b.textContent = "Riprova"; return; }
+        box.innerHTML = "<h1>Ricevuto, grazie! 💙</h1><p>Leggiamo tutto e lo usiamo per migliorare l'app.</p><p class='piccolo'><a href='https://app.eyedrones.it/?vai=primi'>Apri EyeDrones</a></p>";
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
