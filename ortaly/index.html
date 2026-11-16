@@ -261,6 +261,7 @@ form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
 .errore{color:var(--pomodoro);font-weight:700;font-size:13.5px}
 .schede{display:flex;gap:6px;background:var(--carta2);border-radius:14px;padding:4px;margin-bottom:12px}
 .schede button{flex:1;border:0;background:none;border-radius:10px;padding:9px;font-weight:700}
+@media (max-width:460px){.schede button{padding:9px 3px;font-size:13px}}
 .schede button[aria-pressed="true"]{background:var(--bianco);box-shadow:var(--ombra)}
 .ordine .righe{font-size:14px;margin:0;padding-left:18px}
 .ordine a{color:var(--foglia);font-weight:700}
@@ -728,7 +729,7 @@ function mostraVendo(){
   const nuovi=mieiOrd.filter(o=>o.stato==="nuovo").length,sett=mieiOrd.filter(o=>o.stato!=="annullato"&&new Date(o.creato)>inizioSett).reduce((s,o)=>s+Number(o.totale),0);
   const link=location.origin+"/#bottega-"+b.id;
   if(vendoScheda==="auto")vendoScheda=nuovi?"ordini":mieiProd.length?"oggi":"prodotti";
-  const schede=[["oggi","☀️ Oggi"],["ordini","Ordini"+(nuovi?` (${nuovi})`:"")+(nonLetti()?" 💬":"")],["prodotti","Prodotti"],["bottega","Bottega"]];
+  const schede=[["oggi","☀️ Oggi"],["ordini","Ordini"+(nuovi?` (${nuovi})`:"")+(nonLetti()?" 💬":"")],["prodotti","Prodotti"],["bottega","Bottega"],["profilo","👤 Profilo"]];
   V().innerHTML=vendoCartello(`Ciao, <span>${esc(b.nome)}</span>`,(nuovi?`Hai ${nuovi===1?"un ordine nuovo":nuovi+" ordini nuovi"} da guardare.`:"Ortaly è fatto per i produttori italiani: vendi direttamente a chi ti cerca, al tuo prezzo.")+(mieRec.length?` · ★ ${(mieRec.reduce((s,x)=>s+x.stelle,0)/mieRec.length).toFixed(1).replace(".",",")} da ${mieRec.length} ${mieRec.length===1?"valutazione":"valutazioni"}`:""))+`<div class="wrap">
   <div class="numeri"><div class="num"><b>${nuovi}</b><span>ordini nuovi</span></div><div class="num"><b>${euro(Math.round(sett))}</b><span>ultimi 7 giorni</span></div><div class="num"><b>${mieiProd.filter(a=>a.disponibile).length}</b><span>prodotti al banco</span></div></div>
   ${pianoHtml(b)}
@@ -783,6 +784,27 @@ function mostraVendo(){
     $("formProdotto").addEventListener("submit",salvaProdotto);
     const cm=$("cercaMiei");if(cm)cm.addEventListener("input",()=>{const parole=semplice(cm.value).split(/\s+/).filter(Boolean).map(radice);
       document.querySelectorAll("#listaMiei .mioart").forEach(el=>{el.hidden=!parole.every(p=>el.dataset.nome.includes(p))})});
+  }else if(vendoScheda==="profilo"){
+    // il profilo del produttore: account, password, email, assistenza
+    const em=utente&&utente.email||"";
+    c.innerHTML=`<div class="blocco"><b>👤 Il tuo account</b><p class="nota" style="margin-top:2px">Entri con <b>${esc(em)}</b>${utente&&utente.created_at?` · iscritto dal ${new Date(utente.created_at).toLocaleDateString("it-IT",{day:"numeric",month:"long",year:"numeric"})}`:""}</p></div>
+      <form class="nuovo blocco" id="formPw"><b>🔑 Cambia la password</b>
+        <label for="pw1">Nuova password <span class="aiuto">(almeno 8 caratteri)</span><input id="pw1" type="password" minlength="8" required autocomplete="new-password"></label>
+        <label for="pw2">Scrivila di nuovo<input id="pw2" type="password" minlength="8" required autocomplete="new-password"></label>
+        <p class="errore" id="pwMsg" hidden></p><button class="grande" type="submit">Salva la nuova password</button></form>
+      <form class="nuovo blocco" id="formEm"><b>✉️ Cambia l'email</b>
+        <label for="em1">Nuova email<input id="em1" type="email" required autocomplete="email" maxlength="120"></label>
+        <p class="nota" style="margin:0">Ti mandiamo un link alla nuova email: l'email cambia solo quando lo apri.</p>
+        <p class="errore" id="emMsg" hidden></p><button class="grande" type="submit">Cambia l'email</button></form>
+      <div class="blocco"><b>🆘 Hai bisogno di aiuto?</b><p class="nota" style="margin-top:2px">Scrivici a <b>info@ortaly.it</b>: rispondiamo in giornata. <a href="/privacy" target="_blank" rel="noopener" style="color:inherit">Informativa privacy</a></p>
+      <div class="azioni" style="margin-top:8px"><button data-esci="1">Esci dall'account</button></div></div>`;
+    $("formPw").addEventListener("submit",async e=>{e.preventDefault();const m=$("pwMsg"),b=e.target.querySelector("[type=submit]");m.hidden=true;
+      if($("pw1").value!==$("pw2").value){m.textContent="Le due password non sono uguali";m.hidden=false;return}
+      b.disabled=true;const {error}=await sb.auth.updateUser({password:$("pw1").value});b.disabled=false;
+      if(error){m.textContent=erroreDi(error);m.hidden=false;return}e.target.reset();toast("Password cambiata ✓")});
+    $("formEm").addEventListener("submit",async e=>{e.preventDefault();const m=$("emMsg"),b=e.target.querySelector("[type=submit]");m.hidden=true;b.disabled=true;
+      const {error}=await sb.auth.updateUser({email:$("em1").value.trim()},{emailRedirectTo:location.origin+"/#vendo"});b.disabled=false;
+      m.textContent=error?erroreDi(error):"Fatto: apri il link che ti abbiamo mandato alla nuova email per confermare.";m.hidden=false});
   }else{
     c.innerHTML=`<div class="blocco"><b>Il link della tua bottega</b><p class="nota" style="margin-top:2px">Mandalo ai tuoi clienti su WhatsApp o mettilo sul cartello al banco: lo aprono e ordinano da te.</p>
       <div class="condividi"><code id="linkB">${esc(link)}</code><button class="piu" data-copia="1">Copia</button><a class="piu" style="text-decoration:none" href="https://wa.me/?text=${encodeURIComponent("Ordina i miei prodotti su Ortaly: "+link)}" target="_blank" rel="noopener">WhatsApp</a></div></div>
