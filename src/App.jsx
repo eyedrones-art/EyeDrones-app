@@ -3517,6 +3517,7 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
                 <span style={{ fontSize: 12, color: "#8f9bb2", flex: 1, minWidth: 0, wordBreak: "break-all" }}>Accesso con {userEmail}</span>
                 <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontSize: 13, color: "#3d8bfd", textDecoration: "none" }}>Assistenza</a>
               </div>
+              <div style={{ fontSize: 12.5, marginBottom: 10 }}><LinkLegali stile={{ color: "#8f9bb2" }} /></div>
               <button onClick={esciDallAccount} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 8, padding: "12px", fontSize: 14.5, fontWeight: 600 }}>
                 <LogOut size={16} /> Esci dall'account
               </button>
@@ -11390,6 +11391,7 @@ function TrovaPilota() {
         <footer style={{ textAlign: "center", fontSize: 13, color: "#8a8076", padding: "10px 0" }}>
           {SU_TROVAPILOTA && !(window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true) && <div style={{ marginBottom: 8 }}><button type="button" onClick={() => window.dispatchEvent(new Event("trovapilota-installa-di-nuovo"))} style={{ background: "none", border: "none", color: "#e0552f", fontWeight: 700, fontSize: 13, padding: 6 }}>📲 Scarica l'app Trova un pilota</button></div>}
           <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ color: "#6b6258", textDecoration: "none" }}>Sei un pilota di droni? <span style={{ color: "#e0552f", fontWeight: 700 }}>Iscriviti a EyeDrones e ricevi le richieste della tua zona</span></a>
+          <div style={{ marginTop: 8, fontSize: 12.5 }}><LinkLegali stile={{ color: "#8a8076" }} /></div>
         </footer>
       </main>
     </div>
@@ -12224,6 +12226,7 @@ function PaginaPilotaPubblica({ slug }) {
           <a href={linkIscrizione} style={{ color: "#8b95a3", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
             <img src={LOGO_EYEDRONES} alt="" style={{ width: 18, height: 18 }} /> Pagina creata con EyeDrones · <span style={{ color: "#ffb877" }}>sei un pilota? Crea la tua</span>
           </a>
+          <div style={{ marginTop: 6 }}><LinkLegali stile={{ color: "#6b7480" }} /></div>
         </footer>
       </div>
 
