@@ -3323,7 +3323,15 @@ function AvvisoInstallaApp() {
   useEffect(() => {
     const suInstallabile = () => setEvento(window.__eventoInstallazione || null);
     const suInstallata = () => { window.__eventoInstallazione = null; setVisibile(false); };
-    const diNuovo = () => { try { localStorage.removeItem(CHIAVE_INSTALLA_NASCOSTO); } catch (e) { /* niente */ } setVisibile(true); window.scrollTo({ top: 0, behavior: "smooth" }); };
+    // dal menu o da Impostazioni: se il browser offre il tasto di sistema installo subito, altrimenti mostro i passi
+    const diNuovo = () => {
+      try { localStorage.removeItem(CHIAVE_INSTALLA_NASCOSTO); } catch (e) { /* niente */ }
+      setVisibile(true);
+      const ev = window.__eventoInstallazione;
+      if (ev) { ev.prompt(); ev.userChoice.then((r) => { window.__eventoInstallazione = null; setEvento(null); if (r && r.outcome === "accepted") setVisibile(false); }, () => {}); }
+      else if (suIphone) setPassiIphone(true); else setPassiMenu(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
     window.addEventListener("eyedrones-installa-di-nuovo", diNuovo);
     window.addEventListener("eyedrones-installabile", suInstallabile);
     window.addEventListener("appinstalled", suInstallata);
@@ -3470,6 +3478,12 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
             <span style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "125%", fontWeight: 800, fontSize: 13, letterSpacing: ".2em" }}>EYEDRONES</span>
             <button type="button" onClick={() => setAltroAperto(false)} aria-label="Chiudi il menu" style={{ minWidth: 44, minHeight: 44, background: "transparent", border: "1px solid rgba(243,240,234,.25)", borderRadius: 22, color: "#eef1f6", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={18} /></button>
           </div>
+          {!(window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true) && (
+            <button type="button" onClick={() => { setAltroAperto(false); window.dispatchEvent(new Event("eyedrones-installa-di-nuovo")); }} style={{ display: "flex", alignItems: "center", gap: 12, width: "calc(100% - 32px)", margin: "4px 16px 10px", padding: "12px 14px", borderRadius: 12, background: "linear-gradient(135deg, rgba(126,58,242,.25), rgba(255,140,66,.2))", border: "1px solid #ff8c4288", color: "#eef1f6", textAlign: "left" }}>
+              <img src="/icon-192.png" alt="" style={{ width: 34, height: 34, borderRadius: 9 }} />
+              <span style={{ flex: 1 }}><strong style={{ display: "block", fontSize: 14.5 }}>📲 Installa l'app sul telefono</strong><span style={{ fontSize: 12, color: "#c3cad4" }}>Si apre con un tocco dall'icona, anche con poca rete</span></span>
+            </button>
+          )}
           {/* il cerchio con le funzioni principali: gira e si apre verso quella che tocchi */}
           <MenuRotondo voci={[
             { key: "qui", label: "Sono sul posto", corto: "Sul posto", sigla: "GPS", icon: MapPin, vai: () => { setAltroAperto(false); vaiA({ pagina: "qui" }); } },
