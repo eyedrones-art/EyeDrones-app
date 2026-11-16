@@ -310,6 +310,11 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
 .app-box .t{flex:1;min-width:0;font-size:13.5px}.app-box .t b{display:block;font-size:14.5px}
 .app-box img{width:42px;height:42px;border-radius:11px;flex:none}
 .app-fissa{border:2px solid var(--foglia);background:var(--foglia-chiara)}
+.novita-box{background:var(--p3);border:1px solid #f3dc8a;border-radius:18px;padding:16px;display:grid;gap:12px}
+.novita-box .t b{display:block;font-size:17px}.novita-box .t span{font-size:14px;color:var(--tenue)}
+.riga-iscr{display:flex;gap:8px;flex-wrap:wrap}.riga-iscr input{flex:1 1 200px;min-width:0;font:inherit;padding:12px 14px;border:1px solid var(--bordo);border-radius:12px;background:var(--bianco)}
+.riga-iscr .grande{flex:0 0 auto;width:auto;padding-inline:20px}
+.vis-nascosto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .app-box button{flex:none}
 </style>
 </head>
@@ -353,6 +358,9 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
         <label class="ordina">Ordina <select id="ordina" aria-label="Ordina i prodotti"><option value="nuovi">più nuovi</option><option value="prezzo">prezzo più basso</option><option value="nome">nome</option></select></label></div>
       <div class="griglia" id="griglia"><div class="attesa">Carico il banco…</div></div>
       <div id="altri" style="text-align:center"></div></section>
+    <section class="sez" id="sezNovita"><form class="novita-box" id="formNovita"><div class="t"><b>🍅 Ricette e cosa c'è di stagione</b><span>Due email al mese: i prodotti di stagione, cosa hanno al banco i produttori della tua zona e una ricetta semplice. Ti togli quando vuoi.</span></div>
+      <div class="riga-iscr"><label for="nEmailNovita" class="vis-nascosto">La tua email</label><input id="nEmailNovita" type="email" required maxlength="120" placeholder="La tua email" autocomplete="email"><button class="grande" type="submit">Iscrivimi</button></div>
+      <p class="nota" id="msgNovita" hidden></p></form></section>
     <section class="sez"><h2>Perché Ortaly <small>made in Italy, dal produttore a te</small></h2>
       <div class="perche">
         <div><span>🇮🇹</span><div><b>Solo produttori italiani</b><p>Contadini, allevatori e artigiani del cibo con partita IVA italiana: compri da chi produce, in Italia.</p></div></div>
@@ -1118,6 +1126,13 @@ if(location.hash==="#vendo")modo(true);
 {const m=location.hash.match(/^#ordine-([0-9a-f]{64})$/);if(m&&sb)apriOrdineCliente(m[1])}
 {const m=location.hash.match(/^#disiscrivi-([0-9a-f]{64})$/);if(m&&sb){apriSheet(`<div class="corpo fatto"><div style="font-size:48px">✉️</div><h2>Non vuoi più le nostre email?</h2><p class="storia" style="margin-inline:auto">Smetti di ricevere ricette, promozioni e novità di stagione. Gli avvisi dei tuoi ordini continuano ad arrivare.</p><button class="grande" id="btnDisiscrivi">Sì, toglimi</button></div>`,"disiscrivi");
   $("btnDisiscrivi").onclick=async()=>{const {data,error}=await sb.rpc("disiscrivi",{p_token:m[1]});$("sheet").querySelector(".corpo").innerHTML=error||!data?`<h2>Link non valido</h2><p class="storia" style="margin-inline:auto">Scrivici a info@ortaly.it e ti togliamo noi.</p>`:`<div class="bollo">Fatto</div><h2>Non riceverai più le nostre email</h2><p class="storia" style="margin-inline:auto">Se cambi idea, al prossimo ordine rimetti la spunta.</p>`;try{history.replaceState(null,"",location.pathname)}catch(e){}}}}
+// conferma dell'iscrizione a ricette e novità (link dell'email di conferma)
+{const m=location.hash.match(/^#conferma-([0-9a-f]{64})$/);if(m&&sb){sb.rpc("novita_conferma",{p_token:m[1]}).then(({data,error})=>{apriSheet(error||!data?`<div class="corpo fatto"><h2>Link non valido</h2><p class="storia" style="margin-inline:auto">Prova a iscriverti di nuovo, oppure scrivici a info@ortaly.it.</p></div>`:`<div class="corpo fatto"><div style="font-size:48px">🍅</div><div class="bollo">Fatto</div><h2>Iscrizione confermata</h2><p class="storia" style="margin-inline:auto">Due volte al mese ti scriviamo cosa c'è di stagione, cosa hanno al banco i produttori della tua zona e una ricetta.</p></div>`,"conferma");try{history.replaceState(null,"",location.pathname)}catch(e){}})}}
+// iscrizione senza ordinare: la funzione manda l'email di conferma
+{const f=$("formNovita");if(f)f.addEventListener("submit",async e=>{e.preventDefault();const msg=$("msgNovita"),b=f.querySelector("button");b.disabled=true;msg.hidden=true;
+  const r=await fetch("/.netlify/functions/ortaly-novita",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("nEmailNovita").value.trim(),provincia:prov})}).catch(()=>null);
+  const j=r?await r.json().catch(()=>({})):{};b.disabled=false;
+  msg.textContent=r&&r.ok?(j.messaggio||"Ti abbiamo mandato un'email: tocca il link per confermare."):(j.messaggio||"Non riesco a iscriverti adesso: riprova tra poco.");msg.hidden=false;if(r&&r.ok)f.reset()})}
 window.addEventListener("hashchange",()=>{const m=location.hash.match(/^#ordine-([0-9a-f]{64})$/);if(m&&sb){if($("vistaCompro").hidden)modo(false);apriOrdineCliente(m[1])}});
 </script>
 <script>

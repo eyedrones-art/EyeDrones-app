@@ -45,3 +45,7 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# «Cosa c'è di stagione»: l'email agli iscritti alle novità, il 1° e il 15 del mese alle 8:23 (ora di Roma d'inverno; UTC 7:23)
+[functions."ortaly-stagione"]
+  schedule = "23 7 1,15 * *"
