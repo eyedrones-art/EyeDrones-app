@@ -16681,13 +16681,14 @@ function NumeriStartup({ onIndietro }) {
 }
 
 // Home: chi vola ma non è in «Trova un pilota» vede l'invito ad attivare la sua pagina (si chiude con la ×)
-const CHIAVE_PAGINA_INVITO_CHIUSO = "eyedrones_pagina_invito_chiuso";
+// la × non lo toglie per sempre: torna dopo 14 giorni (vale anche per chi l'aveva chiuso prima con la vecchia chiave)
+const CHIAVE_PAGINA_INVITO_CHIUSO = "eyedrones_pagina_invito_rimanda";
 function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "" }) {
   const [riga, setRiga] = useState(undefined); // undefined = carico · null = nessuna pagina · oggetto = la pagina salvata
   const [aperto, setAperto] = useState(false);
   const [f, setF] = useState({ nome: "", citta: "", provincia: "", servizi: [], accetto: false });
   const [esito, setEsito] = useState(null); // null | "salvo" | "ok" | messaggio d'errore
-  const [chiuso, setChiuso] = useState(() => leggiLocale(CHIAVE_PAGINA_INVITO_CHIUSO) === "si");
+  const [chiuso, setChiuso] = useState(() => (leggiLocale(CHIAVE_PAGINA_INVITO_CHIUSO) || "") > dataLocale());
   useEffect(() => {
     if (chiuso) return;
     supabase.from("pagine_pilota").select("*").maybeSingle()
@@ -16702,7 +16703,7 @@ function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "" }) {
   if (chiuso || riga === undefined) return null;
   const giaAttiva = riga && riga.attiva && riga.in_elenco !== false;
   if (giaAttiva && esito !== "ok") return null;
-  const chiudi = () => { scriviLocale(CHIAVE_PAGINA_INVITO_CHIUSO, "si"); setChiuso(true); };
+  const chiudi = () => { const d = new Date(); d.setDate(d.getDate() + 14); scriviLocale(CHIAVE_PAGINA_INVITO_CHIUSO, d.toISOString().slice(0, 10)); setChiuso(true); };
   const aMeta = !!riga && !giaAttiva;
   const alterna = (sv) => setF({ ...f, servizi: f.servizi.includes(sv) ? f.servizi.filter((x) => x !== sv) : [...f.servizi, sv] });
 
@@ -16744,9 +16745,9 @@ function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "" }) {
   }
   return (
     <div style={{ position: "relative", background: "linear-gradient(135deg, #241d16, #151b2b)", border: "1px solid #ff8c4288", borderRadius: 12, padding: 14, marginBottom: 18, maxWidth: 640 }}>
-      <button type="button" onClick={chiudi} aria-label="Non mostrarlo più" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
-      <div style={{ fontSize: 14.5, fontWeight: 700, paddingRight: 30 }}>{aMeta ? "📍 La tua pagina è quasi pronta" : "📍 Fai lavori con il drone?"}</div>
-      <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4, lineHeight: 1.45 }}>{aMeta ? "Accendila: i clienti della tua provincia ti mandano le richieste." : "I clienti della tua provincia ti mandano le richieste. Tu scegli a quali rispondere."}</div>
+      <button type="button" onClick={chiudi} aria-label="Nascondi per due settimane" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
+      <div style={{ fontSize: 14.5, fontWeight: 700, paddingRight: 30 }}>{aMeta ? "📍 La tua pagina è quasi pronta" : "💼 Vuoi ricevere lavori con il drone?"}</div>
+      <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4, lineHeight: 1.45 }}>{aMeta ? "Accendila: i clienti della tua provincia ti mandano le richieste." : <>I clienti cercano un pilota su <b>trovapilota.it</b>. Attiva la tua pagina: quando qualcuno della tua provincia chiede un lavoro (matrimoni, case, ispezioni, video…) ti arriva la richiesta, e decidi tu se rispondere e a che prezzo.</>}</div>
       {!aperto ? (
         <button type="button" onClick={() => setAperto(true)} style={{ marginTop: 10, background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700, minHeight: 40 }}>{aMeta ? "Accendi la pagina" : "Attiva in 1 minuto"}</button>
       ) : (
