@@ -431,11 +431,13 @@ function mostraCategorie(){
 function qtaHtml(id){const q=carrello[id]||0;return q?`<div class="qta"><button data-meno="${esc(id)}" aria-label="Togli uno">−</button><span>${q}</span><button data-piu="${esc(id)}" aria-label="Aggiungi uno">+</button></div>`:`<button class="piu" data-piu="${esc(id)}">Aggiungi</button>`}
 // ricerca: più parole insieme, senza badare ad accenti e maiuscole
 const semplice=t=>String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+// ricerca senza badare a singolare/plurale: \u00abpomodori\u00bb trova \u00abpomodoro\u00bb, \u00abzucche\u00bb trova \u00abzucca\u00bb, \u00abfragole\u00bb trova \u00abfragola\u00bb
+const radice=p=>p.length<4?p:p.replace(/([cg])h[ei]$/,"$1").replace(/[aeiou]$/,"");
 let filtri={bio:false,casa:false,sped:false},ordine="nuovi",mostrati=24;
 const FILTRI=[["bio","🌱 Bio"],["casa","🚚 A casa"],["sped","📦 Spedisce"]];
 function mostraFiltri(){$("filtri").innerHTML=FILTRI.map(([k,t])=>`<button aria-pressed="${filtri[k]}" data-filtro="${k}">${t}</button>`).join("")}
 function trova(zonaVoluta){
-  const parole=semplice(testo).split(/\s+/).filter(Boolean);
+  const parole=semplice(testo).split(/\s+/).filter(Boolean).map(radice);
   return ART.filter(a=>{const b=bot(a.bottega);if(!b)return false;
     if(zonaVoluta==="italia"?!(b.spedizione&&b.provincia!==prov):b.provincia!==prov)return false;
     if(cat!=="Tutto"&&a.categoria!==cat)return false;
@@ -779,7 +781,7 @@ function mostraVendo(){
         <div class="azioni" style="margin-top:6px"><button data-prezzo="${a.id}">Prezzo</button><button data-elimina="${a.id}">Elimina</button></div></div>
         <button class="inter" aria-pressed="${a.disponibile}" data-attiva="${a.id}" aria-label="${a.disponibile?"Togli dal banco":"Metti al banco"} ${esc(a.nome)}"></button></div>`).join(""):`<div class="cliente"><span>Non hai ancora prodotti al banco: mettine uno qui sopra.</span></div>`}</div>`;
     $("formProdotto").addEventListener("submit",salvaProdotto);
-    const cm=$("cercaMiei");if(cm)cm.addEventListener("input",()=>{const parole=semplice(cm.value).split(/\s+/).filter(Boolean);
+    const cm=$("cercaMiei");if(cm)cm.addEventListener("input",()=>{const parole=semplice(cm.value).split(/\s+/).filter(Boolean).map(radice);
       document.querySelectorAll("#listaMiei .mioart").forEach(el=>{el.hidden=!parole.every(p=>el.dataset.nome.includes(p))})});
   }else{
     c.innerHTML=`<div class="blocco"><b>Il link della tua bottega</b><p class="nota" style="margin-top:2px">Mandalo ai tuoi clienti su WhatsApp o mettilo sul cartello al banco: lo aprono e ordinano da te.</p>
