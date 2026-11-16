@@ -3323,10 +3323,13 @@ function AvvisoInstallaApp() {
   useEffect(() => {
     const suInstallabile = () => setEvento(window.__eventoInstallazione || null);
     const suInstallata = () => { window.__eventoInstallazione = null; setVisibile(false); };
+    const diNuovo = () => { try { localStorage.removeItem(CHIAVE_INSTALLA_NASCOSTO); } catch (e) { /* niente */ } setVisibile(true); window.scrollTo({ top: 0, behavior: "smooth" }); };
+    window.addEventListener("eyedrones-installa-di-nuovo", diNuovo);
     window.addEventListener("eyedrones-installabile", suInstallabile);
     window.addEventListener("appinstalled", suInstallata);
     return () => {
       window.removeEventListener("eyedrones-installabile", suInstallabile);
+      window.removeEventListener("eyedrones-installa-di-nuovo", diNuovo);
       window.removeEventListener("appinstalled", suInstallata);
     };
   }, []);
@@ -11041,6 +11044,7 @@ function ScaricaApp() {
   const iPhone = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
   const [chiusa, setChiusa] = useState(() => (leggiLocale("trovapilota_app_ce_lho") || "") > dataLocale());
   const [spiega, setSpiega] = useState(false);
+  useEffect(() => { const diNuovo = () => { scriviLocale("trovapilota_app_ce_lho", null); setChiusa(false); }; window.addEventListener("trovapilota-installa-di-nuovo", diNuovo); return () => window.removeEventListener("trovapilota-installa-di-nuovo", diNuovo); }, []);
   if (installata || chiusa) return null;
   const tocca = async () => {
     if (richiestaInstalla) { richiestaInstalla.prompt(); let esito = null; try { esito = await richiestaInstalla.userChoice; } catch { /* niente */ } richiestaInstalla = null; if (esito && esito.outcome === "accepted") setChiusa(true); return; }
@@ -11370,6 +11374,7 @@ function TrovaPilota() {
         {sezione && <p style={{ textAlign: "center", fontSize: 13.5, color: "#6b6258", margin: 0 }}>Ti serve un pilota per altro? <a href={linkTrova(provincia ? `/trova-pilota/${provincia.toLowerCase()}` : "/trova-pilota")} style={{ color: "#e0552f", fontWeight: 700 }}>Vedi tutti i servizi</a></p>}
 
         <footer style={{ textAlign: "center", fontSize: 13, color: "#8a8076", padding: "10px 0" }}>
+          {SU_TROVAPILOTA && !(window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true) && <div style={{ marginBottom: 8 }}><button type="button" onClick={() => window.dispatchEvent(new Event("trovapilota-installa-di-nuovo"))} style={{ background: "none", border: "none", color: "#e0552f", fontWeight: 700, fontSize: 13, padding: 6 }}>📲 Scarica l'app Trova un pilota</button></div>}
           <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ color: "#6b6258", textDecoration: "none" }}>Sei un pilota di droni? <span style={{ color: "#e0552f", fontWeight: 700 }}>Iscriviti a EyeDrones e ricevi le richieste della tua zona</span></a>
         </footer>
       </main>
@@ -17054,6 +17059,9 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <TestataPagina titolo="Impostazioni" sigla="SET · AZIENDA, LOGO E REPORT" icona={Settings} info="Come usi l'app, unità del vento, nome e logo per i report e i preventivi in PDF, account e privacy." />
       <div style={{ maxWidth: 560, marginBottom: 16 }}><NotifichePush tema="impostazioni" /></div>
+      {!(window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true) && (
+        <button type="button" onClick={() => window.dispatchEvent(new Event("eyedrones-installa-di-nuovo"))} style={{ display: "block", maxWidth: 560, width: "100%", marginBottom: 16, textAlign: "left", background: "#151b2b", border: "1px solid #ff8c4255", borderRadius: 10, padding: "12px 14px", color: "#e7eaee", fontSize: 13.5, fontWeight: 700 }}>📲 Installa l'app sul telefono <span style={{ color: "#8b95a3", fontWeight: 400 }}>· se avevi premuto «Ce l'ho già» per sbaglio</span></button>
+      )}
 
       <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 16, marginBottom: 24, maxWidth: 560 }}>
         <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 4px 0" }}>Come usi l'app</h3>
