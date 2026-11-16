@@ -261,6 +261,7 @@ form.nuovo .aiuto{font-weight:500;color:var(--tenue);font-size:12px}
 .errore{color:var(--pomodoro);font-weight:700;font-size:13.5px}
 .schede{display:flex;gap:6px;background:var(--carta2);border-radius:14px;padding:4px;margin-bottom:12px}
 .schede button{flex:1;border:0;background:none;border-radius:10px;padding:9px;font-weight:700}
+@media (max-width:460px){.schede button{padding:9px 3px;font-size:13px}}
 .schede button[aria-pressed="true"]{background:var(--bianco);box-shadow:var(--ombra)}
 .ordine .righe{font-size:14px;margin:0;padding-left:18px}
 .ordine a{color:var(--foglia);font-weight:700}
@@ -309,6 +310,11 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
 .app-box .t{flex:1;min-width:0;font-size:13.5px}.app-box .t b{display:block;font-size:14.5px}
 .app-box img{width:42px;height:42px;border-radius:11px;flex:none}
 .app-fissa{border:2px solid var(--foglia);background:var(--foglia-chiara)}
+.novita-box{background:var(--p3);border:1px solid #f3dc8a;border-radius:18px;padding:16px;display:grid;gap:12px}
+.novita-box .t b{display:block;font-size:17px}.novita-box .t span{font-size:14px;color:var(--tenue)}
+.riga-iscr{display:flex;gap:8px;flex-wrap:wrap}.riga-iscr input{flex:1 1 200px;min-width:0;font:inherit;padding:12px 14px;border:1px solid var(--bordo);border-radius:12px;background:var(--bianco)}
+.riga-iscr .grande{flex:0 0 auto;width:auto;padding-inline:20px}
+.vis-nascosto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .app-box button{flex:none}
 </style>
 </head>
@@ -352,6 +358,9 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
         <label class="ordina">Ordina <select id="ordina" aria-label="Ordina i prodotti"><option value="nuovi">più nuovi</option><option value="prezzo">prezzo più basso</option><option value="nome">nome</option></select></label></div>
       <div class="griglia" id="griglia"><div class="attesa">Carico il banco…</div></div>
       <div id="altri" style="text-align:center"></div></section>
+    <section class="sez" id="sezNovita"><form class="novita-box" id="formNovita"><div class="t"><b>🍅 Ricette e cosa c'è di stagione</b><span>Due email al mese: i prodotti di stagione, cosa hanno al banco i produttori della tua zona e una ricetta semplice. Ti togli quando vuoi.</span></div>
+      <div class="riga-iscr"><label for="nEmailNovita" class="vis-nascosto">La tua email</label><input id="nEmailNovita" type="email" required maxlength="120" placeholder="La tua email" autocomplete="email"><button class="grande" type="submit">Iscrivimi</button></div>
+      <p class="nota" id="msgNovita" hidden></p></form></section>
     <section class="sez"><h2>Perché Ortaly <small>made in Italy, dal produttore a te</small></h2>
       <div class="perche">
         <div><span>🇮🇹</span><div><b>Solo produttori italiani</b><p>Contadini, allevatori e artigiani del cibo con partita IVA italiana: compri da chi produce, in Italia.</p></div></div>
@@ -431,11 +440,13 @@ function mostraCategorie(){
 function qtaHtml(id){const q=carrello[id]||0;return q?`<div class="qta"><button data-meno="${esc(id)}" aria-label="Togli uno">−</button><span>${q}</span><button data-piu="${esc(id)}" aria-label="Aggiungi uno">+</button></div>`:`<button class="piu" data-piu="${esc(id)}">Aggiungi</button>`}
 // ricerca: più parole insieme, senza badare ad accenti e maiuscole
 const semplice=t=>String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+// ricerca senza badare a singolare/plurale: \u00abpomodori\u00bb trova \u00abpomodoro\u00bb, \u00abzucche\u00bb trova \u00abzucca\u00bb, \u00abfragole\u00bb trova \u00abfragola\u00bb
+const radice=p=>p.length<4?p:p.replace(/([cg])h[ei]$/,"$1").replace(/[aeiou]$/,"");
 let filtri={bio:false,casa:false,sped:false},ordine="nuovi",mostrati=24;
 const FILTRI=[["bio","🌱 Bio"],["casa","🚚 A casa"],["sped","📦 Spedisce"]];
 function mostraFiltri(){$("filtri").innerHTML=FILTRI.map(([k,t])=>`<button aria-pressed="${filtri[k]}" data-filtro="${k}">${t}</button>`).join("")}
 function trova(zonaVoluta){
-  const parole=semplice(testo).split(/\s+/).filter(Boolean);
+  const parole=semplice(testo).split(/\s+/).filter(Boolean).map(radice);
   return ART.filter(a=>{const b=bot(a.bottega);if(!b)return false;
     if(zonaVoluta==="italia"?!(b.spedizione&&b.provincia!==prov):b.provincia!==prov)return false;
     if(cat!=="Tutto"&&a.categoria!==cat)return false;
@@ -726,7 +737,7 @@ function mostraVendo(){
   const nuovi=mieiOrd.filter(o=>o.stato==="nuovo").length,sett=mieiOrd.filter(o=>o.stato!=="annullato"&&new Date(o.creato)>inizioSett).reduce((s,o)=>s+Number(o.totale),0);
   const link=location.origin+"/#bottega-"+b.id;
   if(vendoScheda==="auto")vendoScheda=nuovi?"ordini":mieiProd.length?"oggi":"prodotti";
-  const schede=[["oggi","☀️ Oggi"],["ordini","Ordini"+(nuovi?` (${nuovi})`:"")+(nonLetti()?" 💬":"")],["prodotti","Prodotti"],["bottega","Bottega"]];
+  const schede=[["oggi","☀️ Oggi"],["ordini","Ordini"+(nuovi?` (${nuovi})`:"")+(nonLetti()?" 💬":"")],["prodotti","Prodotti"],["bottega","Bottega"],["profilo","👤 Profilo"]];
   V().innerHTML=vendoCartello(`Ciao, <span>${esc(b.nome)}</span>`,(nuovi?`Hai ${nuovi===1?"un ordine nuovo":nuovi+" ordini nuovi"} da guardare.`:"Ortaly è fatto per i produttori italiani: vendi direttamente a chi ti cerca, al tuo prezzo.")+(mieRec.length?` · ★ ${(mieRec.reduce((s,x)=>s+x.stelle,0)/mieRec.length).toFixed(1).replace(".",",")} da ${mieRec.length} ${mieRec.length===1?"valutazione":"valutazioni"}`:""))+`<div class="wrap">
   <div class="numeri"><div class="num"><b>${nuovi}</b><span>ordini nuovi</span></div><div class="num"><b>${euro(Math.round(sett))}</b><span>ultimi 7 giorni</span></div><div class="num"><b>${mieiProd.filter(a=>a.disponibile).length}</b><span>prodotti al banco</span></div></div>
   ${pianoHtml(b)}
@@ -779,8 +790,29 @@ function mostraVendo(){
         <div class="azioni" style="margin-top:6px"><button data-prezzo="${a.id}">Prezzo</button><button data-elimina="${a.id}">Elimina</button></div></div>
         <button class="inter" aria-pressed="${a.disponibile}" data-attiva="${a.id}" aria-label="${a.disponibile?"Togli dal banco":"Metti al banco"} ${esc(a.nome)}"></button></div>`).join(""):`<div class="cliente"><span>Non hai ancora prodotti al banco: mettine uno qui sopra.</span></div>`}</div>`;
     $("formProdotto").addEventListener("submit",salvaProdotto);
-    const cm=$("cercaMiei");if(cm)cm.addEventListener("input",()=>{const parole=semplice(cm.value).split(/\s+/).filter(Boolean);
+    const cm=$("cercaMiei");if(cm)cm.addEventListener("input",()=>{const parole=semplice(cm.value).split(/\s+/).filter(Boolean).map(radice);
       document.querySelectorAll("#listaMiei .mioart").forEach(el=>{el.hidden=!parole.every(p=>el.dataset.nome.includes(p))})});
+  }else if(vendoScheda==="profilo"){
+    // il profilo del produttore: account, password, email, assistenza
+    const em=utente&&utente.email||"";
+    c.innerHTML=`<div class="blocco"><b>👤 Il tuo account</b><p class="nota" style="margin-top:2px">Entri con <b>${esc(em)}</b>${utente&&utente.created_at?` · iscritto dal ${new Date(utente.created_at).toLocaleDateString("it-IT",{day:"numeric",month:"long",year:"numeric"})}`:""}</p></div>
+      <form class="nuovo blocco" id="formPw"><b>🔑 Cambia la password</b>
+        <label for="pw1">Nuova password <span class="aiuto">(almeno 8 caratteri)</span><input id="pw1" type="password" minlength="8" required autocomplete="new-password"></label>
+        <label for="pw2">Scrivila di nuovo<input id="pw2" type="password" minlength="8" required autocomplete="new-password"></label>
+        <p class="errore" id="pwMsg" hidden></p><button class="grande" type="submit">Salva la nuova password</button></form>
+      <form class="nuovo blocco" id="formEm"><b>✉️ Cambia l'email</b>
+        <label for="em1">Nuova email<input id="em1" type="email" required autocomplete="email" maxlength="120"></label>
+        <p class="nota" style="margin:0">Ti mandiamo un link alla nuova email: l'email cambia solo quando lo apri.</p>
+        <p class="errore" id="emMsg" hidden></p><button class="grande" type="submit">Cambia l'email</button></form>
+      <div class="blocco"><b>🆘 Hai bisogno di aiuto?</b><p class="nota" style="margin-top:2px">Scrivici a <b>info@ortaly.it</b>: rispondiamo in giornata. <a href="/privacy" target="_blank" rel="noopener" style="color:inherit">Informativa privacy</a></p>
+      <div class="azioni" style="margin-top:8px"><button data-esci="1">Esci dall'account</button></div></div>`;
+    $("formPw").addEventListener("submit",async e=>{e.preventDefault();const m=$("pwMsg"),b=e.target.querySelector("[type=submit]");m.hidden=true;
+      if($("pw1").value!==$("pw2").value){m.textContent="Le due password non sono uguali";m.hidden=false;return}
+      b.disabled=true;const {error}=await sb.auth.updateUser({password:$("pw1").value});b.disabled=false;
+      if(error){m.textContent=erroreDi(error);m.hidden=false;return}e.target.reset();toast("Password cambiata ✓")});
+    $("formEm").addEventListener("submit",async e=>{e.preventDefault();const m=$("emMsg"),b=e.target.querySelector("[type=submit]");m.hidden=true;b.disabled=true;
+      const {error}=await sb.auth.updateUser({email:$("em1").value.trim()},{emailRedirectTo:location.origin+"/#vendo"});b.disabled=false;
+      m.textContent=error?erroreDi(error):"Fatto: apri il link che ti abbiamo mandato alla nuova email per confermare.";m.hidden=false});
   }else{
     c.innerHTML=`<div class="blocco"><b>Il link della tua bottega</b><p class="nota" style="margin-top:2px">Mandalo ai tuoi clienti su WhatsApp o mettilo sul cartello al banco: lo aprono e ordinano da te.</p>
       <div class="condividi"><code id="linkB">${esc(link)}</code><button class="piu" data-copia="1">Copia</button><a class="piu" style="text-decoration:none" href="https://wa.me/?text=${encodeURIComponent("Ordina i miei prodotti su Ortaly: "+link)}" target="_blank" rel="noopener">WhatsApp</a></div></div>
@@ -1094,6 +1126,13 @@ if(location.hash==="#vendo")modo(true);
 {const m=location.hash.match(/^#ordine-([0-9a-f]{64})$/);if(m&&sb)apriOrdineCliente(m[1])}
 {const m=location.hash.match(/^#disiscrivi-([0-9a-f]{64})$/);if(m&&sb){apriSheet(`<div class="corpo fatto"><div style="font-size:48px">✉️</div><h2>Non vuoi più le nostre email?</h2><p class="storia" style="margin-inline:auto">Smetti di ricevere ricette, promozioni e novità di stagione. Gli avvisi dei tuoi ordini continuano ad arrivare.</p><button class="grande" id="btnDisiscrivi">Sì, toglimi</button></div>`,"disiscrivi");
   $("btnDisiscrivi").onclick=async()=>{const {data,error}=await sb.rpc("disiscrivi",{p_token:m[1]});$("sheet").querySelector(".corpo").innerHTML=error||!data?`<h2>Link non valido</h2><p class="storia" style="margin-inline:auto">Scrivici a info@ortaly.it e ti togliamo noi.</p>`:`<div class="bollo">Fatto</div><h2>Non riceverai più le nostre email</h2><p class="storia" style="margin-inline:auto">Se cambi idea, al prossimo ordine rimetti la spunta.</p>`;try{history.replaceState(null,"",location.pathname)}catch(e){}}}}
+// conferma dell'iscrizione a ricette e novità (link dell'email di conferma)
+{const m=location.hash.match(/^#conferma-([0-9a-f]{64})$/);if(m&&sb){sb.rpc("novita_conferma",{p_token:m[1]}).then(({data,error})=>{apriSheet(error||!data?`<div class="corpo fatto"><h2>Link non valido</h2><p class="storia" style="margin-inline:auto">Prova a iscriverti di nuovo, oppure scrivici a info@ortaly.it.</p></div>`:`<div class="corpo fatto"><div style="font-size:48px">🍅</div><div class="bollo">Fatto</div><h2>Iscrizione confermata</h2><p class="storia" style="margin-inline:auto">Due volte al mese ti scriviamo cosa c'è di stagione, cosa hanno al banco i produttori della tua zona e una ricetta.</p></div>`,"conferma");try{history.replaceState(null,"",location.pathname)}catch(e){}})}}
+// iscrizione senza ordinare: la funzione manda l'email di conferma
+{const f=$("formNovita");if(f)f.addEventListener("submit",async e=>{e.preventDefault();const msg=$("msgNovita"),b=f.querySelector("button");b.disabled=true;msg.hidden=true;
+  const r=await fetch("/.netlify/functions/ortaly-novita",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("nEmailNovita").value.trim(),provincia:prov})}).catch(()=>null);
+  const j=r?await r.json().catch(()=>({})):{};b.disabled=false;
+  msg.textContent=r&&r.ok?(j.messaggio||"Ti abbiamo mandato un'email: tocca il link per confermare."):(j.messaggio||"Non riesco a iscriverti adesso: riprova tra poco.");msg.hidden=false;if(r&&r.ok)f.reset()})}
 window.addEventListener("hashchange",()=>{const m=location.hash.match(/^#ordine-([0-9a-f]{64})$/);if(m&&sb){if($("vistaCompro").hidden)modo(false);apriOrdineCliente(m[1])}});
 </script>
 <script>
