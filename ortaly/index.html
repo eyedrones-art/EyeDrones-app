@@ -360,6 +360,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
       </div>
       <p class="nota" style="text-align:center">Ortaly è nato per aiutare chi produce in Italia e chi vuole mangiare italiano. Sei un produttore? <button class="link" id="perchevendo">Apri la tua bottega ›</button></p></section>
     <section class="sez" id="sezMieiOrdini" hidden><h2>I tuoi ordini <small>stato e chat</small></h2><div class="miei-ordini" id="mieiOrdiniCliente"></div></section>
+    <p class="pie-sito" id="pieScarica"><button class="link" data-installa="1" style="font-weight:700;color:var(--foglia)">📲 Scarica l'app Ortaly</button></p>
     <p class="pie-sito">Ortaly mette in contatto clienti e produttori: ogni produttore vende, consegna e incassa da sé.<br><a href="/privacy" style="color:inherit">Privacy</a> · <a href="mailto:info@ortaly.it" style="color:inherit">info@ortaly.it</a></p>
   </div>
 </main>
@@ -943,6 +944,7 @@ function boxNotifiche(){
   if(Notification.permission==="denied")return `<div class="app-box"><span style="font-size:26px">🔕</span><div class="t"><b>Notifiche bloccate</b>Le hai bloccate per Ortaly: riattivale dalle impostazioni del browser (lucchetto accanto all'indirizzo → Notifiche).</div></div>`;
   return `<div class="app-box"><span style="font-size:26px">🔔</span><div class="t"><b>Avvisami dei nuovi ordini</b>Una notifica sul telefono appena un cliente ordina, anche ad app chiusa.</div><button class="piu" data-notifiche="attiva">Attiva</button></div>`}
 function mostraBoxApp(){
+  const pie=$("pieScarica");if(pie)pie.hidden=installata();
   const c=$("boxInstallaCompro");if(c)c.innerHTML=boxInstalla(false);
   const v=$("boxInstallaVendo");if(v)v.innerHTML=boxInstalla(true);
   const n=$("boxNotifiche");if(n)n.innerHTML=boxNotifiche();
@@ -951,6 +953,7 @@ async function controllaNotifiche(){statoNotifiche="controllo";
   try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();statoNotifiche=sub&&Notification.permission==="granted"?"attive":"spente"}catch(e){statoNotifiche="spente"}
   const n=$("boxNotifiche");if(n)n.innerHTML=boxNotifiche()}
 async function installa(){
+  if(leggi("app-ce-lho",0)){salva("app-ce-lho",0);mostraBoxApp()}
   if(promptInstalla){promptInstalla.prompt();const r=await promptInstalla.userChoice.catch(()=>null);promptInstalla=null;mostraBoxApp();return}
   if(!iPhone()){apriSheet(`<div class="corpo"><h2>Ortaly sulla schermata Home</h2><p class="storia">Bastano due tocchi:</p>
   <div class="consegne"><div class="cons"><span>1</span><div>Tocca i <b>tre puntini ⋮</b> del browser, in alto a destra</div></div>
