@@ -68,11 +68,14 @@ function emailPrimiPassi(u) {
     "Con EyeDrones li hai tutti in una schermata, anche senza campo.", "",
     "Per prepararla bastano 3 minuti:",
     "1. aggiungi il tuo drone",
-    "2. registra il primo volo: scegli foto e video del drone e i voli si creano da soli",
-    "3. carica attestato e assicurazione", "",
+    "2. carica attestato e assicurazione",
+    "3. prova il tasto 👮 Controllo: è quello che mostri se ti fermano", "",
     `L'app ti guida passo passo. Comincia da qui: ${link}`, "",
-    "È tutto gratis fino al 31 gennaio 2027.",
-    "Se qualcosa non è chiaro, o manca qualcosa che ti servirebbe, scrivi a info@eyedrones.it: leggo tutto io.", "",
+    "💼 Fai anche lavori con il drone (matrimoni, case, ispezioni, video)?",
+    "I clienti cercano un pilota su trovapilota.it. Attiva la tua pagina: quando qualcuno della tua provincia chiede un lavoro ti arriva la richiesta, e decidi tu se rispondere e a che prezzo.",
+    `Attiva la tua pagina: ${APP_URL}/?vai=pagina-pilota`, "",
+    "Fino al 31 gennaio 2027 è tutto senza costi.",
+    "Se qualcosa non è chiaro, o manca qualcosa che ti servirebbe, scrivi a info@eyedrones.it: leggiamo tutto.", "",
     "Buoni voli!", "EyeDrones", "",
     "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
   ].join("\n");
@@ -82,10 +85,15 @@ function emailPrimiPassi(u) {
     <p style="font-size:15px">${html(ciao)} Ti sei iscritto a EyeDrones: grazie!</p>
     <p style="font-size:15px">Se ti fermano per un controllo mentre voli, devi mostrare <b>attestato, assicurazione e dati del drone</b>. Con EyeDrones li hai tutti in una schermata, <b>anche senza campo</b>.</p>
     <p style="font-size:15px;margin-bottom:4px">Per prepararla bastano 3 minuti:</p>
-    <table style="border-collapse:collapse">${passo(1, "Aggiungi il tuo drone")}${passo(2, "Registra il primo volo: scegli foto e video del drone e i voli si creano da soli")}${passo(3, "Carica attestato e assicurazione")}</table>
+    <table style="border-collapse:collapse">${passo(1, "Aggiungi il tuo drone")}${passo(2, "Carica attestato e assicurazione")}${passo(3, "Prova il tasto 👮 Controllo: è quello che mostri se ti fermano")}</table>
     <p style="font-size:15px">L'app ti guida passo passo.</p>
     <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Comincia da qui ›</a></p>
-    <p style="font-size:14px;color:#444">È tutto gratis fino al 31 gennaio 2027. Se qualcosa non è chiaro, o manca qualcosa che ti servirebbe, scrivi a <a href="mailto:info@eyedrones.it">info@eyedrones.it</a>: leggo tutto io.</p>
+    <div style="background:#fff6ef;border:1px solid #f5c9a8;border-radius:8px;padding:14px 16px;margin:18px 0">
+      <p style="font-size:15px;margin:0 0 6px"><b>💼 Fai anche lavori con il drone?</b></p>
+      <p style="font-size:14px;margin:0 0 10px;color:#444">Matrimoni, case, ispezioni, video: i clienti cercano un pilota su <b>trovapilota.it</b>. Attiva la tua pagina: quando qualcuno della tua provincia chiede un lavoro ti arriva la richiesta, e decidi tu se rispondere e a che prezzo.</p>
+      <a href="${APP_URL}/?vai=pagina-pilota" style="display:inline-block;background:#fff;border:2px solid #e0552f;color:#e0552f;text-decoration:none;padding:9px 16px;border-radius:6px;font-weight:bold;font-size:14px">Attiva la tua pagina ›</a>
+    </div>
+    <p style="font-size:14px;color:#444">Fino al 31 gennaio 2027 è tutto senza costi. Se qualcosa non è chiaro, o manca qualcosa che ti servirebbe, scrivi a <a href="mailto:info@eyedrones.it">info@eyedrones.it</a>: leggiamo tutto.</p>
     <p style="font-size:15px">Buoni voli!<br>EyeDrones</p>
     <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
   </div>`;
