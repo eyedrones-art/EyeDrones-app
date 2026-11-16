@@ -3304,9 +3304,10 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
   );
 }
 
-// avviso "Installa l'app": su Android usa il pulsante di sistema, su iPhone spiega i passaggi di Safari.
-// sparisce se l'app è già installata; "Non ora" lo nasconde per 30 giorni (solo su questo dispositivo)
-const CHIAVE_INSTALLA_NASCOSTO = "eyedrones_installa_nascosto_fino";
+// avviso "Installa l'app", fisso in cima finché l'app non è installata: su Android usa il pulsante di sistema
+// (o spiega il menu ⋮ se il browser non lo offre), su iPhone spiega i passaggi di Safari.
+// Sparisce da solo aperta dall'icona; «Ce l'ho già» lo nasconde per 60 giorni a chi l'ha installata ma apre i link nel browser
+const CHIAVE_INSTALLA_NASCOSTO = "eyedrones_installa_ce_lho_fino";
 
 function AvvisoInstallaApp() {
   const giaInstallata = () => window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -3317,6 +3318,7 @@ function AvvisoInstallaApp() {
   const [evento, setEvento] = useState(() => window.__eventoInstallazione || null);
   const [visibile, setVisibile] = useState(() => !giaInstallata() && !nascostoPerOra());
   const [passiIphone, setPassiIphone] = useState(false);
+  const [passiMenu, setPassiMenu] = useState(false);
 
   useEffect(() => {
     const suInstallabile = () => setEvento(window.__eventoInstallazione || null);
@@ -3329,15 +3331,15 @@ function AvvisoInstallaApp() {
     };
   }, []);
 
-  // su Android/Chrome compare solo quando il browser dice che si può installare; su iPhone sempre (lì non c'è l'evento)
-  if (!visibile || (!evento && !suIphone)) return null;
+  // sempre, finché non è installata: se il browser non offre il tasto di sistema, spiego il menu
+  if (!visibile) return null;
 
-  const nonOra = () => {
-    try { localStorage.setItem(CHIAVE_INSTALLA_NASCOSTO, String(Date.now() + 30 * 86400000)); } catch (e) { /* senza memoria: si nasconde solo per ora */ }
+  const ceLho = () => {
+    try { localStorage.setItem(CHIAVE_INSTALLA_NASCOSTO, String(Date.now() + 60 * 86400000)); } catch (e) { /* senza memoria: si nasconde solo per ora */ }
     setVisibile(false);
   };
   const installa = async () => {
-    if (!evento) { setPassiIphone(true); return; }
+    if (!evento) { if (suIphone) setPassiIphone(true); else setPassiMenu(true); return; }
     evento.prompt();
     const scelta = await evento.userChoice.catch(() => null);
     window.__eventoInstallazione = null;
@@ -3350,8 +3352,14 @@ function AvvisoInstallaApp() {
       <img src="/icon-192.png" alt="" style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 180 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700 }}>Installa EyeDrones sul telefono</div>
-        {!passiIphone ? (
-          <div style={{ fontSize: 12, color: "#aab3bf", marginTop: 2 }}>Si apre con un tocco dalla schermata Home, a schermo intero, come un'app vera. Gratis, niente store.{evento ? " Poi tieni premuta l'icona: «Sono sul posto» ti dice subito se puoi volare dove sei." : ""}</div>
+        {passiMenu ? (
+          <ol style={{ fontSize: 12, color: "#c3cad4", margin: "4px 0 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
+            <li>Tocca i <strong>tre puntini ⋮</strong> del browser, in alto a destra</li>
+            <li>Scegli <strong>«Installa app»</strong> oppure <strong>«Aggiungi a schermata Home»</strong></li>
+            <li>Conferma: l'icona di EyeDrones compare tra le tue app</li>
+          </ol>
+        ) : !passiIphone ? (
+          <div style={{ fontSize: 12, color: "#aab3bf", marginTop: 2 }}>Si apre con un tocco dalla schermata Home, a schermo intero, come un'app vera. Niente store, niente da pagare.{evento ? " Poi tieni premuta l'icona: «Sono sul posto» ti dice subito se puoi volare dove sei." : ""}</div>
         ) : (
           <ol style={{ fontSize: 12, color: "#c3cad4", margin: "4px 0 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
             <li>Apri questa pagina con <strong>Safari</strong></li>
@@ -3361,8 +3369,8 @@ function AvvisoInstallaApp() {
         )}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        {!passiIphone && <button onClick={installa} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>Installa</button>}
-        <button onClick={nonOra} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "8px 12px", fontSize: 12.5 }}>{passiIphone ? "Fatto" : "Non ora"}</button>
+        {!passiIphone && !passiMenu && <button onClick={installa} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>Installa</button>}
+        <button onClick={ceLho} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "8px 12px", fontSize: 12.5 }}>Ce l'ho già</button>
       </div>
     </div>
   );
@@ -11031,17 +11039,17 @@ if (typeof window !== "undefined") window.addEventListener("beforeinstallprompt"
 function ScaricaApp() {
   const installata = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true);
   const iPhone = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const [chiusa, setChiusa] = useState(() => leggiLocale("trovapilota_app_chiusa") === "si");
+  const [chiusa, setChiusa] = useState(() => (leggiLocale("trovapilota_app_ce_lho") || "") > dataLocale());
   const [spiega, setSpiega] = useState(false);
   if (installata || chiusa) return null;
   const tocca = async () => {
-    if (richiestaInstalla) { richiestaInstalla.prompt(); try { await richiestaInstalla.userChoice; } catch { /* niente */ } richiestaInstalla = null; setChiusa(true); return; }
+    if (richiestaInstalla) { richiestaInstalla.prompt(); let esito = null; try { esito = await richiestaInstalla.userChoice; } catch { /* niente */ } richiestaInstalla = null; if (esito && esito.outcome === "accepted") setChiusa(true); return; }
     setSpiega(true);
   };
-  const chiudi = () => { scriviLocale("trovapilota_app_chiusa", "si"); setChiusa(true); };
+  const chiudi = () => { const d = new Date(); d.setDate(d.getDate() + 60); scriviLocale("trovapilota_app_ce_lho", d.toISOString().slice(0, 10)); setChiusa(true); };
   return (
-    <div style={{ position: "fixed", left: 12, right: 12, bottom: "calc(12px + env(safe-area-inset-bottom))", zIndex: 50, maxWidth: 520, margin: "0 auto", background: "#fff", border: "1px solid #e2d8cc", borderRadius: 16, boxShadow: "0 10px 30px rgba(60,40,20,.18)", padding: "12px 44px 12px 14px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-      <button type="button" onClick={chiudi} aria-label="Chiudi" style={{ position: "absolute", top: 4, right: 4, width: 36, height: 36, background: "none", border: "none", color: "#8a8076", fontSize: 18 }}>×</button>
+    <div style={{ position: "fixed", left: 12, right: 12, bottom: "calc(12px + env(safe-area-inset-bottom))", zIndex: 50, maxWidth: 520, margin: "0 auto", background: "#fff", border: "1px solid #e2d8cc", borderRadius: 16, boxShadow: "0 10px 30px rgba(60,40,20,.18)", padding: "28px 14px 12px 14px", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <button type="button" onClick={chiudi} style={{ position: "absolute", top: 4, right: 6, background: "none", border: "none", color: "#8a8076", fontSize: 11.5, textDecoration: "underline", padding: 4 }}>Ce l'ho già</button>
       <img src="/icon-192.png" alt="" style={{ width: 40, height: 40, borderRadius: 10 }} />
       <div style={{ flex: 1, minWidth: 160 }}>
         <div style={{ fontWeight: 800, fontSize: 14.5, color: "#2b2622" }}>Scarica l'app Trova un pilota</div>
