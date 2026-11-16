@@ -930,13 +930,16 @@ async function seguiOrdine(segreto,attiva){
 let promptInstalla=null,statoNotifiche="?";
 const installata=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
 const iPhone=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+// Samsung Internet crea un'icona che Play Protect sui telefoni nuovi blocca («App non sicura»): si installa con Chrome
+const samsung=()=>/SamsungBrowser/i.test(navigator.userAgent);
+const apriInChrome=()=>{location.href=`intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;end`};
 const pushOk=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();promptInstalla=e;mostraBoxApp()});
 window.addEventListener("appinstalled",()=>{promptInstalla=null;toast("Ortaly è sulla schermata Home");mostraBoxApp()});
 setTimeout(()=>{try{mostraBoxApp()}catch(e){}},0);
 function boxInstalla(perProduttore){
   if(installata()||leggi("app-ce-lho",0)>Date.now())return"";
-  return `<div class="app-box app-fissa"><img src="/icona-192.png" alt=""><div class="t"><b>📲 Scarica l'app Ortaly</b>${perProduttore?"Aprila con un tocco dalla schermata Home e ricevi gli ordini come notifica.":"Un tocco dalla schermata Home per riordinare dai tuoi produttori. Niente store."}<button class="link" data-celho="1" style="display:block;margin-top:4px;font-size:12px;color:var(--tenue)">Ce l'ho già</button></div><button class="piu" data-installa="1">Scarica</button></div>`}
+  return `<div class="app-box app-fissa"><img src="/icona-192.png" alt=""><div class="t"><b>📲 Scarica l'app Ortaly</b>${perProduttore?"Aprila con un tocco dalla schermata Home e ricevi gli ordini come notifica.":"Un tocco dalla schermata Home per riordinare dai tuoi produttori. Niente store."}${samsung()?" <b style='display:inline;font-size:inherit'>Installala con Chrome</b>: con Samsung Internet il telefono può bloccarla.":""}<button class="link" data-celho="1" style="display:block;margin-top:4px;font-size:12px;color:var(--tenue)">Ce l'ho già</button></div><button class="piu" data-installa="1">${samsung()?"Apri in Chrome":"Scarica"}</button></div>`}
 function boxNotifiche(){
   if(!mia)return"";
   if(!pushOk())return iPhone()&&!installata()?`<div class="app-box"><span style="font-size:26px">🔔</span><div class="t"><b>Notifiche dei nuovi ordini</b>Su iPhone prima installa Ortaly (qui sotto), poi aprila dall'icona e attiva le notifiche.</div></div>`:"";
@@ -954,6 +957,7 @@ async function controllaNotifiche(){statoNotifiche="controllo";
   const n=$("boxNotifiche");if(n)n.innerHTML=boxNotifiche()}
 async function installa(){
   if(leggi("app-ce-lho",0)){salva("app-ce-lho",0);mostraBoxApp()}
+  if(samsung()){apriInChrome();return}
   if(promptInstalla){promptInstalla.prompt();const r=await promptInstalla.userChoice.catch(()=>null);promptInstalla=null;mostraBoxApp();return}
   if(!iPhone()){apriSheet(`<div class="corpo"><h2>Ortaly sulla schermata Home</h2><p class="storia">Bastano due tocchi:</p>
   <div class="consegne"><div class="cons"><span>1</span><div>Tocca i <b>tre puntini ⋮</b> del browser, in alto a destra</div></div>

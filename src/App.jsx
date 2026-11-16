@@ -3308,6 +3308,9 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
 // (o spiega il menu ⋮ se il browser non lo offre), su iPhone spiega i passaggi di Safari.
 // Sparisce da solo aperta dall'icona; «Ce l'ho già» lo nasconde per 60 giorni a chi l'ha installata ma apre i link nel browser
 const CHIAVE_INSTALLA_NASCOSTO = "eyedrones_installa_ce_lho_fino";
+// Samsung Internet crea un'icona che Play Protect sui telefoni nuovi blocca («App non sicura»): meglio installare con Chrome
+const suSamsungInternet = () => typeof navigator !== "undefined" && /SamsungBrowser/i.test(navigator.userAgent);
+const linkApriInChrome = () => `intent://${window.location.host}${window.location.pathname}${window.location.search}#Intent;scheme=https;package=com.android.chrome;end`;
 
 function AvvisoInstallaApp() {
   const giaInstallata = () => window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -3328,7 +3331,8 @@ function AvvisoInstallaApp() {
       try { localStorage.removeItem(CHIAVE_INSTALLA_NASCOSTO); } catch (e) { /* niente */ }
       setVisibile(true);
       const ev = window.__eventoInstallazione;
-      if (ev) { ev.prompt(); ev.userChoice.then((r) => { window.__eventoInstallazione = null; setEvento(null); if (r && r.outcome === "accepted") setVisibile(false); }, () => {}); }
+      if (suSamsungInternet()) { /* il riquadro in cima spiega di usare Chrome */ }
+      else if (ev) { ev.prompt(); ev.userChoice.then((r) => { window.__eventoInstallazione = null; setEvento(null); if (r && r.outcome === "accepted") setVisibile(false); }, () => {}); }
       else if (suIphone) setPassiIphone(true); else setPassiMenu(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -3350,6 +3354,7 @@ function AvvisoInstallaApp() {
     setVisibile(false);
   };
   const installa = async () => {
+    if (suSamsungInternet()) { window.location.href = linkApriInChrome(); return; }
     if (!evento) { if (suIphone) setPassiIphone(true); else setPassiMenu(true); return; }
     evento.prompt();
     const scelta = await evento.userChoice.catch(() => null);
@@ -3369,6 +3374,8 @@ function AvvisoInstallaApp() {
             <li>Scegli <strong>«Installa app»</strong> oppure <strong>«Aggiungi a schermata Home»</strong></li>
             <li>Conferma: l'icona di EyeDrones compare tra le tue app</li>
           </ol>
+        ) : !passiIphone && suSamsungInternet() ? (
+          <div style={{ fontSize: 12, color: "#aab3bf", marginTop: 2 }}>Installala con <strong>Chrome</strong>: con Samsung Internet il telefono può bloccarla («App non sicura»). Tocca «Apri in Chrome», poi ⋮ → «Installa app».</div>
         ) : !passiIphone ? (
           <div style={{ fontSize: 12, color: "#aab3bf", marginTop: 2 }}>Si apre con un tocco dalla schermata Home, a schermo intero, come un'app vera. Niente store, niente da pagare.{evento ? " Poi tieni premuta l'icona: «Sono sul posto» ti dice subito se puoi volare dove sei." : ""}</div>
         ) : (
@@ -3380,7 +3387,7 @@ function AvvisoInstallaApp() {
         )}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        {!passiIphone && !passiMenu && <button onClick={installa} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>Installa</button>}
+        {!passiIphone && !passiMenu && <button onClick={installa} style={{ background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>{suSamsungInternet() ? "Apri in Chrome" : "Installa"}</button>}
         <button onClick={ceLho} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "8px 12px", fontSize: 12.5 }}>Ce l'ho già</button>
       </div>
     </div>
@@ -3517,6 +3524,7 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
                 <span style={{ fontSize: 12, color: "#8f9bb2", flex: 1, minWidth: 0, wordBreak: "break-all" }}>Accesso con {userEmail}</span>
                 <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontSize: 13, color: "#3d8bfd", textDecoration: "none" }}>Assistenza</a>
               </div>
+              <div style={{ fontSize: 12.5, marginBottom: 10 }}><LinkLegali stile={{ color: "#8f9bb2" }} /></div>
               <button onClick={esciDallAccount} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#2a1616", border: "1px solid #5a2a2a", color: "#ff9c9c", borderRadius: 8, padding: "12px", fontSize: 14.5, fontWeight: 600 }}>
                 <LogOut size={16} /> Esci dall'account
               </button>
@@ -11061,6 +11069,7 @@ function ScaricaApp() {
   useEffect(() => { const diNuovo = () => { scriviLocale("trovapilota_app_ce_lho", null); setChiusa(false); }; window.addEventListener("trovapilota-installa-di-nuovo", diNuovo); return () => window.removeEventListener("trovapilota-installa-di-nuovo", diNuovo); }, []);
   if (installata || chiusa) return null;
   const tocca = async () => {
+    if (suSamsungInternet()) { window.location.href = linkApriInChrome(); return; }
     if (richiestaInstalla) { richiestaInstalla.prompt(); let esito = null; try { esito = await richiestaInstalla.userChoice; } catch { /* niente */ } richiestaInstalla = null; if (esito && esito.outcome === "accepted") setChiusa(true); return; }
     setSpiega(true);
   };
@@ -11073,7 +11082,7 @@ function ScaricaApp() {
         <div style={{ fontWeight: 800, fontSize: 14.5, color: "#2b2622" }}>Scarica l'app Trova un pilota</div>
         <div style={{ fontSize: 12.5, color: "#6b6258", marginTop: 2 }}>{spiega ? (iPhone ? "Tocca Condividi (il quadrato con la freccia) e poi «Aggiungi alla schermata Home»." : "Apri il menu del browser (⋮) e tocca «Installa app» o «Aggiungi a schermata Home».") : "Le tue richieste e le offerte dei piloti sempre a portata di mano."}</div>
       </div>
-      {!spiega && <button type="button" onClick={tocca} style={{ ...CLIENTE.bottone, padding: "9px 14px", fontSize: 14 }}>Scarica</button>}
+      {!spiega && <button type="button" onClick={tocca} style={{ ...CLIENTE.bottone, padding: "9px 14px", fontSize: 14 }}>{suSamsungInternet() ? "Apri in Chrome" : "Scarica"}</button>}
     </div>
   );
 }
@@ -11390,6 +11399,7 @@ function TrovaPilota() {
         <footer style={{ textAlign: "center", fontSize: 13, color: "#8a8076", padding: "10px 0" }}>
           {SU_TROVAPILOTA && !(window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true) && <div style={{ marginBottom: 8 }}><button type="button" onClick={() => window.dispatchEvent(new Event("trovapilota-installa-di-nuovo"))} style={{ background: "none", border: "none", color: "#e0552f", fontWeight: 700, fontSize: 13, padding: 6 }}>📲 Scarica l'app Trova un pilota</button></div>}
           <a href="https://app.eyedrones.it/?ref=trova-pilota" style={{ color: "#6b6258", textDecoration: "none" }}>Sei un pilota di droni? <span style={{ color: "#e0552f", fontWeight: 700 }}>Iscriviti a EyeDrones e ricevi le richieste della tua zona</span></a>
+          <div style={{ marginTop: 8, fontSize: 12.5 }}><LinkLegali stile={{ color: "#8a8076" }} /></div>
         </footer>
       </main>
     </div>
@@ -12224,6 +12234,7 @@ function PaginaPilotaPubblica({ slug }) {
           <a href={linkIscrizione} style={{ color: "#8b95a3", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
             <img src={LOGO_EYEDRONES} alt="" style={{ width: 18, height: 18 }} /> Pagina creata con EyeDrones · <span style={{ color: "#ffb877" }}>sei un pilota? Crea la tua</span>
           </a>
+          <div style={{ marginTop: 6 }}><LinkLegali stile={{ color: "#6b7480" }} /></div>
         </footer>
       </div>
 
