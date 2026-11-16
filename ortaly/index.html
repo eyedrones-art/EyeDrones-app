@@ -308,6 +308,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
 .app-box{display:flex;gap:12px;align-items:center;background:var(--bianco);border:1px solid var(--bordo);border-radius:16px;padding:12px 14px;margin-top:12px;box-shadow:var(--ombra)}
 .app-box .t{flex:1;min-width:0;font-size:13.5px}.app-box .t b{display:block;font-size:14.5px}
 .app-box img{width:42px;height:42px;border-radius:11px;flex:none}
+.app-fissa{border:2px solid var(--foglia);background:var(--foglia-chiara)}
 .app-box button{flex:none}
 </style>
 </head>
@@ -339,6 +340,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
     <div class="cerca"><input id="cerca" type="search" placeholder="Cerca: zucca, toma, miele…" aria-label="Cerca un prodotto"></div>
   </div></section>
   <div class="wrap">
+    <div id="boxInstallaCompro"></div>
     <div class="stagione" id="stagione"></div>
     <section class="sez" id="sezPreferiti" hidden><h2>❤️ I tuoi produttori <small>da chi compri sempre</small></h2><div class="preferiti" id="preferiti"></div></section>
     <section class="sez"><h2><span id="titProd">Produttori vicino a te</span> <small>tocca per conoscerli</small></h2>
@@ -358,7 +360,6 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
       </div>
       <p class="nota" style="text-align:center">Ortaly è nato per aiutare chi produce in Italia e chi vuole mangiare italiano. Sei un produttore? <button class="link" id="perchevendo">Apri la tua bottega ›</button></p></section>
     <section class="sez" id="sezMieiOrdini" hidden><h2>I tuoi ordini <small>stato e chat</small></h2><div class="miei-ordini" id="mieiOrdiniCliente"></div></section>
-    <div id="boxInstallaCompro"></div>
     <p class="pie-sito">Ortaly mette in contatto clienti e produttori: ogni produttore vende, consegna e incassa da sé.<br><a href="/privacy" style="color:inherit">Privacy</a> · <a href="mailto:info@ortaly.it" style="color:inherit">info@ortaly.it</a></p>
   </div>
 </main>
@@ -453,7 +454,7 @@ function mostraGriglia(){
     :`<div class="vuoto"><b>${t||cat!=="Tutto"||filtri.bio||filtri.casa||filtri.sped?"Nessun prodotto trovato":"Il banco è ancora vuoto qui"}</b>${altrove?`<button class="link" data-altrazona="1">${altrove===1?"C'è 1 prodotto":"Ci sono "+altrove+" prodotti"} ${zona==="italia"?"nella tua provincia":"in «Dall'Italia»"} ›</button>`:filtri.bio||filtri.casa||filtri.sped?"Prova a togliere qualche filtro.":t||cat!=="Tutto"?"Prova un'altra parola o un'altra categoria.":"Prova «Dall'Italia» o un'altra provincia."}</div>`;
   $("nCarrello").textContent=Object.values(carrello).reduce((s,q)=>s+q,0);
 }
-function aggiornaCompro(){mostraStagione();mostraPreferiti();mostraProduttori();mostraCategorie();mostraGriglia()}
+function aggiornaCompro(){mostraStagione();try{mostraBoxApp()}catch(e){};mostraPreferiti();mostraProduttori();mostraCategorie();mostraGriglia()}
 // ── i produttori salvati dal cliente (solo su questo telefono) e «Ordina di nuovo» ──
 const PREF=()=>leggi("preferiti",[]);
 function salvaPref(id,on){const l=PREF().filter(x=>x!==id);if(on)l.unshift(id);salva("preferiti",l.slice(0,30));mostraPreferiti()}
@@ -931,9 +932,10 @@ const iPhone=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platf
 const pushOk=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();promptInstalla=e;mostraBoxApp()});
 window.addEventListener("appinstalled",()=>{promptInstalla=null;toast("Ortaly è sulla schermata Home");mostraBoxApp()});
+setTimeout(()=>{try{mostraBoxApp()}catch(e){}},0);
 function boxInstalla(perProduttore){
-  if(installata()||(!promptInstalla&&!iPhone()))return"";
-  return `<div class="app-box"><img src="/icona-192.png" alt=""><div class="t"><b>Ortaly sul telefono</b>${perProduttore?"Aprila con un tocco e ricevi gli ordini come notifica.":"Un tocco dalla schermata Home per riordinare dai tuoi produttori."}</div><button class="piu" data-installa="1">Installa</button></div>`}
+  if(installata()||leggi("app-ce-lho",0)>Date.now())return"";
+  return `<div class="app-box app-fissa"><img src="/icona-192.png" alt=""><div class="t"><b>📲 Scarica l'app Ortaly</b>${perProduttore?"Aprila con un tocco dalla schermata Home e ricevi gli ordini come notifica.":"Un tocco dalla schermata Home per riordinare dai tuoi produttori. Niente store."}<button class="link" data-celho="1" style="display:block;margin-top:4px;font-size:12px;color:var(--tenue)">Ce l'ho già</button></div><button class="piu" data-installa="1">Scarica</button></div>`}
 function boxNotifiche(){
   if(!mia)return"";
   if(!pushOk())return iPhone()&&!installata()?`<div class="app-box"><span style="font-size:26px">🔔</span><div class="t"><b>Notifiche dei nuovi ordini</b>Su iPhone prima installa Ortaly (qui sotto), poi aprila dall'icona e attiva le notifiche.</div></div>`:"";
@@ -950,6 +952,10 @@ async function controllaNotifiche(){statoNotifiche="controllo";
   const n=$("boxNotifiche");if(n)n.innerHTML=boxNotifiche()}
 async function installa(){
   if(promptInstalla){promptInstalla.prompt();const r=await promptInstalla.userChoice.catch(()=>null);promptInstalla=null;mostraBoxApp();return}
+  if(!iPhone()){apriSheet(`<div class="corpo"><h2>Ortaly sulla schermata Home</h2><p class="storia">Bastano due tocchi:</p>
+  <div class="consegne"><div class="cons"><span>1</span><div>Tocca i <b>tre puntini ⋮</b> del browser, in alto a destra</div></div>
+  <div class="cons"><span>2</span><div>Scegli <b>Installa app</b> oppure <b>Aggiungi a schermata Home</b>: l'icona di Ortaly compare tra le tue app</div></div></div>
+  <p class="nota">Se hai aperto Ortaly da un'altra app (WhatsApp, Instagram), prima apri il link in Chrome.</p></div>`,"installa");return}
   apriSheet(`<div class="corpo"><h2>Ortaly sulla schermata Home</h2><p class="storia">Su iPhone bastano tre tocchi:</p>
   <div class="consegne"><div class="cons"><span>1</span><div>Tocca <b>Condividi</b> (il quadrato con la freccia in su) nella barra di Safari</div></div>
   <div class="cons"><span>2</span><div>Scorri e scegli <b>Aggiungi alla schermata Home</b></div></div>
@@ -1134,6 +1140,7 @@ function stampaTabellina(){let d=document.getElementById("stampaTab");if(!d){d=d
 async function scriviNfc(){const nota=document.getElementById("tabNota");
   try{const w=new NDEFReader();nota.textContent="Avvicina l'adesivo NFC al retro del telefono…";await w.write({records:[{recordType:"url",data:TAB.link}]});nota.textContent="✅ Fatto! Attacca l'adesivo sulla tabellina, sul cerchio «appoggia qui il telefono»."}
   catch(e){nota.textContent=e&&e.name==="NotAllowedError"?"Serve il permesso NFC: attiva l'NFC nelle impostazioni del telefono e riprova.":"Non sono riuscito a scrivere l'adesivo. Riprova tenendolo fermo dietro al telefono."}}
+document.addEventListener("click",e=>{const c=e.target.closest("[data-celho]");if(!c)return;salva("app-ce-lho",Date.now()+60*864e5);mostraBoxApp()});
 document.addEventListener("click",e=>{const p=e.target.closest("[data-pref],[data-riordina]");if(!p)return;
   if(p.dataset.riordina){riordina(p.dataset.riordina);return}
   const id=p.dataset.pref,on=!PREF().includes(id);salvaPref(id,on);toast(on?"❤️ Salvato: lo ritrovi in alto nella pagina":"Tolto dai tuoi produttori");apriProduttore(id)});
