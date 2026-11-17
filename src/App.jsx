@@ -11132,6 +11132,9 @@ function TrovaPilota() {
     if (modulo.sito_web) { setInvio({ codice: null, piloti: 1 }); return; } // campo nascosto compilato = robot
     if (!provincia) { setInvio("Scegli la tua provincia."); return; }
     if (!modulo.servizio && modulo.descrizione.trim().length < 10) { setInvio("Scegli cosa ti serve o scrivilo in due parole."); return; }
+    // senza comune e senza due righe i piloti non sanno cosa offrire (la prima richiesta vera era solo «Eventi e feste»)
+    if (modulo.luogo.trim().length < 2) { setInvio("Scrivi dove: il comune o l'indirizzo. Serve al pilota per controllare le zone di volo."); return; }
+    if (modulo.descrizione.trim().length < 15) { setInvio("Scrivi due righe su cosa ti serve, per esempio: «Matrimonio a Desenzano a giugno, riprese della chiesa e della villa»."); return; }
     if (modulo.nome.trim().length < 2) { setInvio("Scrivi il tuo nome."); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(modulo.email.trim())) { setInvio("Scrivi la tua email: ti mandiamo lì il link per vedere le offerte."); return; }
     if (!consenso) { setInvio("Per inviare la richiesta serve il consenso qui sopra."); return; }
