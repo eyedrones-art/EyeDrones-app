@@ -411,7 +411,7 @@ revoke all on function privato.fa_servizio(text[], text) from public, anon, auth
 create or replace function privato.pilota_adatto(p_servizi text[], p_servizio text, p_provincia text)
 returns boolean language sql stable security definer set search_path = public as $$
   -- p_provincia non serve più (resta per non cambiare le chiamate)
-  select coalesce(btrim(p_servizio), '') in ('', 'Altro')
+  select coalesce(btrim(p_servizio), '') in ('', 'Altro', 'Collaborazione continuativa')
     or cardinality(coalesce(p_servizi, '{}')) = 0
     or privato.fa_servizio(p_servizi, p_servizio);
 $$;

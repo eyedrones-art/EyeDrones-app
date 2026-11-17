@@ -10978,8 +10978,11 @@ const CATEGORIE_CLIENTE = [
   { emoji: "🌱", nome: "Agricoltura", servizio: "Agricoltura di precisione" },
   { emoji: "💧", nome: "Trattamenti con drone", servizio: "Trattamenti agricoli con drone (Agras)" },
   { emoji: "🎢", nome: "Riprese FPV", servizio: "Riprese FPV" },
+  { emoji: "🤝", nome: "Collaborazione fissa", servizio: "Collaborazione continuativa" },
   { emoji: "✨", nome: "Altro", servizio: "Altro" },
 ];
+// chi cerca un pilota con cui lavorare spesso (agenzie, wedding planner, aziende): va a tutti i piloti della zona
+const SERVIZIO_COLLAB = "Collaborazione continuativa";
 
 // le categorie che hanno già la loro pagina (si scelgono dalle foto, non dai riquadri)
 const CATEGORIE_CON_PAGINA = ["Matrimoni", "Case e terreni", "Video aziendali", "Tetti e facciate", "Termografia fotovoltaico", "Agricoltura", "Trattamenti con drone"];
@@ -11307,20 +11310,26 @@ function TrovaPilota() {
                   <select value={modulo.servizio} onChange={(e) => { setCategoria(null); cambia("servizio")(e); }} style={CLIENTE.input}>
                     <option value="">Scegli…</option>
                     {SERVIZI_PILOTA.map((x) => <option key={x} value={x}>{x}</option>)}
+                    <option value={SERVIZIO_COLLAB}>Collaborazione fissa (lavori ogni mese)</option>
                     <option value="Altro">Altro</option>
                   </select>
                 </label>}
-                <label><span style={CLIENTE.etichetta}>{sezione ? sezione.luogo : "Dove (comune o indirizzo)"}</span><input maxLength={120} value={modulo.luogo} onChange={(e) => { cambia("luogo")(e); setPunto(null); }} placeholder={sezione ? sezione.luogoEsempio : "es. Cassino"} style={CLIENTE.input} /></label>
-                <label><span style={CLIENTE.etichetta}>{sezione ? sezione.data : "Quando (se hai una data)"}</span><input type="date" min={dataLocale()} value={modulo.data} onChange={cambia("data")} style={CLIENTE.input} /></label>
-                <label><span style={CLIENTE.etichetta}>Quanto pensi di spendere? (facoltativo)</span>
+                {!sezione && modulo.servizio === SERVIZIO_COLLAB && (
+                  <p style={{ gridColumn: "1 / -1", margin: 0, background: "#fffaf0", border: "1px solid #f3dfb0", borderRadius: 12, padding: "10px 12px", fontSize: 13.5, color: "#5b534b", lineHeight: 1.5 }}>
+                    🤝 Cerchi un pilota con cui lavorare spesso? Scrivi chi sei e ogni quanto ti servono le riprese: i piloti della zona ti rispondono con una presentazione e un prezzo indicativo per lavoro. Scegli quello che ti convince e vi scambiate i contatti.
+                  </p>
+                )}
+                <label><span style={CLIENTE.etichetta}>{sezione ? sezione.luogo : modulo.servizio === SERVIZIO_COLLAB ? "Dove lavori (comune o zona)" : "Dove (comune o indirizzo)"}</span><input maxLength={120} value={modulo.luogo} onChange={(e) => { cambia("luogo")(e); setPunto(null); }} placeholder={sezione ? sezione.luogoEsempio : "es. Cassino"} style={CLIENTE.input} /></label>
+                <label><span style={CLIENTE.etichetta}>{sezione ? sezione.data : modulo.servizio === SERVIZIO_COLLAB ? "Da quando (facoltativo)" : "Quando (se hai una data)"}</span><input type="date" min={dataLocale()} value={modulo.data} onChange={cambia("data")} style={CLIENTE.input} /></label>
+                {modulo.servizio !== SERVIZIO_COLLAB && <label><span style={CLIENTE.etichetta}>Quanto pensi di spendere? (facoltativo)</span>
                   <select value={modulo.budget} onChange={cambia("budget")} style={CLIENTE.input}>
                     <option value="">Non lo so</option>
                     {Object.entries(BUDGET_CLIENTE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>
                   {fasciaPerServizio(modulo.servizio) && <span style={{ display: "block", fontSize: 12.5, color: "#7a7068", marginTop: 4 }}>Di solito {fasciaPerServizio(modulo.servizio).min.toLocaleString("it-IT")}–{fasciaPerServizio(modulo.servizio).max.toLocaleString("it-IT")} €</span>}
-                </label>
+                </label>}
               </div>
-              <div style={{ background: "#fbf7f2", border: "1px solid #ece4da", borderRadius: 12, padding: 12 }}>
+              {modulo.servizio !== SERVIZIO_COLLAB && <div style={{ background: "#fbf7f2", border: "1px solid #ece4da", borderRadius: 12, padding: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 13.5, color: "#4a433c", flex: 1, minWidth: 200 }}>📍 <strong>Segna il posto sulla mappa</strong>: il pilota controlla subito se lì si può volare e se servono permessi.</span>
                   {!punto && <button type="button" onClick={() => trovaPunto(false)} disabled={cercoPunto === "cerco"} style={{ background: "#fff", border: "1px solid #e2d8cc", borderRadius: 10, padding: "9px 12px", fontSize: 14, fontWeight: 700, color: "#3a332c" }}>{cercoPunto === "cerco" ? "Cerco…" : "Mostra sulla mappa"}</button>}
@@ -11334,8 +11343,8 @@ function TrovaPilota() {
                     <p style={{ fontSize: 12.5, color: "#6b6258", margin: "6px 0 0 0" }}>Trascina il segnaposto sul posto esatto, o tocca la mappa. I piloti della zona vedono il posto per controllare se lì si può volare, ma non i tuoi contatti.</p>
                   </>
                 )}
-              </div>
-              <label><span style={CLIENTE.etichetta}>{sezione ? sezione.etichettaDescrizione : "Raccontaci il lavoro"}</span><textarea rows={4} maxLength={2000} value={modulo.descrizione} onChange={cambia("descrizione")} placeholder={sezione ? sezione.descrizione : "es. video del matrimonio in chiesa e al ristorante, foto aeree del casale in vendita, controllo del tetto dopo la grandinata…"} style={{ ...CLIENTE.input, resize: "vertical" }} /></label>
+              </div>}
+              <label><span style={CLIENTE.etichetta}>{sezione ? sezione.etichettaDescrizione : "Raccontaci il lavoro"}</span><textarea rows={4} maxLength={2000} value={modulo.descrizione} onChange={cambia("descrizione")} placeholder={sezione ? sezione.descrizione : modulo.servizio === SERVIZIO_COLLAB ? "es. agenzia immobiliare a Brescia: 4-5 case al mese da riprendere, foto e un video breve per ogni casa" : "es. video del matrimonio in chiesa e al ristorante, foto aeree del casale in vendita, controllo del tetto dopo la grandinata…"} style={{ ...CLIENTE.input, resize: "vertical" }} /></label>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                 <label><span style={CLIENTE.etichetta}>Nome *</span><input required autoComplete="name" maxLength={80} value={modulo.nome} onChange={cambia("nome")} style={CLIENTE.input} /></label>
                 <label><span style={CLIENTE.etichetta}>Email * (ti mandiamo qui le offerte)</span><input required type="email" autoComplete="email" maxLength={120} value={modulo.email} onChange={cambia("email")} style={CLIENTE.input} /></label>
@@ -12626,6 +12635,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
           📍 {l.luogo || "Luogo"}{l.data_desiderata ? ` · ${dataBreve(l.data_desiderata)}` : ""} · {l.offerte} {l.offerte === 1 ? "offerta" : "offerte"}
           {a && <> · <a href={`https://www.google.com/maps/search/?api=1&query=${a.punto.lat},${a.punto.lon}`} target="_blank" rel="noopener noreferrer" style={{ color: "#7fb0ff" }}>mappa ↗</a></>}
         </div>
+        {l.servizio === SERVIZIO_COLLAB && <div style={{ fontSize: 12.5, color: "#ffb48f", marginTop: 8, lineHeight: 1.45 }}>🤝 Cerca un pilota con cui lavorare spesso: presentati bene e metti un prezzo indicativo per un singolo lavoro.</div>}
         {l.descrizione && <div style={{ fontSize: 13.5, color: "#d5dae1", marginTop: 8, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{l.descrizione}</div>}
         {a && (
           <>
