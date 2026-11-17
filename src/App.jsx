@@ -4088,11 +4088,11 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         </div>
         <div style={{ height: 18 }} />
         {bloccoScadenze}
+        {/* la pagina pilota a tutti, in alto: senza pagina non arrivano i lavori di «Trova un pilota» */}
+        <InvitoPaginaPilota onNav={onNav} nome={nomeSaluto} />
         <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
         <NotifichePush tema="impostazioni" inHome />
         {(droni || []).length > 0 && <AvvisoWeekend inHome />}
-        {/* la pagina pilota a tutti: senza pagina non arrivano i lavori di «Trova un pilota» */}
-        <InvitoPaginaPilota onNav={onNav} nome={nomeSaluto} />
         {(voli || []).length > 0 && <CommunityPosti voli={voli} />}
         {!appenaArrivato && <ConsiglioDelGiorno />}
 
@@ -16825,7 +16825,14 @@ function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "" }) {
     <div style={{ position: "relative", background: "linear-gradient(135deg, #241d16, #151b2b)", border: "1px solid #ff8c4288", borderRadius: 12, padding: 14, marginBottom: 18, maxWidth: 640 }}>
       <button type="button" onClick={chiudi} aria-label="Nascondi per due settimane" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>
       <div style={{ fontSize: 14.5, fontWeight: 700, paddingRight: 30 }}>{aMeta ? "📍 La tua pagina è quasi pronta" : "💼 Vuoi ricevere lavori con il drone?"}</div>
-      <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4, lineHeight: 1.45 }}>{aMeta ? "Accendila: i clienti della tua provincia ti mandano le richieste." : <>I clienti cercano un pilota su <b>trovapilota.it</b>. Attiva la tua pagina: quando qualcuno della tua provincia chiede un lavoro (matrimoni, case, ispezioni, video…) ti arriva la richiesta, e decidi tu se rispondere e a che prezzo.</>}</div>
+      <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4, lineHeight: 1.45 }}>{aMeta ? "Accendila: i clienti della tua provincia ti mandano le richieste." : <>EyeDrones non è solo un registro voli: qui <b>i clienti ti trovano</b>.</>}</div>
+      {!aMeta && (
+        <ol style={{ margin: "10px 0 0", paddingLeft: 20, display: "grid", gap: 5, fontSize: 12.5, color: "#e7eaee", lineHeight: 1.45 }}>
+          <li>Attivi la tua pagina: nome, città e cosa fai. <span style={{ color: "#8b95a3" }}>1 minuto.</span></li>
+          <li>Un cliente della tua provincia cerca un pilota su <b>trovapilota.it</b> (matrimoni, case, ispezioni, video…).</li>
+          <li>Ti arriva la richiesta per email: decidi tu se rispondere e a che prezzo. <span style={{ color: "#8b95a3" }}>Attivare la pagina non costa nulla.</span></li>
+        </ol>
+      )}
       {!aperto ? (
         <button type="button" onClick={() => setAperto(true)} style={{ marginTop: 10, background: "#ff8c42", color: "#10141f", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 700, minHeight: 40 }}>{aMeta ? "Accendi la pagina" : "Attiva in 1 minuto"}</button>
       ) : (
