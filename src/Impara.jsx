@@ -361,7 +361,7 @@ export default function Impara({ schedaIniziale = "a1a3", consigli, colore }) {
   const corpo = scheda;
   return (
     <div style={{ padding: "28px 32px", maxWidth: 780 }}>
-      <TestataPagina titolo="Impara" sigla="EDU · REGOLE, QUIZ E SIMULATORE" foto="/benvenuto/pilota.webp" />
+      <TestataPagina titolo="Impara" sigla="EDU · REGOLE, QUIZ, SIMULATORE E POST-PRODUZIONE" foto="/benvenuto/pilota.webp" />
       {/* il simulatore: si apre a tutto schermo, con le missioni e la prova d'esame */}
       <a href="/simulatore/" className="impara-simulatore">
         <span className="mono" style={{ fontSize: 10.5, letterSpacing: ".18em", color: "#ffb48f" }}>NUOVO · SIMULATORE</span>

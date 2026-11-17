@@ -3114,37 +3114,37 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
   const vociSpazio = k === "video" ? [
     { intestazione: spazio.nome },
     { key: "galleria", label: "Foto e video", icon: Camera },
-    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
+    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto AI: problemi e consigli", icon: Sparkles }] : []),
     { key: "posti", label: "Posti", icon: Compass },
   ] : k === "ispezioni" ? [
     { intestazione: spazio.nome },
     { key: "impianti", label: "Impianti", icon: Sun },
     { key: "nuova", label: "Nuova ispezione", icon: Plus },
-    ...(usaAI ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }, { key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
+    ...(usaAI ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }, { key: "analisi-ai", label: "Esperto AI: problemi e consigli", icon: Sparkles }] : []),
   ] : k === "agricoltura" ? [
     { intestazione: spazio.nome },
     { key: "campi", label: "Campi e trattamenti", icon: Sprout },
-    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
+    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto AI: problemi e consigli", icon: Sparkles }] : []),
   ] : k === "rilievi" ? [
     { intestazione: spazio.nome },
     { key: "rilievi", label: "Rilievi", icon: Ruler },
-    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
+    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto AI: problemi e consigli", icon: Sparkles }] : []),
   ] : cartelle ? [] : null; // nella Home delle cartelle: solo le voci in comune
   const items = vociSpazio ? [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
     ...vociSpazio,
     { intestazione: "Voli" },
-    { key: "pianificazione", label: "Pianificazione volo", icon: CalendarDays },
+    { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     ...(k !== "video" ? [{ key: "galleria", label: "Foto e video", icon: Camera }] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
     ...(k !== "video" ? [{ key: "posti", label: "Posti", icon: Compass }] : []),
     // l'Esperto anche nella Home delle cartelle (nelle cartelle è già tra le voci della cartella)
-    ...(usaAI && !vociSpazio.some((v) => v.key === "analisi-ai") ? [{ key: "analisi-ai", label: "Esperto (AI)", icon: Sparkles }] : []),
+    ...(usaAI && !vociSpazio.some((v) => v.key === "analisi-ai") ? [{ key: "analisi-ai", label: "Esperto AI: problemi e consigli", icon: Sparkles }] : []),
     ...(usaAI && !vociSpazio.some((v) => v.key === "ispezione-ai") && k !== "video" ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }] : []),
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
-    { key: "impara", label: "Impara e quiz", icon: GraduationCap },
+    { key: "impara", label: "Impara, quiz e post-produzione", icon: GraduationCap },
     { key: "simulatore", label: "Simulatore di volo", icon: Gamepad2, esterno: "/simulatore/", stessaScheda: true },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ClipboardCheck },
@@ -3172,7 +3172,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
       { key: "campi", label: "Campi e trattamenti", icon: Sprout },
     ] : []),
     { intestazione: "Voli e riprese" },
-    { key: "pianificazione", label: "Pianificazione volo", icon: CalendarDays },
+    { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "galleria", label: "Foto e video", icon: Camera },
     ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }, ...(usaIspezioni ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }] : [])] : []),
@@ -3180,7 +3180,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "posti", label: "Posti", icon: Compass },
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
-    { key: "impara", label: "Impara e quiz", icon: GraduationCap },
+    { key: "impara", label: "Impara, quiz e post-produzione", icon: GraduationCap },
     { key: "simulatore", label: "Simulatore di volo", icon: Gamepad2, esterno: "/simulatore/", stessaScheda: true },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ClipboardCheck },
@@ -9926,7 +9926,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
           <button type="button" onClick={() => { if (window.confirm("Ricomincio da capo? Quello che avevi scritto in questo piano si cancella.")) annullaModifica(); }} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 12px", fontSize: 12.5 }}>Ricomincia da capo</button>
         </div>
       )}
-      <TestataPagina titolo="Pianifica" sigla="PLN · METEO, ZONA, PERMESSI E SCENE" foto="/trova-pilota/agricoltura.webp" />
+      <TestataPagina titolo="Pianifica" sigla="PLN · METEO, ZONE, PERMESSI E RIPRESE" foto="/trova-pilota/agricoltura.webp" />
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: modoLibero ? 8 : 16 }}>
         <div style={{ minWidth: 220 }}>
