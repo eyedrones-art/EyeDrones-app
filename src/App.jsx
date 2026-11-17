@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy, Fragment } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -2231,6 +2231,9 @@ function AppShell({ session }) {
 
   // navigazione: "Foto e video" nel menu è la galleria del registro voli
   const vai = (chiave) => {
+    // scorciatoie del menu: la scaletta delle riprese (dentro Pianifica) e i consigli di post-produzione (dentro Impara)
+    if (chiave === "scaletta") { try { sessionStorage.setItem(CHIAVE_VAI_SCALETTA, "si"); } catch { /* niente */ } setPage("pianificazione"); window.scrollTo(0, 0); return; }
+    if (chiave === "post-produzione") { setSchedaImpara("manuale"); setPage("impara"); window.scrollTo(0, 0); return; }
     if (chiave === "galleria") { setVistaVoli("galleria"); setPage("registro-voli"); return; }
     if (chiave === "registro-voli") setVistaVoli("voli");
     // «La mia pagina» dal menu: se ci sono richieste nuove apre subito quelle
@@ -3135,6 +3138,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ...vociSpazio,
     { intestazione: "Voli" },
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
+    { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     ...(k !== "video" ? [{ key: "galleria", label: "Foto e video", icon: Camera }] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
@@ -3144,6 +3148,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ...(usaAI && !vociSpazio.some((v) => v.key === "ispezione-ai") && k !== "video" ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }] : []),
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
+    { key: "post-produzione", label: "Consigli post-produzione", icon: Palette },
     { key: "impara", label: "Impara, quiz e post-produzione", icon: GraduationCap },
     { key: "simulatore", label: "Simulatore di volo", icon: Gamepad2, esterno: "/simulatore/", stessaScheda: true },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
@@ -3173,6 +3178,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ] : []),
     { intestazione: "Voli e riprese" },
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
+    { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "galleria", label: "Foto e video", icon: Camera },
     ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }, ...(usaIspezioni ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }] : [])] : []),
@@ -3180,6 +3186,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "posti", label: "Posti", icon: Compass },
     { intestazione: "Pilota" },
     { key: "documenti-controllo", label: "Documenti controllo", icon: ShieldCheck },
+    { key: "post-produzione", label: "Consigli post-produzione", icon: Palette },
     { key: "impara", label: "Impara, quiz e post-produzione", icon: GraduationCap },
     { key: "simulatore", label: "Simulatore di volo", icon: Gamepad2, esterno: "/simulatore/", stessaScheda: true },
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
@@ -9518,9 +9525,17 @@ const CAMPI_DETTAGLI = {
   ],
 };
 
+const CHIAVE_VAI_SCALETTA = "eyedrones_vai_scaletta";
 function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroConDati, session, piano, pianoIniziale, onPianoAperto, luogoIniziale, onLuogoUsato }) {
   const [impiantoSel, setImpiantoSel] = useState(null);
-  const [tipoIspezione, setTipoIspezione] = useState(tipoPredefinito || "fotovoltaico");
+  // dal menu «Scaletta riprese»: lavoro di riprese (video) e scorro fino alla scaletta
+  const [vaiScaletta] = useState(() => { let si = false; try { si = sessionStorage.getItem(CHIAVE_VAI_SCALETTA) === "si"; sessionStorage.removeItem(CHIAVE_VAI_SCALETTA); } catch { /* niente */ } return si; });
+  const [tipoIspezione, setTipoIspezione] = useState(vaiScaletta && !["video", "foto", "fpv"].includes(tipoPredefinito) ? "video" : tipoPredefinito || "fotovoltaico");
+  useEffect(() => {
+    if (!vaiScaletta) return undefined;
+    const t = setTimeout(() => document.getElementById("scaletta-riprese")?.scrollIntoView({ behavior: "smooth", block: "start" }), 700);
+    return () => clearTimeout(t);
+  }, [vaiScaletta]);
   const [dataPrevista, setDataPrevista] = useState(() => new Date().toISOString().slice(0, 10));
   const [meteo, setMeteo] = useState(null);
   const [meteoSpaziale, setMeteoSpaziale] = useState(null);
@@ -10006,6 +10021,15 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
         </div>
       )}
 
+      {!destinazione && vaiScaletta && ["video", "foto", "fpv"].includes(tipoIspezione) && (
+        <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+          <div id="scaletta-riprese" style={{ scrollMarginTop: 80 }} />
+          <div style={{ background: "#151b2b", border: "1px solid #ff8c4266", borderRadius: 10, padding: "12px 14px", fontSize: 13.5, color: "#c3cad4", lineHeight: 1.5 }}>
+            🎬 <b style={{ color: "#e7eaee" }}>Scaletta riprese</b>: prepara le scene anche senza aver scelto il posto. Quando scegli «Dove voli» le ritrovi qui, con meteo, zone e luce giusta.
+          </div>
+          <PianoScene key={"scene-libera-" + tipoIspezione} tipo={tipoIspezione} scene={scene} onCambia={setScene} libreria={{ video: MANOVRE_VIDEO, fpv: MANOVRE_FPV, foto: INQUADRATURE_FOTO }} scalette={SCALETTE_PRONTE[tipoIspezione] || SCALETTE_PRONTE.video} onLavoro={setLavoroScelto} servizi={serviziFoto} finestre={finestreLuce} />
+        </div>
+      )}
       {!destinazione && <FileZoneVeloce />}
 
       {destinazione && (
@@ -10080,6 +10104,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
                 if (oro) return "oro";
                 return undefined;
               })()} />
+              <div id="scaletta-riprese" style={{ scrollMarginTop: 80 }} />
               <PianoScene key={"scene-" + tipoIspezione} tipo={tipoIspezione} scene={scene} onCambia={setScene} libreria={{ video: MANOVRE_VIDEO, fpv: MANOVRE_FPV, foto: INQUADRATURE_FOTO }} scalette={SCALETTE_PRONTE[tipoIspezione] || SCALETTE_PRONTE.video} onLavoro={setLavoroScelto} servizi={serviziFoto} finestre={finestreLuce} />
               <ManovreVideo key={"man-" + tipoIspezione} tipo={tipoIspezione} />
             </>
