@@ -11691,6 +11691,42 @@ function codiceOfferteDaIndirizzo() {
   return m ? m[1].toLowerCase() : null;
 }
 
+// «Trova un pilota»: se la richiesta è troppo vaga (manca il comune o due righe), il cliente la completa qui (anche dall'email «ci servono i dettagli»)
+function CompletaRichiesta({ codice, r, fatto }) {
+  const [f, setF] = useState({ luogo: r.luogo || "", data: r.data_desiderata || "", descrizione: r.descrizione || "" });
+  const [stato, setStato] = useState(null);
+  useEffect(() => {
+    if (window.location.hash === "#dettagli") setTimeout(() => document.getElementById("dettagli")?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+  }, []);
+  const salva = async (e) => {
+    e.preventDefault();
+    if (f.luogo.trim().length < 2) { setStato("Scrivi il comune o l'indirizzo: serve al pilota per controllare le zone di volo."); return; }
+    if (f.descrizione.trim().length < 15) { setStato("Scrivi due righe su cosa ti serve, per esempio: «Matrimonio a Desenzano a giugno, riprese della chiesa e della villa»."); return; }
+    setStato("invio");
+    const { error } = await supabase.rpc("completa_richiesta_zona", { p_codice: codice, p_luogo: f.luogo.trim(), p_data: f.data || null, p_descrizione: f.descrizione.trim() });
+    if (error) { setStato("Non è stato possibile salvare: ricarica la pagina e riprova."); return; }
+    setStato(null);
+    fatto();
+  };
+  return (
+    <form id="dettagli" onSubmit={salva} style={{ ...CLIENTE.scheda, background: "#fffaf0", borderColor: "#f3dfb0", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div>
+        <strong style={{ fontSize: 16.5 }}>✍️ Aggiungi i dettagli: così il pilota può farti il preventivo</strong>
+        <p style={{ fontSize: 14, color: "#5b534b", margin: "6px 0 0 0", lineHeight: 1.5 }}>Senza sapere dove e cosa riprendere, il pilota non può dirti un prezzo né controllare se lì si può volare.</p>
+      </div>
+      <label><span style={CLIENTE.etichetta}>Dove (comune o indirizzo)</span>
+        <input style={CLIENTE.input} value={f.luogo} maxLength={200} onChange={(e) => setF({ ...f, luogo: e.target.value })} placeholder="Es. Desenzano del Garda, Villa…" /></label>
+      <label><span style={CLIENTE.etichetta}>Quando (anche indicativo)</span>
+        <input type="date" style={CLIENTE.input} value={f.data} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setF({ ...f, data: e.target.value })} /></label>
+      <label><span style={CLIENTE.etichetta}>Cosa ti serve</span>
+        <textarea style={{ ...CLIENTE.input, minHeight: 110, resize: "vertical" }} value={f.descrizione} maxLength={2000} onChange={(e) => setF({ ...f, descrizione: e.target.value })}
+          placeholder="Che evento è, cosa vuoi riprendere (chiesa, location, invitati…), foto o video, quanto deve durare il video." /></label>
+      {stato && stato !== "invio" && <p style={{ color: "#b3261e", fontSize: 13.5, margin: 0 }}>{stato}</p>}
+      <button type="submit" disabled={stato === "invio"} style={CLIENTE.bottone}>{stato === "invio" ? "Salvo…" : "Salva i dettagli"}</button>
+    </form>
+  );
+}
+
 // la pagina del cliente: le offerte arrivate, il confronto e la scelta del pilota
 function OfferteCliente({ codice }) {
   const [dati, setDati] = useState(undefined); // undefined = carico | null = non trovata
@@ -11877,6 +11913,7 @@ function OfferteCliente({ codice }) {
           </h1>
           <p style={{ fontSize: 14.5, color: "#6b6258", margin: 0 }}>{[r.servizio, r.luogo, quando].filter(Boolean).join(" · ")}</p>
         </header>
+        {r.stato === "aperta" && (!(r.luogo || "").trim() || (r.descrizione || "").trim().length < 15) && <CompletaRichiesta codice={codice} r={r} fatto={carica} />}
         {r.stato !== "chiusa" && <AvvisiCliente codice={codice} />}
 
         {r.stato === "aperta" && (dati.rinunce || []).map((x, i) => (

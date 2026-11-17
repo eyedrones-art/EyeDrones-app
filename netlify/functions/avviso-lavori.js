@@ -156,7 +156,7 @@ function componiEmail(d) {
           : "Nella tua zona non ci sono ancora piloti iscritti per questo lavoro: cerchiamo noi un pilota per te e ti scriviamo appena arriva un'offerta.",
       bottone: { href: linkOfferte, testo: "Vedi le offerte" },
       secondo: miei,
-      nota: "Conserva questa email: il link è solo tuo. Confronti le offerte, scegli il pilota che preferisci e solo allora vi scambiate i contatti. È gratis e senza impegno.",
+      nota: "Conserva questa email: il link è solo tuo. Confronti le offerte, scegli il pilota che preferisci e solo allora vi scambiate i contatti. Non costa nulla e non ti impegna.",
     });
     return { a: [d.a], oggetto: "La tua richiesta è arrivata ai piloti della zona", ...m };
   }
@@ -310,6 +310,18 @@ function componiEmail(d) {
     });
     return { a: [d.a], oggetto: `Una domanda sul lavoro con ${pilota}`, ...m };
   }
+  if (d.tipo === "chiedi_dettagli") {
+    const m = impagina({
+      etichetta: "Mancano i dettagli",
+      titolo: `Ciao ${nome || ""}, ci servono alcuni dettagli`,
+      sottotitolo: `Abbiamo ricevuto la tua richiesta${servizio ? ` per «${servizio}»` : ""}, ma così il pilota non può farti un preventivo né controllare se lì si può volare.`,
+      righe: [["Dove", "il comune o l'indirizzo"], ["Quando", "la data, anche indicativa"], ["Cosa", "che evento o lavoro è e cosa vuoi riprendere"]],
+      bottone: { href: `${linkOfferte}#dettagli`, testo: "Aggiungi i dettagli" },
+      secondo: miei,
+      nota: "Ci vuole un minuto. Il link è solo tuo: i tuoi contatti li riceve solo il pilota che sceglierai.",
+    });
+    return { a: [d.a], oggetto: "La tua richiesta: ci servono alcuni dettagli", ...m };
+  }
   if (d.tipo === "miei_lavori") {
     if (!linkMiei) return null;
     const m = impagina({
@@ -336,6 +348,7 @@ async function avvisaTelegram(d) {
   let testo = null;
   if (d.tipo === "richiesta_inviata") testo = `📍 Nuova richiesta su «Trova un pilota» in provincia di ${prov || "?"} · piloti avvisati: ${Number(d.piloti) || 0}${d.regione ? ` (girata alla regione ${pulisci(d.regione, 40)})` : ""}${Number(d.piloti) ? "" : " ⚠️ nessun pilota in zona"}`;
   else if (d.tipo === "annullato_pilota" || d.tipo === "annullato_cliente") testo = `❌ Lavoro annullato dal ${d.tipo === "annullato_pilota" ? "pilota" : "cliente"} su «Trova un pilota»: ${pulisci(d.servizio, 80) || "lavoro"}${pulisci(d.motivo, 120) ? ` · motivo: ${pulisci(d.motivo, 120)}` : ""}`;
+  else if (d.tipo === "dettagli_aggiunti") testo = `✍️ Il cliente ha aggiunto i dettagli alla richiesta su «Trova un pilota» in provincia di ${prov || "?"}: ${pulisci(d.servizio, 80) || "lavoro"}${pulisci(d.luogo, 80) ? ` a ${pulisci(d.luogo, 80)}` : ""}`;
   else if (d.tipo === "confermato") testo = `✅ Lavoro confermato su «Trova un pilota»${Number(d.prezzo) ? ` · ${euro(d.prezzo)}` : ""}`;
   else if (d.tipo === "problema") {
     const MOTIVI = { non_paga: "il cliente non paga", sparito: "il cliente è sparito", non_presentato: "il pilota non si è presentato", non_consegna: "il pilota non consegna", altro: "altro" };
@@ -358,7 +371,7 @@ exports.handler = async (event) => {
   let d;
   try { d = JSON.parse(event.body || "{}"); } catch { return risposta(400, "JSON non valido"); }
   await avvisaTelegram(d);
-  if (d.tipo === "problema") return risposta(200, "Avviso inviato"); // solo Telegram, nessuna email
+  if (d.tipo === "problema" || d.tipo === "dettagli_aggiunti") return risposta(200, "Avviso inviato"); // solo Telegram, nessuna email
   const m = componiEmail(d);
   if (!m) return risposta(400, "Tipo sconosciuto");
   const a = m.a.filter(emailValida);
