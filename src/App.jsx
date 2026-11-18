@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy, Fragment } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette, Gauge } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -51,6 +51,7 @@ const PraticaEnac = pigro(() => import("./PraticaEnac.jsx"));
 const AnalisiAI = pigro(() => import("./AnalisiAI.jsx"));
 const IspezioneAI = pigro(() => import("./IspezioneAI.jsx"));
 const Anteprima3D = pigro(() => import("./Anteprima3D.jsx"));
+const Telemetria = pigro(() => import("./Telemetria.jsx"));
 // analisi foto con l'AI: in prova solo su questi account (il server controlla di nuovo con AI_UTENTI)
 const AI_IN_PROVA = ["eyedrones@libero.it"];
 const PaginaPrivacy = pigro(() => import("./Legali.jsx"), "Privacy");
@@ -1904,7 +1905,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2450,6 +2451,7 @@ function AppShell({ session }) {
               onCaricaZone={() => { setPage("pianificazione"); window.scrollTo(0, 0); }} />
           </Suspense>
         )}
+        {page === "telemetria" && <Suspense fallback={<LoadingBlock />}><Telemetria /></Suspense>}
         {page === "posti" && (
           <Suspense fallback={<LoadingBlock />}>
             <Posti supabase={supabase} cercaIndirizzo={cercaIndirizzoItalia} voli={voliDashboard} inputStyle={inputStyle}
@@ -3139,6 +3141,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { intestazione: "Voli" },
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
     { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
+    { key: "telemetria", label: "Telemetria sul video", icon: Gauge },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     ...(k !== "video" ? [{ key: "galleria", label: "Foto e video", icon: Camera }] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
@@ -3179,6 +3182,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { intestazione: "Voli e riprese" },
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
     { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
+    { key: "telemetria", label: "Telemetria sul video", icon: Gauge },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "galleria", label: "Foto e video", icon: Camera },
     ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }, ...(usaIspezioni ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }] : [])] : []),
