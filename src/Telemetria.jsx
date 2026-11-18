@@ -59,6 +59,12 @@ export function leggiTelemetriaSRT(testoGrezzo) {
     const dt = c.t - p.t;
     if (c.vh == null && dt > 0.2 && c.lat != null && p.lat != null) c.vh = metriTra(p, c) / dt;
     if (c.vv == null && dt > 0.2 && c.alt != null && p.alt != null) c.vv = (c.alt - p.alt) / dt;
+    // direzione di volo (0 = nord): solo se si è mosso abbastanza, sennò tengo quella di prima
+    if (c.lat != null && p.lat != null && metriTra(p, c) > 1.5) {
+      const r = Math.PI / 180, y = Math.sin((c.lon - p.lon) * r) * Math.cos(c.lat * r);
+      const x = Math.cos(p.lat * r) * Math.sin(c.lat * r) - Math.sin(p.lat * r) * Math.cos(c.lat * r) * Math.cos((c.lon - p.lon) * r);
+      c.rotta = (Math.atan2(y, x) / r + 360) % 360;
+    } else c.rotta = i > 0 ? campioni[i - 1].rotta : null;
   }
   // un filo di media mobile sulla velocità, così i numeri non ballano
   for (let i = 0; i < campioni.length; i++) {
@@ -66,6 +72,17 @@ export function leggiTelemetriaSRT(testoGrezzo) {
     campioni[i].vhMedia = vicini.length ? vicini.reduce((s, v) => s + v, 0) / vicini.length : null;
   }
   return campioni;
+}
+
+// i massimi del volo, calcolati una volta sola per file
+const MASSIMI = new WeakMap();
+function massimi(campioni) {
+  if (!MASSIMI.has(campioni)) {
+    const v = campioni.map((c) => c.vhMedia).filter((x) => x != null), a = campioni.map((c) => c.alt).filter((x) => x != null);
+    const vMax = v.length ? Math.max(...v) * 3.6 : 0, aMax = a.length ? Math.max(...a) : 0, aMin = a.length ? Math.min(0, ...a) : 0;
+    MASSIMI.set(campioni, { scalaV: Math.max(40, Math.ceil((vMax * 1.1) / 20) * 20), scalaA: Math.max(50, Math.ceil((aMax * 1.1) / 10) * 10), aMin, durata: campioni[campioni.length - 1].t || 1 });
+  }
+  return MASSIMI.get(campioni);
 }
 
 // il campione da mostrare al secondo t del video
@@ -109,7 +126,51 @@ export function disegnaTelemetria(ctx, W, H, campioni, t, o) {
   // ogni casella larga quanto serve (etichetta o numero, il più largo), con uno spazio fisso tra l'una e l'altra
   const larghezze = voci.map(([etichetta, valore]) => { ctx.font = font(700, 20); const a = ctx.measureText(etichetta).width; ctx.font = font(800, 46); return Math.max(a, ctx.measureText(valore).width, 130 * u) + 44 * u; });
   const altezzaNumeri = voci.length ? 112 * u : 0, altezzaCam = cam ? 46 * u : 0;
-  if (voci.length || cam) {
+  const mx = massimi(campioni);
+  if (o.stile === "strumenti") {
+    // cruscotto: tachimetro a lancetta, altimetro a barra, sotto distanza/salita/camera
+    const R = 118 * u, barW = 34 * u, barH = 2 * R;
+    const righe = [o.distanza && `DIST  ${c.dist == null ? "—" : c.dist >= 1000 ? `${f1(c.dist / 1000)} km` : `${f0(c.dist)} m`}`, o.salita && `V.S  ${c.vv == null ? "—" : `${c.vv > 0.2 ? "↑" : c.vv < -0.2 ? "↓" : ""}${f1(Math.abs(c.vv))} m/s`}`].filter(Boolean).join("     ");
+    ctx.font = font(700, 26); const wRighe = righe ? ctx.measureText(righe).width + 48 * u : 0;
+    ctx.font = font(600, 22); const wCam = cam ? ctx.measureText(cam).width + 48 * u : 0;
+    const w = Math.max(24 * u + (o.velocita ? 2 * R + 30 * u : 0) + (o.quota ? barW + 120 * u : 0) + 10 * u, wRighe, wCam);
+    const h = (o.velocita || o.quota ? barH + 40 * u : 0) + (righe ? 44 * u : 0) + (cam ? 40 * u : 0) + 20 * u;
+    const x = o.lato === "destra" ? W - m - Math.max(w, 300 * u) : m, y = H - m - h;
+    rettangolo(ctx, x, y, Math.max(w, 300 * u), h, 22 * u); ctx.fillStyle = "rgba(10,14,24,.58)"; ctx.fill();
+    let cx = x + 24 * u;
+    if (o.velocita) {
+      const ox = cx + R, oy = y + 20 * u + R, a0 = Math.PI * 0.75, a1 = Math.PI * 2.25;
+      ctx.lineCap = "round";
+      ctx.beginPath(); ctx.arc(ox, oy, R - 10 * u, a0, a1); ctx.strokeStyle = "rgba(255,255,255,.18)"; ctx.lineWidth = 14 * u; ctx.stroke();
+      const kmh = c.vhMedia == null ? 0 : c.vhMedia * 3.6, frac = Math.min(1, kmh / mx.scalaV);
+      ctx.beginPath(); ctx.arc(ox, oy, R - 10 * u, a0, a0 + (a1 - a0) * frac); ctx.strokeStyle = "#ff8c42"; ctx.stroke();
+      for (let k = 0; k <= 4; k++) { // tacche con i numeri
+        const ang = a0 + ((a1 - a0) * k) / 4;
+        ctx.font = font(600, 17); ctx.fillStyle = "#9aa3b8"; ctx.textAlign = "center";
+        ctx.fillText(String(Math.round((mx.scalaV * k) / 4)), ox + Math.cos(ang) * (R - 40 * u), oy + Math.sin(ang) * (R - 40 * u) + 6 * u);
+      }
+      const ang = a0 + (a1 - a0) * frac; // lancetta
+      ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + Math.cos(ang) * (R - 26 * u), oy + Math.sin(ang) * (R - 26 * u)); ctx.strokeStyle = "#fff"; ctx.lineWidth = 5 * u; ctx.stroke();
+      ctx.beginPath(); ctx.arc(ox, oy, 9 * u, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+      ctx.font = font(800, 40); ctx.fillStyle = "#fff"; ctx.fillText(c.vhMedia == null ? "—" : f0(kmh), ox, oy + 62 * u);
+      ctx.font = font(700, 17); ctx.fillStyle = "#ffb877"; ctx.fillText("km/h", ox, oy + 86 * u);
+      ctx.textAlign = "left";
+      cx += 2 * R + 30 * u;
+    }
+    if (o.quota) {
+      const by = y + 20 * u, frac = Math.max(0, Math.min(1, ((c.alt ?? 0) - mx.aMin) / (mx.scalaA - mx.aMin)));
+      rettangolo(ctx, cx, by, barW, barH, barW / 2); ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fill();
+      const hh = Math.max(barW, barH * frac);
+      rettangolo(ctx, cx, by + barH - hh, barW, hh, barW / 2); ctx.fillStyle = "#ff8c42"; ctx.fill();
+      ctx.font = font(600, 17); ctx.fillStyle = "#9aa3b8";
+      ctx.fillText(`${mx.scalaA} m`, cx + barW + 10 * u, by + 14 * u); ctx.fillText("0", cx + barW + 10 * u, by + barH);
+      ctx.font = font(700, 20); ctx.fillStyle = "#ffb877"; ctx.fillText("QUOTA", cx + barW + 14 * u, by + barH / 2 - 10 * u);
+      ctx.font = font(800, 42); ctx.fillStyle = "#fff"; ctx.fillText(c.alt == null ? "—" : `${f0(c.alt)} m`, cx + barW + 14 * u, by + barH / 2 + 34 * u);
+    }
+    let ry = y + (o.velocita || o.quota ? barH + 40 * u : 0);
+    if (righe) { ctx.font = font(700, 26); ctx.fillStyle = "#fff"; ctx.fillText(righe, x + 24 * u, ry + 34 * u); ry += 44 * u; }
+    if (cam) { ctx.font = font(600, 22); ctx.fillStyle = "#d5dae1"; ctx.fillText(cam, x + 24 * u, ry + 30 * u); }
+  } else if (voci.length || cam) {
     const w = Math.max(larghezze.reduce((t, x) => t + x, 0) + 4 * u, cam ? (ctx.font = font(600, 26), ctx.measureText(cam).width + 48 * u) : 0) + 4 * u;
     const h = altezzaNumeri + altezzaCam + 20 * u;
     const x = o.lato === "destra" ? W - m - w : m, y = H - m - h;
@@ -147,6 +208,31 @@ export function disegnaTelemetria(ctx, W, H, campioni, t, o) {
     ctx.beginPath(); ctx.arc(px(qui), py(qui), 10 * u, 0, Math.PI * 2); ctx.fillStyle = "#ff8c42"; ctx.fill();
     ctx.lineWidth = 4 * u; ctx.strokeStyle = "#fff"; ctx.stroke();
   }
+  // la bussola: la freccia indica dove va il drone (rispetto al nord)
+  if (o.bussola && c.rotta != null) {
+    const r = 62 * u, bx = W - m - r, by = m + (o.logo ? 70 * u : 0) + r;
+    ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2); ctx.fillStyle = "rgba(10,14,24,.58)"; ctx.fill();
+    ctx.lineWidth = 3 * u; ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.stroke();
+    ctx.font = font(800, 20); ctx.textAlign = "center"; ctx.fillStyle = "#ff6b6b"; ctx.fillText("N", bx, by - r + 24 * u);
+    ctx.fillStyle = "#9aa3b8"; ctx.font = font(700, 16); ctx.fillText("S", bx, by + r - 10 * u); ctx.fillText("E", bx + r - 14 * u, by + 6 * u); ctx.fillText("O", bx - r + 14 * u, by + 6 * u);
+    ctx.save(); ctx.translate(bx, by); ctx.rotate((c.rotta * Math.PI) / 180);
+    ctx.beginPath(); ctx.moveTo(0, -r + 30 * u); ctx.lineTo(14 * u, 14 * u); ctx.lineTo(0, 6 * u); ctx.lineTo(-14 * u, 14 * u); ctx.closePath(); ctx.fillStyle = "#ff8c42"; ctx.fill();
+    ctx.restore(); ctx.textAlign = "left";
+  }
+  // il grafico della quota lungo tutto il volo, con la linea del momento attuale
+  const conQuota = o.grafico ? campioni.filter((s) => s.alt != null) : [];
+  if (conQuota.length > 2) {
+    const gw = Math.min(W * 0.42, 760 * u), gh = 120 * u, gx = (W - gw) / 2, gy = m;
+    rettangolo(ctx, gx, gy, gw, gh, 18 * u); ctx.fillStyle = "rgba(10,14,24,.58)"; ctx.fill();
+    const px = (s) => gx + 16 * u + (s.t / mx.durata) * (gw - 32 * u);
+    const py = (s) => gy + gh - 16 * u - ((s.alt - mx.aMin) / (mx.scalaA - mx.aMin)) * (gh - 44 * u);
+    ctx.beginPath(); ctx.moveTo(px(conQuota[0]), gy + gh - 16 * u); conQuota.forEach((s) => ctx.lineTo(px(s), py(s))); ctx.lineTo(px(conQuota[conQuota.length - 1]), gy + gh - 16 * u); ctx.closePath();
+    ctx.fillStyle = "rgba(255,140,66,.25)"; ctx.fill();
+    ctx.beginPath(); conQuota.forEach((s, k) => (k ? ctx.lineTo(px(s), py(s)) : ctx.moveTo(px(s), py(s)))); ctx.strokeStyle = "#ff8c42"; ctx.lineWidth = 3 * u; ctx.stroke();
+    const xq = gx + 16 * u + (Math.min(t, mx.durata) / mx.durata) * (gw - 32 * u);
+    ctx.beginPath(); ctx.moveTo(xq, gy + 26 * u); ctx.lineTo(xq, gy + gh - 12 * u); ctx.strokeStyle = "#fff"; ctx.lineWidth = 3 * u; ctx.stroke();
+    ctx.font = font(700, 17); ctx.fillStyle = "#ffb877"; ctx.fillText(`QUOTA · max ${f0(Math.max(...conQuota.map((s) => s.alt)))} m`, gx + 16 * u, gy + 22 * u);
+  }
   // il logo, piccolo, in alto a destra
   if (o.logo) {
     ctx.font = font(800, 28); ombra();
@@ -158,8 +244,8 @@ export function disegnaTelemetria(ctx, W, H, campioni, t, o) {
 }
 
 // --- la pagina ----------------------------------------------------------------------------------------
-const OPZIONI_BASE = { quota: true, velocita: true, distanza: true, salita: false, camera: false, traccia: true, data: false, logo: true, lato: "sinistra" };
-const NOMI = [["quota", "Quota"], ["velocita", "Velocità"], ["distanza", "Distanza"], ["salita", "Salita/discesa"], ["camera", "Dati camera"], ["traccia", "Traccia del volo"], ["data", "Data e ora"], ["logo", "Logo EyeDrones"]];
+const OPZIONI_BASE = { stile: "pulito", quota: true, velocita: true, distanza: true, salita: false, camera: false, traccia: true, bussola: false, grafico: false, data: false, logo: true, lato: "sinistra" };
+const NOMI = [["quota", "Quota"], ["velocita", "Velocità"], ["distanza", "Distanza"], ["salita", "Salita/discesa"], ["camera", "Dati camera"], ["traccia", "Traccia del volo"], ["bussola", "Bussola"], ["grafico", "Grafico quota"], ["data", "Data e ora"], ["logo", "Logo EyeDrones"]];
 const formatoRegistrazione = () => {
   if (typeof MediaRecorder === "undefined") return null;
   return ["video/mp4;codecs=avc1.42E01E", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find((t) => { try { return MediaRecorder.isTypeSupported(t); } catch { return false; } }) || null;
@@ -301,6 +387,13 @@ export default function Telemetria() {
             onError={() => setErrore("Il browser non riesce ad aprire questo video. Se è in H.265 (HEVC), in DJI Fly scegli H.264 oppure convertilo prima.")}
             style={{ width: "100%", maxHeight: 60, background: "#000", borderRadius: 8 }} />
           {!pronto && <div style={{ fontSize: 13.5, color: "#ffb877" }}>Manca il file .SRT: senza, non ci sono dati da mostrare.</div>}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 12.5, color: "#8b95a3" }}>Stile:</span>
+            {[["pulito", "📋 Pulito"], ["strumenti", "🎛️ Strumenti"]].map(([k, nome]) => (
+              <button key={k} type="button" aria-pressed={o.stile === k} onClick={() => setO({ ...o, stile: k })}
+                style={{ background: o.stile === k ? "#ff8c42" : "#232b3f", color: o.stile === k ? "#10141f" : "#c3cad4", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>{nome}</button>
+            ))}
+          </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {NOMI.map(([k, nome]) => (
               <button key={k} type="button" aria-pressed={o[k]} onClick={() => setO({ ...o, [k]: !o[k] })}
