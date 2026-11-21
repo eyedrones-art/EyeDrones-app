@@ -11143,7 +11143,6 @@ function TrovaPilota() {
   const [cercoPunto, setCercoPunto] = useState(null); // null | "cerco" | messaggio
   const [consenso, setConsenso] = useState(false);
   const [invio, setInvio] = useState(null); // null | "invio" | { codice, piloti } | messaggio d'errore
-  const [pilotaScelto, setPilotaScelto] = useState(null); // «Chiedi il preventivo a lui»: { slug, nome } | null = a tutti
   const formRef = useRef(null);
   const nomeProvincia = PROVINCE_ITALIA[provincia] || "";
 
@@ -11155,25 +11154,13 @@ function TrovaPilota() {
     if (!provincia) { setPiloti(null); return; }
     let annullato = false;
     setPiloti(null);
+    supabase.rpc("piloti_in_zona", { p_provincia: provincia }).then(({ data, error }) => { if (!annullato) setPiloti(error ? [] : Array.isArray(data) ? data : []); });
     try { window.history.replaceState(null, "", linkTrova(`${base}/${provincia.toLowerCase()}`)); } catch { /* niente */ }
     return () => { annullato = true; };
   }, [provincia]);
 
   const cambia = (k) => (e) => { setModulo({ ...modulo, [k]: e.target.value }); if (invio && invio !== "invio") setInvio(null); };
   const vaiAlModulo = () => formRef.current && formRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-  // i piloti più vicini (anche di altre province), dal posto scritto o dal capoluogo; ricarico quando cambia il posto o il servizio
-  useEffect(() => {
-    if (!provincia) return undefined;
-    let annullato = false;
-    supabase.rpc("piloti_vicini", { p_provincia: provincia, p_lat: punto ? punto.lat : null, p_lon: punto ? punto.lon : null, p_servizio: modulo.servizio || null })
-      .then(({ data, error }) => {
-        if (annullato) return;
-        if (!error) { setPiloti(Array.isArray(data) ? data : []); return; }
-        supabase.rpc("piloti_in_zona", { p_provincia: provincia }).then(({ data: d2, error: e2 }) => { if (!annullato) setPiloti(e2 ? [] : Array.isArray(d2) ? d2 : []); });
-      });
-    return () => { annullato = true; };
-  }, [provincia, punto?.lat, punto?.lon, modulo.servizio]); // eslint-disable-line react-hooks/exhaustive-deps
-  const chiediA = (x) => { setPilotaScelto({ slug: x.slug, nome: x.nome || "il pilota" }); setInvio(null); setTimeout(() => formRef.current && formRef.current.scrollIntoView({ behavior: "smooth", block: "start" }), 50); };
   const scegliCategoria = (c) => { setCategoria(c.nome); setModulo((m) => ({ ...m, servizio: c.servizio })); setTimeout(vaiAlModulo, 50); };
 
   // dal comune scritto al punto sulla mappa (poi il cliente lo sposta sul posto esatto)
@@ -11200,20 +11187,17 @@ function TrovaPilota() {
     setInvio("invio");
     const dove = punto || (modulo.luogo.trim() ? await trovaPunto(true) : null);
     const descrizione = [categoria && categoria !== modulo.servizio ? categoria : null, modulo.descrizione].filter(Boolean).join(" — ");
-    const campi = {
+    const { data, error } = await supabase.rpc("invia_richiesta_zona", {
       p_provincia: provincia, p_nome: modulo.nome, p_email: modulo.email, p_telefono: modulo.telefono,
       p_servizio: modulo.servizio, p_luogo: modulo.luogo, p_data: modulo.data || null, p_descrizione: descrizione,
       p_lat: dove ? dove.lat : null, p_lon: dove ? dove.lon : null, p_budget: modulo.budget || null,
-    };
-    const { data, error } = pilotaScelto
-      ? await supabase.rpc("invia_richiesta_pilota", { p_slug: pilotaScelto.slug, ...campi })
-      : await supabase.rpc("invia_richiesta_zona", campi);
+    });
     if (error) {
       const m = error.message || "";
-      setInvio(/email non valida/i.test(m) ? "L'indirizzo email non sembra corretto." : /troppe richieste/i.test(m) ? "Hai già inviato diverse richieste: controlla la tua email." : /pilota non disponibile/i.test(m) ? "Questo pilota ora non riceve richieste: mandala a tutti i piloti vicini." : "Invio non riuscito: controlla la connessione e riprova.");
+      setInvio(/email non valida/i.test(m) ? "L'indirizzo email non sembra corretto." : /troppe richieste/i.test(m) ? "Hai già inviato diverse richieste: controlla la tua email." : "Invio non riuscito: controlla la connessione e riprova.");
       return;
     }
-    setInvio({ codice: data?.codice || null, piloti: Number(data?.piloti) || 0, regione: data?.regione || null, diretto: pilotaScelto ? (data?.diretto || pilotaScelto.nome) : null });
+    setInvio({ codice: data?.codice || null, piloti: Number(data?.piloti) || 0, regione: data?.regione || null });
     setTimeout(vaiAlModulo, 50);
   };
 
@@ -11222,8 +11206,7 @@ function TrovaPilota() {
   const pilotiMostrati = sezione ? (piloti || []).filter((x) => !(x.servizi || []).length || (x.servizi || []).some((v) => serviziSezione.includes(v))) : piloti || [];
   const fotoPiloti = pilotiMostrati.flatMap((x) => (x.foto || []).filter(mediaSicuroUrl)).slice(0, 6);
   const fasciaSezione = sezione ? fasciaPerServizio(modulo.servizio) : null;
-  const quanti = pilotiMostrati.filter((x) => x.stessa_provincia !== false).length; // quelli della provincia
-  const daFuori = pilotiMostrati.some((x) => x.stessa_provincia === false);
+  const quanti = pilotiMostrati.length;
 
   return (
     <div style={CLIENTE.pagina}>
@@ -11340,9 +11323,7 @@ function TrovaPilota() {
               <div style={{ fontSize: 46 }}>🎉</div>
               <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 22, margin: "6px 0 8px 0" }}>Richiesta inviata!</h2>
               <p style={{ fontSize: 15, color: "#4a433c", lineHeight: 1.55, margin: "0 0 16px 0" }}>
-                {invio.diretto
-                  ? <>È arrivata a <strong>{String(invio.diretto).replace(/\.$/, "")}</strong>. Ti scriviamo a <strong>{modulo.email}</strong> appena manda l'offerta. I contatti ve li scambiate solo se scegli lui.</>
-                  : invio.regione && invio.piloti > 0
+                {invio.regione && invio.piloti > 0
                   ? <>In provincia di {nomeProvincia} non ci sono ancora piloti: l'abbiamo girata {invio.piloti === 1 ? "al pilota" : `ai ${invio.piloti} piloti`} della regione <strong>{invio.regione}</strong>. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
                   : invio.piloti > 0
                   ? <>È arrivata a <strong>{invio.piloti === 1 ? "1 pilota" : `${invio.piloti} piloti`}</strong> della provincia di {nomeProvincia}. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
@@ -11355,14 +11336,7 @@ function TrovaPilota() {
           ) : (
             <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 21, margin: 0 }}>{sezione ? sezione.titoloModulo : "Racconta cosa ti serve"}</h2>
-              {pilotaScelto ? (
-                <div style={{ background: "#fffaf0", border: "1px solid #f3dfb0", borderRadius: 12, padding: "10px 12px", fontSize: 14, color: "#4a433c", lineHeight: 1.5 }}>
-                  📩 La richiesta va solo a <strong>{String(pilotaScelto.nome).replace(/\.$/, "")}</strong>.{" "}
-                  <button type="button" onClick={() => setPilotaScelto(null)} style={{ background: "none", border: "none", padding: 0, color: "#e0552f", fontWeight: 700, fontSize: 14, cursor: "pointer", textDecoration: "underline" }}>Mandala a tutti i piloti vicini</button>
-                </div>
-              ) : (
-                <p style={{ fontSize: 14, color: "#6b6258", margin: "-4px 0 4px 0" }}>{quanti > 0 ? `In provincia di ${nomeProvincia} ${quanti === 1 ? "c'è 1 pilota pronto" : `ci sono ${quanti} piloti pronti`} a ${sezione?.voi ? "mandarvi" : "mandarti"} un'offerta.` : daFuori ? "In provincia non ci sono ancora piloti: scegli uno dei piloti vicini qui sopra, oppure manda la richiesta e cerchiamo noi." : sezione?.voi ? "Ricevete le offerte dei piloti della vostra zona, senza costi." : "Ricevi le offerte dei piloti della tua zona, senza costi."}</p>
-              )}
+              <p style={{ fontSize: 14, color: "#6b6258", margin: "-4px 0 4px 0" }}>{quanti > 0 ? `In provincia di ${nomeProvincia} ${quanti === 1 ? "c'è 1 pilota pronto" : `ci sono ${quanti} piloti pronti`} a ${sezione?.voi ? "mandarvi" : "mandarti"} un'offerta.` : sezione?.voi ? "Ricevete le offerte dei piloti della vostra zona, gratis." : "Ricevi le offerte dei piloti della tua zona, gratis."}</p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                 <label><span style={CLIENTE.etichetta}>La tua provincia *</span>
                   <select value={provincia} onChange={(e) => { setProvincia(e.target.value); setInvio(null); }} style={CLIENTE.input}>
@@ -11422,10 +11396,10 @@ function TrovaPilota() {
               <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" value={modulo.sito_web} onChange={cambia("sito_web")} aria-hidden="true" style={{ position: "absolute", left: -9999, width: 1, height: 1, opacity: 0 }} />
               <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, color: "#5b534b", lineHeight: 1.45 }}>
                 <input type="checkbox" checked={consenso} onChange={(e) => { setConsenso(e.target.checked); if (invio && invio !== "invio") setInvio(null); }} style={{ marginTop: 3, width: 18, height: 18 }} />
-                <span>{pilotaScelto ? <>Acconsento a far vedere la mia richiesta a {String(pilotaScelto.nome).replace(/\.$/, "")}, il pilota che ho scelto. Nome, email e telefono li riceve solo se conferma il lavoro.</> : "Acconsento a far vedere la mia richiesta ai piloti EyeDrones della zona. Nome, email e telefono li riceve solo il pilota che sceglierò."} <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#8a8076" }}>Privacy</a></span>
+                <span>Acconsento a far vedere la mia richiesta ai piloti EyeDrones della provincia scelta. Nome, email e telefono li riceve solo il pilota che sceglierò. <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#8a8076" }}>Privacy</a></span>
               </label>
               {invio && invio !== "invio" && <p role="alert" style={{ fontSize: 14, color: "#c0392b", margin: 0, fontWeight: 600 }}>{invio}</p>}
-              <button type="submit" disabled={invio === "invio"} style={{ ...CLIENTE.bottone, width: "100%", opacity: invio === "invio" ? 0.7 : 1 }}>{invio === "invio" ? "Invio…" : pilotaScelto ? `Chiedi il preventivo a ${pilotaScelto.nome}` : "Ricevi le offerte dei piloti"}</button>
+              <button type="submit" disabled={invio === "invio"} style={{ ...CLIENTE.bottone, width: "100%", opacity: invio === "invio" ? 0.7 : 1 }}>{invio === "invio" ? "Invio…" : "Ricevi le offerte gratis"}</button>
               <p style={{ fontSize: 12.5, color: "#8a8076", margin: 0, textAlign: "center" }}>Nessun costo e nessun impegno: se le offerte non ti convincono, non scegli nessuno.</p>
             </form>
           )}
@@ -11433,7 +11407,7 @@ function TrovaPilota() {
 
         {provincia && pilotiMostrati.length > 0 && (
           <section>
-            <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 18, margin: "0 0 10px 0" }}>{daFuori ? "I piloti più vicini a te" : `Alcuni piloti della provincia di ${nomeProvincia}`}</h2>
+            <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 18, margin: "0 0 10px 0" }}>Alcuni piloti della provincia di {nomeProvincia}</h2>
             {fotoPiloti.length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 10 }}>
                 {fotoPiloti.map((u, i) => <img key={u + i} src={u} alt="" loading="lazy" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 10, display: "block" }} />)}
@@ -11453,15 +11427,12 @@ function TrovaPilota() {
                       <span style={{ display: "block", fontSize: 12.5, color: "#6b6258", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[x.citta, (x.servizi || []).slice(0, 2).join(", ")].filter(Boolean).join(" · ")}</span>
                       <span style={{ display: "block", fontSize: 12, color: "#1f8a4c", marginTop: 2, fontWeight: 600 }}>{[x.registrato && "✓ Registrato", x.assicurato && "✓ Assicurato"].filter(Boolean).join(" · ")}</span>
                       {testoStelle(x.stelle) && <span style={{ display: "block", fontSize: 12, color: "#c27c0e", fontWeight: 700 }}>{testoStelle(x.stelle)}</span>}
-                      {x.stessa_provincia === false && x.km != null && <span style={{ display: "block", fontSize: 12.5, color: "#4a433c", marginTop: 2, fontWeight: 600 }}>📍 a circa {x.km} km{x.provincia ? ` · provincia di ${PROVINCE_ITALIA[x.provincia] || x.provincia}` : ""}</span>}
-                      {x.stessa_provincia === true && <span style={{ display: "block", fontSize: 12.5, color: "#4a433c", marginTop: 2, fontWeight: 600 }}>📍 nella tua provincia</span>}
-                      {x.slug && <button type="button" onClick={() => chiediA(x)} style={{ marginTop: 8, background: pilotaScelto?.slug === x.slug ? "#e0552f" : "#fff", color: pilotaScelto?.slug === x.slug ? "#fff" : "#e0552f", border: "1.5px solid #e0552f", borderRadius: 10, padding: "7px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{pilotaScelto?.slug === x.slug ? "✓ Scelto" : "Chiedi il preventivo a lui"}</button>}
                     </span>
                   </div>
                 );
               })}
             </div>
-            <p style={{ fontSize: 12.5, color: "#8a8076", margin: "8px 0 0 0" }}>Chiedi il preventivo a uno di loro, oppure manda la richiesta a tutti: chi è libero ti risponde con un'offerta. I contatti ve li scambiate solo quando scegli.</p>
+            <p style={{ fontSize: 12.5, color: "#8a8076", margin: "8px 0 0 0" }}>Manda la richiesta: chi è libero ti risponde con un'offerta.</p>
           </section>
         )}
 
