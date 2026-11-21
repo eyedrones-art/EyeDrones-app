@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy, Fragment } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette, Gauge, Aperture } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette, Gauge, Calculator } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -1905,7 +1905,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2452,7 +2452,7 @@ function AppShell({ session }) {
           </Suspense>
         )}
         {page === "telemetria" && <Suspense fallback={<LoadingBlock />}><Telemetria /></Suspense>}
-        {page === "filtri-nd" && <PaginaFiltriND />}
+        {(page === "calcolatori" || page === "filtri-nd") && <PaginaCalcolatori onPianifica={() => { setPage("pianificazione"); window.scrollTo(0, 0); }} />}
         {page === "posti" && (
           <Suspense fallback={<LoadingBlock />}>
             <Posti supabase={supabase} cercaIndirizzo={cercaIndirizzoItalia} voli={voliDashboard} inputStyle={inputStyle}
@@ -3143,7 +3143,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
     { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
     { key: "telemetria", label: "Telemetria sul video", icon: Gauge },
-    { key: "filtri-nd", label: "Calcola filtri ND", icon: Aperture },
+    { key: "calcolatori", label: "Calcolatori", icon: Calculator },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     ...(k !== "video" ? [{ key: "galleria", label: "Foto e video", icon: Camera }] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
@@ -3185,7 +3185,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
     { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
     { key: "telemetria", label: "Telemetria sul video", icon: Gauge },
-    { key: "filtri-nd", label: "Calcola filtri ND", icon: Aperture },
+    { key: "calcolatori", label: "Calcolatori", icon: Calculator },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "galleria", label: "Foto e video", icon: Camera },
     ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }, ...(usaIspezioni ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }] : [])] : []),
@@ -7692,13 +7692,43 @@ function CalcolatoreND({ evIniziale = 15, apertoIniziale = false }) {
   );
 }
 
-// dal menu «Calcola filtri ND»: il calcolatore da solo, già aperto (lo stesso del riquadro «Come impostare la camera»)
-function PaginaFiltriND() {
+// dal menu «Calcolatori»: tutti i calcoli in un posto solo (gli stessi componenti che si trovano anche in Pianifica)
+const CALCOLATORI = [
+  { key: "nd", emoji: "🎚️", titolo: "Filtri ND", sotto: "Quale filtro montare col sole per un video fluido" },
+  { key: "rilievo", emoji: "📐", titolo: "Fotogrammetria", sotto: "Altezza, dettaglio (GSD), sovrapposizioni, foto, tempo e batterie" },
+  { key: "trattamento", emoji: "💧", titolo: "Agras: trattamenti", sotto: "Miscela, pieni, portata degli ugelli, velocità e ore" },
+  { key: "pulizia", emoji: "🏢", titolo: "Pulizia facciate e pannelli", sotto: "Metri quadri, ore di lavoro e zona da delimitare a terra" },
+];
+function PaginaCalcolatori({ onPianifica }) {
+  const [scelto, setScelto] = useState("nd");
+  const calcoloRef = useRef(null);
+  const c = CALCOLATORI.find((x) => x.key === scelto) || CALCOLATORI[0];
+  // sul telefono il calcolo è sotto i riquadri: dopo la scelta ci scorro sopra
+  const scegli = (k) => { setScelto(k); if (window.innerWidth < 760) setTimeout(() => calcoloRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); };
+  const riquadro = (x) => (
+    <button key={x.key} type="button" onClick={() => scegli(x.key)} aria-pressed={scelto === x.key}
+      style={{ textAlign: "left", background: scelto === x.key ? "#ff8c4218" : "#151b2b", border: `1px solid ${scelto === x.key ? "#ff8c42" : "#2a3349"}`, borderRadius: 10, padding: "12px 14px", color: "#e7eaee", cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start" }}>
+      <span style={{ fontSize: 24, lineHeight: 1 }}>{x.emoji}</span>
+      <span><span style={{ display: "block", fontSize: 14, fontWeight: 700 }}>{x.titolo}</span><span style={{ display: "block", fontSize: 12, color: "#8b95a3", marginTop: 2, lineHeight: 1.4 }}>{x.sotto}</span></span>
+    </button>
+  );
   return (
-    <div style={{ maxWidth: 720 }}>
-      <TestataPagina titolo="Filtri ND" sigla="ND · VIDEO FLUIDI CON IL SOLE" icona={Aperture} info="Scegli fotogrammi, apertura, ISO e luce: ti dice quale filtro ND montare per tenere il tempo di scatto vicino alla regola dei 180° (1/50 a 25 fps)." />
-      <p style={{ fontSize: 13.5, color: "#c3cad4", lineHeight: 1.55, margin: "14px 0 0" }}>Con il sole il drone chiude il tempo di scatto e il video diventa «a scatti». Il filtro ND fa entrare meno luce, così il tempo resta giusto e il movimento è fluido.</p>
-      <CalcolatoreND apertoIniziale />
+    <div style={{ maxWidth: 820 }}>
+      <TestataPagina titolo="Calcolatori" sigla="CALC · ND, RILIEVI, AGRAS E PULIZIA" icona={Calculator} info="I calcoli che servono prima di volare, tutti in un posto. Gli stessi li trovi anche in Pianifica, dentro il tipo di lavoro." />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginTop: 14 }}>
+        {CALCOLATORI.map(riquadro)}
+        <button type="button" onClick={onPianifica} style={{ textAlign: "left", background: "#151b2b", border: "1px dashed #3d8bfd88", borderRadius: 10, padding: "12px 14px", color: "#e7eaee", cursor: "pointer", display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <span style={{ fontSize: 24, lineHeight: 1 }}>📋</span>
+          <span><span style={{ display: "block", fontSize: 14, fontWeight: 700 }}>Scenario STS ›</span><span style={{ display: "block", fontSize: 12, color: "#8b95a3", marginTop: 2, lineHeight: 1.4 }}>Area di volo e zone di sicurezza: serve il posto, si fa in Pianifica</span></span>
+        </button>
+      </div>
+      <div ref={calcoloRef} style={{ marginTop: 16, background: "#10141f", border: "1px solid #232b3f", borderRadius: 10, padding: 14, scrollMarginTop: 70 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{c.emoji} {c.titolo}</div>
+        {scelto === "nd" && <><p style={{ fontSize: 13, color: "#c3cad4", lineHeight: 1.55, margin: "0 0 4px" }}>Con il sole il drone chiude il tempo di scatto e il video diventa «a scatti». Il filtro ND fa entrare meno luce, così il tempo resta giusto e il movimento è fluido.</p><CalcolatoreND key="nd" apertoIniziale /></>}
+        {scelto === "rilievo" && <CalcolatoreRilievo key="rilievo" />}
+        {scelto === "trattamento" && <><CalcolatoreTrattamento key="trattamento" /><div style={{ borderTop: "1px solid #232b3f", margin: "14px 0" }} /><CalcolatoreAgras key="agras" /></>}
+        {scelto === "pulizia" && <CalcolatorePulizia key="pulizia" />}
+      </div>
     </div>
   );
 }
@@ -8982,6 +9012,46 @@ function CalcolatoreTrattamento() {
   );
 }
 
+// Agras: la portata da impostare (l/min) per avere i litri per ettaro voluti, alla velocità e larghezza di lavoro scelte
+function CalcolatoreAgras() {
+  const [c, setC] = useState({ dose: "15", larghezza: "7", velocita: "6", ugelli: "2", serbatoio: "40" });
+  const n = (k) => Number(String(c[k]).replace(",", ".")) || 0;
+  const portata = (n("dose") * n("velocita") * n("larghezza") * 60) / 10000; // l/min
+  const perUgello = n("ugelli") > 0 ? portata / n("ugelli") : 0;
+  const resa = (n("velocita") * n("larghezza") * 3600) / 10000; // ha/ora teorici
+  const minutiPieno = portata > 0 ? n("serbatoio") / portata : 0;
+  const ettariPieno = n("dose") > 0 ? n("serbatoio") / n("dose") : 0;
+  const f = (x) => x.toLocaleString("it-IT", { maximumFractionDigits: 1 });
+  const campo = (k, etichetta, unita) => (
+    <label style={{ fontSize: 11, color: "#6b7480", display: "flex", flexDirection: "column", gap: 3, flex: "1 1 110px" }}>
+      {etichetta}
+      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <input type="number" inputMode="decimal" value={c[k]} onChange={(e) => setC({ ...c, [k]: e.target.value })} style={{ ...inputStyle, padding: "6px 8px" }} />
+        <span style={{ fontSize: 11, color: "#8b95a3" }}>{unita}</span>
+      </span>
+    </label>
+  );
+  return (
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 700, margin: "0 0 8px" }}>🚿 Portata, velocità e ugelli</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {campo("dose", "Volume per ettaro", "l/ha")}
+        {campo("larghezza", "Larghezza di lavoro", "m")}
+        {campo("velocita", "Velocità di volo", "m/s")}
+        {campo("ugelli", "Ugelli / atomizzatori", "n.")}
+        {campo("serbatoio", "Serbatoio", "l")}
+      </div>
+      <div className="mono" style={{ display: "flex", gap: "6px 18px", flexWrap: "wrap", fontSize: 13.5, marginTop: 10 }}>
+        <span>🚿 portata <strong style={{ color: "#ff8c42" }}>{f(portata)} l/min</strong></span>
+        <span>🔩 {f(perUgello)} l/min per ugello</span>
+        <span>🌾 circa {f(resa)} ha/ora (teorici)</span>
+        <span>🛢️ un pieno: {f(minutiPieno)} min · {f(ettariPieno)} ha</span>
+      </div>
+      <p style={{ fontSize: 11, color: "#8b95a3", margin: "8px 0 0 0", lineHeight: 1.5 }}>Portata = l/ha × velocità × larghezza × 60 ÷ 10.000. Controlla che la portata stia sotto il massimo del tuo modello (lo trovi nel manuale dell'Agras): se è troppa, abbassa la velocità o la larghezza. La resa reale è più bassa di quella teorica per svolte, rifornimenti e cambi batteria.</p>
+    </div>
+  );
+}
+
 function CalcolatorePulizia() {
   const [c, setC] = useState({ altezza: "15", larghezza: "20", resa: "100" });
   const n = (k) => Number(String(c[k]).replace(",", ".")) || 0;
@@ -9512,7 +9582,7 @@ function StrumentiLavoro({ tipo, drone, altezzaZona }) {
   const [aperto, setAperto] = useState(false);
   const cfg = {
     rilievo: { titolo: "📐 Calcolatore missione di fotogrammetria", sotto: "Altezza, dettaglio (GSD), sovrapposizioni, numero di foto, tempo e batterie", comp: <CalcolatoreRilievo drone={drone} altezzaZona={altezzaZona} /> },
-    agricoltura: { titolo: "🌾 Calcolo del lavoro in campo", sotto: "Miscela, pieni del serbatoio e ore; per la mappatura NDVI usa il calcolatore di fotogrammetria", comp: <><CalcolatoreTrattamento /><div style={{ borderTop: "1px solid #232b3f", marginTop: 12, paddingTop: 10 }}><p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 6px 0" }}>Mappatura (NDVI) dei campi</p><CalcolatoreRilievo drone={drone} altezzaZona={altezzaZona} /></div></> },
+    agricoltura: { titolo: "🌾 Calcolo del lavoro in campo", sotto: "Miscela, pieni, portata degli ugelli e ore; per la mappatura NDVI usa il calcolatore di fotogrammetria", comp: <><CalcolatoreTrattamento /><div style={{ borderTop: "1px solid #232b3f", marginTop: 12, paddingTop: 10 }}><CalcolatoreAgras /></div><div style={{ borderTop: "1px solid #232b3f", marginTop: 12, paddingTop: 10 }}><p style={{ fontSize: 12.5, fontWeight: 600, margin: "0 0 6px 0" }}>Mappatura (NDVI) dei campi</p><CalcolatoreRilievo drone={drone} altezzaZona={altezzaZona} /></div></> },
     pulizia: { titolo: "🧽 Calcolo superficie e area di sicurezza", sotto: "Metri quadri, ore di lavoro e zona da delimitare a terra", comp: <CalcolatorePulizia /> },
   }[tipo];
   if (!cfg) return null;
