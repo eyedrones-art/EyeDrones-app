@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy, Fragment } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette, Gauge } from "lucide-react";
+import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette, Gauge, Aperture } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -1905,7 +1905,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2452,6 +2452,7 @@ function AppShell({ session }) {
           </Suspense>
         )}
         {page === "telemetria" && <Suspense fallback={<LoadingBlock />}><Telemetria /></Suspense>}
+        {page === "filtri-nd" && <PaginaFiltriND />}
         {page === "posti" && (
           <Suspense fallback={<LoadingBlock />}>
             <Posti supabase={supabase} cercaIndirizzo={cercaIndirizzoItalia} voli={voliDashboard} inputStyle={inputStyle}
@@ -3142,6 +3143,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
     { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
     { key: "telemetria", label: "Telemetria sul video", icon: Gauge },
+    { key: "filtri-nd", label: "Calcola filtri ND", icon: Aperture },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     ...(k !== "video" ? [{ key: "galleria", label: "Foto e video", icon: Camera }] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
@@ -3183,6 +3185,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
     { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
     { key: "telemetria", label: "Telemetria sul video", icon: Gauge },
+    { key: "filtri-nd", label: "Calcola filtri ND", icon: Aperture },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
     { key: "galleria", label: "Foto e video", icon: Camera },
     ...(usaAI ? [{ key: "analisi-ai", label: "Analisi foto (AI)", icon: Sparkles }, ...(usaIspezioni ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }] : [])] : []),
@@ -7685,6 +7688,17 @@ function CalcolatoreND({ evIniziale = 15, apertoIniziale = false }) {
           <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Regola dei 180°: per un movimento naturale il tempo di scatto dovrebbe essere circa il doppio dei fotogrammi (30 fps → 1/60). È una stima: controlla l'istogramma e correggi di uno stop se serve. Aperture più comuni: DJI Mini 4 Pro e Air 3 f/1.7 fissa, Avata 2 f/2.8 fissa, Mavic 3 f/2.8 regolabile.</p>
         </>
       )}
+    </div>
+  );
+}
+
+// dal menu «Calcola filtri ND»: il calcolatore da solo, già aperto (lo stesso del riquadro «Come impostare la camera»)
+function PaginaFiltriND() {
+  return (
+    <div style={{ maxWidth: 720 }}>
+      <TestataPagina titolo="Filtri ND" sigla="ND · VIDEO FLUIDI CON IL SOLE" icona={Aperture} info="Scegli fotogrammi, apertura, ISO e luce: ti dice quale filtro ND montare per tenere il tempo di scatto vicino alla regola dei 180° (1/50 a 25 fps)." />
+      <p style={{ fontSize: 13.5, color: "#c3cad4", lineHeight: 1.55, margin: "14px 0 0" }}>Con il sole il drone chiude il tempo di scatto e il video diventa «a scatti». Il filtro ND fa entrare meno luce, così il tempo resta giusto e il movimento è fluido.</p>
+      <CalcolatoreND apertoIniziale />
     </div>
   );
 }
