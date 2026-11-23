@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy, Fragment } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette, Gauge, Calculator } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette, Gauge, Calculator } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -1936,7 +1936,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "funzioni", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2262,11 +2262,14 @@ function AppShell({ session }) {
   const impiantoCorrente = impiantoAttivo ? impiantiConStat.find((i) => i.id === impiantoAttivo.id) : null;
 
   // navigazione: "Foto e video" nel menu è la galleria del registro voli
+  const [azioneVolo, setAzioneVolo] = useState(null);
   const vai = (chiave) => {
     // scorciatoie del menu: la scaletta delle riprese (dentro Pianifica) e i consigli di post-produzione (dentro Impara)
     if (chiave === "scaletta") { try { sessionStorage.setItem(CHIAVE_VAI_SCALETTA, "si"); } catch { /* niente */ } setPage("pianificazione"); window.scrollTo(0, 0); return; }
     if (chiave === "post-produzione") { setSchedaImpara("manuale"); setPage("impara"); window.scrollTo(0, 0); return; }
     if (chiave === "galleria") { setVistaVoli("galleria"); setPage("registro-voli"); return; }
+    // dalle «Tutte le funzioni»: consegna, liberatoria e fascicolo stanno dentro un volo → Registro voli con «scegli il volo»
+    if (chiave.startsWith("volo:")) { setAzioneVolo(chiave.slice(5)); setVistaVoli("voli"); setPage("registro-voli"); window.scrollTo(0, 0); return; }
     if (chiave === "registro-voli") setVistaVoli("voli");
     // «La mia pagina» dal menu: se ci sono richieste nuove apre subito quelle
     if (chiave === "pagina-pilota") setSchedaPagina(richiesteNuove > 0 || lavoriAperti > 0 ? "richieste" : "pagina");
@@ -2457,7 +2460,7 @@ function AppShell({ session }) {
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo tipoPredefinito={spazioAperto ? spazioAperto.tipoPiano : null} azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} luogoIniziale={luogoDaPianificare} onLuogoUsato={() => setLuogoDaPianificare(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
-        {page === "registro-voli" && <RegistroVoli spazio={spazioAperto} azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
+        {page === "registro-voli" && <RegistroVoli azioneDaFare={azioneVolo} onAzioneFatta={() => setAzioneVolo(null)} spazio={spazioAperto} azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} schermoPienoSubito={controlloSubito} onSchermoPienoAperto={() => setControlloSubito(false)} />}
         {page === "numeri" && adminAI && <NumeriStartup onIndietro={() => setPage("impostazioni")} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
@@ -2482,6 +2485,7 @@ function AppShell({ session }) {
               onCaricaZone={() => { setPage("pianificazione"); window.scrollTo(0, 0); }} />
           </Suspense>
         )}
+        {page === "funzioni" && <TutteLeFunzioni onVai={(k) => { vai(k); window.scrollTo(0, 0); }} usaAI={adminAI || espertoAperto} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} />}
         {page === "telemetria" && <Suspense fallback={<LoadingBlock />}><Telemetria /></Suspense>}
         {(page === "calcolatori" || page === "filtri-nd") && <PaginaCalcolatori onPianifica={() => { setPage("pianificazione"); window.scrollTo(0, 0); }} />}
         {page === "posti" && (
@@ -3169,6 +3173,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
   ] : cartelle ? [] : null; // nella Home delle cartelle: solo le voci in comune
   const items = vociSpazio ? [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
+    { key: "funzioni", label: "Tutte le funzioni", icon: LayoutGrid },
     ...vociSpazio,
     { intestazione: "Voli" },
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
@@ -3203,6 +3208,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "suggerimenti", label: "Suggerimenti", icon: MessageSquare },
   ] : [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
+    { key: "funzioni", label: "Tutte le funzioni", icon: LayoutGrid },
     ...(usaIspezioni ? [
       { intestazione: "Ispezioni" },
       { key: "impianti", label: "Impianti", icon: Sun },
@@ -7727,6 +7733,97 @@ const CALCOLATORI = [
   { key: "trattamento", emoji: "💧", titolo: "Agras: trattamenti", sotto: "Miscela, pieni, portata degli ugelli, velocità e ore" },
   { key: "pulizia", emoji: "🏢", titolo: "Pulizia facciate e pannelli", sotto: "Metri quadri, ore di lavoro e zona da delimitare a terra" },
 ];
+// --- Tutte le funzioni: la mappa dell'app, ogni riquadro porta nel posto giusto -------------------------
+const AZIONI_VOLO = {
+  condividi: { emoji: "📤", nome: "Manda al cliente" },
+  liberatorie: { emoji: "✍️", nome: "Liberatoria" },
+  fascicolo: { emoji: "📁", nome: "Fascicolo PDF" },
+};
+function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
+  return [
+    { titolo: "Prima del volo", emoji: "🛡️", voci: [
+      { e: "📍", t: "Posso volare qui?", d: "Sul posto: zona, altezza massima e dove andare adesso", k: "qui", c: "zona d-flight dove volare gps" },
+      { e: "🗺️", t: "Zona di volo e regole", d: "Scrivi la via: zona D-Flight, aree militari, parchi e regole del tuo drone", k: "pianificazione", dove: "In Pianifica", c: "d-flight zone uas altezza militare parco natura 2000 classe c0 c1 c2" },
+      { e: "📝", t: "Permessi", d: "Se serve, a chi chiederlo, quanti giorni prima e il modulo pronto", k: "permessi", c: "autorizzazione aeroporto enac" },
+      { e: "🌅", t: "Meteo e ora d'oro", d: "Vento per il tuo drone, indice Kp, alba, tramonto e sole", k: "pianificazione", dove: "In Pianifica", c: "vento pioggia kp luce tramonto" },
+      { e: "📐", t: "Volumi STS-01", d: "Disegni l'area o la importi da DJI Pilot 2: contingenza e buffer", k: "pianificazione", dove: "In Pianifica", c: "sts specific buffer contingenza" },
+      { e: "🏛️", t: "Pratica ENAC (STS)", d: "La dichiarazione e il manuale operativo per lo scenario STS", k: "pratica-enac", c: "enac sts dichiarazione manuale" },
+      { e: "🧭", t: "Posti belli vicino a te", d: "Panorami, castelli e laghi con la zona già controllata", k: "posti", c: "luoghi panorami dove andare" },
+    ] },
+    { titolo: "Riprese e calcolatori", emoji: "🎬", voci: [
+      { e: "🗓️", t: "Pianifica volo e riprese", d: "Il prossimo volo: luogo, data, meteo, checklist e promemoria", k: "pianificazione", c: "piano volo checklist" },
+      { e: "🎬", t: "Scaletta riprese", d: "Le scene da fare e le manovre con gli stick, per ogni lavoro", k: "scaletta", c: "scene manovre video" },
+      { e: "🧮", t: "Calcolatori", d: "Filtri ND, fotogrammetria, Agras, pulizia di facciate e pannelli", k: "calcolatori", c: "nd gsd fotogrammetria agras ugelli calcolo" },
+      { e: "📈", t: "Telemetria sul video", d: "Quota, velocità, distanza e percorso presi dal file del drone", k: "telemetria", c: "srt dati video velocità quota" },
+      { e: "🎨", t: "Consigli di post-produzione", d: "Colore, LUT e i programmi giusti, da computer e da telefono", k: "post-produzione", c: "colore lut montaggio davinci capcut" },
+    ] },
+    { titolo: "Dopo il volo e controlli", emoji: "📒", voci: [
+      { e: "📒", t: "Registro voli", d: "Anche automatico, dalle foto e dai video della scheda SD", k: "registro-voli", c: "logbook voli diario" },
+      { e: "🖼️", t: "Foto e video", d: "Tutti i file dei tuoi voli in una galleria", k: "galleria", c: "galleria media" },
+      { e: "👮", t: "Pronto per i controlli", d: "Attestati, assicurazione, drone e permessi a schermo pieno, anche senza campo", k: "documenti-controllo", c: "polizia controllo documenti assicurazione" },
+      { e: "📁", t: "Fascicolo del volo", d: "Un solo PDF con tutto, se dopo ti chiedono spiegazioni", k: "volo:fascicolo", pro: true, nascosta: true, c: "pdf spiegazioni assicurazione enac" },
+      { e: "🎓", t: "Attestati", d: "A1/A3, A2 e STS con gli avvisi prima della scadenza", k: "attestati", c: "patentino scadenza" },
+      { e: "🔧", t: "I miei droni e manutenzione", d: "Classe, assicurazione, eliche, firmware e riparazioni", k: "droni", c: "drone manutenzione eliche firmware" },
+      { e: "🔋", t: "Batterie", d: "Cicli e stato di carica di ogni batteria", k: "batterie", c: "cicli carica" },
+    ] },
+    { titolo: "Per chi lavora", emoji: "💼", voci: [
+      { e: "💶", t: "Preventivi e incassi", d: "PDF da mandare con WhatsApp o email, pagati e da incassare", k: "preventivi", pro: true, c: "preventivo prezzo fattura incasso pagamento" },
+      { e: "👥", t: "Clienti", d: "La rubrica dei clienti, con WhatsApp a un tocco", k: "clienti", c: "rubrica contatti" },
+      { e: "📤", t: "Consegna al cliente", d: "Galleria con il tuo logo, PIN, filigrana e preferiti", k: "volo:condividi", nascosta: true, c: "consegna galleria cliente foto pin filigrana" },
+      { e: "✍️", t: "Liberatorie", d: "La persona ripresa firma col dito sul telefono", k: "volo:liberatorie", pro: true, nascosta: true, c: "liberatoria firma privacy immagine" },
+      ...(usaIspezioni ? [{ e: "🔍", t: "Ispezioni e report", d: "Fotovoltaico, edifici e anomalie termiche, con report PDF", k: "impianti", c: "termografia fotovoltaico report anomalie" }] : []),
+      ...(usaAgricoltura ? [{ e: "🌾", t: "Campi e trattamenti", d: "Appezzamenti, registro dei trattamenti e meteo per irrorare", k: "campi", c: "agras agricoltura trattamenti delta t" }] : []),
+      { e: "🤝", t: "Collaboratori", d: "Altri piloti con cui lavori, per passarvi i lavori", k: "collaboratori", c: "piloti squadra" },
+      { e: "🌐", t: "La mia pagina e Trova un pilota", d: "La tua pagina pilota e le richieste dei clienti della tua zona", k: "pagina-pilota", c: "trovapilota richieste clienti offerte pagina" },
+    ] },
+    { titolo: "Imparare", emoji: "🎓", voci: [
+      { e: "🎓", t: "Lezioni e quiz A1/A3 e A2", d: "Regole spiegate semplici e simulazione d'esame come all'ENAC", k: "impara", c: "esame quiz patentino lezioni" },
+      { e: "🎮", t: "Simulatore di volo", d: "Riprese GPS e FPV e missioni per clienti, senza rischiare il drone", esterno: "/simulatore/", c: "simulatore fpv prova" },
+    ] },
+    ...(usaAI ? [{ titolo: "Intelligenza artificiale", emoji: "✨", voci: [
+      { e: "💬", t: "Esperto AI", d: "Carichi foto o video: ti dice cosa non va e come sistemarlo", k: "analisi-ai", c: "ai esperto foto video" },
+      ...(usaIspezioni ? [{ e: "🔎", t: "Ispezione con AI", d: "Propone i difetti foto per foto e prepara il report", k: "ispezione-ai", c: "ai ispezione difetti" }] : []),
+    ] }] : []),
+  ];
+}
+
+function TutteLeFunzioni({ onVai, usaAI, usaIspezioni, usaAgricoltura }) {
+  const [cerca, setCerca] = useState("");
+  const q = cerca.trim().toLowerCase();
+  const gruppi = elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura })
+    .map((g) => ({ ...g, voci: q ? g.voci.filter((v) => `${v.t} ${v.d} ${v.c || ""}`.toLowerCase().includes(q)) : g.voci }))
+    .filter((g) => g.voci.length);
+  const apri = (v) => { if (v.esterno) window.location.href = v.esterno; else onVai(v.k); };
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <style>{`.tf-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+        @media (max-width: 520px) { .tf-griglia { grid-template-columns: 1fr 1fr; gap: 8px; } }
+        .tf-voce { text-align: left; background: #151b2b; border: 1px solid #232b3f; border-radius: 12px; padding: 12px 13px; color: #e7eaee; font: inherit; cursor: pointer; position: relative; display: flex; flex-direction: column; gap: 3px; min-height: 44px; }
+        .tf-voce:hover { border-color: #ff8c42; }`}</style>
+      <TestataPagina titolo="Tutte le funzioni" sigla="APP · COSA PUOI FARE" foto="/trova-pilota/case.webp" />
+      <input type="search" value={cerca} onChange={(e) => setCerca(e.target.value)} placeholder="🔍 Cerca una funzione… (es. liberatoria)" aria-label="Cerca una funzione"
+        style={{ width: "100%", boxSizing: "border-box", background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: "13px 14px", color: "#e7eaee", fontSize: 15, margin: "4px 0 6px 0" }} />
+      {gruppi.length === 0 && <p style={{ color: "#8b95a3", fontSize: 14, marginTop: 16 }}>Nessuna funzione con «{cerca}». Prova con un'altra parola, oppure scrivici dai Suggerimenti.</p>}
+      {gruppi.map((g) => (
+        <section key={g.titolo} style={{ marginTop: 18 }}>
+          <h2 style={{ fontSize: 16.5, fontWeight: 800, margin: "0 0 10px 0", display: "flex", alignItems: "center", gap: 8 }}><span>{g.emoji}</span>{g.titolo}</h2>
+          <div className="tf-griglia">
+            {g.voci.map((v) => (
+              <button key={v.t} type="button" className="tf-voce" onClick={() => apri(v)}>
+                {v.pro && <span style={{ position: "absolute", top: 10, right: 10, fontSize: 9.5, fontWeight: 800, color: "#4ade80", border: "1px solid #2f6b47", borderRadius: 5, padding: "1px 5px" }}>PRO</span>}
+                <span style={{ fontSize: 21 }}>{v.e}</span>
+                <strong style={{ fontSize: 14, lineHeight: 1.25, paddingRight: v.pro ? 34 : 0 }}>{v.t}</strong>
+                <span style={{ fontSize: 12, color: "#9aa3b8", lineHeight: 1.4 }}>{v.d}</span>
+                <span style={{ fontSize: 11.5, color: "#ffb877", fontWeight: 700, marginTop: 4 }}>{v.nascosta ? "Scegli il volo ›" : v.dove ? `${v.dove} ›` : "Apri ›"}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function PaginaCalcolatori({ onPianifica }) {
   const [scelto, setScelto] = useState("nd");
   const calcoloRef = useRef(null);
@@ -15844,7 +15941,7 @@ function dateCercabili(d) {
   return [`${a}-${me}-${g}`, `${g}/${me}/${a}`, `${gg}/${Number(me)}/${a}`, `${gg} ${MESI_ESTESI[Number(me) - 1]} ${a}`, formatData(d)];
 }
 
-function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento, eventiVolo, onEventiCambiati }) {
+function RegistroVoli({ azioneDaFare, onAzioneFatta, spazio, azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento, eventiVolo, onEventiCambiati }) {
   const [voli, setVoli] = useState([]);
   const [media, setMedia] = useState([]);
   const [caricando, setCaricando] = useState(true);
@@ -15856,6 +15953,12 @@ function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo
   const [filtroAnno, setFiltroAnno] = useState("tutti");
   const [cerca, setCerca] = useState("");
   const [espansoId, setEspansoId] = useState(null);
+  // arrivo da «Tutte le funzioni» (consegna, liberatoria, fascicolo): quando apre un volo lo porto alla parte giusta
+  useEffect(() => {
+    if (!azioneDaFare || !espansoId) return;
+    const t = setTimeout(() => { document.getElementById(`volo-${espansoId}-${azioneDaFare}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); onAzioneFatta && onAzioneFatta(); }, 350);
+    return () => clearTimeout(t);
+  }, [azioneDaFare, espansoId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [caricandoMediaId, setCaricandoMediaId] = useState(null);
   const [statoCaricamento, setStatoCaricamento] = useState(null); // { stato: in_corso | ok | errore, testo }
   // durante un caricamento avviso se si prova a chiudere o ricaricare la pagina
@@ -16304,6 +16407,13 @@ function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo
           </details>
         </div>
       </TestataPagina>
+      {azioneDaFare && AZIONI_VOLO[azioneDaFare] && (
+        <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, background: "#2a1d12", border: "1px solid #ff8c42", borderRadius: 10, padding: "12px 14px", margin: "0 0 14px 0", fontSize: 14, color: "#f3e3d2" }}>
+          <span style={{ fontSize: 22 }}>{AZIONI_VOLO[azioneDaFare].emoji}</span>
+          <span style={{ flex: 1, lineHeight: 1.45 }}><strong style={{ color: "#ffb877" }}>Scegli il volo</strong>: toccalo per aprirlo e trovi «{AZIONI_VOLO[azioneDaFare].nome}».{voli.length === 0 && !caricando ? " Prima registra un volo." : ""}</span>
+          <button type="button" onClick={onAzioneFatta} aria-label="Chiudi" style={{ background: "none", border: "none", color: "#c3cad4", minWidth: 36, minHeight: 36 }}><X size={16} /></button>
+        </div>
+      )}
       {piano === "free" && (
         <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "-8px 0 16px 0" }}>
           Piano Free: {voli.length}/{LIMITI_FREE.voli} voli. Foto, video e link non hanno un limite di numero.{" "}
