@@ -361,6 +361,16 @@ async function avvisaTelegram(d) {
   }).catch(() => null);
 }
 
+// registro per la pagina «Richieste» dell'amministratore: quante email e notifiche sono partite (niente indirizzi)
+async function registraAvviso(segreto, d, emailOk, emailKo, push) {
+  if (d.tipo !== "nuovo_lavoro") return;
+  await fetch(`${SUPABASE_URL}/rest/v1/rpc/avvisi_registra`, {
+    method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_segreto: segreto, p_tipo: d.tipo, p_provincia: pulisci(d.provincia, 4), p_servizio: pulisci(d.servizio, 80),
+      p_email_ok: emailOk, p_email_ko: emailKo, p_push: push }),
+  }).catch(() => null); // script richieste-admin.sql non ancora eseguito: si va avanti lo stesso
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return risposta(405, "Solo POST");
   const segreto = process.env.AVVISO_SEGRETO;
@@ -375,7 +385,7 @@ exports.handler = async (event) => {
   const m = componiEmail(d);
   if (!m) return risposta(400, "Tipo sconosciuto");
   const a = m.a.filter(emailValida);
-  if (!a.length) return risposta(200, "Nessun destinatario");
+  if (!a.length) { await registraAvviso(segreto, d, 0, 0, 0); return risposta(200, "Nessun destinatario"); }
 
   // un'email per destinatario: i piloti non vedono gli indirizzi degli altri
   let errori = 0;
@@ -395,5 +405,6 @@ exports.handler = async (event) => {
     }
   }
   const telefoni = await notificaTelefoni(segreto, a, m).catch(() => 0);
+  await registraAvviso(segreto, d, a.length - errori, errori, telefoni);
   return errori === a.length ? risposta(502, "Invio non riuscito") : risposta(200, `Inviate ${a.length - errori}, notifiche ${telefoni}`);
 };
