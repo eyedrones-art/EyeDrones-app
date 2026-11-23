@@ -20,6 +20,7 @@ import { PROVINCE_ITALIA, SEO_TROVA } from "./seoTrovaPilota.js";
 import { CODICE_CONDOTTA } from "./codiceCondotta.js";
 import VoloHero, { STILE_VOLO, TestataPagina, STILE_TESTATA } from "./VoloHero.jsx";
 import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
+import { PREZZI_PIANO, LANCIO, lancioInCorso, fineLancio, euro, NOME_PIANO, ORDINE_PIANO, impostaPianoPagato, NotaPiano } from "./piani.jsx";
 import Elio, { ElioDice, STILE_ELIO, useElio, accendiElio } from "./Elio.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese, leggiGpsFoto } from "./Scene.jsx";
@@ -277,18 +278,9 @@ function InvitoPro({ volo, cosa, passQuestoMese = 0, onVaiAbbonamento }) {
 }
 // Link di pagamento Stripe (Payment Link): quando li crei su Stripe, incollali qui e i pulsanti "Passa a..." li useranno.
 const LINK_PAGAMENTO = { pilota: { mese: "", anno: "" }, pro: { mese: "", anno: "" } };
-// prezzi in euro: cambiali solo qui, la pagina Abbonamento calcola da sola "al mese" e "mesi risparmiati"
-const PREZZI_PIANO = { pilota: { mese: 6.9, anno: 69 }, pro: { mese: 12.9, anno: 119 } };
-// Lancio: fino a questa data tutti hanno le funzioni Pro senza costi. Chi si iscrive entro la data è "fondatore":
-// quando partono gli abbonamenti paga il primo anno scontato (poi prezzo pieno). Per chiudere il lancio: attivo: false.
-const LANCIO = { attivo: true, fino: "2027-01-31", scontoFondatori: 0.5 };
-const lancioInCorso = () => LANCIO.attivo && dataLocale() <= LANCIO.fino;
-const fineLancio = () => new Date(`${LANCIO.fino}T12:00:00`).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+// prezzi, lancio e fondatori: in src/piani.jsx
 const prezzoFondatori = (n) => Math.round(n * (1 - LANCIO.scontoFondatori) * 100) / 100;
-const euro = (n) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 const mesiRisparmiatiAnnuale = (chiave) => Math.round(12 - PREZZI_PIANO[chiave].anno / PREZZI_PIANO[chiave].mese);
-const NOME_PIANO = { free: "Free", pilota: "Pilota", pro: "Pro" };
-const ORDINE_PIANO = { free: 0, pilota: 1, pro: 2 };
 const COLORE_PIANO = { free: "#f5b942", pilota: "#3d8bfd", pro: "#4ade80" };
 
 // legge "45.0703, 7.6869" (anche con la virgola decimale) e restituisce { lat, lon } oppure null
@@ -2037,6 +2029,7 @@ function AppShell({ session }) {
   const [impiantoAttivo, setImpiantoAttivo] = useState(null);
   const [azienda, setAzienda] = useState({ nome: "EyeDrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "", fisco: FISCO_DEFAULT });
   const [pianoReale, setPiano] = useState("free");
+  impostaPianoPagato(pianoReale);
   // durante il lancio tutti usano le funzioni Pro; la pagina Abbonamento mostra il piano vero
   const piano = lancioInCorso() ? "pro" : pianoReale;
   const [profiloCaricato, setProfiloCaricato] = useState(false);
@@ -2168,6 +2161,7 @@ function AppShell({ session }) {
       else if (d.pagina === "permessi" || d.pagina === "nuova" || d.pagina === "attestati") { setGuidaSopra(null); setPage(d.pagina); window.scrollTo(0, 0); }
       else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
       else if (d.pagina === "qui") { setPage("qui"); window.scrollTo(0, 0); }
+      else if (d.pagina === "abbonamento") { setPage("abbonamento"); window.scrollTo(0, 0); }
       else if (d.pagina === "numeri") { setPage("numeri"); window.scrollTo(0, 0); }
       else if (d.pagina === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", JSON.stringify(d.posto || {})); } catch { /* niente */ } setPage("posti"); window.scrollTo(0, 0); }
     };
@@ -5693,6 +5687,7 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
           {aperto ? "Annulla" : <><Plus size={14} /> Nuovo cliente</>}
         </button>
       </TestataPagina>
+      <NotaPiano quale="pro" cosa="Rubrica clienti e incassi" />
 
       {aperto && (
         <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 16, marginBottom: 18, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -6171,6 +6166,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo preventivo</>}
         </button>
       </TestataPagina>
+      <NotaPiano quale="pro" cosa="Preventivi, clienti e incassi" />
 
       {showForm && (
         <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 540, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -15067,6 +15063,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
           {showForm && !editingId ? "Annulla" : <><Plus size={14} /> Nuova batteria</>}
         </button>
       </TestataPagina>
+      {batterie.length >= LIMITI_FREE.batterie && <NotaPiano quale="pilota" prima={`Hai ${batterie.length} batterie: il Free ne conta ${LIMITI_FREE.batterie}.`} cosa="Batterie illimitate" />}
       {piano === "free" && (
         <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "-8px 0 14px 0" }}>
           Piano Free: {attive.length}/{LIMITI_FREE.batterie} batterie.{" "}
@@ -16473,6 +16470,7 @@ function RegistroVoli({ azioneDaFare, onAzioneFatta, spazio, azienda, droni, isp
           </details>
         </div>
       </TestataPagina>
+      {voli.length >= 8 && !azioneDaFare && <NotaPiano quale="pilota" prima={`Hai già ${voli.length} voli registrati: il Free ne include ${LIMITI_FREE.voli}.`} cosa="Registro voli illimitato" />}
       {azioneDaFare && AZIONI_VOLO[azioneDaFare] && (
         <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, background: "#2a1d12", border: "1px solid #ff8c42", borderRadius: 10, padding: "12px 14px", margin: "0 0 14px 0", fontSize: 14, color: "#f3e3d2" }}>
           <span style={{ fontSize: 22 }}>{AZIONI_VOLO[azioneDaFare].emoji}</span>
