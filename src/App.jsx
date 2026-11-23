@@ -1452,7 +1452,7 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
   doc.text(azienda.nome.toUpperCase(), 38, 15);
   doc.setFontSize(9);
   doc.setTextColor(180, 186, 194);
-  doc.text("Ispezioni aeree con termocamera", 38, 21);
+  doc.text("Servizi professionali con drone", 38, 21);
 
   y = 46;
 
@@ -1570,7 +1570,7 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
   doc.setFontSize(16);
   doc.setTextColor(...scuro);
   doc.text(`€ ${totale.toFixed(2)}`, 195, y, { align: "right" });
-  y += 16;
+  y += 12;
 
   // --- riepilogo fiscale (dal regime scelto in Impostazioni e dal tipo di cliente del preventivo) ---
   const fisco = calcolaFisco(totale, azienda.fisco, preventivo.cliente_tipo || "privato");
@@ -1601,7 +1601,7 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
       doc.text(righe, 15, y + 1);
       y += righe.length * 3.8 + 3;
     }
-    y += 6;
+    y += 3;
   }
 
   // --- note ---
@@ -1618,32 +1618,29 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
     y += noteLines.length * 4.5 + 8;
   }
 
-  // --- diciture legali (personalizzabili in Impostazioni) ---
   const testoLegale = (azienda.noteLegaliPreventivo || NOTE_LEGALI_PREVENTIVO_DEFAULT.replace("I prezzi indicati si intendono IVA esclusa, se dovuta.", fraseIvaNoteLegali(azienda.fisco))).replace("{validita}", String(preventivo.validita_giorni || 30));
-  if (testoLegale) {
-    if (y > 240) { doc.addPage(); y = 20; }
-    doc.setDrawColor(225, 225, 225);
-    doc.line(15, y, 195, y);
-    y += 7;
-    doc.setFontSize(7.5);
-    doc.setTextColor(...grigioChiaro);
-    const righeLegali = doc.splitTextToSize(testoLegale, 180);
-    doc.text(righeLegali, 15, y);
-    y += righeLegali.length * 3.6 + 8;
-  }
-
-  // la riga di accettazione sta sopra la fascia scura (283 mm): vado a pagina nuova solo se proprio non ci sta
-  if (y > 263) { doc.addPage(); y = 20; }
+  // note legali e riga di accettazione restano insieme: se non stanno sopra la fascia finale (283 mm) vanno a pagina nuova
+  doc.setFontSize(7.5);
+  const righeLegali = testoLegale ? doc.splitTextToSize(testoLegale, 180) : [];
+  const altezzaLegali = righeLegali.length ? 5 + righeLegali.length * 3.3 + 4 : 0;
+  const firma = `${azienda.nome}${preventivo.operatore ? " — " + preventivo.operatore : ""}`;
+  if (y + altezzaLegali + 16 > 281) { doc.addPage(); y = 20; }
   doc.setDrawColor(225, 225, 225);
   doc.line(15, y, 195, y);
-  y += 7;
+  y += 5;
+  if (righeLegali.length) {
+    doc.setFontSize(7.5);
+    doc.setTextColor(...grigioChiaro);
+    doc.text(righeLegali, 15, y);
+    y += righeLegali.length * 3.3 + 4;
+  }
   doc.setFontSize(9);
   doc.setTextColor(...grigio);
   doc.text("Per accettazione del preventivo, si prega di confermare via email o telefono.", 15, y);
-  y += 8;
+  y += 7;
   doc.setFontSize(10);
   doc.setTextColor(...nero);
-  doc.text(`${azienda.nome}${preventivo.operatore ? " — " + preventivo.operatore : ""}`, 15, y);
+  doc.text(firma, 15, y);
 
   // --- fascia inferiore scura ---
   doc.setFillColor(...scuro);
