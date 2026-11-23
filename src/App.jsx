@@ -20,6 +20,8 @@ import { PROVINCE_ITALIA, SEO_TROVA } from "./seoTrovaPilota.js";
 import { CODICE_CONDOTTA } from "./codiceCondotta.js";
 import VoloHero, { STILE_VOLO, TestataPagina, STILE_TESTATA } from "./VoloHero.jsx";
 import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
+import { ControlloFoto, PuntiGCP, VolumiCumuli } from "./Fotogrammetria.jsx";
+import { PREZZI_PIANO, LANCIO, lancioInCorso, fineLancio, euro, NOME_PIANO, ORDINE_PIANO, impostaPianoPagato, NotaPiano } from "./piani.jsx";
 import Elio, { ElioDice, STILE_ELIO, useElio, accendiElio } from "./Elio.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese, leggiGpsFoto } from "./Scene.jsx";
@@ -277,18 +279,9 @@ function InvitoPro({ volo, cosa, passQuestoMese = 0, onVaiAbbonamento }) {
 }
 // Link di pagamento Stripe (Payment Link): quando li crei su Stripe, incollali qui e i pulsanti "Passa a..." li useranno.
 const LINK_PAGAMENTO = { pilota: { mese: "", anno: "" }, pro: { mese: "", anno: "" } };
-// prezzi in euro: cambiali solo qui, la pagina Abbonamento calcola da sola "al mese" e "mesi risparmiati"
-const PREZZI_PIANO = { pilota: { mese: 6.9, anno: 69 }, pro: { mese: 12.9, anno: 119 } };
-// Lancio: fino a questa data tutti hanno le funzioni Pro senza costi. Chi si iscrive entro la data è "fondatore":
-// quando partono gli abbonamenti paga il primo anno scontato (poi prezzo pieno). Per chiudere il lancio: attivo: false.
-const LANCIO = { attivo: true, fino: "2027-01-31", scontoFondatori: 0.5 };
-const lancioInCorso = () => LANCIO.attivo && dataLocale() <= LANCIO.fino;
-const fineLancio = () => new Date(`${LANCIO.fino}T12:00:00`).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+// prezzi, lancio e fondatori: in src/piani.jsx
 const prezzoFondatori = (n) => Math.round(n * (1 - LANCIO.scontoFondatori) * 100) / 100;
-const euro = (n) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 const mesiRisparmiatiAnnuale = (chiave) => Math.round(12 - PREZZI_PIANO[chiave].anno / PREZZI_PIANO[chiave].mese);
-const NOME_PIANO = { free: "Free", pilota: "Pilota", pro: "Pro" };
-const ORDINE_PIANO = { free: 0, pilota: 1, pro: 2 };
 const COLORE_PIANO = { free: "#f5b942", pilota: "#3d8bfd", pro: "#4ade80" };
 
 // legge "45.0703, 7.6869" (anche con la virgola decimale) e restituisce { lat, lon } oppure null
@@ -2037,6 +2030,7 @@ function AppShell({ session }) {
   const [impiantoAttivo, setImpiantoAttivo] = useState(null);
   const [azienda, setAzienda] = useState({ nome: "EyeDrones", logo: LOGO_EYEDRONES, tariffaBase: 150, tariffaKwp: 0.12, noteLegaliPreventivo: "", fisco: FISCO_DEFAULT });
   const [pianoReale, setPiano] = useState("free");
+  impostaPianoPagato(pianoReale);
   // durante il lancio tutti usano le funzioni Pro; la pagina Abbonamento mostra il piano vero
   const piano = lancioInCorso() ? "pro" : pianoReale;
   const [profiloCaricato, setProfiloCaricato] = useState(false);
@@ -2168,6 +2162,7 @@ function AppShell({ session }) {
       else if (d.pagina === "permessi" || d.pagina === "nuova" || d.pagina === "attestati") { setGuidaSopra(null); setPage(d.pagina); window.scrollTo(0, 0); }
       else if (d.pagina === "pianificazione") { if (d.luogo) setLuogoDaPianificare(d.luogo); setPage("pianificazione"); window.scrollTo(0, 0); }
       else if (d.pagina === "qui") { setPage("qui"); window.scrollTo(0, 0); }
+      else if (d.pagina === "abbonamento") { setPage("abbonamento"); window.scrollTo(0, 0); }
       else if (d.pagina === "numeri") { setPage("numeri"); window.scrollTo(0, 0); }
       else if (d.pagina === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", JSON.stringify(d.posto || {})); } catch { /* niente */ } setPage("posti"); window.scrollTo(0, 0); }
     };
@@ -4450,7 +4445,12 @@ function PaginaRilievi({ voli, droni = [], azienda, piano, onNav, onNuovo, onCam
           {scheda("rilievi", "📋 I rilievi")}
           {scheda("calcolo", "📐 Calcolatore")}
           {scheda("lista", "✅ Lista sul campo")}
+          {scheda("controllo", "🔎 Controllo foto")}
+          {scheda("volumi", "📦 Volumi")}
         </div>
+
+        {vista === "controllo" && <ControlloFoto inputStyle={inputStyle} />}
+        {vista === "volumi" && <VolumiCumuli inputStyle={inputStyle} />}
 
         {vista === "calcolo" && (
           <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 10, padding: 14 }}>
@@ -4513,6 +4513,8 @@ function PaginaRilievi({ voli, droni = [], azienda, piano, onNav, onNuovo, onCam
                               {st === "volato" ? "✓ Ho elaborato le foto" : "↺ Non ancora elaborato"}
                             </button>
                           )}
+                          <PuntiGCP volo={v} inputStyle={inputStyle} onSalva={async (dettagli) => { const { error } = await supabase.from("voli").update({ dettagli }).eq("id", v.id); if (!error && onCambiato) onCambiato(); return !error; }} />
+                          <div style={{ marginTop: 10, background: "#10141f", border: "1px solid #232b3f", borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: "#aab3bf", lineHeight: 1.5 }}>🗺️ <strong style={{ color: "#e7eaee" }}>Ortofoto al cliente</strong>: esportala in JPG dal programma di elaborazione, caricala nel volo (Registro voli → il volo → foto) e crea il link di consegna. Il cliente la apre e la ingrandisce con le dita o con la rotella.</div>
                           <ReportConsegnaRilievo volo={v} drone={drone} azienda={azienda} piano={piano} passQuestoMese={passQuestoMese} onVaiAbbonamento={() => onNav("abbonamento")} onAggiornato={() => onCambiato && onCambiato()} />
                           <button type="button" onClick={() => onNav("registro-voli")} style={{ marginTop: 10, background: "none", border: "none", color: "#67e8f9", fontSize: 12.5, padding: 0 }}>Apri il volo nel registro ›</button>
                         </div>
@@ -5693,6 +5695,7 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
           {aperto ? "Annulla" : <><Plus size={14} /> Nuovo cliente</>}
         </button>
       </TestataPagina>
+      <NotaPiano quale="pro" cosa="Rubrica clienti e incassi" />
 
       {aperto && (
         <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: 16, marginBottom: 18, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -6171,6 +6174,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
           {showForm ? "Annulla" : <><Plus size={14} /> Nuovo preventivo</>}
         </button>
       </TestataPagina>
+      <NotaPiano quale="pro" cosa="Preventivi, clienti e incassi" />
 
       {showForm && (
         <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: 18, marginBottom: 20, maxWidth: 540, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -6772,7 +6776,8 @@ const TIPI_ATTESTATO_SUGGERITI = [
   "Patentino A1/A3", "Patentino A2", "Assicurazione", "Termografia Livello 1 (UNI EN ISO 9712)", "Termografia Livello 2 (UNI EN ISO 9712)",
   "Attestato teorico STS ENAC", "Attestato pratico STS (VLOS/BVLOS)",
   "UAS CRM", "Comunicazioni Aeronautiche UAS", "Registrazione operatore D-Flight",
-  "Autorizzazione operativa ENAC (categoria Specifica)", "Dichiarazione STS", "Abilitazione trattamenti con drone (PDRA-S01)", "Altro",
+  "Autorizzazione operativa ENAC (categoria Specifica)", "Dichiarazione STS", "Abilitazione trattamenti con drone (PDRA-S01)",
+  "Abilitazione all'uso dei prodotti fitosanitari (patentino)", "Autorizzazione regionale ai trattamenti con drone", "Altro",
 ];
 
 function statoScadenza(dataScadenza) {
@@ -7836,7 +7841,8 @@ function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
       { e: "📤", t: "Consegna al cliente", d: "Galleria con il tuo logo, PIN, filigrana e preferiti", k: "volo:condividi", pro: true, nascosta: true, c: "consegna galleria cliente foto pin filigrana" },
       { e: "✍️", t: "Liberatorie", d: "La persona ripresa firma col dito sul telefono", k: "volo:liberatorie", pro: true, nascosta: true, c: "liberatoria firma privacy immagine" },
       ...(usaIspezioni ? [{ e: "🔍", t: "Ispezioni e report", d: "Fotovoltaico, edifici e anomalie termiche, con report PDF", k: "impianti", c: "termografia fotovoltaico report anomalie" }] : []),
-      ...(usaAgricoltura ? [{ e: "🌾", t: "Campi e trattamenti", d: "Appezzamenti, registro dei trattamenti e meteo per irrorare", k: "campi", c: "agras agricoltura trattamenti delta t" }] : []),
+      { e: "🌾", t: "Agricoltura con droni Agras", d: "Campi da KML, quaderno con carenza, miscela per pieno, fasce di rispetto", k: "campi", c: "agras agricoltura trattamenti delta t quaderno campagna carenza miscela serbatoio fasce rispetto kml fitosanitari" },
+      { e: "📐", t: "Fotogrammetria e rilievi", d: "Controllo foto dopo il volo, punti GCP, volumi dei cumuli, export per Pix4D", k: "rilievi", c: "fotogrammetria rilievo gcp volumi cumuli pix4d metashape webodm ortofoto sovrapposizione dsm" },
       { e: "🤝", t: "Collaboratori", d: "Altri piloti con cui lavori, per passarvi i lavori", k: "collaboratori", c: "piloti squadra" },
       { e: "🌐", t: "La mia pagina e Trova un pilota", d: "La tua pagina pilota e le richieste dei clienti della tua zona", k: "pagina-pilota", c: "trovapilota richieste clienti offerte pagina" },
     ] },
@@ -9239,6 +9245,63 @@ function CalcolatoreAgras() {
         <span>🛢️ un pieno: {f(minutiPieno)} min · {f(ettariPieno)} ha</span>
       </div>
       <p style={{ fontSize: 11, color: "#8b95a3", margin: "8px 0 0 0", lineHeight: 1.5 }}>Portata = l/ha × velocità × larghezza × 60 ÷ 10.000. Controlla che la portata stia sotto il massimo del tuo modello (lo trovi nel manuale dell'Agras): se è troppa, abbassa la velocità o la larghezza. La resa reale è più bassa di quella teorica per svolte, rifornimenti e cambi batteria.</p>
+      <CostoEttaroAgras resaTeorica={resa} ettariPieno={ettariPieno} />
+    </div>
+  );
+}
+
+// quanto costa davvero un ettaro trattato, e che prezzo chiedere
+function CostoEttaroAgras({ resaTeorica, ettariPieno }) {
+  const [c, setC] = useState({ ettari: "10", efficienza: "60", oraria: "45", km: "40", euroKm: "0,35", batteria: "1600", cicli: "1500", batteriePieno: "1", ammortamento: "3", margine: "25" });
+  const n = (k) => Number(String(c[k]).replace(",", ".")) || 0;
+  const resa = resaTeorica * (n("efficienza") / 100); // ha/ora veri, con giri, ricariche e rifornimenti
+  const ore = resa > 0 ? n("ettari") / resa : 0;
+  const pieni = ettariPieno > 0 ? Math.ceil(n("ettari") / ettariPieno) : 0;
+  const voci = [
+    ["Il tuo tempo in campo", ore * n("oraria")],
+    ["Spostamento andata e ritorno", n("km") * n("euroKm")],
+    ["Usura batterie", n("cicli") > 0 ? pieni * n("batteriePieno") * (n("batteria") / n("cicli")) : 0],
+    ["Ammortamento e manutenzione drone", n("ettari") * n("ammortamento")],
+  ];
+  const totale = voci.reduce((t, [, v]) => t + v, 0);
+  const perEttaro = n("ettari") > 0 ? totale / n("ettari") : 0;
+  const prezzo = perEttaro * (1 + n("margine") / 100);
+  const e = (x) => x.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  const campo = (k, etichetta, unita) => (
+    <label style={{ fontSize: 11, color: "#6b7480", display: "flex", flexDirection: "column", gap: 3, flex: "1 1 110px" }}>
+      {etichetta}
+      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <input inputMode="decimal" value={c[k]} onChange={(ev) => setC({ ...c, [k]: ev.target.value })} style={{ ...inputStyle, padding: "6px 8px" }} />
+        <span style={{ fontSize: 11, color: "#8b95a3" }}>{unita}</span>
+      </span>
+    </label>
+  );
+  return (
+    <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid #232b3f" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, margin: "0 0 8px" }}>💶 Costo per ettaro e prezzo da chiedere</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {campo("ettari", "Ettari del lavoro", "ha")}
+        {campo("efficienza", "Tempo utile (giri, ricariche)", "%")}
+        {campo("oraria", "Il tuo costo orario", "€/h")}
+        {campo("km", "Km andata e ritorno", "km")}
+        {campo("euroKm", "Costo al km", "€/km")}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+        {campo("batteria", "Prezzo di una batteria", "€")}
+        {campo("cicli", "Cicli di vita batteria", "n.")}
+        {campo("batteriePieno", "Batterie per pieno", "n.")}
+        {campo("ammortamento", "Drone e manutenzione", "€/ha")}
+        {campo("margine", "Margine", "%")}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 12.5, color: "#c3cad4", marginTop: 10 }}>
+        <span>⏱️ circa {ore.toLocaleString("it-IT", { maximumFractionDigits: 1 })} ore in campo ({resa.toLocaleString("it-IT", { maximumFractionDigits: 1 })} ha/ora veri) · {pieni} {pieni === 1 ? "pieno" : "pieni"}</span>
+        {voci.map(([t, v]) => <span key={t}>· {t}: {e(v)}</span>)}
+      </div>
+      <div className="mono" style={{ display: "flex", gap: "6px 18px", flexWrap: "wrap", fontSize: 14, marginTop: 8 }}>
+        <span>costo: <strong>{e(perEttaro)}/ha</strong> ({e(totale)} in tutto)</span>
+        <span>prezzo consigliato: <strong style={{ color: "#4ade80" }}>{e(prezzo)}/ha</strong></span>
+      </div>
+      <p style={{ fontSize: 11, color: "#8b95a3", margin: "8px 0 0 0", lineHeight: 1.5 }}>Il prodotto fitosanitario di solito lo fornisce l'agricoltore: se lo compri tu, aggiungilo a parte. Stima indicativa: cambia i valori con i tuoi costi veri.</p>
     </div>
   );
 }
@@ -13956,6 +14019,48 @@ function Filigrana({ testo }) {
 }
 
 // pagina pubblica aperta dal cliente (?galleria=TOKEN): nessun login richiesto
+// foto a schermo intero che si ingrandisce: due dita o rotella per lo zoom, un dito per spostarsi,
+// doppio tocco per ingrandire o tornare indietro (serve per le ortofoto, con tanti dettagli)
+function ZoomFoto({ url, nome, onChiudi, onContextMenu, trascinabile = true, children }) {
+  const [v, setV] = useState({ s: 1, x: 0, y: 0 });
+  const dita = useRef(new Map());
+  const inizio = useRef(null);
+  const ultimoTocco = useRef(0);
+  const limita = (n) => ({ s: Math.min(8, Math.max(1, n.s)), x: n.s <= 1 ? 0 : n.x, y: n.s <= 1 ? 0 : n.y });
+  const giu = (e) => {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    dita.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const p = [...dita.current.values()];
+    inizio.current = { v: { ...v }, p: p.map((q) => ({ ...q })), dist: p.length === 2 ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0 };
+    if (p.length === 1) { const ora = Date.now(); if (ora - ultimoTocco.current < 300) setV(v.s > 1 ? { s: 1, x: 0, y: 0 } : { s: 3, x: 0, y: 0 }); ultimoTocco.current = ora; }
+  };
+  const muovi = (e) => {
+    if (!dita.current.has(e.pointerId) || !inizio.current) return;
+    dita.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const p = [...dita.current.values()], i = inizio.current;
+    if (p.length === 2 && i.p.length === 2 && i.dist) {
+      const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+      setV(limita({ s: i.v.s * (d / i.dist), x: i.v.x, y: i.v.y }));
+    } else if (p.length === 1 && i.p.length === 1 && v.s > 1) {
+      setV(limita({ s: i.v.s, x: i.v.x + (p[0].x - i.p[0].x), y: i.v.y + (p[0].y - i.p[0].y) }));
+    }
+  };
+  const su = (e) => { dita.current.delete(e.pointerId); const p = [...dita.current.values()]; inizio.current = p.length ? { v: { ...v }, p: p.map((q) => ({ ...q })), dist: 0 } : null; };
+  const rotella = (e) => { e.preventDefault(); setV((x) => limita({ ...x, s: x.s * (e.deltaY < 0 ? 1.2 : 1 / 1.2) })); };
+  useEffect(() => { const esc = (e) => { if (e.key === "Escape") onChiudi(); }; window.addEventListener("keydown", esc); return () => window.removeEventListener("keydown", esc); }, [onChiudi]);
+  return (
+    <div onClick={(e) => { if (e.target === e.currentTarget && v.s === 1) onChiudi(); }} onContextMenu={onContextMenu} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 50, overflow: "hidden", touchAction: "none" }}>
+      <div onPointerDown={giu} onPointerMove={muovi} onPointerUp={su} onPointerCancel={su} onWheel={rotella}
+        style={{ position: "relative", maxWidth: "100%", maxHeight: "100%", transform: `translate(${v.x}px, ${v.y}px) scale(${v.s})`, transformOrigin: "center", transition: dita.current.size ? "none" : "transform .15s", cursor: v.s > 1 ? "grab" : "zoom-in" }}>
+        <img src={url} alt={nome || "foto"} draggable={false} style={{ maxWidth: "100%", maxHeight: "90vh", objectFit: "contain", display: "block", userSelect: "none", pointerEvents: "none" }} />
+        {children}
+      </div>
+      <button type="button" onClick={onChiudi} aria-label="Chiudi" style={{ position: "fixed", top: "calc(12px + env(safe-area-inset-top))", right: 12, width: 44, height: 44, borderRadius: 22, background: "rgba(20,24,34,.85)", border: "1px solid #343e57", color: "#fff", fontSize: 20 }}>✕</button>
+      <span style={{ position: "fixed", bottom: "calc(12px + env(safe-area-inset-bottom))", left: 0, right: 0, textAlign: "center", fontSize: 12, color: "#9aa3b8", pointerEvents: "none" }}>{v.s > 1 ? `${Math.round(v.s * 100)}% · doppio tocco per tornare` : "Due dita, rotella o doppio tocco per ingrandire"}</span>
+    </div>
+  );
+}
+
 function GalleriaCondivisa({ token }) {
   const [dati, setDati] = useState(undefined); // undefined = caricamento, null = link non valido
   const [errore, setErrore] = useState(null);
@@ -14101,12 +14206,9 @@ function GalleriaCondivisa({ token }) {
       </div>
 
       {lightbox && (
-        <div onClick={() => setLightbox(null)} onContextMenu={nienteMenu} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 50, cursor: "zoom-out" }}>
-          <div style={{ position: "relative", maxWidth: "100%", maxHeight: "100%" }}>
-            <img src={lightbox.url} alt={lightbox.nome || "foto"} draggable={!conFiligrana} style={{ maxWidth: "100%", maxHeight: "90vh", objectFit: "contain", display: "block" }} />
-            {conFiligrana && <Filigrana testo={testoFiligrana} />}
-          </div>
-        </div>
+        <ZoomFoto url={lightbox.url} nome={lightbox.nome} onChiudi={() => setLightbox(null)} onContextMenu={nienteMenu} trascinabile={!conFiligrana}>
+          {conFiligrana && <Filigrana testo={testoFiligrana} />}
+        </ZoomFoto>
       )}
     </div>
   );
@@ -15067,6 +15169,7 @@ function Batterie({ batterie, droni, piano, onReload, onVaiAbbonamento }) {
           {showForm && !editingId ? "Annulla" : <><Plus size={14} /> Nuova batteria</>}
         </button>
       </TestataPagina>
+      {batterie.length >= LIMITI_FREE.batterie && <NotaPiano quale="pilota" prima={`Hai ${batterie.length} batterie: il Free ne conta ${LIMITI_FREE.batterie}.`} cosa="Batterie illimitate" />}
       {piano === "free" && (
         <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "-8px 0 14px 0" }}>
           Piano Free: {attive.length}/{LIMITI_FREE.batterie} batterie.{" "}
@@ -16473,6 +16576,7 @@ function RegistroVoli({ azioneDaFare, onAzioneFatta, spazio, azienda, droni, isp
           </details>
         </div>
       </TestataPagina>
+      {voli.length >= 8 && !azioneDaFare && <NotaPiano quale="pilota" prima={`Hai già ${voli.length} voli registrati: il Free ne include ${LIMITI_FREE.voli}.`} cosa="Registro voli illimitato" />}
       {azioneDaFare && AZIONI_VOLO[azioneDaFare] && (
         <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, background: "#2a1d12", border: "1px solid #ff8c42", borderRadius: 10, padding: "12px 14px", margin: "0 0 14px 0", fontSize: 14, color: "#f3e3d2" }}>
           <span style={{ fontSize: 22 }}>{AZIONI_VOLO[azioneDaFare].emoji}</span>

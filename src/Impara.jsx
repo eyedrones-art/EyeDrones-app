@@ -3,6 +3,7 @@ import { ESAMI, COME_SI_PRENDE, LEZIONI, GUIDA_ZONA_ROSSA, DOMANDE, SIGLE_ZONE, 
 import Notizie from "./Notizie.jsx";
 import Manuale from "./Manuale.jsx";
 import { TestataPagina } from "./VoloHero.jsx";
+import { NotaPiano } from "./piani.jsx";
 
 // Sezione «Impara»: lezioni A1/A3 e A2, quiz con spiegazioni e simulazione d'esame, guida zona rossa, consigli di volo.
 const SCHEDE = [
@@ -177,6 +178,7 @@ function Quiz({ esameIniziale = "a1a3" }) {
         <div style={stCard}>
           <div style={{ fontSize: 14.5, fontWeight: 700 }}>⏱️ Simulazione d'esame {conf.nome}</div>
           <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "4px 0 10px 0" }}>{Math.min(conf.domande, banca.length)} domande in {conf.minuti} minuti, {conf.notaQuiz || <>punteggio come all'esame: giusta +{conf.punti.giusta}{conf.punti.sbagliata ? `, sbagliata ${conf.punti.sbagliata}` : ""}, non data 0. Si passa con {conf.soglia} su {conf.massimo}. Le soluzioni alla fine.</>}</p>
+          <NotaPiano quale="pilota" cosa="Simulazione d'esame" stile={{ margin: "0 0 10px 0" }} />
           <button type="button" onClick={() => avvia("simulazione")} style={stAzione}>Inizia la simulazione</button>
         </div>
         {erroriEsame.length > 0 && (

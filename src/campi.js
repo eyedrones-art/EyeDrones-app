@@ -177,3 +177,101 @@ export const TIPI_LAVORO = [
   { key: "altro", label: "Altro", emoji: "📝" },
 ];
 export const etichettaLavoro = (k) => (TIPI_LAVORO.find((t) => t.key === k) || {}).label || k || "";
+
+// --- Esportazione dei confini in KML (per DJI SmartFarm / radiocomando Agras, Google Earth, QGIS) ---------
+const xml = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function anelliKml(geom) {
+  const poligoni = geom.type === "MultiPolygon" ? geom.coordinates : geom.type === "Polygon" ? [geom.coordinates] : [];
+  return poligoni.map((p) => `<Polygon><outerBoundaryIs><LinearRing><coordinates>${p[0].map(([lo, la]) => `${lo},${la},0`).join(" ")}</coordinates></LinearRing></outerBoundaryIs>${p.slice(1).map((r) => `<innerBoundaryIs><LinearRing><coordinates>${r.map(([lo, la]) => `${lo},${la},0`).join(" ")}</coordinates></LinearRing></innerBoundaryIs>`).join("")}</Polygon>`);
+}
+export function campiInKml(campi, titolo = "Campi") {
+  const segni = campi.filter((c) => c.confini && c.confini.type).map((c) => {
+    const pol = anelliKml(c.confini);
+    if (!pol.length) return "";
+    const geo = pol.length === 1 ? pol[0] : `<MultiGeometry>${pol.join("")}</MultiGeometry>`;
+    const descr = [c.azienda, c.coltura, c.ettari ? `${Number(c.ettari).toLocaleString("it-IT", { maximumFractionDigits: 2 })} ha` : null].filter(Boolean).join(" · ");
+    return `<Placemark><name>${xml(c.nome || "Campo")}</name><description>${xml(descr)}</description><styleUrl>#campo</styleUrl>${geo}</Placemark>`;
+  }).filter(Boolean);
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${xml(titolo)}</name><Style id="campo"><LineStyle><color>ff42a5f5</color><width>2</width></LineStyle><PolyStyle><color>4042a5f5</color></PolyStyle></Style>${segni.join("")}</Document></kml>`;
+}
+
+// --- Fasce di rispetto: cosa c'è vicino al campo (case, acqua, strade, scuole) ---------------------------
+// Dati OpenStreetMap tramite Overpass: indicativi, da controllare sul posto. Le distanze obbligatorie
+// le stabiliscono il Piano d'azione nazionale, le norme regionali e l'etichetta del prodotto.
+const R_TERRA = 6371000;
+function inMetri(lat0, lon0) {
+  const kx = (Math.PI / 180) * R_TERRA * Math.cos((lat0 * Math.PI) / 180), ky = (Math.PI / 180) * R_TERRA;
+  return ([lon, lat]) => [(lon - lon0) * kx, (lat - lat0) * ky];
+}
+function distPuntoSegmento(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const t = dx || dy ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy))) : 0;
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+function siIncrociano(a, b, c, d) {
+  const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+  return o(a, b, c) !== o(a, b, d) && o(c, d, a) !== o(c, d, b);
+}
+function dentroAnello(p, r) {
+  let dentro = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    if ((r[i][1] > p[1]) !== (r[j][1] > p[1]) && p[0] < ((r[j][0] - r[i][0]) * (p[1] - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) dentro = !dentro;
+  }
+  return dentro;
+}
+export const CATEGORIE_RISPETTO = [
+  { key: "sensibili", nome: "Scuole, ospedali, parchi giochi", emoji: "🏫" },
+  { key: "case", nome: "Case ed edifici", emoji: "🏠" },
+  { key: "acqua", nome: "Corsi d'acqua, laghi, pozzi", emoji: "💧" },
+  { key: "strade", nome: "Strade", emoji: "🛣️" },
+];
+function categoria(tag) {
+  if (/^(school|kindergarten|hospital|clinic|nursing_home)$/.test(tag.amenity || "") || tag.leisure === "playground") return "sensibili";
+  if (tag.building) return "case";
+  if (tag.waterway || tag.natural === "water" || tag.man_made === "water_well" || tag.amenity === "drinking_water") return "acqua";
+  if (tag.highway) return "strade";
+  return null;
+}
+export async function fasceRispetto(geom, metri = 50) {
+  const poligoni = geom.type === "MultiPolygon" ? geom.coordinates : geom.type === "Polygon" ? [geom.coordinates] : [];
+  if (!poligoni.length) throw new Error("Questo campo non ha il confine disegnato.");
+  const tutti = poligoni.flatMap((p) => p[0]);
+  const lats = tutti.map((c) => c[1]), lons = tutti.map((c) => c[0]);
+  const lat0 = (Math.min(...lats) + Math.max(...lats)) / 2, lon0 = (Math.min(...lons) + Math.max(...lons)) / 2;
+  const dLat = (metri + 20) / 111320, dLon = (metri + 20) / (111320 * Math.cos((lat0 * Math.PI) / 180));
+  const bb = `${Math.min(...lats) - dLat},${Math.min(...lons) - dLon},${Math.max(...lats) + dLat},${Math.max(...lons) + dLon}`;
+  const q = `[out:json][timeout:25];(way["building"](${bb});nwr["amenity"~"^(school|kindergarten|hospital|clinic|nursing_home)$"](${bb});nwr["leisure"="playground"](${bb});way["waterway"](${bb});nwr["natural"="water"](${bb});node["man_made"="water_well"](${bb});way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential)$"](${bb}););out tags geom;`;
+  const server = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+  let dati = null;
+  for (const s of server) {
+    try { const r = await fetch(s, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" } }); if (r.ok) { dati = await r.json(); break; } } catch { /* provo il prossimo */ }
+  }
+  if (!dati) throw new Error("Il servizio delle mappe non risponde: riprova tra poco.");
+  const m = inMetri(lat0, lon0);
+  const anelli = poligoni.map((p) => p[0].map(m));
+  const distanza = (pt) => {
+    if (anelli.some((r) => dentroAnello(pt, r))) return 0;
+    let d = Infinity;
+    anelli.forEach((r) => { for (let i = 0; i < r.length - 1; i++) d = Math.min(d, distPuntoSegmento(pt, r[i], r[i + 1])); });
+    return d;
+  };
+  const ris = Object.fromEntries(CATEGORIE_RISPETTO.map((c) => [c.key, { vicini: 0, minima: null, nomi: [] }]));
+  for (const el of dati.elements || []) {
+    const cat = categoria(el.tags || {});
+    if (!cat) continue;
+    const punti = (el.geometry || (el.lat != null ? [{ lat: el.lat, lon: el.lon }] : [])).map((g) => m([g.lon, g.lat]));
+    if (!punti.length) continue;
+    let d = Math.min(...punti.map(distanza));
+    for (let i = 0; i < punti.length - 1 && d > 0; i++) anelli.forEach((r) => {
+      r.forEach((v) => { d = Math.min(d, distPuntoSegmento(v, punti[i], punti[i + 1])); });
+      for (let j = 0; j < r.length - 1 && d > 0; j++) if (siIncrociano(punti[i], punti[i + 1], r[j], r[j + 1])) d = 0; // es. un fosso che attraversa il campo
+    });
+    if (d > metri) continue;
+    const r = ris[cat];
+    r.vicini += 1;
+    r.minima = r.minima == null ? d : Math.min(r.minima, d);
+    const nome = el.tags.name;
+    if (nome && !r.nomi.includes(nome) && r.nomi.length < 4) r.nomi.push(nome);
+  }
+  return ris;
+}

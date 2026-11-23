@@ -4,7 +4,7 @@ import MappaCampi from "./MappaCampi.jsx";
 import { TestataPagina } from "./VoloHero.jsx";
 import { pdfConsegnaAgricoltura } from "./reportConsegna.js";
 import FascicoloScia, { controlliScia, unisci } from "./FascicoloScia.jsx";
-import { leggiFileConfini, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
+import { leggiFileConfini, campiInKml, fasceRispetto, CATEGORIE_RISPETTO, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
 
 // Agricoltura (fase 1): appezzamenti con i confini sulla mappa, registro dei trattamenti con PDF,
 // meteo per irrorare con soglie e Delta T. Tabelle in supabase/agricoltura.sql
@@ -15,12 +15,64 @@ const num = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return
 const testo = (v) => (String(v ?? "").trim() ? String(v).trim() : null);
 const manca = (msg) => /appezzamenti|trattamenti|does not exist|schema cache|column/i.test(String(msg || ""));
 const UNITA = ["l/ha", "kg/ha", "ml/ha", "g/ha"];
+// data in cui finisce il tempo di carenza (si può raccogliere): data del trattamento + giorni
+const fineCarenza = (data, giorni) => { if (!data || giorni == null || giorni === "") return null; const d = new Date(`${data}T12:00:00`); d.setDate(d.getDate() + Number(giorni)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const CHIAVE_SERBATOIO = "eyedrones_serbatoio_agras";
+const scarica = (testoFile, nome, tipo) => { const url = URL.createObjectURL(new Blob([testoFile], { type: tipo })); const a = document.createElement("a"); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); };
+
+// Fasce di rispetto del campo: cosa c'è vicino (dati OpenStreetMap, da controllare sul posto)
+function FasceRispetto({ campo }) {
+  const [metri, setMetri] = useState(50);
+  const [stato, setStato] = useState(null); // null | "cerco" | { ris } | { errore }
+  const controlla = async () => {
+    setStato("cerco");
+    try { setStato({ ris: await fasceRispetto(campo.confini, metri) }); } catch (e) { setStato({ errore: e.message || "Non riuscito" }); }
+  };
+  return (
+    <div style={{ marginTop: 12, background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: 12 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <strong style={{ fontSize: 13 }}>🏠 Fasce di rispetto</strong>
+        <label style={{ fontSize: 12, color: "#8b95a3", display: "flex", alignItems: "center", gap: 6 }}>entro
+          <select value={metri} onChange={(e) => { setMetri(Number(e.target.value)); setStato(null); }} style={{ background: "#151b2b", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "4px 6px" }}>
+            {[10, 20, 30, 50, 100].map((m) => <option key={m} value={m}>{m} m</option>)}
+          </select> dal confine</label>
+        <button type="button" onClick={controlla} disabled={stato === "cerco"} style={{ ...btn(false), padding: "6px 10px", fontSize: 12 }}>{stato === "cerco" ? "Controllo…" : "Controlla cosa c'è vicino"}</button>
+      </div>
+      {stato && stato.errore && <p style={{ fontSize: 12, color: "#ff9c9c", margin: "8px 0 0 0" }}>{stato.errore}</p>}
+      {stato && stato.ris && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
+          {CATEGORIE_RISPETTO.map((c) => { const r = stato.ris[c.key]; const ok = !r.vicini; return (
+            <div key={c.key} style={{ fontSize: 12.5, color: ok ? "#8fdcaa" : c.key === "sensibili" || (r.minima != null && r.minima < 10) ? "#ff9c9c" : "#ffd68a" }}>
+              {ok ? "✓" : "⚠️"} {c.emoji} {c.nome}: {ok ? `niente entro ${metri} m` : `${r.vicini} entro ${metri} m · il più vicino a ${r.minima < 1 ? "meno di 1" : Math.round(r.minima)} m${r.nomi.length ? ` (${r.nomi.join(", ")})` : ""}`}
+            </div>); })}
+          <p style={{ fontSize: 11, color: "#6b7480", margin: "4px 0 0 0", lineHeight: 1.45 }}>Dati OpenStreetMap: indicativi, controlla sempre sul posto. Le distanze da rispettare le decidono il Piano d'azione nazionale sui fitosanitari, le regole della tua Regione e l'etichetta del prodotto.</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const scheda = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: 16 };
 const etichetta = { fontSize: 11, color: "#6b7480", display: "block", marginBottom: 4 };
 const btn = (primario) => ({ background: primario ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "#1a2133", color: primario ? "#10141f" : "#e7eaee", border: primario ? "none" : "1px solid #343e57", borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 700 });
 
 const CHIAVE_VISTA = "eyedrones_agri_vista";
+
+// le regole in breve sui trattamenti con drone (aggiornate a novembre 2026): da rivedere quando esce il decreto
+function RegoleTrattamenti() {
+  return (
+    <details style={{ ...scheda, border: "1px solid #3d8bfd55", background: "#0f1726", marginBottom: 16 }}>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#cfe0ff" }}>⚖️ Regole in breve: cosa si può fare con il drone in campo</summary>
+      <ul style={{ fontSize: 12.5, color: "#c3cad4", lineHeight: 1.6, margin: "8px 0 0 0", paddingLeft: 18 }}>
+        <li><strong>Prodotti fitosanitari</strong>: in Italia l'irrorazione dall'alto è vietata, salvo deroga. La legge 182/2025 prevede tre anni di sperimentazione con i droni, ma servono il decreto attuativo (colture, prodotti e modalità ammessi) e, per il prodotto, la deroga del Ministero della Salute. Prima di ogni lavoro controlla che cosa è permesso in quel momento.</li>
+        <li><strong>Concimi, biostimolanti e semina</strong> non sono fitosanitari, ma valgono comunque le regole di volo.</li>
+        <li><strong>Volo</strong>: con i droni agricoli di solito si vola in categoria Specific, con l'autorizzazione ENAC (per esempio lo scenario PDRA-S01), l'attestato del pilota e l'assicurazione.</li>
+        <li>Con l'abilitazione per i fitosanitari (patentino) e le regole della tua Regione: tienile negli Attestati, l'app ti avvisa prima che scadano.</li>
+      </ul>
+      <p style={{ fontSize: 11, color: "#6b7480", margin: "8px 0 0 0" }}>Informazioni indicative aggiornate a novembre 2026, non sono una consulenza legale: le regole stanno cambiando, verifica sui siti del Ministero dell'Agricoltura, del Ministero della Salute e dell'ENAC.</p>
+    </details>
+  );
+}
 
 // Home dello spazio Agricoltura: campi, ultimi lavori, a che punto è il fascicolo SCIA, scorciatoie
 export function HomeAgricoltura({ supabase, onNav }) {
@@ -97,6 +149,8 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
         <TestataPagina titolo="Campi e trattamenti" sigla="AGR · CONFINI, REGISTRO E METEO" foto="/trova-pilota/agricoltura.webp" info="Appezzamenti dei tuoi clienti con i confini sulla mappa, registro dei lavori con PDF e meteo per irrorare." />
+
+        <RegoleTrattamenti />
 
         {mancaTabella && (
           <div style={{ ...scheda, border: "1px solid #f5b94266", background: "#211a0c", marginBottom: 16, fontSize: 13, color: "#ffe2a8" }}>
@@ -251,6 +305,7 @@ function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selez
           <input type="file" accept=".kml,.kmz,.geojson,.json,.zip,.shp" disabled={bloccato} onChange={(e) => { scegliFile(e.target.files && e.target.files[0]); e.target.value = ""; }} style={{ display: "none" }} />
         </label>
         <button type="button" onClick={() => setModifica({ nome: "", cliente_id: "", azienda: "", coltura: "", ettari: "" })} disabled={bloccato} style={btn(false)}>➕ Campo senza confine</button>
+        {visibili.some((c) => c.confini) && <button type="button" onClick={() => scarica(campiInKml(visibili, filtro ? `Campi · ${filtro}` : "Campi EyeDrones"), `campi${filtro ? `-${filtro.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : ""}-${oggi()}.kml`, "application/vnd.google-earth.kml+xml")} style={btn(false)}>⬇️ Esporta KML (per DJI)</button>}
       </div>
       {errore && <p style={{ color: "#ff9c9c", fontSize: 13, margin: "0 0 12px 0" }}>⚠️ {errore}</p>}
       <p style={{ fontSize: 11.5, color: "#6b7480", margin: "0 0 12px 0" }}>I confini li esporti da DJI SmartFarm o DJI Terra, Google Earth, QGIS o dal gestionale aziendale. Per lo shapefile carica lo zip con tutti i file (.shp, .dbf, .prj).</p>
@@ -272,8 +327,10 @@ function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selez
             <button type="button" onClick={() => onMeteo(campo)} style={btn(false)}>🌦️ Si può trattare?</button>
             {campo.centro_lat != null && <a href={`https://www.google.com/maps/dir/?api=1&destination=${campo.centro_lat},${campo.centro_lon}`} target="_blank" rel="noreferrer" style={{ ...btn(false), textDecoration: "none" }}>🧭 Portami lì</a>}
             <button type="button" onClick={() => setModifica({ ...campo })} style={btn(false)}>✏️ Modifica</button>
+            {campo.confini && <button type="button" onClick={() => scarica(campiInKml([campo], campo.nome), `${String(campo.nome || "campo").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.kml`, "application/vnd.google-earth.kml+xml")} style={btn(false)}>⬇️ KML</button>}
             <button type="button" onClick={() => elimina(campo)} style={{ ...btn(false), color: "#ff9c9c" }}>Elimina</button>
           </div>
+          {campo.confini && <FasceRispetto key={campo.id} campo={campo} />}
           {lavoriCampo.length > 0 && (
             <div style={{ marginTop: 12 }}>
               <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 4 }}>Ultimi lavori su questo campo</div>
@@ -312,7 +369,40 @@ function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selez
 
 // --- Registro lavori (trattamenti, concimazioni, semine…) ----------------------------------------------
 
-const LAVORO_VUOTO = { appezzamento_id: "", data: "", ora_inizio: "", ora_fine: "", tipo: "trattamento", coltura: "", avversita: "", prodotto: "", registrazione: "", dose: "", unita: "l/ha", volume_ha: "", ettari: "", quantita_totale: "", drone_id: "", operatore: "", vento_kmh: "", direzione_vento: "", temperatura: "", umidita: "", note: "" };
+const LAVORO_VUOTO = { appezzamento_id: "", data: "", ora_inizio: "", ora_fine: "", tipo: "trattamento", coltura: "", avversita: "", prodotto: "", registrazione: "", carenza_giorni: "", rientro_ore: "", dose: "", unita: "l/ha", volume_ha: "", ettari: "", quantita_totale: "", drone_id: "", operatore: "", vento_kmh: "", direzione_vento: "", temperatura: "", umidita: "", note: "" };
+
+// quanto prodotto e quanta acqua per ogni pieno del serbatoio, e quanti pieni servono
+function MiscelaSerbatoio({ dose, unita, volumeHa, ettari, inputStyle }) {
+  const [serbatoio, setSerbatoio] = useState(() => { try { return localStorage.getItem(CHIAVE_SERBATOIO) || "40"; } catch { return "40"; } });
+  const l = num(serbatoio);
+  const cambia = (v) => { setSerbatoio(v); try { localStorage.setItem(CHIAVE_SERBATOIO, v); } catch { /* niente */ } };
+  const u = (unita || "l/ha").split("/")[0];
+  const f = (x, c = 2) => Number(x).toLocaleString("it-IT", { maximumFractionDigits: c });
+  const pronto = dose != null && volumeHa && l;
+  const haPieno = pronto ? l / volumeHa : null;
+  const prodPieno = pronto ? dose * haPieno : null;
+  const prodLitri = prodPieno == null ? null : u === "l" ? prodPieno : u === "ml" ? prodPieno / 1000 : null;
+  const miscelaTot = ettari && volumeHa ? ettari * volumeHa : null;
+  const pieni = miscelaTot && l ? Math.ceil(miscelaTot / l - 1e-9) : null;
+  const ultimo = miscelaTot && l ? miscelaTot - (pieni - 1) * l : null;
+  return (
+    <div style={{ marginTop: 14, background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: 12 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <strong style={{ fontSize: 13 }}>🛢️ Miscela per ogni pieno</strong>
+        <label style={{ fontSize: 12, color: "#8b95a3", display: "flex", alignItems: "center", gap: 6 }}>serbatoio <input inputMode="decimal" value={serbatoio} onChange={(e) => cambia(e.target.value)} style={{ ...inputStyle, width: 70, padding: "5px 8px" }} /> litri</label>
+      </div>
+      {!pronto ? <p style={{ fontSize: 12, color: "#8b95a3", margin: "6px 0 0 0" }}>Scrivi dose per ettaro e volume di miscela: ti dico quanto prodotto mettere in ogni pieno.</p> : (
+        <div className="mono" style={{ display: "flex", gap: "6px 18px", flexWrap: "wrap", fontSize: 13, marginTop: 8 }}>
+          <span>🧪 per pieno: <strong style={{ color: "#ff8c42" }}>{f(prodPieno)} {u}</strong> di prodotto</span>
+          <span>💧 acqua: {prodLitri != null ? `${f(l - prodLitri, 1)} l` : `fino a ${f(l, 0)} l`}</span>
+          <span>🌾 un pieno tratta {f(haPieno)} ha</span>
+          {pieni != null && <span>🔁 {pieni} {pieni === 1 ? "pieno" : "pieni"}{pieni > 1 && ultimo < l - 0.05 ? ` (l'ultimo da ${f(ultimo, 1)} l: ${f(dose * ultimo / volumeHa)} ${u} di prodotto)` : ""}</span>}
+          {ettari != null && <span>📦 prodotto totale: {f(dose * ettari)} {u}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azienda, iniziale, onIniziale, onCambiati, bloccato }) {
   const [form, setForm] = useState(null);
@@ -366,9 +456,17 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
       prodotto: testo(f.prodotto), registrazione: testo(f.registrazione), dose: num(f.dose), unita: f.unita, volume_ha: num(f.volume_ha), ettari: num(f.ettari),
       quantita_totale: num(f.quantita_totale) ?? totaleAuto, drone_id: f.drone_id ? String(f.drone_id) : null, drone_nome: drone ? drone.nome : null,
       operatore: testo(f.operatore), vento_kmh: num(f.vento_kmh), direzione_vento: testo(f.direzione_vento), temperatura: num(f.temperatura), umidita: num(f.umidita), note: testo(f.note),
+      carenza_giorni: num(f.carenza_giorni), rientro_ore: num(f.rientro_ore),
     };
     setSalvando(true);
-    const { error } = f.id ? await supabase.from("trattamenti").update(dati).eq("id", f.id) : await supabase.from("trattamenti").insert(dati);
+    const scrivi = (d) => (f.id ? supabase.from("trattamenti").update(d).eq("id", f.id) : supabase.from("trattamenti").insert(d));
+    let { error } = await scrivi(dati);
+    // colonne di carenza e rientro non ancora create (script supabase/agricoltura-carenza.sql): salvo il resto e lo dico
+    if (error && /carenza_giorni|rientro_ore/.test(error.message || "")) {
+      const { carenza_giorni, rientro_ore, ...resto } = dati;
+      ({ error } = await scrivi(resto));
+      if (!error && (carenza_giorni != null || rientro_ore != null)) alert("Lavoro salvato. Per salvare anche carenza e rientro serve una volta sola lo script supabase/agricoltura-carenza.sql su Supabase.");
+    }
     setSalvando(false);
     if (error) { alert(`Salvataggio non riuscito: ${error.message}`); return; }
     setForm(null); setMeteoStato("");
@@ -404,7 +502,10 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
           {campo("coltura", "Coltura", { placeholder: "es. Vite" })}
           {f.tipo === "trattamento" && campo("avversita", "Avversità / bersaglio", { placeholder: "es. Peronospora" })}
           {campo("prodotto", f.tipo === "semina" ? "Seme / varietà" : "Prodotto", { placeholder: f.tipo === "concimazione" ? "es. Urea 46%" : "es. nome commerciale" })}
+          {f.tipo === "trattamento" && <p style={{ gridColumn: "1 / -1", fontSize: 11.5, color: "#9fb8e8", margin: 0 }}>⚖️ Fitosanitari con il drone: solo dove la sperimentazione o una deroga lo permettono. Vedi «Regole in breve» in alto.</p>}
           {f.tipo === "trattamento" && campo("registrazione", "N. registrazione", { placeholder: "Min. Salute" })}
+          {f.tipo === "trattamento" && campo("carenza_giorni", `Tempo di carenza (giorni)${fineCarenza(f.data, num(f.carenza_giorni)) ? ` · raccolta dal ${dataIt(fineCarenza(f.data, num(f.carenza_giorni)))}` : ""}`, { inputMode: "numeric", placeholder: "dall'etichetta" })}
+          {f.tipo === "trattamento" && campo("rientro_ore", "Rientro nel campo (ore)", { inputMode: "numeric", placeholder: "es. 48" })}
           <div><label style={etichetta}>Dose per ettaro</label>
             <div style={{ display: "flex", gap: 6 }}>
               <input inputMode="decimal" value={f.dose} onChange={(e) => setForm({ ...f, dose: e.target.value })} style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
@@ -419,6 +520,8 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
             </select></div>
           {campo("operatore", "Operatore / pilota")}
         </div>
+
+        {f.tipo === "trattamento" && <MiscelaSerbatoio dose={num(f.dose)} unita={f.unita} volumeHa={num(f.volume_ha)} ettari={num(f.ettari)} inputStyle={inputStyle} />}
 
         <div style={{ marginTop: 14, background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -497,7 +600,7 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
             <div key={t.id} style={{ background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: "10px 12px", display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600 }}>{(TIPI_LAVORO.find((x) => x.key === t.tipo) || {}).emoji || "📝"} {dataIt(t.data)}{t.ora_inizio ? ` · ${String(t.ora_inizio).slice(0, 5)}` : ""} · {t.campo_nome || "campo non indicato"}{t.azienda ? <span style={{ color: "#8b95a3" }}> ({t.azienda})</span> : null}</div>
-                <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{[t.prodotto, t.dose != null ? `${t.dose} ${t.unita || ""}` : null, t.ettari != null ? formattaEttari(t.ettari) : null, t.quantita_totale != null ? `tot. ${t.quantita_totale} ${(t.unita || "").split("/")[0]}` : null].filter(Boolean).join(" · ")}</div>
+                <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 2 }}>{[t.prodotto, t.dose != null ? `${t.dose} ${t.unita || ""}` : null, t.ettari != null ? formattaEttari(t.ettari) : null, t.carenza_giorni != null ? `raccolta dal ${dataIt(fineCarenza(t.data, t.carenza_giorni))}` : null, t.quantita_totale != null ? `tot. ${t.quantita_totale} ${(t.unita || "").split("/")[0]}` : null].filter(Boolean).join(" · ")}</div>
                 <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 2 }}>{[t.vento_kmh != null ? `vento ${t.vento_kmh} km/h${t.direzione_vento ? ` da ${t.direzione_vento}` : ""}` : null, t.temperatura != null ? `${t.temperatura} °C` : null, t.umidita != null ? `UR ${t.umidita}%` : null, t.operatore, t.drone_nome].filter(Boolean).join(" · ")}</div>
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
@@ -517,8 +620,8 @@ function pdfRegistro(lavori, campi, azienda, filtro) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const W = 297, M = 10;
   const colonne = [
-    ["Data / ora", 22], ["Campo · azienda", 38], ["Coltura", 20], ["Lavoro · bersaglio", 30], ["Prodotto (n. reg.)", 40], ["Dose/ha", 18],
-    ["Ha", 12], ["Totale", 16], ["Miscela", 16], ["Meteo", 30], ["Operatore · drone", 35],
+    ["Data / ora", 22], ["Campo · azienda", 36], ["Coltura", 20], ["Lavoro · bersaglio", 30], ["Prodotto (n. reg.)", 36], ["Dose/ha", 18],
+    ["Ha", 11], ["Totale", 15], ["Miscela", 15], ["Carenza", 18], ["Meteo", 26], ["Operatore · drone", 30],
   ];
   const campo = filtro.campo ? campi.find((c) => c.id === filtro.campo) : null;
   let y = M;
@@ -547,6 +650,7 @@ function pdfRegistro(lavori, campi, azienda, filtro) {
       t.ettari != null ? String(t.ettari).replace(".", ",") : "",
       t.quantita_totale != null ? `${String(t.quantita_totale).replace(".", ",")} ${(t.unita || "").split("/")[0]}` : "",
       t.volume_ha != null ? `${String(t.volume_ha).replace(".", ",")} l/ha` : "",
+      t.carenza_giorni != null ? `${t.carenza_giorni} gg\nraccolta dal ${dataIt(fineCarenza(t.data, t.carenza_giorni))}${t.rientro_ore != null ? `\nrientro ${t.rientro_ore} h` : ""}` : t.rientro_ore != null ? `rientro ${t.rientro_ore} h` : "",
       [t.vento_kmh != null ? `${t.vento_kmh} km/h${t.direzione_vento ? ` ${t.direzione_vento}` : ""}` : null, t.temperatura != null ? `${t.temperatura}°C` : null, t.umidita != null ? `UR ${t.umidita}%` : null].filter(Boolean).join(" · "),
       [t.operatore, t.drone_nome].filter(Boolean).join(" · "),
     ];

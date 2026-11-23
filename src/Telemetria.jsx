@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Gauge } from "lucide-react";
 import { TestataPagina } from "./VoloHero.jsx";
+import { NotaPiano } from "./piani.jsx";
 
 // --- lettura del file .SRT -------------------------------------------------------------------------
 // I droni DJI scrivono un sottotitolo per fotogramma (o per secondo) con data, GPS, quota e camera.
@@ -409,7 +410,10 @@ export default function Telemetria() {
               <button type="button" onClick={annulla} style={{ ...st.bott, background: "#232b3f", color: "#e7eaee", width: "fit-content" }}>Annulla</button>
             </div>
           ) : (
-            <button type="button" disabled={!pronto} onClick={esporta} style={{ ...st.bott, opacity: pronto ? 1 : 0.5, width: "fit-content" }}>⬇️ Crea il video con la telemetria</button>
+            <>
+              <NotaPiano quale="pilota" cosa="Video senza il logo EyeDrones" stile={{ margin: "0 0 4px 0" }} />
+              <button type="button" disabled={!pronto} onClick={esporta} style={{ ...st.bott, opacity: pronto ? 1 : 0.5, width: "fit-content" }}>⬇️ Crea il video con la telemetria</button>
+            </>
           )}
           {risultato && (
             <div style={{ background: "#14231a", border: "1px solid #4ade8077", borderRadius: 10, padding: 12, display: "grid", gap: 8 }}>
