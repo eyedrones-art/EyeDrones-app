@@ -58,6 +58,22 @@ const btn = (primario) => ({ background: primario ? "linear-gradient(135deg, #ff
 
 const CHIAVE_VISTA = "eyedrones_agri_vista";
 
+// le regole in breve sui trattamenti con drone (aggiornate a novembre 2026): da rivedere quando esce il decreto
+function RegoleTrattamenti() {
+  return (
+    <details style={{ ...scheda, border: "1px solid #3d8bfd55", background: "#0f1726", marginBottom: 16 }}>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#cfe0ff" }}>⚖️ Regole in breve: cosa si può fare con il drone in campo</summary>
+      <ul style={{ fontSize: 12.5, color: "#c3cad4", lineHeight: 1.6, margin: "8px 0 0 0", paddingLeft: 18 }}>
+        <li><strong>Prodotti fitosanitari</strong>: in Italia l'irrorazione dall'alto è vietata, salvo deroga. La legge 182/2025 prevede tre anni di sperimentazione con i droni, ma servono il decreto attuativo (colture, prodotti e modalità ammessi) e, per il prodotto, la deroga del Ministero della Salute. Prima di ogni lavoro controlla che cosa è permesso in quel momento.</li>
+        <li><strong>Concimi, biostimolanti e semina</strong> non sono fitosanitari, ma valgono comunque le regole di volo.</li>
+        <li><strong>Volo</strong>: con i droni agricoli di solito si vola in categoria Specific, con l'autorizzazione ENAC (per esempio lo scenario PDRA-S01), l'attestato del pilota e l'assicurazione.</li>
+        <li>Con l'abilitazione per i fitosanitari (patentino) e le regole della tua Regione: tienile negli Attestati, l'app ti avvisa prima che scadano.</li>
+      </ul>
+      <p style={{ fontSize: 11, color: "#6b7480", margin: "8px 0 0 0" }}>Informazioni indicative aggiornate a novembre 2026, non sono una consulenza legale: le regole stanno cambiando, verifica sui siti del Ministero dell'Agricoltura, del Ministero della Salute e dell'ENAC.</p>
+    </details>
+  );
+}
+
 // Home dello spazio Agricoltura: campi, ultimi lavori, a che punto è il fascicolo SCIA, scorciatoie
 export function HomeAgricoltura({ supabase, onNav }) {
   const [d, setD] = useState(null);
@@ -133,6 +149,8 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
         <TestataPagina titolo="Campi e trattamenti" sigla="AGR · CONFINI, REGISTRO E METEO" foto="/trova-pilota/agricoltura.webp" info="Appezzamenti dei tuoi clienti con i confini sulla mappa, registro dei lavori con PDF e meteo per irrorare." />
+
+        <RegoleTrattamenti />
 
         {mancaTabella && (
           <div style={{ ...scheda, border: "1px solid #f5b94266", background: "#211a0c", marginBottom: 16, fontSize: 13, color: "#ffe2a8" }}>
@@ -484,6 +502,7 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
           {campo("coltura", "Coltura", { placeholder: "es. Vite" })}
           {f.tipo === "trattamento" && campo("avversita", "Avversità / bersaglio", { placeholder: "es. Peronospora" })}
           {campo("prodotto", f.tipo === "semina" ? "Seme / varietà" : "Prodotto", { placeholder: f.tipo === "concimazione" ? "es. Urea 46%" : "es. nome commerciale" })}
+          {f.tipo === "trattamento" && <p style={{ gridColumn: "1 / -1", fontSize: 11.5, color: "#9fb8e8", margin: 0 }}>⚖️ Fitosanitari con il drone: solo dove la sperimentazione o una deroga lo permettono. Vedi «Regole in breve» in alto.</p>}
           {f.tipo === "trattamento" && campo("registrazione", "N. registrazione", { placeholder: "Min. Salute" })}
           {f.tipo === "trattamento" && campo("carenza_giorni", `Tempo di carenza (giorni)${fineCarenza(f.data, num(f.carenza_giorni)) ? ` · raccolta dal ${dataIt(fineCarenza(f.data, num(f.carenza_giorni)))}` : ""}`, { inputMode: "numeric", placeholder: "dall'etichetta" })}
           {f.tipo === "trattamento" && campo("rientro_ore", "Rientro nel campo (ore)", { inputMode: "numeric", placeholder: "es. 48" })}
