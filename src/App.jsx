@@ -1555,7 +1555,7 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
     doc.setTextColor(...grigio);
     doc.text("Sconto applicato", 15, y);
     doc.setTextColor(230, 90, 60);
-    doc.text(`− € ${sconto.toFixed(2)}`, 192, y, { align: "right" });
+    doc.text(`- € ${sconto.toFixed(2)}`, 192, y, { align: "right" });
     y += 6.5;
   }
 
@@ -1589,7 +1589,7 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
     y += 6.5;
     if (fisco.ritenuta) {
       doc.setFontSize(9.5); doc.setTextColor(...grigio);
-      doc.text("Ritenuta d'acconto 20% (versata dal cliente)", 15, y); doc.text(`− € ${fisco.ritenuta.toFixed(2)}`, 192, y, { align: "right" });
+      doc.text("Ritenuta d'acconto 20% (versata dal cliente)", 15, y); doc.text(`- € ${fisco.ritenuta.toFixed(2)}`, 192, y, { align: "right" });
       y += 6;
       doc.setFontSize(11); doc.setTextColor(...nero);
       doc.text("NETTO DA PAGARE", 15, y); doc.text(`€ ${fisco.netto.toFixed(2)}`, 192, y, { align: "right" });
@@ -1632,14 +1632,15 @@ function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
     y += righeLegali.length * 3.6 + 8;
   }
 
-  if (y > 250) { doc.addPage(); y = 20; }
+  // la riga di accettazione sta sopra la fascia scura (283 mm): vado a pagina nuova solo se proprio non ci sta
+  if (y > 263) { doc.addPage(); y = 20; }
   doc.setDrawColor(225, 225, 225);
   doc.line(15, y, 195, y);
-  y += 8;
+  y += 7;
   doc.setFontSize(9);
   doc.setTextColor(...grigio);
   doc.text("Per accettazione del preventivo, si prega di confermare via email o telefono.", 15, y);
-  y += 10;
+  y += 8;
   doc.setFontSize(10);
   doc.setTextColor(...nero);
   doc.text(`${azienda.nome}${preventivo.operatore ? " — " + preventivo.operatore : ""}`, 15, y);
