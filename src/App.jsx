@@ -1400,6 +1400,39 @@ function costruisciPDFPermesso({ azienda, permesso, dflightDataUrl, piano }) {
   return doc;
 }
 
+// i PDF: sul telefono (e nell'app installata) le finestre nuove con il PDF spesso non si aprono,
+// quindi lì uso il menu «Condividi» del telefono (WhatsApp, email, File…) o lo scarico; dal computer apro una scheda
+function suTelefono() {
+  try {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+      || window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  } catch { return false; }
+}
+// la finestra da aprire subito al tocco (prima di un'attesa), solo dal computer
+function finestraPerPdf() { return suTelefono() ? null : window.open("", "_blank"); }
+function nomeFilePdf(testo) { return (String(testo || "documento").replace(/[^\w\u00C0-\u017F]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "documento") + ".pdf"; }
+async function mostraPdf(doc, nome, { finestra = null, titolo } = {}) {
+  const nomeFile = nome.endsWith(".pdf") ? nome : nomeFilePdf(nome);
+  const url = doc.output("bloburl");
+  if (suTelefono()) {
+    if (finestra) try { finestra.close(); } catch { /* niente */ }
+    try {
+      const file = new File([doc.output("blob")], nomeFile, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: titolo || nomeFile.replace(/\.pdf$/, "") });
+        return url;
+      }
+    } catch (e) {
+      if (e?.name === "AbortError") return url; // ha chiuso il menu: va bene così
+    }
+    doc.save(nomeFile);
+    return url;
+  }
+  if (finestra && !finestra.closed) { finestra.location.href = url; return url; }
+  if (!window.open(url, "_blank")) doc.save(nomeFile);
+  return url;
+}
+
 function costruisciPDFPreventivo({ azienda, preventivo, piano }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const scuro = [22, 26, 31];
@@ -4624,13 +4657,12 @@ function DettaglioImpianto({ impianto, ispezioni, anomalieAll, fotoAll, azienda,
       return { id: isp.id, data: formatData(isp.data), operatore: isp.operatore, anomalie: anomalieIsp.length, gravitaMax, fotoUrl: isp.foto_url, prossimoControllo: isp.prossimo_controllo ? formatData(isp.prossimo_controllo) : null, inRitardo };
     });
 
-  const scaricaRiassuntoPDF = () => {
+  const scaricaRiassuntoPDF = async () => {
     setGenerandoRiassunto(true);
     try {
       const doc = costruisciPDFRiassuntoImpianto({ azienda, impianto, storico, piano });
-      const url = doc.output("bloburl");
+      const url = await mostraPdf(doc, `Riassunto ${impianto?.nome || "impianto"}`);
       setPdfUrlRiassunto(url);
-      window.open(url, "_blank");
     } catch (err) {
       alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
     }
@@ -4897,9 +4929,8 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
         ritagli,
         tipoIspezione: ispezione.tipo_ispezione,
       });
-      const url = doc.output("bloburl");
+      const url = await mostraPdf(doc, `Report ispezione ${impianto?.nome || ""}`);
       setPdfUrl(url);
-      window.open(url, "_blank");
     } catch (err) {
       alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
     }
@@ -4914,9 +4945,8 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
         dflightDataUrl = await urlToDataUrl(ispezione.dflight_screenshot_url);
       }
       const doc = costruisciPDFRegistroVolo({ azienda, impianto, ispezione, dflightDataUrl });
-      const url = doc.output("bloburl");
+      const url = await mostraPdf(doc, `Registro volo ${impianto?.nome || ""}`);
       setPdfUrlRegistro(url);
-      window.open(url, "_blank");
     } catch (err) {
       alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
     }
@@ -6053,10 +6083,13 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
     onReload();
   };
 
-  const scaricaPDF = (p) => {
-    const doc = costruisciPDFPreventivo({ azienda, preventivo: p, piano });
-    const url = doc.output("bloburl");
-    window.open(url, "_blank");
+  const scaricaPDF = async (p) => {
+    try {
+      const doc = costruisciPDFPreventivo({ azienda, preventivo: p, piano });
+      await mostraPdf(doc, `Preventivo ${p.numero || ""} ${p.cliente || ""}`, { titolo: `Preventivo ${p.numero || ""}`.trim() });
+    } catch (err) {
+      alert("Non sono riuscito a preparare il PDF: " + (err?.message || err));
+    }
   };
 
   if (piano !== "pro") {
@@ -6551,9 +6584,8 @@ function PermessoRow({ p, azienda, piano, espanso, onToggle, onDelete, cambiando
         dflightDataUrl = await urlToDataUrl(p.dflight_screenshot_url);
       }
       const doc = costruisciPDFPermesso({ azienda, permesso: p, dflightDataUrl, piano });
-      const url = doc.output("bloburl");
+      const url = await mostraPdf(doc, `Permesso ${p.luogo || p.nome || ""}`);
       setPdfUrl(url);
-      window.open(url, "_blank");
     } catch (err) {
       alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
     }
@@ -6853,8 +6885,7 @@ function Attestati({ attestati, azienda, onReload, obiettivoFormativo, onSalvaOb
         }
       }
       const doc = costruisciPDFAttestato({ azienda, attestato: a, documentoDataUrl, documentoEImmagine });
-      const url = doc.output("bloburl");
-      window.open(url, "_blank");
+      await mostraPdf(doc, `Attestato ${a.tipo || ""}`);
     } catch (err) {
       alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
     }
@@ -7280,8 +7311,7 @@ function Droni({ droni, azienda, onReload, dflightScadenza, onSalvaDflightScaden
         if (documentoEImmagine) documentoDataUrl = await urlToDataUrl(d.documento_url);
       }
       const doc = costruisciPDFDrone({ azienda, drone: d, documentoDataUrl, documentoEImmagine });
-      const url = doc.output("bloburl");
-      window.open(url, "_blank");
+      await mostraPdf(doc, `Drone ${d.modello || d.nome || ""}`);
     } catch (err) {
       alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
     }
@@ -9870,13 +9900,12 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
     e.target.value = "";
   };
 
-  const scaricaPdfControllo = () => {
+  const scaricaPdfControllo = async () => {
     setGenerandoPdfControllo(true);
     try {
       const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiZona, impianto: destinazione, zona: zonaEsito, quando: [dataPrevista ? formatData(dataPrevista) : "", oraPrevista ? `ore ${oraPrevista}` : ""].filter(Boolean).join(" · "), sts: stsDati, stsImg: stsDati?.immagineNuova?.dataUrl || null });
-      const url = doc.output("bloburl");
+      const url = await mostraPdf(doc, "Documenti per il controllo");
       setPdfUrlControllo(url);
-      window.open(url, "_blank");
     } catch (err) {
       alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
     }
@@ -10683,13 +10712,12 @@ function DocumentiControllo({ azienda, impianti, usaIspezioni = true, pianoInizi
 
   const scaricaPdfControllo = async () => {
     setGenerandoPdfControllo(true);
-    const finestra = stsPiano?.immagine_url ? window.open("", "_blank") : null; // con l'immagine STS serve un'attesa: apro subito la finestra
+    const finestra = stsPiano?.immagine_url ? finestraPerPdf() : null; // con l'immagine STS serve un'attesa: apro subito la finestra
     try {
       const stsImg = stsPiano?.immagine_url ? await immaginePerPdf(stsPiano.immagine_url) : null;
       const doc = costruisciPDFControllo({ azienda, operatore: azienda.nome, attestati: attestatiUtente, drone: droneSelezionato, permessi: permessiFiltrati, impianto: impiantoSel, zona: zonaPiano, quando: quandoPiano, sts: stsPiano, stsImg });
-      const url = doc.output("bloburl");
+      const url = await mostraPdf(doc, "Documenti per il controllo", { finestra });
       setPdfUrlControllo(url);
-      if (finestra) finestra.location.href = url; else window.open(url, "_blank");
     } catch (err) {
       if (finestra) finestra.close();
       alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
@@ -15609,8 +15637,8 @@ async function costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, a
 
 // apre il fascicolo di un volo; i dati non passati (drone, batterie, foto, eventi) li leggo dal database
 async function apriFascicoloVolo(volo, { drone, batterie, media, eventi, azienda }) {
-  // apro subito la finestra (i telefoni bloccano le finestre aperte dopo un'attesa) e poi ci metto il PDF
-  const finestra = window.open("", "_blank");
+  // dal computer apro subito la finestra (dopo un'attesa verrebbe bloccata) e poi ci metto il PDF
+  const finestra = finestraPerPdf();
   try {
     const [d, b, m, e] = await Promise.all([
       drone !== undefined ? drone : volo.drone_id ? supabase.from("droni").select("*").eq("id", volo.drone_id).then((x) => (x.data || [])[0] || null) : null,
@@ -15619,8 +15647,7 @@ async function apriFascicoloVolo(volo, { drone, batterie, media, eventi, azienda
       eventi !== undefined ? eventi : supabase.from("eventi_volo").select("*").eq("volo_id", String(volo.id)).then((x) => x.data || []),
     ]);
     const doc = await costruisciFascicoloVolo({ volo, drone: d, batterie: b, media: m, eventi: e, azienda });
-    const url = doc.output("bloburl");
-    if (finestra) finestra.location.href = url; else window.open(url, "_blank");
+    await mostraPdf(doc, `Fascicolo volo ${volo.data || ""}`, { finestra });
   } catch (err) {
     if (finestra) finestra.close();
     alert("Non sono riuscito a creare il fascicolo: " + (err?.message || err));
@@ -15683,7 +15710,7 @@ function ReportConsegnaRilievo({ volo, drone, azienda, piano, passQuestoMese, on
     img.src = url;
   };
   const genera = async () => {
-    const finestra = window.open("", "_blank");
+    const finestra = finestraPerPdf();
     setStato("Preparo il PDF…");
     try {
       // l'area: quella caricata, altrimenti quella disegnata nel piano STS di quel giorno
@@ -15694,8 +15721,7 @@ function ReportConsegnaRilievo({ volo, drone, azienda, piano, passQuestoMese, on
         area = p?.checklist_stato?.sts?.poligono || null;
       }
       const doc = await pdfConsegnaRilievo({ volo, d, azienda, drone, area, immagini });
-      const url = doc.output("bloburl");
-      if (finestra) finestra.location.href = url; else window.open(url, "_blank");
+      await mostraPdf(doc, `Report consegna ${volo.luogo || ""}`, { finestra });
       // salvo i dati (non le immagini) nel volo, così la prossima volta il modulo è già compilato
       const dettagli = { ...(volo.dettagli || {}), consegna_report: d };
       const { error } = await supabase.from("voli").update({ dettagli }).eq("id", volo.id);
@@ -16171,14 +16197,13 @@ function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo
     carica();
   };
 
-  const scaricaPdf = () => {
+  const scaricaPdf = async () => {
     setGenerandoPdf(true);
     try {
       const titolo = filtroAnno !== "tutti" ? `Registro voli ${filtroAnno}` : "Registro voli";
       const doc = costruisciPDFLogbook({ azienda, voli: visibili, titolo });
-      const url = doc.output("bloburl");
+      const url = await mostraPdf(doc, titolo);
       setPdfUrl(url);
-      window.open(url, "_blank");
     } catch (err) {
       alert("Non sono riuscito a generare il PDF: " + (err?.message || err));
     }
@@ -17554,9 +17579,8 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
       ritagli,
       tipoIspezione,
     });
-    const url = doc.output("bloburl");
+    const url = await mostraPdf(doc, `Report ispezione ${impiantoSel?.nome || ""}`);
     setPdfUrl(url);
-    window.open(url, "_blank");
   };
 
 
