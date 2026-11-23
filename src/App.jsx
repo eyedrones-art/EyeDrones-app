@@ -3232,6 +3232,8 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "clienti", label: "Clienti", icon: Users },
     { key: "collaboratori", label: "Collaboratori", icon: Handshake },
     { key: "pagina-pilota", label: "La mia pagina", icon: Globe },
+    { key: "campi", label: "Agricoltura (Agras)", icon: Sprout },
+    { key: "rilievi", label: "Fotogrammetria e rilievi", icon: Ruler },
     { intestazione: "Account" },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
@@ -3273,11 +3275,15 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "clienti", label: "Clienti", icon: Users },
     { key: "collaboratori", label: "Collaboratori", icon: Handshake },
     { key: "pagina-pilota", label: "La mia pagina", icon: Globe },
+    { key: "campi", label: "Agricoltura (Agras)", icon: Sprout },
+    { key: "rilievi", label: "Fotogrammetria e rilievi", icon: Ruler },
     { intestazione: "Account" },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
     { key: "suggerimenti", label: "Suggerimenti", icon: MessageSquare },
   ];
+  // una voce sola per pagina: se la cartella aperta ha già «Campi» o «Rilievi», non le ripeto in «Lavoro»
+  const vociMenu = items.filter((it, i, tutte) => it.intestazione || tutte.findIndex((x) => x.key === it.key) === i);
   const avvisi = { attestati: attestatiInScadenza, droni: droniInScadenza, batterie: batterieAvvisi, "pagina-pilota": richiesteNuove };
   return (
     <>
@@ -3305,7 +3311,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
           <button type="button" onClick={() => setPage("impostazioni")} style={{ background: "none", border: "none", color: "#6b7480", fontSize: 11.5, textAlign: "left", padding: "2px 10px" }}>＋ Aggiungi una cartella</button>
         </div>
       )}
-      {items.map((it) => {
+      {vociMenu.map((it) => {
         if (it.intestazione) {
           return (
             <div key={"h-" + it.intestazione} className="sidebar-label" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#5b6572", padding: "14px 10px 4px 10px" }}>
@@ -3380,7 +3386,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
         </button>
       </div>
     </div>
-    <MenuTelefono items={items} page={page} setPage={setPage} userEmail={userEmail} piano={piano} usaIspezioni={usaIspezioni} avvisi={avvisi} onControllo={onControllo} spazio={spazio} spazi={spazi} onCambiaSpazio={onCambiaSpazio} cartelle={cartelle} onCartelle={onCartelle} />
+    <MenuTelefono items={vociMenu} page={page} setPage={setPage} userEmail={userEmail} piano={piano} usaIspezioni={usaIspezioni} avvisi={avvisi} onControllo={onControllo} spazio={spazio} spazi={spazi} onCambiaSpazio={onCambiaSpazio} cartelle={cartelle} onCartelle={onCartelle} />
     </>
   );
 }
