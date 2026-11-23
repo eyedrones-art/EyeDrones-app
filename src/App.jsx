@@ -239,6 +239,14 @@ function sbloccatoPro(piano, volo) {
   return !BLOCCHI_PRO_ATTIVI || piano === "pro" || !!(volo && volo.pass_lavoro);
 }
 
+// il piano che serve per una voce del menu (Pilota o Pro): l'etichetta si vede sempre, anche durante il lancio
+const PIANO_VOCE = { preventivi: "pro", clienti: "pro" };
+function BadgePiano({ quale, stile }) {
+  if (!quale) return null;
+  const pro = quale === "pro";
+  return <span title={pro ? "Funzione del piano Pro" : "Funzione del piano Pilota"} style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: pro ? "#4ade80" : "#7cb3ff", border: `1px solid ${pro ? "#2f6b47" : "#2c4f80"}`, borderRadius: 5, padding: "1px 5px", lineHeight: 1.3, marginLeft: "auto", ...stile }}>{pro ? "PRO" : "PILOTA"}</span>;
+}
+
 function EtichettaPro() {
   return <span title="Funzione del piano Pro" style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: "#10141f", background: "linear-gradient(135deg, #ff9d5c, #e0552f)", borderRadius: 4, padding: "1px 5px", marginLeft: 6, verticalAlign: "middle" }}>PRO</span>;
 }
@@ -2745,10 +2753,12 @@ const FUNZIONI_PRESENTAZIONE = [
   { emoji: "📐", titolo: "Volumi STS-01", testo: "Disegni l'area con il dito o la importi da DJI Pilot 2: contingenza e buffer calcolati e disegnati sulla mappa, zone controllate su tutta l'area, pronti per il manuale operativo e per il fascicolo." },
   { emoji: "📤", titolo: "Consegna al cliente", testo: "Una galleria con il tuo logo, PIN, filigrana e preferiti: il cliente sceglie le foto e scarica solo quando sblocchi tu." },
   { emoji: "✍️", titolo: "Liberatorie firmate", testo: "Il cliente o la persona ripresa firma col dito sul telefono: PDF con la firma salvato insieme al volo." },
+  { emoji: "📍", titolo: "I clienti ti trovano", testo: "Crea la tua pagina pilota: su trovapilota.it privati e aziende della tua zona ti mandano le richieste e tu rispondi con la tua offerta." },
   { emoji: "💶", titolo: "Preventivi con il prezzo giusto", testo: "Pacchetti pronti, fascia di prezzo del mercato e il tuo prezzo minimo calcolato dai costi, poi il PDF da mandare. Rubrica clienti con WhatsApp a un tocco e lavori pagati o da incassare." },
   { emoji: "🔋", titolo: "Batterie e manutenzione", testo: "Cicli e stato di carica delle batterie, registro di eliche, firmware e riparazioni di ogni drone." },
   { emoji: "🔍", titolo: "Ispezioni e report", testo: "Fotovoltaico, edifici, danni: anomalie sulle foto termiche e report PDF professionali per il cliente." },
-  { emoji: "📐", titolo: "Calcolatore per la fotogrammetria", testo: "Scegli drone e camera (anche la termica del Mavic 3T) e parti dall'altezza o dal dettaglio che vuoi: GSD, sovrapposizioni, numero di foto, strisciate, tempo e batterie." },
+  { emoji: "🧮", titolo: "Calcolatori", testo: "Filtri ND, fotogrammetria (GSD, sovrapposizioni, strisciate, batterie, anche con il Mavic 3T), trattamenti con droni Agras e pulizia di facciate e pannelli." },
+  { emoji: "📈", titolo: "Telemetria sul video", testo: "Carichi il video e il file del drone: quota, velocità, distanza, bussola e percorso disegnati sul video, pronto da pubblicare." },
   { emoji: "🌾", titolo: "Agricoltura e droni Agras", testo: "Appezzamenti con i confini sulla mappa, registro dei trattamenti in PDF e meteo per irrorare con le soglie di vento e Delta T." },
   { emoji: "📦", titolo: "Report di consegna", testo: "Per fotogrammetria e agricoltura: un PDF con mappa dell'area, file consegnati, sistema di riferimento e dati del lavoro, pronto da dare al cliente." },
 ];
@@ -2823,14 +2833,14 @@ function Presentazione({ onAccedi, onRegistrati }) {
             <div className="mono lp-sigla">UAS · RIPRESE, FPV E ISPEZIONI</div>
             <h1>L'app per piloti di droni.<br /><span style={{ color: "#ff8c42", fontSize: ".7em", display: "inline-block", marginTop: 6 }}>Tutto il tuo volo, in un posto solo.</span></h1>
             <p style={{ fontSize: 17, lineHeight: 1.55, color: "#c3cad4", margin: "0 0 26px 0", maxWidth: 520 }}>
-              Pianifica con meteo, ora d'oro e zona di volo, registra voli e batterie, tieni pronti i documenti per i controlli e consegna foto e video ai tuoi clienti con un link.
+              Scrivi dove voli e ti dice subito se puoi e cosa serve. Poi registro voli, documenti pronti per i controlli, preventivi, consegna ai clienti e le richieste di lavoro della tua zona.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button onClick={onRegistrati} style={bottonePrimario}>Inizia senza costi</button>
               <button onClick={onAccedi} style={bottoneSecondario}>Ho già un account</button>
             </div>
             {lancioInCorso() ? (
-              <p style={{ fontSize: 13.5, color: "#ffb877", marginTop: 14, lineHeight: 1.5 }}>🚀 In lancio: <strong>tutte le funzioni incluse senza costi fino al {fineLancio()}</strong>, senza carta di credito. Chi si iscrive ora avrà il primo anno a metà prezzo.</p>
+              <p style={{ fontSize: 13.5, color: "#ffb877", marginTop: 14, lineHeight: 1.5 }}>🚀 In lancio: <strong>tutte le funzioni incluse senza costi fino al {fineLancio()}</strong>, senza carta di credito. Chi si iscrive ora avrà, con l'annuale, il primo anno a metà prezzo.</p>
             ) : (
               <p style={{ fontSize: 13, color: "#6b7480", marginTop: 14 }}>0 € per iniziare, senza carta di credito. Funziona su telefono e computer.</p>
             )}
@@ -2893,6 +2903,29 @@ function Presentazione({ onAccedi, onRegistrati }) {
               ))}
             </div>
           </div>
+        </section>
+
+        <section className="lp-wrap" style={{ paddingBottom: 56 }}>
+          <h2 style={{ fontSize: 26, margin: "0 0 6px 0" }}>Inizi con 0 €, cresci quando lavori</h2>
+          <p style={{ color: "#8b95a3", margin: "0 0 22px 0", fontSize: 15 }}>Un solo lavoro ripaga un anno di Pro. Disdici quando vuoi, i tuoi dati restano tuoi.</p>
+          <div className="lp-griglia" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+            {[
+              { nome: "Pro", prezzo: `${euro(PREZZI_PIANO.pro.anno / 12)}/mese`, sotto: `con l'annuale (${euro(PREZZI_PIANO.pro.anno)}) · ${euro(PREZZI_PIANO.pro.mese)} al mese`, per: "Per chi lavora con i clienti", voci: ["Tutto quello che c'è in Pilota", "Preventivi, clienti e incassi", "Consegna al cliente con PIN e il tuo logo", "Liberatorie e fascicolo del volo", "Report illimitati e pagina in evidenza"], top: true },
+              { nome: "Pilota", prezzo: `${euro(PREZZI_PIANO.pilota.anno / 12)}/mese`, sotto: `con l'annuale (${euro(PREZZI_PIANO.pilota.anno)}) · ${euro(PREZZI_PIANO.pilota.mese)} al mese`, per: "Per chi vola per passione", voci: ["Tutto quello che c'è nel Free", "Registro voli illimitato e automatico", "Simulazione d'esame A1/A3 e A2", "Telemetria sul video senza logo"] },
+              { nome: "Free", prezzo: "0 €", sotto: "per sempre", per: "Per iniziare", voci: ["Zone di volo, permessi e meteo", "Documenti pronti per i controlli", "Lezioni, quiz e calcolatori", "15 voli nel registro"] },
+            ].map((p) => (
+              <div key={p.nome} style={{ ...riquadro, padding: 20, position: "relative", border: p.top ? "2px solid #4ade80" : riquadro.border }}>
+                {p.top && <span style={{ position: "absolute", top: -11, left: 16, background: "#4ade80", color: "#08200f", fontSize: 11, fontWeight: 900, padding: "3px 10px", borderRadius: 99 }}>⭐ SCELTO DA CHI LAVORA</span>}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}><h3 style={{ fontSize: 19, margin: 0 }}>{p.nome}</h3><span style={{ fontSize: 12, color: "#8b95a3" }}>{p.per}</span></div>
+                <div style={{ fontSize: 26, fontWeight: 800, margin: "6px 0 0 0" }}>{p.prezzo}</div>
+                <div style={{ fontSize: 12, color: "#8b95a3", margin: "2px 0 12px 0" }}>{p.sotto}</div>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 7 }}>
+                  {p.voci.map((v) => <li key={v} style={{ fontSize: 14, color: "#c3cad4", display: "flex", gap: 8 }}><span style={{ color: "#4ade80", fontWeight: 900 }}>✓</span>{v}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+          {lancioInCorso() && <p style={{ fontSize: 13.5, color: "#ffb877", margin: "14px 0 0 0", lineHeight: 1.5 }}>🚀 Fino al {fineLancio()} tutto incluso, senza costi e senza carta di credito. Chi si iscrive ora, con l'annuale, paga il primo anno la metà.</p>}
         </section>
 
         <section className="lp-wrap" style={{ paddingBottom: 64 }}>
@@ -3301,8 +3334,8 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
                 borderLeft: "2px solid transparent", textDecoration: "none",
               }}
             >
-              <Icon size={16} strokeWidth={2} />
-              <span className="sidebar-label">{it.label}</span>
+              <Icon size={16} strokeWidth={2} style={{ flexShrink: 0 }} />
+              <span className="sidebar-label" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{it.label}</span>
               <span className="sidebar-label" style={{ fontSize: 10.5, marginLeft: "auto", color: "#6b7480" }}>↗</span>
             </a>
           );
@@ -3320,9 +3353,9 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
               borderLeft: active ? "2px solid #ff8c42" : "2px solid transparent",
             }}
           >
-            <Icon size={16} strokeWidth={2} />
-            <span className="sidebar-label">{it.label}</span>
-            {it.key === "preventivi" && piano !== "pro" && <span className="sidebar-label" style={{ fontSize: 11, marginLeft: "auto" }}>🔒</span>}
+            <Icon size={16} strokeWidth={2} style={{ flexShrink: 0 }} />
+            <span className="sidebar-label" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{it.label}</span>
+            {PIANO_VOCE[it.key] && <span className="sidebar-label" style={{ marginLeft: "auto", display: "inline-flex" }}><BadgePiano quale={PIANO_VOCE[it.key]} /></span>}
             {it.key === "attestati" && attestatiInScadenza > 0 && (
               <span className="sidebar-label" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto", background: "#ff4d4d", color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{attestatiInScadenza}</span>
             )}
@@ -3567,7 +3600,7 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
               return (
                 <button key={it.key} onClick={() => scegli(it.key)} className={`mr-voce${page === it.key ? " on" : ""}`}>
                   <span className="mr-num">{numero}</span><Icon size={18} /> {it.label}
-                  {it.key === "preventivi" && piano !== "pro" && <span style={{ marginLeft: "auto", fontSize: 12 }}>🔒</span>}
+                  <BadgePiano quale={PIANO_VOCE[it.key]} />
                   {bollino(avvisi[it.key])}
                 </button>
               );
@@ -7785,11 +7818,11 @@ function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
       { e: "🗓️", t: "Pianifica volo e riprese", d: "Il prossimo volo: luogo, data, meteo, checklist e promemoria", k: "pianificazione", c: "piano volo checklist" },
       { e: "🎬", t: "Scaletta riprese", d: "Le scene da fare e le manovre con gli stick, per ogni lavoro", k: "scaletta", c: "scene manovre video" },
       { e: "🧮", t: "Calcolatori", d: "Filtri ND, fotogrammetria, Agras, pulizia di facciate e pannelli", k: "calcolatori", c: "nd gsd fotogrammetria agras ugelli calcolo" },
-      { e: "📈", t: "Telemetria sul video", d: "Quota, velocità, distanza e percorso presi dal file del drone", k: "telemetria", c: "srt dati video velocità quota" },
+      { e: "📈", t: "Telemetria sul video", d: "Quota, velocità e percorso dal file del drone · senza logo con Pilota", k: "telemetria", c: "srt dati video velocità quota" },
       { e: "🎨", t: "Consigli di post-produzione", d: "Colore, LUT e i programmi giusti, da computer e da telefono", k: "post-produzione", c: "colore lut montaggio davinci capcut" },
     ] },
     { titolo: "Dopo il volo e controlli", emoji: "📒", voci: [
-      { e: "📒", t: "Registro voli", d: "Anche automatico, dalle foto e dai video della scheda SD", k: "registro-voli", c: "logbook voli diario" },
+      { e: "📒", t: "Registro voli", d: "Anche automatico dalla scheda SD · illimitato con Pilota", k: "registro-voli", c: "logbook voli diario" },
       { e: "🖼️", t: "Foto e video", d: "Tutti i file dei tuoi voli in una galleria", k: "galleria", c: "galleria media" },
       { e: "👮", t: "Pronto per i controlli", d: "Attestati, assicurazione, drone e permessi a schermo pieno, anche senza campo", k: "documenti-controllo", c: "polizia controllo documenti assicurazione" },
       { e: "📁", t: "Fascicolo del volo", d: "Un solo PDF con tutto, se dopo ti chiedono spiegazioni", k: "volo:fascicolo", pro: true, nascosta: true, c: "pdf spiegazioni assicurazione enac" },
@@ -7799,8 +7832,8 @@ function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
     ] },
     { titolo: "Per chi lavora", emoji: "💼", voci: [
       { e: "💶", t: "Preventivi e incassi", d: "PDF da mandare con WhatsApp o email, pagati e da incassare", k: "preventivi", pro: true, c: "preventivo prezzo fattura incasso pagamento" },
-      { e: "👥", t: "Clienti", d: "La rubrica dei clienti, con WhatsApp a un tocco", k: "clienti", c: "rubrica contatti" },
-      { e: "📤", t: "Consegna al cliente", d: "Galleria con il tuo logo, PIN, filigrana e preferiti", k: "volo:condividi", nascosta: true, c: "consegna galleria cliente foto pin filigrana" },
+      { e: "👥", t: "Clienti", d: "La rubrica dei clienti, con WhatsApp a un tocco", k: "clienti", pro: true, c: "rubrica contatti" },
+      { e: "📤", t: "Consegna al cliente", d: "Galleria con il tuo logo, PIN, filigrana e preferiti", k: "volo:condividi", pro: true, nascosta: true, c: "consegna galleria cliente foto pin filigrana" },
       { e: "✍️", t: "Liberatorie", d: "La persona ripresa firma col dito sul telefono", k: "volo:liberatorie", pro: true, nascosta: true, c: "liberatoria firma privacy immagine" },
       ...(usaIspezioni ? [{ e: "🔍", t: "Ispezioni e report", d: "Fotovoltaico, edifici e anomalie termiche, con report PDF", k: "impianti", c: "termografia fotovoltaico report anomalie" }] : []),
       ...(usaAgricoltura ? [{ e: "🌾", t: "Campi e trattamenti", d: "Appezzamenti, registro dei trattamenti e meteo per irrorare", k: "campi", c: "agras agricoltura trattamenti delta t" }] : []),
@@ -7808,7 +7841,8 @@ function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
       { e: "🌐", t: "La mia pagina e Trova un pilota", d: "La tua pagina pilota e le richieste dei clienti della tua zona", k: "pagina-pilota", c: "trovapilota richieste clienti offerte pagina" },
     ] },
     { titolo: "Imparare", emoji: "🎓", voci: [
-      { e: "🎓", t: "Lezioni e quiz A1/A3 e A2", d: "Regole spiegate semplici e simulazione d'esame come all'ENAC", k: "impara", c: "esame quiz patentino lezioni" },
+      { e: "🎓", t: "Lezioni e quiz A1/A3 e A2", d: "Le regole spiegate semplici e i quiz con la spiegazione di ogni risposta", k: "impara", c: "esame quiz patentino lezioni" },
+      { e: "⏱️", t: "Simulazione d'esame", d: "Con tempo e punteggio, come all'esame ENAC", k: "impara", pilota: true, c: "esame simulazione enac patentino" },
       { e: "🎮", t: "Simulatore di volo", d: "Riprese GPS e FPV e missioni per clienti, senza rischiare il drone", esterno: "/simulatore/", c: "simulatore fpv prova" },
     ] },
     ...(usaAI ? [{ titolo: "Intelligenza artificiale", emoji: "✨", voci: [
@@ -7834,6 +7868,7 @@ function TutteLeFunzioni({ onVai, usaAI, usaIspezioni, usaAgricoltura }) {
       <TestataPagina titolo="Tutte le funzioni" sigla="APP · COSA PUOI FARE" foto="/trova-pilota/case.webp" />
       <input type="search" value={cerca} onChange={(e) => setCerca(e.target.value)} placeholder="🔍 Cerca una funzione… (es. liberatoria)" aria-label="Cerca una funzione"
         style={{ width: "100%", boxSizing: "border-box", background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: "13px 14px", color: "#e7eaee", fontSize: 15, margin: "4px 0 6px 0" }} />
+      <p style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5, color: "#8b95a3", margin: "4px 0 0 0" }}><BadgePiano quale="pilota" stile={{ marginLeft: 0 }} /> nel piano Pilota <BadgePiano quale="pro" stile={{ marginLeft: 6 }} /> nel piano Pro · tutto il resto è incluso anche nel Free{lancioInCorso() ? ` · fino al ${fineLancio()} tutto incluso per tutti` : ""}</p>
       {gruppi.length === 0 && <p style={{ color: "#8b95a3", fontSize: 14, marginTop: 16 }}>Nessuna funzione con «{cerca}». Prova con un'altra parola, oppure scrivici dai Suggerimenti.</p>}
       {gruppi.map((g) => (
         <section key={g.titolo} style={{ marginTop: 18 }}>
@@ -7841,9 +7876,9 @@ function TutteLeFunzioni({ onVai, usaAI, usaIspezioni, usaAgricoltura }) {
           <div className="tf-griglia">
             {g.voci.map((v) => (
               <button key={v.t} type="button" className="tf-voce" onClick={() => apri(v)}>
-                {v.pro && <span style={{ position: "absolute", top: 10, right: 10, fontSize: 9.5, fontWeight: 800, color: "#4ade80", border: "1px solid #2f6b47", borderRadius: 5, padding: "1px 5px" }}>PRO</span>}
+                {(v.pro || v.pilota) && <span style={{ position: "absolute", top: 10, right: 10, display: "flex" }}><BadgePiano quale={v.pro ? "pro" : "pilota"} /></span>}
                 <span style={{ fontSize: 21 }}>{v.e}</span>
-                <strong style={{ fontSize: 14, lineHeight: 1.25, paddingRight: v.pro ? 34 : 0 }}>{v.t}</strong>
+                <strong style={{ fontSize: 14, lineHeight: 1.25, paddingRight: v.pro ? 34 : v.pilota ? 48 : 0 }}>{v.t}</strong>
                 <span style={{ fontSize: 12, color: "#9aa3b8", lineHeight: 1.4 }}>{v.d}</span>
                 <span style={{ fontSize: 11.5, color: "#ffb877", fontWeight: 700, marginTop: 4 }}>{v.nascosta ? "Scegli il volo ›" : v.dove ? `${v.dove} ›` : "Apri ›"}</span>
               </button>
