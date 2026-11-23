@@ -17,6 +17,9 @@ export const ORDINE_PIANO = { free: 0, pilota: 1, pro: 2 };
 let pianoPagato = "free";
 export const impostaPianoPagato = (p) => { pianoPagato = p || "free"; };
 
+// può usare una funzione di quel piano? durante il lancio sì per tutti, poi solo chi ha il piano pagato
+export const haPiano = (quale) => lancioInCorso() || (ORDINE_PIANO[pianoPagato] ?? 0) >= ORDINE_PIANO[quale];
+
 export function NotaPiano({ quale = "pilota", cosa, prima, stile }) {
   if ((ORDINE_PIANO[pianoPagato] ?? 0) >= ORDINE_PIANO[quale]) return null; // ce l'ha già
   const pro = quale === "pro";
