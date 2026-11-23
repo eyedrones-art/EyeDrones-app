@@ -2164,6 +2164,7 @@ function AppShell({ session }) {
       else if (d.pagina === "qui") { setPage("qui"); window.scrollTo(0, 0); }
       else if (d.pagina === "abbonamento") { setPage("abbonamento"); window.scrollTo(0, 0); }
       else if (d.pagina === "numeri") { setPage("numeri"); window.scrollTo(0, 0); }
+      else if (d.pagina === "admin-richieste") { setPage("admin-richieste"); window.scrollTo(0, 0); }
       else if (d.pagina === "consiglia") { try { sessionStorage.setItem("eyedrones_consiglia", JSON.stringify(d.posto || {})); } catch { /* niente */ } setPage("posti"); window.scrollTo(0, 0); }
     };
     window.addEventListener("eyedrones-vai", ascolta);
@@ -2468,6 +2469,7 @@ function AppShell({ session }) {
         {page === "registro-voli" && <RegistroVoli azioneDaFare={azioneVolo} onAzioneFatta={() => setAzioneVolo(null)} spazio={spazioAperto} azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} schermoPienoSubito={controlloSubito} onSchermoPienoAperto={() => setControlloSubito(false)} />}
         {page === "numeri" && adminAI && <NumeriStartup onIndietro={() => setPage("impostazioni")} />}
+        {page === "admin-richieste" && adminAI && <RichiesteAdmin onIndietro={() => setPage("impostazioni")} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
         {page === "abbonamento" && <Abbonamento piano={pianoReale} />}
         {page === "suggerimenti" && <Suggerimenti session={session} paginaPrecedente={paginaPrecedente} />}
@@ -17114,6 +17116,96 @@ function AccessoImpronta() {
 
 // «Il weekend giusto per volare»: chi lo attiva riceve il giovedì un'email con il momento migliore del weekend
 // vicino a casa sua e i posti consigliati lì intorno. Salvo solo la zona (il comune, coordinate arrotondate)
+// «📍 Richieste di Trova un pilota»: solo per l'amministratore (script supabase/richieste-admin.sql).
+// Ogni richiesta con il lavoro, i piloti avvisati, le email/notifiche partite e le offerte. Nessun nome, email o telefono.
+const BUDGET_NOMI = { fino_300: "fino a 300 €", "300_700": "300–700 €", "700_1500": "700–1.500 €", oltre_1500: "oltre 1.500 €" };
+const STATO_RICHIESTA = { aperta: ["Aperta", "#f5b942"], scelta: ["Pilota scelto", "#a78bfa"], confermata: ["Confermata", "#4ade80"], chiusa: ["Chiusa", "#8b95a3"] };
+const STATO_OFFERTA = { inviata: "inviata", scelta: "scelta dal cliente", confermata: "confermata", decaduta: "scaduta", rinunciata: "il pilota ha rinunciato", non_scelta: "non scelta" };
+function RichiesteAdmin({ onIndietro }) {
+  const [lista, setLista] = useState(undefined); // undefined = carico, null = script non eseguito
+  const [filtro, setFiltro] = useState("tutte");
+  const carica = () => {
+    setLista(undefined);
+    supabase.rpc("richieste_admin").then(({ data, error }) => setLista(error || !Array.isArray(data) ? null : data), () => setLista(null));
+  };
+  useEffect(carica, []);
+  const quando = (iso) => (iso ? new Date(iso).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "");
+  const giorno = (iso) => (iso ? new Date(`${String(iso).slice(0, 10)}T12:00:00`).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "long" }) : "");
+  const eur = (v) => Number(v || 0).toLocaleString("it-IT", { maximumFractionDigits: 2 }) + " €";
+  const attive = (r) => (r.offerte || []).filter((o) => o.stato !== "decaduta");
+  const ferma = (r) => r.stato === "aperta" && attive(r).length === 0 && Date.now() - new Date(r.creata).getTime() > 24 * 3600 * 1000;
+  const tutte = lista || [];
+  const filtrate = tutte.filter((r) => filtro === "tutte" || (filtro === "senza" ? r.stato === "aperta" && attive(r).length === 0 : r.stato === "aperta"));
+  const riquadro = { background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "14px 16px" };
+  const scheda = (attiva) => ({ background: attiva ? "#3d8bfd" : "transparent", color: attiva ? "#fff" : "#c3cad4", border: `1px solid ${attiva ? "#3d8bfd" : "#343e57"}`, borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 600 });
+  return (
+    <div style={{ padding: "28px 32px", maxWidth: 820 }}>
+      <TestataPagina titolo="Richieste" sigla="TROVA UN PILOTA · SOLO PER TE" icona={MapPin} info="Le richieste dei clienti: cosa chiedono, quanti piloti sono stati avvisati, se email e notifiche sono partite e quante offerte sono arrivate. Nessun nome, email o telefono.">
+        <button type="button" onClick={onIndietro} style={{ background: "transparent", color: "#c3cad4", border: "1px solid #343e57", borderRadius: 6, padding: "8px 14px", fontSize: 13 }}>‹ Impostazioni</button>
+      </TestataPagina>
+      {lista === undefined && <div style={{ fontSize: 13, color: "#8b95a3" }}>Carico le richieste…</div>}
+      {lista === null && <div style={{ ...riquadro, fontSize: 13, color: "#f5b942" }}>Per vedere le richieste esegui una volta lo script <strong>supabase/richieste-admin.sql</strong> nello SQL Editor di Supabase.</div>}
+      {lista && (
+        <>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+            <button type="button" onClick={() => setFiltro("tutte")} style={scheda(filtro === "tutte")}>Tutte ({tutte.length})</button>
+            <button type="button" onClick={() => setFiltro("aperte")} style={scheda(filtro === "aperte")}>Aperte ({tutte.filter((r) => r.stato === "aperta").length})</button>
+            <button type="button" onClick={() => setFiltro("senza")} style={scheda(filtro === "senza")}>Senza offerte ({tutte.filter((r) => r.stato === "aperta" && attive(r).length === 0).length})</button>
+            <button type="button" onClick={carica} style={{ marginLeft: "auto", background: "transparent", color: "#3d8bfd", border: "none", fontSize: 13, fontWeight: 600 }}>↻ Aggiorna</button>
+          </div>
+          {filtrate.length === 0 && <div style={{ ...riquadro, fontSize: 13, color: "#8b95a3" }}>Nessuna richiesta qui.</div>}
+          {filtrate.map((r, i) => {
+            const [nomeStato, coloreStato] = STATO_RICHIESTA[r.stato] || [r.stato, "#8b95a3"];
+            const off = r.offerte || [];
+            const a = r.avviso;
+            return (
+              <div key={`${r.creata}-${i}`} style={{ ...riquadro, marginBottom: 12, borderColor: ferma(r) ? "#6b2f2f" : "#2a3349" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
+                  <span className="mono" style={{ fontSize: 12, color: "#8b95a3" }}>{quando(r.creata)}</span>
+                  <span className="mono" style={{ fontSize: 12, fontWeight: 700, background: "#1a2133", borderRadius: 6, padding: "2px 8px" }}>{r.provincia}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: coloreStato, border: `1px solid ${coloreStato}`, borderRadius: 999, padding: "1px 9px" }}>{nomeStato}</span>
+                  {r.in_regione && <span style={{ fontSize: 11.5, color: "#aab3bf" }}>girata alla regione</span>}
+                  {r.diretto && <span style={{ fontSize: 11.5, color: "#aab3bf" }}>«richiedi di nuovo» a un pilota</span>}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{r.servizio || "Lavoro"}{r.luogo ? <span style={{ fontWeight: 400, color: "#c3cad4" }}> · {r.luogo}</span> : null}</div>
+                <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 2 }}>
+                  {r.per_il ? `Per ${giorno(r.per_il)}` : "Data da concordare"}{r.budget ? ` · budget ${BUDGET_NOMI[r.budget] || r.budget}` : ""}
+                </div>
+                {r.descrizione && <div style={{ background: "#10141f", borderRadius: 8, padding: "10px 12px", fontSize: 13, lineHeight: 1.5, marginTop: 10, whiteSpace: "pre-wrap" }}>{r.descrizione}</div>}
+
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12.5, marginTop: 10, color: "#c3cad4" }}>
+                  <span>👥 Piloti che la vedono: <strong className="mono">{r.piloti_zona}</strong></span>
+                  {a ? (
+                    <>
+                      <span>📧 Email inviate: <strong className="mono">{a.email_ok}</strong>{a.email_ko > 0 && <span style={{ color: "#ff9c9c" }}> · {a.email_ko} non partite</span>}</span>
+                      <span>📱 Notifiche sul telefono: <strong className="mono">{a.push_ok}</strong></span>
+                    </>
+                  ) : <span style={{ color: "#8b95a3" }}>📧 Avviso non registrato (richiesta arrivata prima di questa pagina)</span>}
+                </div>
+                {a && a.email_ok === 0 && <div style={{ fontSize: 12.5, color: "#ff9c9c", marginTop: 6 }}>⚠️ Nessuna email partita: in quella zona non c'erano piloti da avvisare.</div>}
+                {ferma(r) && <div style={{ fontSize: 12.5, color: "#ff9c9c", marginTop: 6 }}>⚠️ Ferma da più di un giorno senza offerte: servono piloti in provincia di {r.provincia}.</div>}
+
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 4 }}>Offerte: {off.length}</div>
+                  {off.map((o, j) => (
+                    <div key={j} style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", fontSize: 13, padding: "6px 0", borderTop: "1px dashed #2a3349" }}>
+                      <strong className="mono">{eur(o.prezzo)}</strong>
+                      <span style={{ color: o.stato === "confermata" ? "#4ade80" : "#aab3bf", fontSize: 12 }}>{STATO_OFFERTA[o.stato] || o.stato}</span>
+                      <span className="mono" style={{ color: "#8b95a3", fontSize: 11.5 }}>{quando(o.quando)}</span>
+                      {o.messaggio && <span style={{ flexBasis: "100%", color: "#c3cad4", fontSize: 12.5 }}>«{o.messaggio}»</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          <p style={{ fontSize: 12, color: "#8b95a3", marginTop: 4 }}>«Email inviate» vuol dire che il servizio email le ha prese in carico. Per sapere se sono state consegnate o rifiutate guarda su resend.com → Emails.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 // «📊 I numeri di EyeDrones»: solo per l'amministratore (script supabase/numeri-startup.sql).
 // I numeri da guardare il lunedì e da mostrare a bandi e investitori: nessun nome, solo conteggi.
 const MESI_CORTI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
@@ -17701,6 +17793,13 @@ function Impostazioni({ azienda, setAzienda, piano, moduli, onSalvaModuli, userE
             <button type="button" onClick={() => vaiA({ pagina: "numeri" })} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12, color: "#e7eaee" }}>
               <span style={{ fontSize: 20 }}>📊</span>
               <span style={{ flex: 1 }}><span style={{ display: "block", fontSize: 13, fontWeight: 700 }}>I numeri di EyeDrones</span><span style={{ display: "block", fontSize: 12, color: "#8b95a3", marginTop: 2 }}>Solo per te: iscritti, chi usa l'app e i lavori di Trova un pilota, mese per mese</span></span>
+              <span style={{ color: "#ff8c42" }}>›</span>
+            </button>
+          )}
+          {AI_IN_PROVA.includes(String(userEmail || "").toLowerCase()) && (
+            <button type="button" onClick={() => vaiA({ pagina: "admin-richieste" })} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "#10141f", border: "1px solid #232b3f", borderRadius: 8, padding: 14, marginBottom: 12, color: "#e7eaee" }}>
+              <span style={{ fontSize: 20 }}>📍</span>
+              <span style={{ flex: 1 }}><span style={{ display: "block", fontSize: 13, fontWeight: 700 }}>Richieste di Trova un pilota</span><span style={{ display: "block", fontSize: 12, color: "#8b95a3", marginTop: 2 }}>Solo per te: cosa chiedono i clienti, piloti avvisati, email partite e offerte arrivate</span></span>
               <span style={{ color: "#ff8c42" }}>›</span>
             </button>
           )}
