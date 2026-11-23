@@ -30,8 +30,8 @@ export const COME_SI_PRENDE = {
     estero: {
       testo: [
         "L'attestato A1/A3 preso in un altro paese EASA vale in tutta Europa, Italia compresa.",
-        "Lussemburgo: corso e test online gratis sulla piattaforma LearningZone di Eurocontrol, in inglese, francese o tedesco. Ci si iscrive come privato (nel campo «azienda» basta il cognome) e si sceglie il corso «UAS-OPEN A1+A3».",
-        "Paesi Bassi: si fa online in inglese tramite le scuole riconosciute (il costo dipende dalla scuola: c'è chi l'ha fatto gratis), ma il certificato lo chiedi all'RDW entrando con DigiD, l'identità digitale olandese: si può fare solo se sei registrato in Olanda.",
+        "Lussemburgo: corso e test online senza costi sulla piattaforma LearningZone di Eurocontrol, in inglese, francese o tedesco. Ci si iscrive come privato (nel campo «azienda» basta il cognome) e si sceglie il corso «UAS-OPEN A1+A3».",
+        "Paesi Bassi: si fa online in inglese tramite le scuole riconosciute (il costo dipende dalla scuola: c'è chi l'ha fatto senza costi), ma il certificato lo chiedi all'RDW entrando con DigiD, l'identità digitale olandese: si può fare solo se sei registrato in Olanda.",
         "Da sapere: il regolamento europeo dice che il test va fatto con l'autorità del paese dove sei registrato come operatore (per chi è su D-Flight, ENAC). In tanti lo fanno all'estero e l'attestato viene accettato, ma se vuoi stare tranquillo al 100% scegli ENAC.",
       ],
       link: [["🇱🇺 Lussemburgo (DAC): come e dove fare il corso", "https://dac.gouvernement.lu/en/drones/train-where-how.html"], ["🇳🇱 Paesi Bassi (governo): come chiedere il certificato", "https://www.rijksoverheid.nl/wetten-en-regelingen/productbeschrijvingen/vliegbewijs-drone-aanvragen"]],
@@ -54,7 +54,7 @@ export const COME_SI_PRENDE = {
     estero: {
       testo: [
         "Anche il certificato A2 preso in un altro paese EASA vale in tutta Europa, Italia compresa.",
-        "Paesi Bassi: corso ed esame A2 online e sorvegliato, in inglese, con le scuole riconosciute (il costo dipende dalla scuola: c'è chi l'ha fatto gratis). Il certificato però si chiede all'RDW con DigiD (identità digitale olandese) e serve prima l'A1/A3 olandese: va bene solo per chi è registrato in Olanda.",
+        "Paesi Bassi: corso ed esame A2 online e sorvegliato, in inglese, con le scuole riconosciute (il costo dipende dalla scuola: c'è chi l'ha fatto senza costi). Il certificato però si chiede all'RDW con DigiD (identità digitale olandese) e serve prima l'A1/A3 olandese: va bene solo per chi è registrato in Olanda.",
         "Lussemburgo: c'è un corso di preparazione all'A2, ma non abbiamo trovato informazioni ufficiali su come fare l'esame da fuori: chiedi direttamente alla DAC.",
         "Da sapere: come per l'A1/A3, il regolamento chiede di fare l'esame nel paese dove sei registrato come operatore. Per chi vive in Italia la strada più semplice resta un'Entità Riconosciuta ENAC.",
       ],
@@ -518,7 +518,7 @@ export const DOMANDE = {
     { tema: "Emergenze", d: "C'è un incidente con un ferito. Qual è la prima cosa?", r: ["Fare la segnalazione online", "Chiamare i soccorsi (112)", "Recuperare il drone", "Fare un video"], ok: 1, perche: "Prima le persone: soccorsi. Poi la segnalazione (per gli incidenti gravi entro 72 ore)." },
     { tema: "Security", d: "Che differenza c'è tra safety e security?", r: ["Nessuna", "Safety: non fare danni volando; security: impedire che il drone venga usato per fare danni", "Safety è per i droni grandi", "Security è l'assicurazione"], ok: 1, perche: "La safety riguarda la sicurezza del volo; la security la protezione da usi illeciti o malevoli." },
     { tema: "Security", d: "Vuoi togliere i limiti di altezza del drone con un programma trovato online. È una buona idea?", r: ["Sì, se voli bene", "No: si aggiorna solo con l'app o il sito del costruttore", "Sì, in A3", "Sì, se lo fanno tutti"], ok: 1, perche: "Modifiche non ufficiali possono rendere il drone pericoloso e non conforme alle regole." },
-    { tema: "Security", d: "Ti rubano il drone. Perché conviene denunciarlo?", r: ["Non serve", "Perché il codice operatore sul drone è registrato a tuo nome", "Per avere un drone nuovo gratis", "Per cambiare classe"], ok: 1, perche: "Il drone porta il tuo codice operatore: se qualcuno lo usa male, la denuncia ti tutela." },
+    { tema: "Security", d: "Ti rubano il drone. Perché conviene denunciarlo?", r: ["Non serve", "Perché il codice operatore sul drone è registrato a tuo nome", "Per avere un drone nuovo senza pagarlo", "Per cambiare classe"], ok: 1, perche: "Il drone porta il tuo codice operatore: se qualcuno lo usa male, la denuncia ti tutela." },
   ],
   a2: [
     { tema: "Requisiti", d: "Cosa serve per ottenere il certificato A2?", r: ["Solo l'attestato A1/A3", "Attestato A1/A3, autoaddestramento pratico ed esame teorico", "Una visita medica", "Un'autorizzazione ENAC per ogni volo"], ok: 1, perche: "L'A2 richiede l'A1/A3, l'autoaddestramento pratico dichiarato e il superamento dell'esame teorico." },

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy, Fragment } from "react";
-import { LayoutDashboard, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette, Gauge, Calculator } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette, Gauge, Calculator } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -222,19 +222,29 @@ const CHECKLIST_DEFAULT = [
 // recupera il meteo in tempo reale per una zona (servizio pubblico gratuito, nessuna chiave richiesta)
 // ---- Piani e limiti -----------------------------------------------------------
 // Free: tutto funziona ma con quantità limitate. Pilota toglie i limiti di quantità. Pro aggiunge gli strumenti di lavoro.
-const LIMITI_FREE = { voli: 15, batterie: 2, reportMese: 4, linkConsegna: 1 };
+const LIMITI_FREE = { voli: 15, batterie: 2, reportMese: 2, linkConsegna: 1 };
+const LIMITI_PILOTA = { reportMese: 4 };
+const limiteReport = (piano) => (piano === "pilota" ? LIMITI_PILOTA.reportMese : LIMITI_FREE.reportMese);
 
 // --- Piano Pro e Pass Lavoro --------------------------------------------------------------------
 // Interruttore unico: finché è false le funzioni Pro hanno solo l'etichetta "PRO" e sono usabili da tutti.
 // Quando i pagamenti sono attivi, mettilo a true e i blocchi si accendono (galleria pro, liberatorie, link di consegna nel Free).
 const BLOCCHI_PRO_ATTIVI = false;
 // Pass Lavoro: acquisto singolo che sblocca le funzioni Pro su un volo (colonna voli.pass_lavoro, script supabase/pass-lavoro.sql)
-const PREZZO_PASS_LAVORO = 6.9;
+const PREZZO_PASS_LAVORO = 4.9;
 const LINK_PAGAMENTO_PASS = ""; // link di pagamento Stripe del Pass, quando ci sarà
 
 // vale per un volo: Pro attivo, oppure Pass Lavoro su quel volo, oppure blocchi spenti
 function sbloccatoPro(piano, volo) {
   return !BLOCCHI_PRO_ATTIVI || piano === "pro" || !!(volo && volo.pass_lavoro);
+}
+
+// il piano che serve per una voce del menu (Pilota o Pro): l'etichetta si vede sempre, anche durante il lancio
+const PIANO_VOCE = { preventivi: "pro", clienti: "pro" };
+function BadgePiano({ quale, stile }) {
+  if (!quale) return null;
+  const pro = quale === "pro";
+  return <span title={pro ? "Funzione del piano Pro" : "Funzione del piano Pilota"} style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: pro ? "#4ade80" : "#7cb3ff", border: `1px solid ${pro ? "#2f6b47" : "#2c4f80"}`, borderRadius: 5, padding: "1px 5px", lineHeight: 1.3, marginLeft: "auto", ...stile }}>{pro ? "PRO" : "PILOTA"}</span>;
 }
 
 function EtichettaPro() {
@@ -267,16 +277,16 @@ function InvitoPro({ volo, cosa, passQuestoMese = 0, onVaiAbbonamento }) {
 }
 // Link di pagamento Stripe (Payment Link): quando li crei su Stripe, incollali qui e i pulsanti "Passa a..." li useranno.
 const LINK_PAGAMENTO = { pilota: { mese: "", anno: "" }, pro: { mese: "", anno: "" } };
-// prezzi in euro: cambiali solo qui, la pagina Abbonamento calcola da sola "al mese" e "mesi gratis"
+// prezzi in euro: cambiali solo qui, la pagina Abbonamento calcola da sola "al mese" e "mesi risparmiati"
 const PREZZI_PIANO = { pilota: { mese: 6.9, anno: 69 }, pro: { mese: 12.9, anno: 119 } };
-// Lancio: fino a questa data tutti hanno le funzioni Pro gratis. Chi si iscrive entro la data è "fondatore":
+// Lancio: fino a questa data tutti hanno le funzioni Pro senza costi. Chi si iscrive entro la data è "fondatore":
 // quando partono gli abbonamenti paga il primo anno scontato (poi prezzo pieno). Per chiudere il lancio: attivo: false.
 const LANCIO = { attivo: true, fino: "2027-01-31", scontoFondatori: 0.5 };
 const lancioInCorso = () => LANCIO.attivo && dataLocale() <= LANCIO.fino;
 const fineLancio = () => new Date(`${LANCIO.fino}T12:00:00`).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
 const prezzoFondatori = (n) => Math.round(n * (1 - LANCIO.scontoFondatori) * 100) / 100;
 const euro = (n) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
-const mesiGratisAnnuale = (chiave) => Math.round(12 - PREZZI_PIANO[chiave].anno / PREZZI_PIANO[chiave].mese);
+const mesiRisparmiatiAnnuale = (chiave) => Math.round(12 - PREZZI_PIANO[chiave].anno / PREZZI_PIANO[chiave].mese);
 const NOME_PIANO = { free: "Free", pilota: "Pilota", pro: "Pro" };
 const ORDINE_PIANO = { free: 0, pilota: 1, pro: 2 };
 const COLORE_PIANO = { free: "#f5b942", pilota: "#3d8bfd", pro: "#4ade80" };
@@ -1936,7 +1946,7 @@ function AppAutenticata() {
 
 function AppShell({ session }) {
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "funzioni", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2262,11 +2272,14 @@ function AppShell({ session }) {
   const impiantoCorrente = impiantoAttivo ? impiantiConStat.find((i) => i.id === impiantoAttivo.id) : null;
 
   // navigazione: "Foto e video" nel menu è la galleria del registro voli
+  const [azioneVolo, setAzioneVolo] = useState(null);
   const vai = (chiave) => {
     // scorciatoie del menu: la scaletta delle riprese (dentro Pianifica) e i consigli di post-produzione (dentro Impara)
     if (chiave === "scaletta") { try { sessionStorage.setItem(CHIAVE_VAI_SCALETTA, "si"); } catch { /* niente */ } setPage("pianificazione"); window.scrollTo(0, 0); return; }
     if (chiave === "post-produzione") { setSchedaImpara("manuale"); setPage("impara"); window.scrollTo(0, 0); return; }
     if (chiave === "galleria") { setVistaVoli("galleria"); setPage("registro-voli"); return; }
+    // dalle «Tutte le funzioni»: consegna, liberatoria e fascicolo stanno dentro un volo → Registro voli con «scegli il volo»
+    if (chiave.startsWith("volo:")) { setAzioneVolo(chiave.slice(5)); setVistaVoli("voli"); setPage("registro-voli"); window.scrollTo(0, 0); return; }
     if (chiave === "registro-voli") setVistaVoli("voli");
     // «La mia pagina» dal menu: se ci sono richieste nuove apre subito quelle
     if (chiave === "pagina-pilota") setSchedaPagina(richiesteNuove > 0 || lavoriAperti > 0 ? "richieste" : "pagina");
@@ -2457,7 +2470,7 @@ function AppShell({ session }) {
         {page === "impianto" && impiantoCorrente && <DettaglioImpianto impianto={impiantoCorrente} ispezioni={ispezioni.filter((i) => i.impianto_id === impiantoCorrente.id)} anomalieAll={anomalieAll} fotoAll={fotoAll} azienda={azienda} piano={piano} onBack={() => setPage("impianti")} onReload={loadData} />}
         {page === "nuova" && <NuovaIspezione impianti={impiantiConStat} onSaved={loadData} onDone={() => setPage("dashboard")} azienda={azienda} piano={piano} reportQuestoMese={reportQuestoMese} />}
         {page === "pianificazione" && <PianificazioneVolo tipoPredefinito={spazioAperto ? spazioAperto.tipoPiano : null} azienda={azienda} impianti={impianti} session={session} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} luogoIniziale={luogoDaPianificare} onLuogoUsato={() => setLuogoDaPianificare(null)} onVaiRegistroConDati={(dati) => { setPrefillVolo(dati); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
-        {page === "registro-voli" && <RegistroVoli spazio={spazioAperto} azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
+        {page === "registro-voli" && <RegistroVoli azioneDaFare={azioneVolo} onAzioneFatta={() => setAzioneVolo(null)} spazio={spazioAperto} azienda={azienda} droni={droni} ispezioni={ispezioni} impianti={impianti} aprireNuovo={nuovoVolo} onAperto={() => { setNuovoVolo(false); setFileRapidi(null); setPrefillVolo(null); }} onCambiato={caricaVoli} vista={vistaVoli} onVista={setVistaVoli} fileIniziali={fileRapidi} prefillIniziale={prefillVolo} batterie={batterie} onBatterieCambiate={caricaBatterie} piano={piano} onVaiAbbonamento={() => setPage("abbonamento")} eventiVolo={eventiVolo} onEventiCambiati={caricaEventiVolo} />}
         {page === "documenti-controllo" && <DocumentiControllo azienda={azienda} impianti={impianti} usaIspezioni={usaIspezioni} piano={piano} pianoIniziale={pianoDaAprire} onPianoAperto={() => setPianoDaAprire(null)} schermoPienoSubito={controlloSubito} onSchermoPienoAperto={() => setControlloSubito(false)} />}
         {page === "numeri" && adminAI && <NumeriStartup onIndietro={() => setPage("impostazioni")} />}
         {page === "impostazioni" && <Impostazioni userEmail={session.user.email} azienda={azienda} setAzienda={salvaProfiloAzienda} piano={piano} moduli={moduli} onSalvaModuli={salvaModuli} />}
@@ -2482,6 +2495,7 @@ function AppShell({ session }) {
               onCaricaZone={() => { setPage("pianificazione"); window.scrollTo(0, 0); }} />
           </Suspense>
         )}
+        {page === "funzioni" && <TutteLeFunzioni onVai={(k) => { vai(k); window.scrollTo(0, 0); }} usaAI={adminAI || espertoAperto} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} />}
         {page === "telemetria" && <Suspense fallback={<LoadingBlock />}><Telemetria /></Suspense>}
         {(page === "calcolatori" || page === "filtri-nd") && <PaginaCalcolatori onPianifica={() => { setPage("pianificazione"); window.scrollTo(0, 0); }} />}
         {page === "posti" && (
@@ -2739,10 +2753,12 @@ const FUNZIONI_PRESENTAZIONE = [
   { emoji: "📐", titolo: "Volumi STS-01", testo: "Disegni l'area con il dito o la importi da DJI Pilot 2: contingenza e buffer calcolati e disegnati sulla mappa, zone controllate su tutta l'area, pronti per il manuale operativo e per il fascicolo." },
   { emoji: "📤", titolo: "Consegna al cliente", testo: "Una galleria con il tuo logo, PIN, filigrana e preferiti: il cliente sceglie le foto e scarica solo quando sblocchi tu." },
   { emoji: "✍️", titolo: "Liberatorie firmate", testo: "Il cliente o la persona ripresa firma col dito sul telefono: PDF con la firma salvato insieme al volo." },
+  { emoji: "📍", titolo: "I clienti ti trovano", testo: "Crea la tua pagina pilota: su trovapilota.it privati e aziende della tua zona ti mandano le richieste e tu rispondi con la tua offerta." },
   { emoji: "💶", titolo: "Preventivi con il prezzo giusto", testo: "Pacchetti pronti, fascia di prezzo del mercato e il tuo prezzo minimo calcolato dai costi, poi il PDF da mandare. Rubrica clienti con WhatsApp a un tocco e lavori pagati o da incassare." },
   { emoji: "🔋", titolo: "Batterie e manutenzione", testo: "Cicli e stato di carica delle batterie, registro di eliche, firmware e riparazioni di ogni drone." },
   { emoji: "🔍", titolo: "Ispezioni e report", testo: "Fotovoltaico, edifici, danni: anomalie sulle foto termiche e report PDF professionali per il cliente." },
-  { emoji: "📐", titolo: "Calcolatore per la fotogrammetria", testo: "Scegli drone e camera (anche la termica del Mavic 3T) e parti dall'altezza o dal dettaglio che vuoi: GSD, sovrapposizioni, numero di foto, strisciate, tempo e batterie." },
+  { emoji: "🧮", titolo: "Calcolatori", testo: "Filtri ND, fotogrammetria (GSD, sovrapposizioni, strisciate, batterie, anche con il Mavic 3T), trattamenti con droni Agras e pulizia di facciate e pannelli." },
+  { emoji: "📈", titolo: "Telemetria sul video", testo: "Carichi il video e il file del drone: quota, velocità, distanza, bussola e percorso disegnati sul video, pronto da pubblicare." },
   { emoji: "🌾", titolo: "Agricoltura e droni Agras", testo: "Appezzamenti con i confini sulla mappa, registro dei trattamenti in PDF e meteo per irrorare con le soglie di vento e Delta T." },
   { emoji: "📦", titolo: "Report di consegna", testo: "Per fotogrammetria e agricoltura: un PDF con mappa dell'area, file consegnati, sistema di riferimento e dati del lavoro, pronto da dare al cliente." },
 ];
@@ -2789,7 +2805,7 @@ function Presentazione({ onAccedi, onRegistrati }) {
           <span style={{ fontWeight: 700, fontSize: 17 }}>EyeDrones</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
             <button onClick={onAccedi} style={{ ...bottoneSecondario, padding: "8px 14px", fontSize: 14, border: "none" }}>Accedi</button>
-            <button onClick={onRegistrati} style={{ ...bottonePrimario, padding: "8px 14px", fontSize: 14 }}>Registrati<span className="lp-solo-largo"> gratis</span></button>
+            <button onClick={onRegistrati} style={{ ...bottonePrimario, padding: "8px 14px", fontSize: 14 }}>Registrati<span className="lp-solo-largo"> senza costi</span></button>
           </div>
         </div>
       </header>
@@ -2817,16 +2833,16 @@ function Presentazione({ onAccedi, onRegistrati }) {
             <div className="mono lp-sigla">UAS · RIPRESE, FPV E ISPEZIONI</div>
             <h1>L'app per piloti di droni.<br /><span style={{ color: "#ff8c42", fontSize: ".7em", display: "inline-block", marginTop: 6 }}>Tutto il tuo volo, in un posto solo.</span></h1>
             <p style={{ fontSize: 17, lineHeight: 1.55, color: "#c3cad4", margin: "0 0 26px 0", maxWidth: 520 }}>
-              Pianifica con meteo, ora d'oro e zona di volo, registra voli e batterie, tieni pronti i documenti per i controlli e consegna foto e video ai tuoi clienti con un link.
+              Scrivi dove voli e ti dice subito se puoi e cosa serve. Poi registro voli, documenti pronti per i controlli, preventivi, consegna ai clienti e le richieste di lavoro della tua zona.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button onClick={onRegistrati} style={bottonePrimario}>Inizia gratis</button>
+              <button onClick={onRegistrati} style={bottonePrimario}>Inizia senza costi</button>
               <button onClick={onAccedi} style={bottoneSecondario}>Ho già un account</button>
             </div>
             {lancioInCorso() ? (
-              <p style={{ fontSize: 13.5, color: "#ffb877", marginTop: 14, lineHeight: 1.5 }}>🚀 In lancio: <strong>tutte le funzioni gratis fino al {fineLancio()}</strong>, senza carta di credito. Chi si iscrive ora avrà il primo anno a metà prezzo.</p>
+              <p style={{ fontSize: 13.5, color: "#ffb877", marginTop: 14, lineHeight: 1.5 }}>🚀 In lancio: <strong>tutte le funzioni incluse senza costi fino al {fineLancio()}</strong>, senza carta di credito. Chi si iscrive ora avrà, con l'annuale, il primo anno a metà prezzo.</p>
             ) : (
-              <p style={{ fontSize: 13, color: "#6b7480", marginTop: 14 }}>Gratis per iniziare, senza carta di credito. Funziona su telefono e computer.</p>
+              <p style={{ fontSize: 13, color: "#6b7480", marginTop: 14 }}>0 € per iniziare, senza carta di credito. Funziona su telefono e computer.</p>
             )}
           </div>
 
@@ -2889,6 +2905,29 @@ function Presentazione({ onAccedi, onRegistrati }) {
           </div>
         </section>
 
+        <section className="lp-wrap" style={{ paddingBottom: 56 }}>
+          <h2 style={{ fontSize: 26, margin: "0 0 6px 0" }}>Inizi con 0 €, cresci quando lavori</h2>
+          <p style={{ color: "#8b95a3", margin: "0 0 22px 0", fontSize: 15 }}>Un solo lavoro ripaga un anno di Pro. Disdici quando vuoi, i tuoi dati restano tuoi.</p>
+          <div className="lp-griglia" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+            {[
+              { nome: "Pro", prezzo: `${euro(PREZZI_PIANO.pro.anno / 12)}/mese`, sotto: `con l'annuale (${euro(PREZZI_PIANO.pro.anno)}) · ${euro(PREZZI_PIANO.pro.mese)} al mese`, per: "Per chi lavora con i clienti", voci: ["Tutto quello che c'è in Pilota", "Preventivi, clienti e incassi", "Consegna al cliente con PIN e il tuo logo", "Liberatorie e fascicolo del volo", "Report illimitati e pagina in evidenza"], top: true },
+              { nome: "Pilota", prezzo: `${euro(PREZZI_PIANO.pilota.anno / 12)}/mese`, sotto: `con l'annuale (${euro(PREZZI_PIANO.pilota.anno)}) · ${euro(PREZZI_PIANO.pilota.mese)} al mese`, per: "Per chi vola per passione", voci: ["Tutto quello che c'è nel Free", "Registro voli illimitato e automatico", "Simulazione d'esame A1/A3 e A2", "Telemetria sul video senza logo"] },
+              { nome: "Free", prezzo: "0 €", sotto: "per sempre", per: "Per iniziare", voci: ["Zone di volo, permessi e meteo", "Documenti pronti per i controlli", "Lezioni, quiz e calcolatori", "15 voli nel registro"] },
+            ].map((p) => (
+              <div key={p.nome} style={{ ...riquadro, padding: 20, position: "relative", border: p.top ? "2px solid #4ade80" : riquadro.border }}>
+                {p.top && <span style={{ position: "absolute", top: -11, left: 16, background: "#4ade80", color: "#08200f", fontSize: 11, fontWeight: 900, padding: "3px 10px", borderRadius: 99 }}>⭐ SCELTO DA CHI LAVORA</span>}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}><h3 style={{ fontSize: 19, margin: 0 }}>{p.nome}</h3><span style={{ fontSize: 12, color: "#8b95a3" }}>{p.per}</span></div>
+                <div style={{ fontSize: 26, fontWeight: 800, margin: "6px 0 0 0" }}>{p.prezzo}</div>
+                <div style={{ fontSize: 12, color: "#8b95a3", margin: "2px 0 12px 0" }}>{p.sotto}</div>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 7 }}>
+                  {p.voci.map((v) => <li key={v} style={{ fontSize: 14, color: "#c3cad4", display: "flex", gap: 8 }}><span style={{ color: "#4ade80", fontWeight: 900 }}>✓</span>{v}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+          {lancioInCorso() && <p style={{ fontSize: 13.5, color: "#ffb877", margin: "14px 0 0 0", lineHeight: 1.5 }}>🚀 Fino al {fineLancio()} tutto incluso, senza costi e senza carta di credito. Chi si iscrive ora, con l'annuale, paga il primo anno la metà.</p>}
+        </section>
+
         <section className="lp-wrap" style={{ paddingBottom: 64 }}>
           <div style={{ ...riquadro, padding: "32px 24px", textAlign: "center", background: "linear-gradient(135deg, rgba(126, 58, 242, 0.16), rgba(255, 140, 66, 0.12)), #151b2b" }}>
             <h2 style={{ fontSize: 26, margin: "0 0 8px 0" }}>Pronto a decollare?</h2>
@@ -2896,10 +2935,10 @@ function Presentazione({ onAccedi, onRegistrati }) {
             {lancioInCorso() && (
               <div style={{ textAlign: "left", background: "#10141f", border: "1px solid #4a2f16", borderRadius: 10, padding: "14px 18px", margin: "0 auto 20px", maxWidth: 520 }}>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>🚀 Prezzo fondatori, per chi si iscrive entro il {fineLancio()}</div>
-                <div style={{ color: "#aab3bf", fontSize: 14, marginTop: 6, lineHeight: 1.55 }}>Fino al {fineLancio()} tutto gratis. Poi il primo anno a metà prezzo: Pro a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12)} al mese</strong> (poi {euro(PREZZI_PIANO.pro.anno / 12)}), Pilota a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pilota.anno) / 12)} al mese</strong> (poi {euro(PREZZI_PIANO.pilota.anno / 12)}), con l'abbonamento annuale.</div>
+                <div style={{ color: "#aab3bf", fontSize: 14, marginTop: 6, lineHeight: 1.55 }}>Fino al {fineLancio()} tutto incluso, senza costi. Poi, con l'annuale, il primo anno a metà prezzo: Pro a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12)} al mese</strong> (poi {euro(PREZZI_PIANO.pro.anno / 12)}), Pilota a <strong style={{ color: "#ffb877" }}>{euro(prezzoFondatori(PREZZI_PIANO.pilota.anno) / 12)} al mese</strong> (poi {euro(PREZZI_PIANO.pilota.anno / 12)}), con l'abbonamento annuale.</div>
               </div>
             )}
-            <button onClick={onRegistrati} style={bottonePrimario}>Registrati gratis</button>
+            <button onClick={onRegistrati} style={bottonePrimario}>Registrati senza costi</button>
           </div>
         </section>
       </main>
@@ -3169,6 +3208,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
   ] : cartelle ? [] : null; // nella Home delle cartelle: solo le voci in comune
   const items = vociSpazio ? [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
+    { key: "funzioni", label: "Tutte le funzioni", icon: LayoutGrid },
     ...vociSpazio,
     { intestazione: "Voli" },
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
@@ -3203,6 +3243,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "suggerimenti", label: "Suggerimenti", icon: MessageSquare },
   ] : [
     { key: "dashboard", label: "Panoramica", icon: LayoutDashboard },
+    { key: "funzioni", label: "Tutte le funzioni", icon: LayoutGrid },
     ...(usaIspezioni ? [
       { intestazione: "Ispezioni" },
       { key: "impianti", label: "Impianti", icon: Sun },
@@ -3293,8 +3334,8 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
                 borderLeft: "2px solid transparent", textDecoration: "none",
               }}
             >
-              <Icon size={16} strokeWidth={2} />
-              <span className="sidebar-label">{it.label}</span>
+              <Icon size={16} strokeWidth={2} style={{ flexShrink: 0 }} />
+              <span className="sidebar-label" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{it.label}</span>
               <span className="sidebar-label" style={{ fontSize: 10.5, marginLeft: "auto", color: "#6b7480" }}>↗</span>
             </a>
           );
@@ -3312,9 +3353,9 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
               borderLeft: active ? "2px solid #ff8c42" : "2px solid transparent",
             }}
           >
-            <Icon size={16} strokeWidth={2} />
-            <span className="sidebar-label">{it.label}</span>
-            {it.key === "preventivi" && piano !== "pro" && <span className="sidebar-label" style={{ fontSize: 11, marginLeft: "auto" }}>🔒</span>}
+            <Icon size={16} strokeWidth={2} style={{ flexShrink: 0 }} />
+            <span className="sidebar-label" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{it.label}</span>
+            {PIANO_VOCE[it.key] && <span className="sidebar-label" style={{ marginLeft: "auto", display: "inline-flex" }}><BadgePiano quale={PIANO_VOCE[it.key]} /></span>}
             {it.key === "attestati" && attestatiInScadenza > 0 && (
               <span className="sidebar-label" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto", background: "#ff4d4d", color: "#fff", borderRadius: 10, padding: "1px 7px" }}>{attestatiInScadenza}</span>
             )}
@@ -3333,7 +3374,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
       <div className="sidebar-label" style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid #232b3f" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 10px 8px 10px" }}>
           <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: piano === "pro" ? "#1d3a2a" : piano === "pilota" ? "#16263d" : "#2a2416", color: COLORE_PIANO[piano] || "#f5b942" }}>{(NOME_PIANO[piano] || "Free").toUpperCase()}</span>
-          {piano !== "pro" && <span style={{ fontSize: 10.5, color: "#6b7480" }}>{reportQuestoMese}/{LIMITI_FREE.reportMese} report</span>}
+          {piano !== "pro" && <span style={{ fontSize: 10.5, color: "#6b7480" }}>{reportQuestoMese}/{limiteReport(piano)} report</span>}
         </div>
         <div style={{ fontSize: 11, color: "#6b7480", padding: "0 10px 8px 10px", wordBreak: "break-all" }}>{userEmail}</div>
         <a href={`mailto:${SUPPORT_EMAIL}`} style={{ display: "block", fontSize: 11, color: "#3d8bfd", padding: "0 10px 8px 10px", textDecoration: "none" }}>
@@ -3559,7 +3600,7 @@ function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, av
               return (
                 <button key={it.key} onClick={() => scegli(it.key)} className={`mr-voce${page === it.key ? " on" : ""}`}>
                   <span className="mr-num">{numero}</span><Icon size={18} /> {it.label}
-                  {it.key === "preventivi" && piano !== "pro" && <span style={{ marginLeft: "auto", fontSize: 12 }}>🔒</span>}
+                  <BadgePiano quale={PIANO_VOCE[it.key]} />
                   {bollino(avvisi[it.key])}
                 </button>
               );
@@ -3649,8 +3690,8 @@ function AvvisoLancio({ onScopri }) {
     <div style={{ display: "flex", gap: 12, alignItems: "flex-start", background: "linear-gradient(135deg, rgba(255,140,66,0.14), rgba(126,58,242,0.12)), #151b2b", border: "1px solid #4a2f16", borderRadius: 10, padding: "12px 14px", marginBottom: 22, maxWidth: 720 }}>
       <span style={{ fontSize: 22 }}>🚀</span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700 }}>EyeDrones è in lancio: tutte le funzioni Pro sono gratis fino al {fineLancio()}</div>
-        <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 3 }}>Sei tra i fondatori: quando partiranno gli abbonamenti avrai il <strong>primo anno a metà prezzo</strong>, con Pro a meno di {euro(Math.ceil(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12))} al mese. Alla fine del lancio passi da solo al Free: <strong>nessun addebito automatico</strong>.</div>
+        <div style={{ fontSize: 13.5, fontWeight: 700 }}>EyeDrones è in lancio: tutte le funzioni Pro sono incluse senza costi fino al {fineLancio()}</div>
+        <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 3 }}>Sei tra i fondatori: quando partiranno gli abbonamenti avrai, con l'annuale, il <strong>primo anno a metà prezzo</strong>: Pro a meno di {euro(Math.ceil(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12))} al mese. Alla fine del lancio passi da solo al Free: <strong>nessun addebito automatico</strong>.</div>
         <button type="button" onClick={onScopri} style={{ marginTop: 8, background: "none", border: "1px solid #ff8c4288", color: "#ffb877", borderRadius: 6, padding: "5px 10px", fontSize: 12 }}>Vedi i prezzi fondatori</button>
       </div>
       <button type="button" onClick={chiudi} aria-label="Chiudi avviso" style={{ background: "none", border: "none", color: "#8b95a3", fontSize: 16, lineHeight: 1 }}>×</button>
@@ -5278,7 +5319,8 @@ function BloccoPiano({ titolo, testo, pianoRichiesto = "Pro", onVai }) {
 
 function Abbonamento({ piano }) {
   const lancio = lancioInCorso();
-  const [periodo, setPeriodo] = useState("mese"); // mese | anno
+  const [periodo, setPeriodo] = useState("anno"); // anno | mese: l'annuale è la scelta di partenza
+  const [lavoriMese, setLavoriMese] = useState(3);
   const [mesiPausa, setMesiPausa] = useState(1);
   const [vuoleDisdire, setVuoleDisdire] = useState(false);
   const nomePeriodo = periodo === "anno" ? "annuale" : "mensile";
@@ -5289,121 +5331,137 @@ function Abbonamento({ piano }) {
   // finché i pagamenti non sono automatici, la pausa si chiede per email come l'upgrade
   const linkPausa = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Pausa abbonamento ${NOME_PIANO[piano] || ""}`)}&body=${encodeURIComponent(`Ciao, vorrei mettere in pausa il mio abbonamento EyeDrones per ${mesiPausa} ${mesiPausa === 1 ? "mese" : "mesi"}. I miei dati restano salvati e l'abbonamento riparte da solo alla fine della pausa.`)}`;
   const linkDisdetta = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Disdetta abbonamento ${NOME_PIANO[piano] || ""}`)}&body=${encodeURIComponent("Ciao, vorrei disdire il mio abbonamento EyeDrones. Ho capito che resta attivo fino alla fine del periodo già pagato e che poi l'account torna al piano Free, senza perdere i dati.")}`;
+  // prezzi: con l'annuale il prezzo al mese e il risparmio; lo sconto fondatori (50%) vale solo con l'annuale
   const prezzo = (chiave) => {
     const pr = PREZZI_PIANO[chiave];
-    const fondatori = lancio
-      ? (periodo === "anno"
-        ? `Fondatori: ${euro(prezzoFondatori(pr.anno) / 12)}/mese il primo anno (${euro(prezzoFondatori(pr.anno))} in un'unica volta), poi ${euro(pr.anno / 12)}/mese`
-        : `Fondatori: ${euro(prezzoFondatori(pr.mese))}/mese il primo anno, poi ${euro(pr.mese)}/mese`)
-      : null;
-    if (periodo === "anno") return { grande: `${euro(pr.anno / 12)}/mese`, dettaglio: `con l'annuale: ${euro(pr.anno)} una volta all'anno · ${mesiGratisAnnuale(chiave)} mesi gratis rispetto al mensile (${euro(pr.mese)}/mese)`, fondatori };
-    return { grande: `${euro(pr.mese)}/mese`, dettaglio: `oppure ${euro(pr.anno)} all'anno (${mesiGratisAnnuale(chiave)} mesi gratis)`, fondatori };
+    if (periodo === "anno") return {
+      grande: euro(pr.anno / 12), unita: "/mese",
+      dettaglio: `${euro(pr.anno)} una volta all'anno · invece di ${euro(pr.mese)} al mese`,
+      fondatori: lancio ? `Fondatori: ${euro(prezzoFondatori(pr.anno))} il primo anno (${euro(prezzoFondatori(pr.anno) / 12)}/mese)` : null,
+    };
+    return {
+      grande: euro(pr.mese), unita: "/mese",
+      dettaglio: `oppure ${euro(pr.anno)} all'anno: risparmi ${mesiRisparmiatiAnnuale(chiave)} mesi`,
+      fondatori: lancio ? "Lo sconto fondatori del 50% vale con l'annuale" : null,
+    };
   };
 
   const piani = [
     {
-      chiave: "free", nome: "Free", grande: "Gratis", sotto: "Per provare e volare per te",
+      chiave: "pro", nome: "Pro", ...prezzo("pro"), sotto: "Per chi lavora con i clienti", badge: "⭐ SCELTO DA CHI LAVORA",
+      vale: `Un preventivo accettato da 350 € ripaga ${350 / PREZZI_PIANO.pro.anno >= Math.round(350 / PREZZI_PIANO.pro.anno) ? "" : "quasi "}${Math.round(350 / PREZZI_PIANO.pro.anno)} anni di Pro.`,
       caratteristiche: [
-        { testo: `Fino a ${LIMITI_FREE.voli} voli nel registro (anche creati dal registro automatico)`, incluso: true },
-        { testo: `Fino a ${LIMITI_FREE.batterie} batterie con conteggio dei cicli`, incluso: true },
-        { testo: "Pianificazione: meteo ora per ora, ora d'oro, sole e luna, Kp, filtri ND", incluso: true },
-        { testo: "Checklist (anche FPV), attestati, droni, documenti per i controlli", incluso: true },
-        { testo: "Segnalazione eventi (72 ore) e scadenze D-Flight", incluso: true },
-        { testo: "Mappa dei voli e «Il mio anno» da condividere", incluso: true },
-        { testo: `${LIMITI_FREE.linkConsegna} link di consegna al cliente attivo`, incluso: true },
-        { testo: `${LIMITI_FREE.reportMese} report di ispezione al mese`, incluso: true },
-        { testo: "Esportazione CSV del registro voli", incluso: false },
-        { testo: "Galleria pro, liberatorie, preventivi e logo", incluso: false },
+        { testo: "Tutto quello che c'è in Pilota", incluso: true },
+        { testo: <><strong>Preventivi</strong> in PDF, clienti e incassi con promemoria</>, incluso: true },
+        { testo: <><strong>Consegna al cliente</strong> con PIN, filigrana e il tuo logo</>, incluso: true },
+        { testo: <><strong>Liberatorie</strong> firmate col dito e <strong>fascicolo del volo</strong></>, incluso: true },
+        { testo: <>Report di ispezione, rilievo e agricoltura <strong>illimitati</strong>, senza filigrana</>, incluso: true },
+        { testo: <>La tua pagina su <strong>Trova un pilota in evidenza</strong></>, incluso: true },
+        { testo: "Le funzioni con l'AI, quando arrivano, incluse ogni mese", incluso: true },
       ],
     },
     {
-      chiave: "pilota", nome: "Pilota", ...prezzo("pilota"), sotto: "Per chi vola spesso per passione",
+      chiave: "pilota", nome: "Pilota", ...prezzo("pilota"), sotto: "Per chi vola per passione",
       caratteristiche: [
         { testo: "Tutto quello che c'è nel Free", incluso: true },
-        { testo: "Voli, foto e video senza limiti di numero", incluso: true },
-        { testo: "Batterie illimitate con avvisi su cicli e stoccaggio", incluso: true },
-        { testo: "Link di consegna senza limiti", incluso: true },
-        { testo: "Esportazione CSV del registro voli", incluso: true },
-        { testo: `${LIMITI_FREE.reportMese} report di ispezione al mese`, incluso: true },
-        { testo: "Galleria pro, liberatorie, preventivi e logo", incluso: false },
+        { testo: <>Registro voli <strong>illimitato</strong>, anche automatico dalla scheda SD</>, incluso: true },
+        { testo: "Batterie illimitate, con avvisi su cicli e stoccaggio", incluso: true },
+        { testo: <>Telemetria sul video <strong>senza logo</strong> · esportazione CSV</>, incluso: true },
+        { testo: "Simulazione d'esame A1/A3 e A2", incluso: true },
+        { testo: `Pagina pilota con 24 foto · ${LIMITI_PILOTA.reportMese} report al mese · link di consegna illimitati`, incluso: true },
+        { testo: "Preventivi, consegna con PIN, liberatorie", incluso: false },
       ],
     },
     {
-      chiave: "pro", nome: "Pro", ...prezzo("pro"), sotto: "Per chi lavora con i clienti", badge: "Tutto incluso",
+      chiave: "free", nome: "Free", grande: "0 €", unita: "per sempre", sotto: "Per iniziare",
       caratteristiche: [
-        { testo: "Tutto quello che c'è nel piano Pilota", incluso: true },
-        { testo: "Galleria cliente pro: PIN, filigrana e download da sbloccare", incluso: true },
-        { testo: "Liberatorie firmate sul telefono", incluso: true },
-        { testo: "Preventivi con pacchetti pronti (immobiliare, matrimonio, evento...)", incluso: true },
-        { testo: "Logo e nome azienda in report, gallerie e liberatorie", incluso: true },
-        { testo: "Report di ispezione illimitati, senza filigrana", incluso: true },
+        { testo: "Zone di volo, permessi, meteo e checklist", incluso: true },
+        { testo: "Documenti pronti per i controlli, attestati e droni", incluso: true },
+        { testo: "Lezioni e quiz, calcolatori, scaletta riprese", incluso: true },
+        { testo: `${LIMITI_FREE.voli} voli nel registro · ${LIMITI_FREE.batterie} batterie · ${LIMITI_FREE.reportMese} report al mese`, incluso: true },
+        { testo: "Voli illimitati e lavoro con i clienti", incluso: false },
       ],
     },
   ];
 
+  // «Quale ti conviene?»: Pass Lavoro contro Pro, in base ai lavori al mese
+  const proAnnoMese = PREZZI_PIANO.pro.anno / 12;
+  const spesaPass = lavoriMese * PREZZO_PASS_LAVORO;
+  const consiglio = lavoriMese === 0
+    ? <>Non lavori con i clienti: ti basta <strong>Pilota</strong>, o il Free se voli poco.</>
+    : lavoriMese === 1
+      ? <>Con <strong>1 lavoro al mese</strong> ti basta il <strong>Pass Lavoro</strong> ({euro(PREZZO_PASS_LAVORO)}). Scegli Pro se vuoi anche preventivi, clienti e incassi.</>
+      : spesaPass <= proAnnoMese + 0.5
+        ? <>Con <strong>{lavoriMese} lavori al mese</strong> con il Pass spenderesti {euro(spesaPass)}, quasi come <strong>Pro annuale</strong> ({euro(proAnnoMese)} al mese): con Pro hai in più <strong>tutto illimitato</strong> e i preventivi.</>
+        : <>Con <strong>{lavoriMese} lavori al mese</strong> con il Pass spenderesti {euro(spesaPass)} al mese. Con <strong>Pro annuale</strong> spendi {euro(proAnnoMese)} e hai <strong>tutto illimitato</strong>: risparmi <strong>{euro(Math.round((spesaPass - proAnnoMese) * 12))} all'anno</strong>.</>;
+  const giorniLancio = Math.max(0, Math.ceil((new Date(`${LANCIO.fino}T23:59:59`) - new Date()) / 86400000));
+
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <TestataPagina titolo="Abbonamento" sigla="PRO · PIANO E PAGAMENTI" icona={Zap} />
+      <div style={{ maxWidth: 820 }}>
       {lancio ? (
-        <div style={{ background: "linear-gradient(135deg, rgba(255,140,66,0.14), rgba(126,58,242,0.12)), #151b2b", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, margin: "0 0 22px 0", maxWidth: 820 }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>🚀 Sei un fondatore di EyeDrones</div>
-          <p style={{ fontSize: 13, color: "#c3cad4", margin: "6px 0 0 0", lineHeight: 1.55 }}>
-            Fino al <strong>{fineLancio()}</strong> hai <strong>tutte le funzioni Pro gratis</strong>, senza limiti e senza carta di credito.
-            Quando partiranno gli abbonamenti, chi si è iscritto durante il lancio avrà il <strong>primo anno a metà prezzo</strong>: per esempio Pro a {euro(prezzoFondatori(PREZZI_PIANO.pro.anno) / 12)} al mese con l'annuale (poi {euro(PREZZI_PIANO.pro.anno / 12)} al mese). Ti avviseremo prima, e potrai scegliere se continuare.
-          </p>
-          {/* la domanda che arriva per email: alla fine del lancio cosa succede? niente addebiti a sorpresa */}
-          <div style={{ marginTop: 12, background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: "10px 12px" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#e7eaee" }}>❓ Cosa succede dopo il {fineLancio()}?</div>
+        <div style={{ background: "linear-gradient(135deg, #3a2210, #1d1509)", border: "1px solid #ff8c42", borderRadius: 14, padding: "16px 18px", margin: "0 0 6px 0" }}>
+          <div className="mono" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: "#ffb877" }}>OFFERTA FONDATORI</div>
+          <div style={{ fontSize: 18, fontWeight: 800, margin: "6px 0 4px 0", lineHeight: 1.25 }}>Fino al {fineLancio()} hai tutto incluso, senza costi.</div>
+          <p style={{ fontSize: 13, color: "#e9d6c2", margin: 0, lineHeight: 1.5 }}>Poi, solo se vuoi continuare, con l'abbonamento <strong>annuale</strong> il primo anno lo paghi <strong style={{ color: "#ffb877" }}>la metà</strong>. Nessun addebito automatico.</p>
+          {giorniLancio > 0 && <span style={{ display: "inline-block", marginTop: 10, background: "#ff8c42", color: "#1a0a03", fontWeight: 800, fontSize: 12.5, padding: "4px 11px", borderRadius: 99 }}>⏳ {giorniLancio === 1 ? "Manca 1 giorno" : `Mancano ${giorniLancio} giorni`}</span>}
+          <details style={{ marginTop: 12, background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: "10px 12px" }}>
+            <summary style={{ fontSize: 13, fontWeight: 700, color: "#e7eaee", cursor: "pointer" }}>❓ Cosa succede dopo il {fineLancio()}?</summary>
             <ul style={{ fontSize: 12.5, color: "#c3cad4", margin: "6px 0 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
               <li>Passi <strong>da solo al piano Free</strong>, <strong>senza nessun addebito</strong>: non ti abbiamo chiesto la carta e non c'è nessun rinnovo automatico.</li>
               <li>Voli, droni, attestati e documenti <strong>restano salvati</strong>.</li>
-              <li>Se vuoi continuare con tutte le funzioni, scegli tu Pilota o Pro: il primo anno a metà prezzo, sia con il mensile sia con l'annuale (Pro {euro(prezzoFondatori(PREZZI_PIANO.pro.mese))} al mese invece di {euro(PREZZI_PIANO.pro.mese)}).</li>
+              <li>Se vuoi continuare, scegli tu Pilota o Pro. Con l'<strong>annuale</strong> il primo anno è a metà prezzo (Pro {euro(prezzoFondatori(PREZZI_PIANO.pro.anno))} invece di {euro(PREZZI_PIANO.pro.anno)}); il mensile resta a prezzo pieno.</li>
             </ul>
-          </div>
+          </details>
         </div>
       ) : (
-        <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 24px 0" }}>Sei attualmente sul piano <strong style={{ color: COLORE_PIANO[piano] || "#f5b942" }}>{NOME_PIANO[piano] || "Free"}</strong>.</p>
+        <p style={{ color: "#8b95a3", fontSize: 13.5, margin: "0 0 6px 0" }}>Sei attualmente sul piano <strong style={{ color: COLORE_PIANO[piano] || "#f5b942" }}>{NOME_PIANO[piano] || "Free"}</strong>.</p>
       )}
 
-      <div role="group" aria-label="Periodo di pagamento" style={{ display: "inline-flex", background: "#10141f", border: "1px solid #343e57", borderRadius: 999, padding: 3, marginBottom: 22 }}>
-        {[["mese", "Mensile"], ["anno", "Annuale"]].map(([k, label]) => (
-          <button key={k} onClick={() => setPeriodo(k)} aria-pressed={periodo === k} style={{ border: "none", borderRadius: 999, padding: "7px 16px", fontSize: 13, fontWeight: 600, background: periodo === k ? "linear-gradient(135deg, #ff9d5c, #e0552f)" : "transparent", color: periodo === k ? "#10141f" : "#8b95a3" }}>
-            {label}{k === "anno" && <span style={{ marginLeft: 6, fontSize: 11, color: periodo === k ? "#10141f" : "#4ade80" }}>mesi gratis</span>}
+      <h2 style={{ fontSize: "clamp(24px, 5vw, 30px)", fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1.08, margin: "20px 0 6px 0" }}>Un solo lavoro<br /><span style={{ color: "#ff8c42" }}>ripaga un anno di Pro.</span></h2>
+      <p style={{ fontSize: 13.5, color: "#aab3bf", margin: "0 0 16px 0", lineHeight: 1.5 }}>Scegli in base a come voli. Puoi cambiare piano o disdire quando vuoi.</p>
+
+      <div role="group" aria-label="Periodo di pagamento" style={{ display: "flex", background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: 4, marginBottom: 18, maxWidth: 420 }}>
+        {[["anno", "Annuale", "risparmi 2 mesi"], ["mese", "Mensile", null]].map(([k, label, sotto]) => (
+          <button key={k} onClick={() => setPeriodo(k)} aria-pressed={periodo === k} style={{ flex: 1, border: "none", borderRadius: 9, padding: "8px 10px", fontSize: 14, fontWeight: 700, background: periodo === k ? "#ff8c42" : "transparent", color: periodo === k ? "#1a0a03" : "#9aa3b8", minHeight: 44 }}>
+            {label}{sotto && <span style={{ display: "block", fontSize: 11, fontWeight: 600 }}>{sotto}</span>}
           </button>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, maxWidth: 820 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
         {piani.map((p) => {
-          const attivo = lancio ? p.chiave === "pro" : piano === p.chiave;
+          const attivo = !lancio && piano === p.chiave;
           const superiore = ORDINE_PIANO[p.chiave] > (ORDINE_PIANO[piano] ?? 0);
+          const pro = p.chiave === "pro";
           return (
-            <div key={p.chiave} style={{ background: "#151b2b", border: attivo ? "2px solid #ff8c42" : "1px solid #232b3f", borderRadius: 10, padding: 20, position: "relative", display: "flex", flexDirection: "column" }}>
-              {attivo && (
-                <span style={{ position: "absolute", top: -10, left: 16, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>PIANO ATTUALE</span>
+            <div key={p.chiave} style={{ background: pro ? "linear-gradient(180deg, #132219, #151b2b 40%)" : "#151b2b", border: pro ? "2px solid #4ade80" : attivo ? "2px solid #ff8c42" : "1px solid #232b3f", borderRadius: 16, padding: 18, position: "relative", display: "flex", flexDirection: "column" }}>
+              {(attivo || p.badge) && (
+                <span style={{ position: "absolute", top: -11, left: 16, background: attivo ? "#ff8c42" : "#4ade80", color: attivo ? "#1a0a03" : "#08200f", fontSize: 11, fontWeight: 900, padding: "3px 10px", borderRadius: 99, letterSpacing: ".03em" }}>{attivo ? "PIANO ATTUALE" : p.badge}</span>
               )}
-              {!attivo && p.badge && (
-                <span style={{ position: "absolute", top: -10, left: 16, background: "#4ade80", color: "#10141f", fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>{p.badge}</span>
-              )}
-              <h2 style={{ fontSize: 16, fontWeight: 700, margin: "4px 0 2px 0" }}>{p.nome}</h2>
-              <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "0 0 10px 0" }}>{p.sotto}</p>
-              <p className="mono" style={{ fontSize: 20, fontWeight: 600, color: "#ff8c42", margin: 0 }}>{p.grande}</p>
-              <p style={{ fontSize: 11, color: periodo === "anno" && p.dettaglio ? "#4ade80" : "#6b7480", margin: p.fondatori ? "2px 0 6px 0" : "2px 0 16px 0", minHeight: 14 }}>{p.dettaglio || ""}</p>
-              {p.fondatori && <p style={{ fontSize: 11.5, fontWeight: 600, color: "#ffb877", background: "#ff8c4214", border: "1px solid #ff8c4240", borderRadius: 6, padding: "4px 8px", margin: "0 0 14px 0" }}>🚀 {p.fondatori}</p>}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
-                {p.caratteristiche.map((c) => (
-                  <div key={c.testo} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12.5, color: c.incluso ? "#e7eaee" : "#6b7480" }}>
-                    <span style={{ color: c.incluso ? "#4ade80" : "#5a5f66", flexShrink: 0 }}>{c.incluso ? "✓" : "—"}</span>
-                    {c.testo}
-                  </div>
-                ))}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginTop: 4 }}>
+                <h3 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>{p.nome}</h3>
+                <span style={{ fontSize: 12, color: "#9aa3b8", textAlign: "right" }}>{p.sotto}</span>
               </div>
+              <p style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-0.03em", margin: "6px 0 0 0" }}>{p.grande} <span style={{ fontSize: 14, color: "#9aa3b8", fontWeight: 600, letterSpacing: 0 }}>{p.unita}</span></p>
+              {p.dettaglio && <p style={{ fontSize: 12, color: "#9aa3b8", margin: "2px 0 0 0" }}>{p.dettaglio}</p>}
+              {p.fondatori && <p style={{ fontSize: 12, fontWeight: 700, color: "#ffb877", margin: "6px 0 0 0" }}>🚀 {p.fondatori}</p>}
+              {p.vale && <div style={{ marginTop: 10, background: "#0f1a13", border: "1px solid #24432f", borderRadius: 10, padding: "9px 11px", fontSize: 12.5, color: "#bff0cf", lineHeight: 1.4 }}>💶 {p.vale}</div>}
+              <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0 0", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+                {p.caratteristiche.map((c, i) => (
+                  <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, lineHeight: 1.35, color: c.incluso ? "#e7eaee" : "#6b7385" }}>
+                    <span style={{ flexShrink: 0, width: 17, height: 17, borderRadius: "50%", background: c.incluso ? "#1d3a2a" : "#1c2232", color: c.incluso ? "#4ade80" : "#6b7385", fontSize: 11, fontWeight: 900, textAlign: "center", lineHeight: "17px" }}>{c.incluso ? "✓" : "–"}</span>
+                    <span>{c.testo}</span>
+                  </li>
+                ))}
+              </ul>
               {lancio && p.chiave !== "free" && (
-                <div style={{ textAlign: "center", marginTop: 18, border: "1px dashed #4ade8066", color: "#4ade80", borderRadius: 6, padding: "9px 0", fontSize: 12.5, fontWeight: 600 }}>{p.chiave === "pro" ? "✓ Attivo gratis durante il lancio" : "Incluso gratis durante il lancio"}</div>
+                <div style={{ textAlign: "center", marginTop: 16, border: "1px dashed #4ade8066", color: "#4ade80", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 700 }}>✓ Incluso senza costi durante il lancio</div>
               )}
               {!lancio && superiore && (
-                <a href={linkUpgrade(p.chiave)} target={linkDiretto(p.chiave) ? "_blank" : undefined} rel="noreferrer" style={{ display: "block", textAlign: "center", marginTop: 18, background: "linear-gradient(135deg, #ff9d5c, #e0552f)", color: "#10141f", padding: "9px 14px", borderRadius: 6, fontWeight: 600, fontSize: 13, textDecoration: "none" }}>
-                  Passa a {p.nome}{periodo === "anno" ? " (annuale)" : ""}
+                <a href={linkUpgrade(p.chiave)} target={linkDiretto(p.chiave) ? "_blank" : undefined} rel="noreferrer" style={{ display: "block", textAlign: "center", marginTop: 16, background: pro ? "linear-gradient(90deg, #22c55e, #4ade80)" : "#232b3f", border: pro ? "none" : "1px solid #343e57", color: pro ? "#06210f" : "#e7eaee", padding: "12px 14px", borderRadius: 11, fontWeight: 800, fontSize: 15, textDecoration: "none" }}>
+                  Scegli {p.nome}{periodo === "anno" ? " (annuale)" : ""}
                 </a>
               )}
             </div>
@@ -5411,18 +5469,30 @@ function Abbonamento({ piano }) {
         })}
       </div>
 
-      {!lancio && piano !== "pro" && (
-        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", background: "linear-gradient(135deg, rgba(255,140,66,0.12), rgba(126,58,242,0.10)), #151b2b", border: "1px solid #4a2f16", borderRadius: 10, padding: 18, marginTop: 16, maxWidth: 820 }}>
-          <div style={{ fontSize: 34 }}>🎟️</div>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 2px 0" }}>Pass Lavoro <span className="mono" style={{ color: "#ff8c42", marginLeft: 6 }}>{euro(PREZZO_PASS_LAVORO)}</span></h3>
-            <p style={{ fontSize: 12.5, color: "#c3cad4", margin: 0, lineHeight: 1.5 }}>
-              Fai un lavoretto ogni tanto? Sblocchi le funzioni Pro (galleria con PIN e filigrana, liberatorie, il tuo logo) <strong>solo sul volo di quel lavoro</strong>, una volta e per sempre, senza abbonamento. Lo trovi dentro ogni volo del Registro.
-            </p>
-            <p style={{ fontSize: 11, color: "#8b95a3", margin: "6px 0 0 0" }}>Se lavori due volte al mese, Pro ({euro(PREZZI_PIANO.pro.mese)}/mese) ti conviene già: lavori illimitati.</p>
-          </div>
+      <div style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 16, padding: 16, marginTop: 16 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>🧮 Quale ti conviene?</h3>
+        <label htmlFor="lavori-mese" style={{ display: "block", fontSize: 12.5, color: "#9aa3b8", margin: "3px 0 10px 0" }}>Quanti lavori con i clienti fai al mese? <strong style={{ color: "#e7eaee" }}>{lavoriMese === 6 ? "6 o più" : lavoriMese}</strong></label>
+        <input id="lavori-mese" type="range" min={0} max={6} step={1} value={lavoriMese} onChange={(e) => setLavoriMese(Number(e.target.value))} style={{ width: "100%", accentColor: "#ff8c42" }} />
+        <div style={{ marginTop: 10, fontSize: 13, lineHeight: 1.5, background: "#0f1a13", border: "1px solid #24432f", borderRadius: 10, padding: "10px 12px", color: "#d7f5e1" }}>{consiglio}</div>
+      </div>
+
+      {piano !== "pro" && (
+        <div style={{ background: "#151b2b", border: "1px dashed #6b4a2a", borderRadius: 14, padding: "14px 16px", marginTop: 12 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>🎟️ Lavori solo ogni tanto? Pass Lavoro <span style={{ color: "#ff8c42", marginLeft: 4 }}>{euro(PREZZO_PASS_LAVORO)}</span></h3>
+          <p style={{ fontSize: 12.5, color: "#9aa3b8", margin: "4px 0 0 0", lineHeight: 1.5 }}>Sblocca le funzioni Pro (consegna con PIN e filigrana, liberatorie, il tuo logo) <strong style={{ color: "#c3cad4" }}>solo sul volo di quel lavoro</strong>, senza abbonamento. Lo trovi dentro ogni volo del Registro. Dal terzo lavoro al mese ti conviene Pro.</p>
         </div>
       )}
+
+      <h3 style={{ fontSize: 16, fontWeight: 800, margin: "20px 0 10px 0" }}>Senza rischi</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 8 }}>
+        {[["🔓", "Disdici quando vuoi", "Nessun vincolo: resta attivo fino alla fine del periodo pagato."], ["❄️", "Pausa d'inverno", "Voli poco da novembre a febbraio? Metti in pausa da 1 a 3 mesi."], ["🗂️", "I tuoi dati restano tuoi", "Se torni al Free non perdi voli, documenti e foto."]].map(([e, t, d]) => (
+          <div key={t} style={{ display: "flex", gap: 11, alignItems: "flex-start", background: "#121827", border: "1px solid #1f2738", borderRadius: 12, padding: "11px 12px" }}>
+            <span style={{ fontSize: 20 }}>{e}</span>
+            <span><strong style={{ display: "block", fontSize: 13.5 }}>{t}</strong><span style={{ fontSize: 12, color: "#9aa3b8" }}>{d}</span></span>
+          </div>
+        ))}
+      </div>
+      </div>
 
       {!lancio && piano === "free" && <p style={{ fontSize: 12.5, color: "#8b95a3", margin: "16px 0 0 0", maxWidth: 820 }}>
         ⏸️ Non voli d'inverno? Puoi <strong style={{ color: "#c3cad4" }}>mettere in pausa</strong> l'abbonamento da 1 a 3 mesi invece di disdirlo: i tuoi voli e documenti restano salvati e alla fine riparte da solo.
@@ -5520,7 +5590,7 @@ const VOCI_MODELLO_RIPRESE = [
 // Testo di partenza, generico: Ivan può modificarlo liberamente da Impostazioni. Non è una consulenza legale.
 const NOTE_LEGALI_PREVENTIVO_DEFAULT = "Il presente preventivo ha validità di {validita} giorni dalla data di emissione, salvo diversa indicazione. I prezzi indicati si intendono IVA esclusa, se dovuta. Il documento non costituisce fattura. L'accettazione si intende tramite conferma scritta (email o messaggio) prima dell'inizio dei lavori. Eventuali variazioni delle condizioni operative (meteo, permessi aggiuntivi, accessibilità del sito) potranno comportare un adeguamento dei tempi o dei costi, da concordare preventivamente.";
 
-// Link ufficiale DJI: cambia palette e legge le temperature esatte dalle foto termiche originali (R-JPEG), gratis, sul computer.
+// Link ufficiale DJI: cambia palette e legge le temperature esatte dalle foto termiche originali (R-JPEG), senza costi, sul computer.
 // Punta alla pagina download del Matrice 4 (drone di Ivan): elenco semplice con link .exe diretto, niente pagine che si bloccano.
 // Le versioni più recenti (dalla 3.4) leggono anche i file del Matrice 4T. Verificare periodicamente che il link resti valido.
 const LINK_DJI_THERMAL_TOOL = "https://enterprise.dji.com/matrice-4-series/downloads";
@@ -7727,6 +7797,99 @@ const CALCOLATORI = [
   { key: "trattamento", emoji: "💧", titolo: "Agras: trattamenti", sotto: "Miscela, pieni, portata degli ugelli, velocità e ore" },
   { key: "pulizia", emoji: "🏢", titolo: "Pulizia facciate e pannelli", sotto: "Metri quadri, ore di lavoro e zona da delimitare a terra" },
 ];
+// --- Tutte le funzioni: la mappa dell'app, ogni riquadro porta nel posto giusto -------------------------
+const AZIONI_VOLO = {
+  condividi: { emoji: "📤", nome: "Manda al cliente" },
+  liberatorie: { emoji: "✍️", nome: "Liberatoria" },
+  fascicolo: { emoji: "📁", nome: "Fascicolo PDF" },
+};
+function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
+  return [
+    { titolo: "Prima del volo", emoji: "🛡️", voci: [
+      { e: "📍", t: "Posso volare qui?", d: "Sul posto: zona, altezza massima e dove andare adesso", k: "qui", c: "zona d-flight dove volare gps" },
+      { e: "🗺️", t: "Zona di volo e regole", d: "Scrivi la via: zona D-Flight, aree militari, parchi e regole del tuo drone", k: "pianificazione", dove: "In Pianifica", c: "d-flight zone uas altezza militare parco natura 2000 classe c0 c1 c2" },
+      { e: "📝", t: "Permessi", d: "Se serve, a chi chiederlo, quanti giorni prima e il modulo pronto", k: "permessi", c: "autorizzazione aeroporto enac" },
+      { e: "🌅", t: "Meteo e ora d'oro", d: "Vento per il tuo drone, indice Kp, alba, tramonto e sole", k: "pianificazione", dove: "In Pianifica", c: "vento pioggia kp luce tramonto" },
+      { e: "📐", t: "Volumi STS-01", d: "Disegni l'area o la importi da DJI Pilot 2: contingenza e buffer", k: "pianificazione", dove: "In Pianifica", c: "sts specific buffer contingenza" },
+      { e: "🏛️", t: "Pratica ENAC (STS)", d: "La dichiarazione e il manuale operativo per lo scenario STS", k: "pratica-enac", c: "enac sts dichiarazione manuale" },
+      { e: "🧭", t: "Posti belli vicino a te", d: "Panorami, castelli e laghi con la zona già controllata", k: "posti", c: "luoghi panorami dove andare" },
+    ] },
+    { titolo: "Riprese e calcolatori", emoji: "🎬", voci: [
+      { e: "🗓️", t: "Pianifica volo e riprese", d: "Il prossimo volo: luogo, data, meteo, checklist e promemoria", k: "pianificazione", c: "piano volo checklist" },
+      { e: "🎬", t: "Scaletta riprese", d: "Le scene da fare e le manovre con gli stick, per ogni lavoro", k: "scaletta", c: "scene manovre video" },
+      { e: "🧮", t: "Calcolatori", d: "Filtri ND, fotogrammetria, Agras, pulizia di facciate e pannelli", k: "calcolatori", c: "nd gsd fotogrammetria agras ugelli calcolo" },
+      { e: "📈", t: "Telemetria sul video", d: "Quota, velocità e percorso dal file del drone · senza logo con Pilota", k: "telemetria", c: "srt dati video velocità quota" },
+      { e: "🎨", t: "Consigli di post-produzione", d: "Colore, LUT e i programmi giusti, da computer e da telefono", k: "post-produzione", c: "colore lut montaggio davinci capcut" },
+    ] },
+    { titolo: "Dopo il volo e controlli", emoji: "📒", voci: [
+      { e: "📒", t: "Registro voli", d: "Anche automatico dalla scheda SD · illimitato con Pilota", k: "registro-voli", c: "logbook voli diario" },
+      { e: "🖼️", t: "Foto e video", d: "Tutti i file dei tuoi voli in una galleria", k: "galleria", c: "galleria media" },
+      { e: "👮", t: "Pronto per i controlli", d: "Attestati, assicurazione, drone e permessi a schermo pieno, anche senza campo", k: "documenti-controllo", c: "polizia controllo documenti assicurazione" },
+      { e: "📁", t: "Fascicolo del volo", d: "Un solo PDF con tutto, se dopo ti chiedono spiegazioni", k: "volo:fascicolo", pro: true, nascosta: true, c: "pdf spiegazioni assicurazione enac" },
+      { e: "🎓", t: "Attestati", d: "A1/A3, A2 e STS con gli avvisi prima della scadenza", k: "attestati", c: "patentino scadenza" },
+      { e: "🔧", t: "I miei droni e manutenzione", d: "Classe, assicurazione, eliche, firmware e riparazioni", k: "droni", c: "drone manutenzione eliche firmware" },
+      { e: "🔋", t: "Batterie", d: "Cicli e stato di carica di ogni batteria", k: "batterie", c: "cicli carica" },
+    ] },
+    { titolo: "Per chi lavora", emoji: "💼", voci: [
+      { e: "💶", t: "Preventivi e incassi", d: "PDF da mandare con WhatsApp o email, pagati e da incassare", k: "preventivi", pro: true, c: "preventivo prezzo fattura incasso pagamento" },
+      { e: "👥", t: "Clienti", d: "La rubrica dei clienti, con WhatsApp a un tocco", k: "clienti", pro: true, c: "rubrica contatti" },
+      { e: "📤", t: "Consegna al cliente", d: "Galleria con il tuo logo, PIN, filigrana e preferiti", k: "volo:condividi", pro: true, nascosta: true, c: "consegna galleria cliente foto pin filigrana" },
+      { e: "✍️", t: "Liberatorie", d: "La persona ripresa firma col dito sul telefono", k: "volo:liberatorie", pro: true, nascosta: true, c: "liberatoria firma privacy immagine" },
+      ...(usaIspezioni ? [{ e: "🔍", t: "Ispezioni e report", d: "Fotovoltaico, edifici e anomalie termiche, con report PDF", k: "impianti", c: "termografia fotovoltaico report anomalie" }] : []),
+      ...(usaAgricoltura ? [{ e: "🌾", t: "Campi e trattamenti", d: "Appezzamenti, registro dei trattamenti e meteo per irrorare", k: "campi", c: "agras agricoltura trattamenti delta t" }] : []),
+      { e: "🤝", t: "Collaboratori", d: "Altri piloti con cui lavori, per passarvi i lavori", k: "collaboratori", c: "piloti squadra" },
+      { e: "🌐", t: "La mia pagina e Trova un pilota", d: "La tua pagina pilota e le richieste dei clienti della tua zona", k: "pagina-pilota", c: "trovapilota richieste clienti offerte pagina" },
+    ] },
+    { titolo: "Imparare", emoji: "🎓", voci: [
+      { e: "🎓", t: "Lezioni e quiz A1/A3 e A2", d: "Le regole spiegate semplici e i quiz con la spiegazione di ogni risposta", k: "impara", c: "esame quiz patentino lezioni" },
+      { e: "⏱️", t: "Simulazione d'esame", d: "Con tempo e punteggio, come all'esame ENAC", k: "impara", pilota: true, c: "esame simulazione enac patentino" },
+      { e: "🎮", t: "Simulatore di volo", d: "Riprese GPS e FPV e missioni per clienti, senza rischiare il drone", esterno: "/simulatore/", c: "simulatore fpv prova" },
+    ] },
+    ...(usaAI ? [{ titolo: "Intelligenza artificiale", emoji: "✨", voci: [
+      { e: "💬", t: "Esperto AI", d: "Carichi foto o video: ti dice cosa non va e come sistemarlo", k: "analisi-ai", c: "ai esperto foto video" },
+      ...(usaIspezioni ? [{ e: "🔎", t: "Ispezione con AI", d: "Propone i difetti foto per foto e prepara il report", k: "ispezione-ai", c: "ai ispezione difetti" }] : []),
+    ] }] : []),
+  ];
+}
+
+function TutteLeFunzioni({ onVai, usaAI, usaIspezioni, usaAgricoltura }) {
+  const [cerca, setCerca] = useState("");
+  const q = cerca.trim().toLowerCase();
+  const gruppi = elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura })
+    .map((g) => ({ ...g, voci: q ? g.voci.filter((v) => `${v.t} ${v.d} ${v.c || ""}`.toLowerCase().includes(q)) : g.voci }))
+    .filter((g) => g.voci.length);
+  const apri = (v) => { if (v.esterno) window.location.href = v.esterno; else onVai(v.k); };
+  return (
+    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+      <style>{`.tf-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+        @media (max-width: 520px) { .tf-griglia { grid-template-columns: 1fr 1fr; gap: 8px; } }
+        .tf-voce { text-align: left; background: #151b2b; border: 1px solid #232b3f; border-radius: 12px; padding: 12px 13px; color: #e7eaee; font: inherit; cursor: pointer; position: relative; display: flex; flex-direction: column; gap: 3px; min-height: 44px; }
+        .tf-voce:hover { border-color: #ff8c42; }`}</style>
+      <TestataPagina titolo="Tutte le funzioni" sigla="APP · COSA PUOI FARE" foto="/trova-pilota/case.webp" />
+      <input type="search" value={cerca} onChange={(e) => setCerca(e.target.value)} placeholder="🔍 Cerca una funzione… (es. liberatoria)" aria-label="Cerca una funzione"
+        style={{ width: "100%", boxSizing: "border-box", background: "#151b2b", border: "1px solid #2a3349", borderRadius: 12, padding: "13px 14px", color: "#e7eaee", fontSize: 15, margin: "4px 0 6px 0" }} />
+      <p style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5, color: "#8b95a3", margin: "4px 0 0 0" }}><BadgePiano quale="pilota" stile={{ marginLeft: 0 }} /> nel piano Pilota <BadgePiano quale="pro" stile={{ marginLeft: 6 }} /> nel piano Pro · tutto il resto è incluso anche nel Free{lancioInCorso() ? ` · fino al ${fineLancio()} tutto incluso per tutti` : ""}</p>
+      {gruppi.length === 0 && <p style={{ color: "#8b95a3", fontSize: 14, marginTop: 16 }}>Nessuna funzione con «{cerca}». Prova con un'altra parola, oppure scrivici dai Suggerimenti.</p>}
+      {gruppi.map((g) => (
+        <section key={g.titolo} style={{ marginTop: 18 }}>
+          <h2 style={{ fontSize: 16.5, fontWeight: 800, margin: "0 0 10px 0", display: "flex", alignItems: "center", gap: 8 }}><span>{g.emoji}</span>{g.titolo}</h2>
+          <div className="tf-griglia">
+            {g.voci.map((v) => (
+              <button key={v.t} type="button" className="tf-voce" onClick={() => apri(v)}>
+                {(v.pro || v.pilota) && <span style={{ position: "absolute", top: 10, right: 10, display: "flex" }}><BadgePiano quale={v.pro ? "pro" : "pilota"} /></span>}
+                <span style={{ fontSize: 21 }}>{v.e}</span>
+                <strong style={{ fontSize: 14, lineHeight: 1.25, paddingRight: v.pro ? 34 : v.pilota ? 48 : 0 }}>{v.t}</strong>
+                <span style={{ fontSize: 12, color: "#9aa3b8", lineHeight: 1.4 }}>{v.d}</span>
+                <span style={{ fontSize: 11.5, color: "#ffb877", fontWeight: 700, marginTop: 4 }}>{v.nascosta ? "Scegli il volo ›" : v.dove ? `${v.dove} ›` : "Apri ›"}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function PaginaCalcolatori({ onPianifica }) {
   const [scelto, setScelto] = useState("nd");
   const calcoloRef = useRef(null);
@@ -8210,7 +8373,7 @@ function ControlloZona({ testoLuogo, coordinate, puntoIndicativo, puntoCercato, 
         <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 6 }}>
           {caricatoPrima && <div style={{ background: "#3a2a12", border: "1px solid #f5b94266", color: "#ffd9a0", borderRadius: 6, padding: "8px 10px", marginBottom: 8, fontWeight: 600 }}>⚠ Il file delle zone che avevi caricato il {formatData(String(caricatoPrima).slice(0, 10))} non c'è più su questo telefono (a volte il telefono libera spazio cancellando i dati dei siti, o hai cambiato browser). Finché non lo ricarichi, la zona non viene controllata.</div>}
           <div style={{ fontWeight: 700, color: "#e7eaee", fontSize: 13 }}>Per sapere se qui puoi volare serve il file delle zone di D-Flight</div>
-          <div style={{ color: "#aab3bf", fontSize: 12, marginTop: 2 }}>È gratis e si fa <strong>una volta sola</strong>: poi l'app ti dice da sola se la zona è vietata, se serve l'autorizzazione, fino a che altezza puoi salire e chi contattare.</div>
+          <div style={{ color: "#aab3bf", fontSize: 12, marginTop: 2 }}>Non costa nulla e si fa <strong>una volta sola</strong>: poi l'app ti dice da sola se la zona è vietata, se serve l'autorizzazione, fino a che altezza puoi salire e chi contattare.</div>
           <ol style={{ margin: "8px 0", paddingLeft: 20, color: "#c3cad4", fontSize: 12.5, lineHeight: 1.5 }}>
             <li>Tocca <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ ...linkD, fontSize: 12.5, fontWeight: 700 }}>🗺️ Apri D-Flight ↗</a> ed entra con le tue credenziali.</li>
             <li>In alto a sinistra tocca il pulsante col logo <strong>«d»</strong>.</li>
@@ -9495,12 +9658,12 @@ const COLORE_VIDEO = {
       ["Bianco", "Fisso, mai automatico: altrimenti i colori cambiano a metà ripresa."],
     ],
     post: [
-      "1. Applica la LUT ufficiale DJI del tuo profilo (es. «D-Log M to Rec.709»): si scarica gratis dalla pagina del drone sul sito DJI.",
+      "1. Applica la LUT ufficiale DJI del tuo profilo (es. «D-Log M to Rec.709»): si scarica senza costi dalla pagina del drone sul sito DJI.",
       "2. Sistema esposizione e bilanciamento del bianco, poi un po' di contrasto.",
       "3. Saturazione con calma: i prati non devono diventare fluo e la pelle deve restare naturale.",
       "4. Stessa correzione su tutte le clip dello stesso lavoro, così il video ha un aspetto unico.",
     ],
-    app: "Da computer: DaVinci Resolve (gratis, il più completo). Da telefono: CapCut (gratis) o LumaFusion (iPhone/iPad, a pagamento). Tutti accettano le LUT.",
+    app: "Da computer: DaVinci Resolve (0 €, il più completo). Da telefono: CapCut (0 €) o LumaFusion (iPhone/iPad, a pagamento). Tutti accettano le LUT.",
   },
 };
 
@@ -11432,7 +11595,7 @@ function TrovaPilota() {
           ) : (
             <form onSubmit={invia} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 21, margin: 0 }}>{sezione ? sezione.titoloModulo : "Racconta cosa ti serve"}</h2>
-              <p style={{ fontSize: 14, color: "#6b6258", margin: "-4px 0 4px 0" }}>{quanti > 0 ? `In provincia di ${nomeProvincia} ${quanti === 1 ? "c'è 1 pilota pronto" : `ci sono ${quanti} piloti pronti`} a ${sezione?.voi ? "mandarvi" : "mandarti"} un'offerta.` : sezione?.voi ? "Ricevete le offerte dei piloti della vostra zona, gratis." : "Ricevi le offerte dei piloti della tua zona, gratis."}</p>
+              <p style={{ fontSize: 14, color: "#6b6258", margin: "-4px 0 4px 0" }}>{quanti > 0 ? `In provincia di ${nomeProvincia} ${quanti === 1 ? "c'è 1 pilota pronto" : `ci sono ${quanti} piloti pronti`} a ${sezione?.voi ? "mandarvi" : "mandarti"} un'offerta.` : sezione?.voi ? "Ricevete le offerte dei piloti della vostra zona, senza costi." : "Ricevi le offerte dei piloti della tua zona, senza costi."}</p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                 <label><span style={CLIENTE.etichetta}>La tua provincia *</span>
                   <select value={provincia} onChange={(e) => { setProvincia(e.target.value); setInvio(null); }} style={CLIENTE.input}>
@@ -11495,7 +11658,7 @@ function TrovaPilota() {
                 <span>Acconsento a far vedere la mia richiesta ai piloti EyeDrones della provincia scelta. Nome, email e telefono li riceve solo il pilota che sceglierò. <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#8a8076" }}>Privacy</a></span>
               </label>
               {invio && invio !== "invio" && <p role="alert" style={{ fontSize: 14, color: "#c0392b", margin: 0, fontWeight: 600 }}>{invio}</p>}
-              <button type="submit" disabled={invio === "invio"} style={{ ...CLIENTE.bottone, width: "100%", opacity: invio === "invio" ? 0.7 : 1 }}>{invio === "invio" ? "Invio…" : "Ricevi le offerte gratis"}</button>
+              <button type="submit" disabled={invio === "invio"} style={{ ...CLIENTE.bottone, width: "100%", opacity: invio === "invio" ? 0.7 : 1 }}>{invio === "invio" ? "Invio…" : "Ricevi le offerte senza costi"}</button>
               <p style={{ fontSize: 12.5, color: "#8a8076", margin: 0, textAlign: "center" }}>Nessun costo e nessun impegno: se le offerte non ti convincono, non scegli nessuno.</p>
             </form>
           )}
@@ -12168,7 +12331,7 @@ function OfferteCliente({ codice }) {
         <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, background: "rgba(20,12,6,.55)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000, padding: 12 }} onClick={() => lavoro !== "invio" && setScelgo(null)}>
           <div onClick={(e) => e.stopPropagation()} style={{ ...CLIENTE.scheda, width: "100%", maxWidth: 460, marginBottom: 10 }}>
             <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 20, margin: "0 0 8px 0" }}>Scegli questa offerta?</h2>
-            <p style={{ fontSize: 14.5, color: "#4a433c", lineHeight: 1.55, margin: "0 0 14px 0" }}><strong>{titoloServizio(scelgo.dettagli, r.servizio)}</strong> a <strong>{euroIt(scelgo.prezzo)}</strong>, con {scelgo.pilota?.nome}. Gli diciamo che l'hai scelto: appena conferma (entro 48 ore) ti mandiamo i suoi contatti e lui riceve i tuoi. Per te è gratis.</p>
+            <p style={{ fontSize: 14.5, color: "#4a433c", lineHeight: 1.55, margin: "0 0 14px 0" }}><strong>{titoloServizio(scelgo.dettagli, r.servizio)}</strong> a <strong>{euroIt(scelgo.prezzo)}</strong>, con {scelgo.pilota?.nome}. Gli diciamo che l'hai scelto: appena conferma (entro 48 ore) ti mandiamo i suoi contatti e lui riceve i tuoi. Per te è senza costi.</p>
             {lavoro && lavoro !== "invio" && <p style={{ color: "#c0392b", fontSize: 14, margin: "0 0 10px 0" }}>{lavoro}</p>}
             <div style={{ display: "flex", gap: 8 }}>
               <button type="button" onClick={() => setScelgo(null)} disabled={lavoro === "invio"} style={{ flex: 1, background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "13px 14px", fontSize: 15, fontWeight: 700, color: "#3a332c" }}>Annulla</button>
@@ -15844,7 +16007,7 @@ function dateCercabili(d) {
   return [`${a}-${me}-${g}`, `${g}/${me}/${a}`, `${gg}/${Number(me)}/${a}`, `${gg} ${MESI_ESTESI[Number(me) - 1]} ${a}`, formatData(d)];
 }
 
-function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento, eventiVolo, onEventiCambiati }) {
+function RegistroVoli({ azioneDaFare, onAzioneFatta, spazio, azienda, droni, ispezioni, impianti, aprireNuovo, onAperto, onCambiato, vista, onVista, fileIniziali, prefillIniziale, batterie, onBatterieCambiate, piano, onVaiAbbonamento, eventiVolo, onEventiCambiati }) {
   const [voli, setVoli] = useState([]);
   const [media, setMedia] = useState([]);
   const [caricando, setCaricando] = useState(true);
@@ -15856,6 +16019,12 @@ function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo
   const [filtroAnno, setFiltroAnno] = useState("tutti");
   const [cerca, setCerca] = useState("");
   const [espansoId, setEspansoId] = useState(null);
+  // arrivo da «Tutte le funzioni» (consegna, liberatoria, fascicolo): quando apre un volo lo porto alla parte giusta
+  useEffect(() => {
+    if (!azioneDaFare || !espansoId) return;
+    const t = setTimeout(() => { document.getElementById(`volo-${espansoId}-${azioneDaFare}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); onAzioneFatta && onAzioneFatta(); }, 350);
+    return () => clearTimeout(t);
+  }, [azioneDaFare, espansoId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [caricandoMediaId, setCaricandoMediaId] = useState(null);
   const [statoCaricamento, setStatoCaricamento] = useState(null); // { stato: in_corso | ok | errore, testo }
   // durante un caricamento avviso se si prova a chiudere o ricaricare la pagina
@@ -16304,6 +16473,13 @@ function RegistroVoli({ spazio, azienda, droni, ispezioni, impianti, aprireNuovo
           </details>
         </div>
       </TestataPagina>
+      {azioneDaFare && AZIONI_VOLO[azioneDaFare] && (
+        <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, background: "#2a1d12", border: "1px solid #ff8c42", borderRadius: 10, padding: "12px 14px", margin: "0 0 14px 0", fontSize: 14, color: "#f3e3d2" }}>
+          <span style={{ fontSize: 22 }}>{AZIONI_VOLO[azioneDaFare].emoji}</span>
+          <span style={{ flex: 1, lineHeight: 1.45 }}><strong style={{ color: "#ffb877" }}>Scegli il volo</strong>: toccalo per aprirlo e trovi «{AZIONI_VOLO[azioneDaFare].nome}».{voli.length === 0 && !caricando ? " Prima registra un volo." : ""}</span>
+          <button type="button" onClick={onAzioneFatta} aria-label="Chiudi" style={{ background: "none", border: "none", color: "#c3cad4", minWidth: 36, minHeight: 36 }}><X size={16} /></button>
+        </div>
+      )}
       {piano === "free" && (
         <p style={{ fontSize: 11.5, color: "#8b95a3", margin: "-8px 0 16px 0" }}>
           Piano Free: {voli.length}/{LIMITI_FREE.voli} voli. Foto, video e link non hanno un limite di numero.{" "}
@@ -17655,7 +17831,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
     generaRitagliAnomalie(foto, anomalie).then(setRitagliSchermo).catch(() => {});
   };
 
-  const limiteRaggiunto = piano !== "pro" && reportQuestoMese >= LIMITI_FREE.reportMese;
+  const limiteRaggiunto = piano !== "pro" && reportQuestoMese >= limiteReport(piano);
 
   if (limiteRaggiunto) {
     return (
@@ -17664,7 +17840,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         <div style={{ maxWidth: 420, background: "#241d16", border: "1px solid #4a2f16", borderRadius: 10, padding: 20 }}>
           <p style={{ fontSize: 13.5, color: "#ffb877", margin: "0 0 10px 0", fontWeight: 600 }}>Limite mensile raggiunto</p>
           <p style={{ fontSize: 12.5, color: "#c3cad4", margin: 0, lineHeight: 1.5 }}>
-            Hai già generato {reportQuestoMese} report questo mese — il tuo piano include fino a {LIMITI_FREE.reportMese} report al mese. Passa al piano Pro per continuare senza limiti.
+            Hai già generato {reportQuestoMese} report questo mese — il tuo piano include fino a {limiteReport(piano)} report al mese. Passa al piano Pro per continuare senza limiti.
           </p>
         </div>
       </div>
@@ -17870,7 +18046,7 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         <div>
           {tipoIspezione !== "danni" && (
             <div style={{ maxWidth: 460, background: "#16211a", border: "1px solid #2e5c2b", borderRadius: 8, padding: "12px 14px", marginBottom: 14 }}>
-              <p style={{ fontSize: 12, color: "#c3cad4", margin: "0 0 8px 0" }}>🌡️ Per cambiare palette o leggere la temperatura esatta di un punto, apri la foto originale (R-JPEG) sul computer, gratis. Qui carichi l'immagine così com'è.</p>
+              <p style={{ fontSize: 12, color: "#c3cad4", margin: "0 0 8px 0" }}>🌡️ Per cambiare palette o leggere la temperatura esatta di un punto, apri la foto originale (R-JPEG) sul computer, senza costi. Qui carichi l'immagine così com'è.</p>
               <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ display: "inline-block", background: "#4ade80", color: "#0a1a0f", fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 6, textDecoration: "none" }}>Apri DJI Thermal Analysis Tool ↗</a>
             </div>
           )}

@@ -58,7 +58,7 @@ function ComeSiPrende({ esame }) {
       )}
       {c.estero && (
         <details style={{ marginTop: 10, background: "#10141f", border: "1px solid #2a3349", borderRadius: 8, padding: "8px 12px" }}>
-          <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 700 }}>🌍 Si può fare anche all'estero{esame === "a1a3" ? " (anche gratis)" : ""}</summary>
+          <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 700 }}>🌍 Si può fare anche all'estero{esame === "a1a3" ? " (anche senza costi)" : ""}</summary>
           <ul style={{ margin: "8px 0 0 0", paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: "#c3cad4" }}>
             {c.estero.testo.map((t) => <li key={t} style={{ marginBottom: 4 }}>{t}</li>)}
           </ul>

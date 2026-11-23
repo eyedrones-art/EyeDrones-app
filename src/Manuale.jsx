@@ -154,14 +154,14 @@ const SEZIONI = [
       <>
         <Lista voci={[
           "Hai girato normale? Bastano piccoli ritocchi: bianco, esposizione e un po' di contrasto.",
-          "Hai girato in D-Log o D-Log M? Il video è grigio apposta: va «sviluppato» con la LUT ufficiale del tuo drone (una specie di filtro che rimette i colori giusti, si scarica gratis dal sito del produttore), poi si ritocca.",
+          "Hai girato in D-Log o D-Log M? Il video è grigio apposta: va «sviluppato» con la LUT ufficiale del tuo drone (una specie di filtro che rimette i colori giusti, si scarica senza costi dal sito del produttore), poi si ritocca.",
           "Correggi prima esposizione e bianco, poi la LUT, poi il «look» (contrasto, saturazione).",
           "Usa le stesse correzioni su tutte le clip dello stesso momento: copia e incolla la correzione.",
         ]} />
         <PrimaDopo />
         <Sotto>Come usare la LUT, passo per passo</Sotto>
         <Lista voci={[
-          "Scarica la LUT ufficiale del tuo drone dal sito del produttore (per i DJI: «D-Log M to Rec.709» o «D-Log to Rec.709»). È gratis.",
+          "Scarica la LUT ufficiale del tuo drone dal sito del produttore (per i DJI: «D-Log M to Rec.709» o «D-Log to Rec.709»). Non costa nulla.",
           "Prima della LUT sistema esposizione e bianco: la LUT funziona bene solo se il video di partenza è esposto giusto.",
           "Applica la LUT. Se il risultato è troppo forte, abbassane l'intensità al 70–90%.",
           "Solo dopo, se vuoi, aggiungi un «look» creativo (cinema, caldo, freddo), ma piano: 20–40% di intensità.",
@@ -212,7 +212,7 @@ const SEZIONI = [
     corpo: () => (
       <>
         <Tabella intestazione={["Programma", "Dove", "Per cosa"]} righe={[
-          ["DaVinci Resolve", "Computer", "Montaggio e colore professionale, gratis. Ottimo per il D-Log"],
+          ["DaVinci Resolve", "Computer", "Montaggio e colore professionale, 0 €. Ottimo per il D-Log"],
           ["CapCut", "Telefono e computer", "Montaggi veloci per i social, con scritte e musica"],
           ["DJI LightCut", "Telefono", "Montaggi automatici dalle clip del drone"],
           ["Lightroom (versione base)", "Telefono e computer", "Foto: ritocco, HDR, panorami"],

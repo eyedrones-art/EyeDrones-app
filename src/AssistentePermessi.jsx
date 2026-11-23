@@ -252,7 +252,7 @@ export default function AssistentePermessi({ cercaIndirizzo, caricaFileZone, rip
         <Titolo n="1">Dove voli?</Titolo>
         {archivio === null && (
           <div style={{ background: "#3a2a12", border: "1px solid #f5b94266", color: "#ffd9a0", borderRadius: 8, padding: "10px 12px", fontSize: 13, marginBottom: 10 }}>
-            <div>⚠ Per sapere che zona è serve il <strong>file delle zone di D-Flight</strong>. È gratis e si fa <strong>una volta sola</strong>:</div>
+            <div>⚠ Per sapere che zona è serve il <strong>file delle zone di D-Flight</strong>. Non costa nulla e si fa <strong>una volta sola</strong>:</div>
             <ol style={{ margin: "6px 0 8px 0", paddingLeft: 20, fontSize: 12.5, lineHeight: 1.5, color: "#f3dfbf" }}>
               <li>Apri <a href="https://www.d-flight.it/web-app/" target="_blank" rel="noreferrer" style={{ color: "#7fb0ff", fontWeight: 700 }}>D-Flight ↗</a> ed entra con le tue credenziali.</li>
               <li>In alto a sinistra tocca il logo <strong>«d»</strong>, poi sotto «Dettagli account» il <strong>dischetto 💾</strong> (Download UAS Zone Geo).</li>
@@ -538,20 +538,20 @@ function ModuloRichiesta({ scelta, punto, cercaIndirizzo, zoneQui, luogo, catego
     : ["Documento d'identità del richiedente e del pilota", "Attestato del pilota remoto (A1/A3, A2 o STS)", "Registrazione operatore D-Flight (codice operatore)", "Polizza assicurativa RC del drone", "Scheda del drone (modello, classe, peso)", "Mappa dell'area di volo con il punto di decollo"];
   // quanto costa: cifre sicure dove ci sono (bollo), altrimenti indicazioni oneste
   const costi = atm05
-    ? [["Marca da bollo", "16 €", "il modulo va «in bollo»: la compri dal tabaccaio, la incolli sul modulo e scrivi il numero"], ...(scelta.carcere ? [] : [["Nulla osta", "di solito gratis", "se l'amministrazione chiede altro te lo dice nella risposta"]])]
+    ? [["Marca da bollo", "16 €", "il modulo va «in bollo»: la compri dal tabaccaio, la incolli sul modulo e scrivi il numero"], ...(scelta.carcere ? [] : [["Nulla osta", "di solito 0 €", "se l'amministrazione chiede altro te lo dice nella risposta"]])]
     : aeroporto
     ? (tipoA.diritti
-      ? [["Diritti ENAC", "da pagare", "l'importo dipende dalla tariffa ENAC in vigore: lo vedi su servizionline prima di pagare"], ["ENAV / gestore", "di solito gratis", "la riserva di spazio aereo in sé non si paga"]]
-      : [["Comando Operazioni Aeree", "di solito gratis", "per gli aeroporti militari non ci sono diritti ENAC da pagare"]])
-    : libero?.id === "prefettura" ? [["Prefettura", "di solito gratis", "alcune Prefetture chiedono una marca da bollo da 16 €: è scritto sul loro modulo"]]
-    : libero?.id === "comune" ? [["Comune", "di solito gratis", "se decolli da suolo pubblico per lavoro può servire il permesso di occupazione (costo secondo il Comune)"]]
-    : libero?.id === "polizia" ? [["Polizia locale", "gratis", "è solo un avviso del volo"]]
-    : libero?.id === "parco" ? [["Ente parco", "dipende", "spesso gratis per uso amatoriale, a pagamento per riprese commerciali: da poche decine a centinaia di €. Guarda il regolamento del parco"], ["VINCA", "se la chiedono", "la Valutazione di Incidenza Ambientale la fa un tecnico abilitato e può costare diverse centinaia di €: nella richiesta chiedo io se serve"]]
-    : libero?.id === "proprietario" ? [["Proprietario", "gratis", "salvo accordi diversi con lui"]]
-    : libero?.id === "capitaneria" ? [["Capitaneria", "di solito gratis", "a volte con marca da bollo da 16 € sull'istanza: è scritto nell'ordinanza"]]
-    : libero?.id === "soprintendenza" ? [["Soprintendenza", "dipende", "per uso personale gratis; per uso commerciale c'è un canone di concessione, deciso da ogni istituto"]]
-    : libero?.id === "infrastruttura" ? [["Gestore", "dipende", "di solito gratis; il gestore può chiedere la tua assicurazione o di essere presente"]]
-    : [["Ente", "dipende", "di solito gratis: nella richiesta chiedo io se ci sono costi"]];
+      ? [["Diritti ENAC", "da pagare", "l'importo dipende dalla tariffa ENAC in vigore: lo vedi su servizionline prima di pagare"], ["ENAV / gestore", "di solito 0 €", "la riserva di spazio aereo in sé non si paga"]]
+      : [["Comando Operazioni Aeree", "di solito 0 €", "per gli aeroporti militari non ci sono diritti ENAC da pagare"]])
+    : libero?.id === "prefettura" ? [["Prefettura", "di solito 0 €", "alcune Prefetture chiedono una marca da bollo da 16 €: è scritto sul loro modulo"]]
+    : libero?.id === "comune" ? [["Comune", "di solito 0 €", "se decolli da suolo pubblico per lavoro può servire il permesso di occupazione (costo secondo il Comune)"]]
+    : libero?.id === "polizia" ? [["Polizia locale", "0 €", "è solo un avviso del volo"]]
+    : libero?.id === "parco" ? [["Ente parco", "dipende", "spesso senza costi per uso amatoriale, a pagamento per riprese commerciali: da poche decine a centinaia di €. Guarda il regolamento del parco"], ["VINCA", "se la chiedono", "la Valutazione di Incidenza Ambientale la fa un tecnico abilitato e può costare diverse centinaia di €: nella richiesta chiedo io se serve"]]
+    : libero?.id === "proprietario" ? [["Proprietario", "0 €", "salvo accordi diversi con lui"]]
+    : libero?.id === "capitaneria" ? [["Capitaneria", "di solito 0 €", "a volte con marca da bollo da 16 € sull'istanza: è scritto nell'ordinanza"]]
+    : libero?.id === "soprintendenza" ? [["Soprintendenza", "dipende", "per uso personale senza costi; per uso commerciale c'è un canone di concessione, deciso da ogni istituto"]]
+    : libero?.id === "infrastruttura" ? [["Gestore", "dipende", "di solito senza costi; il gestore può chiedere la tua assicurazione o di essere presente"]]
+    : [["Ente", "dipende", "di solito senza costi: nella richiesta chiedo io se ci sono costi"]];
   const chiediCosti = !atm05 && !aeroporto && !avviso;
   const testoEmail = [
     "Buongiorno,",
@@ -823,7 +823,7 @@ function ModuloRichiesta({ scelta, punto, cercaIndirizzo, zoneQui, luogo, catego
         <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 4 }}>💶 Quanto costa</div>
         {costi.map(([chi, quanto, nota]) => (
           <div key={chi} style={{ display: "flex", gap: 8, fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5, marginBottom: 2 }}>
-            <span style={{ flexShrink: 0, minWidth: 92, fontWeight: 700, color: /gratis/.test(quanto) ? "#4ade80" : "#ffb877" }}>{quanto}</span>
+            <span style={{ flexShrink: 0, minWidth: 92, fontWeight: 700, color: /0 €|senza costi/.test(quanto) ? "#4ade80" : "#ffb877" }}>{quanto}</span>
             <span><strong>{chi}</strong>: {nota}.</span>
           </div>
         ))}
