@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 const ENAC_ZONE = "https://www.enac.gov.it/sicurezza-aerea/droni/zone-geografiche-space/voli-con-droni-uas-limitazioni-riserve-dello/"; // fonte ufficiale ENAC sulle zone
 import { AvvisaFineNotam, NotamInItaliano } from "./avvisiNotam.jsx";
+import { NotaPiano, haPiano } from "./piani.jsx";
 import { leggiZoneSalvate, messaggioBreve, motivoZona, sistemaZona, zonaFinita, controllaPunto, altezzaSenzaPermessi, altezzaLibera, limiteVicino, postiLiberiVicini, descriviRestrizione, formattaLimiti, partenzaZona, valoreReale } from "./zoneUAS";
 
 const MappaPunto = lazy(() => import("./MappaPunto.jsx").then((m) => m || { default: () => null })); // vuoto se l'app si sta ricaricando dopo un aggiornamento
@@ -725,8 +726,17 @@ function ModuloRichiesta({ scelta, punto, cercaIndirizzo, zoneQui, luogo, catego
   // appena tocchi «Prepara…» porto lo schermo sul modulo (sul telefono è molto più in basso)
   const inizio = useRef(null);
   useEffect(() => { const t = setTimeout(() => inizio.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); return () => clearTimeout(t); }, []);
+  // il modulo già compilato è del piano Pilota (le informazioni su zona, ente e tempi restano per tutti)
+  if (!haPiano("pilota")) return (
+    <div ref={inizio} style={{ ...st.card, scrollMarginTop: 80 }}>
+      <Titolo n="3">La richiesta già compilata</Titolo>
+      <p style={{ fontSize: 13, color: "#c3cad4", margin: "0 0 10px 0", lineHeight: 1.5 }}>Sai già a chi chiedere e quanti giorni prima. Con il piano Pilota preparo io il modulo con i tuoi dati, quelli del drone e il posto, pronto da firmare e mandare.</p>
+      <NotaPiano quale="pilota" cosa="Richieste di permesso già compilate" stile={{ margin: 0 }} />
+    </div>
+  );
   return (
     <div ref={inizio} style={{ ...st.card, scrollMarginTop: 80 }}>
+      <NotaPiano quale="pilota" cosa="Richieste di permesso già compilate" />
       <Titolo n="3">{aeroporto ? "Modello ATM-09A, compilato da me" : atm05 ? "Modello ATM-05, compilato da me" : libero ? `${avviso ? "L'avviso per" : "La richiesta per"}: ${libero.nome}` : "La richiesta di nulla osta"}</Titolo>
       {atm05 ? (
         <>

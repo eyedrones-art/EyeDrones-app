@@ -21,7 +21,7 @@ import { CODICE_CONDOTTA } from "./codiceCondotta.js";
 import VoloHero, { STILE_VOLO, TestataPagina, STILE_TESTATA } from "./VoloHero.jsx";
 import MenuRotondo, { STILE_MENU_ROTONDO } from "./MenuRotondo.jsx";
 import { ControlloFoto, PuntiGCP, VolumiCumuli } from "./Fotogrammetria.jsx";
-import { PREZZI_PIANO, LANCIO, lancioInCorso, fineLancio, euro, NOME_PIANO, ORDINE_PIANO, impostaPianoPagato, NotaPiano } from "./piani.jsx";
+import { PREZZI_PIANO, LANCIO, lancioInCorso, fineLancio, euro, NOME_PIANO, ORDINE_PIANO, impostaPianoPagato, NotaPiano, haPiano } from "./piani.jsx";
 import Elio, { ElioDice, STILE_ELIO, useElio, accendiElio } from "./Elio.jsx";
 import { DopoIlVolo, apriManuale } from "./Manuale.jsx";
 import PianoScene, { scenaVuota, dettagliScena, FotoScena, disegnaSegni, fotoDellaScena, ModalitaRiprese, leggiGpsFoto } from "./Scene.jsx";
@@ -2906,7 +2906,7 @@ function Presentazione({ onAccedi, onRegistrati }) {
           <div className="lp-griglia" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
             {[
               { nome: "Pro", prezzo: `${euro(PREZZI_PIANO.pro.anno / 12)}/mese`, sotto: `con l'annuale (${euro(PREZZI_PIANO.pro.anno)}) · ${euro(PREZZI_PIANO.pro.mese)} al mese`, per: "Per chi lavora con i clienti", voci: ["Tutto quello che c'è in Pilota", "Preventivi, clienti e incassi", "Consegna al cliente con PIN e il tuo logo", "Liberatorie e fascicolo del volo", "Report illimitati e pagina in evidenza"], top: true },
-              { nome: "Pilota", prezzo: `${euro(PREZZI_PIANO.pilota.anno / 12)}/mese`, sotto: `con l'annuale (${euro(PREZZI_PIANO.pilota.anno)}) · ${euro(PREZZI_PIANO.pilota.mese)} al mese`, per: "Per chi vola per passione", voci: ["Tutto quello che c'è nel Free", "Registro voli illimitato e automatico", "Simulazione d'esame A1/A3 e A2", "Telemetria sul video senza logo"] },
+              { nome: "Pilota", prezzo: `${euro(PREZZI_PIANO.pilota.anno / 12)}/mese`, sotto: `con l'annuale (${euro(PREZZI_PIANO.pilota.anno)}) · ${euro(PREZZI_PIANO.pilota.mese)} al mese`, per: "Per chi vola per passione", voci: ["Tutto quello che c'è nel Free", "Permessi già compilati, pronti da mandare", "Registro voli illimitato e copia di sicurezza", "Simulazione d'esame A1/A3 e A2", "Email del weekend giusto per volare"] },
               { nome: "Free", prezzo: "0 €", sotto: "per sempre", per: "Per iniziare", voci: ["Zone di volo, permessi e meteo", "Documenti pronti per i controlli", "Lezioni, quiz e calcolatori", "15 voli nel registro"] },
             ].map((p) => (
               <div key={p.nome} style={{ ...riquadro, padding: 20, position: "relative", border: p.top ? "2px solid #4ade80" : riquadro.border }}>
@@ -5370,6 +5370,8 @@ function Abbonamento({ piano }) {
         { testo: "Batterie illimitate, con avvisi su cicli e stoccaggio", incluso: true },
         { testo: <>Telemetria sul video <strong>senza logo</strong> · esportazione CSV</>, incluso: true },
         { testo: "Simulazione d'esame A1/A3 e A2", incluso: true },
+        { testo: <><strong>Richieste di permesso già compilate</strong> (Prefettura, Comune, ENAC…)</>, incluso: true },
+        { testo: "Email «Il weekend giusto per volare» e copia di sicurezza in PDF", incluso: true },
         { testo: `Pagina pilota con 24 foto · ${LIMITI_PILOTA.reportMese} report al mese · link di consegna illimitati`, incluso: true },
         { testo: "Preventivi, consegna con PIN, liberatorie", incluso: false },
       ],
@@ -5377,7 +5379,7 @@ function Abbonamento({ piano }) {
     {
       chiave: "free", nome: "Free", grande: "0 €", unita: "per sempre", sotto: "Per iniziare",
       caratteristiche: [
-        { testo: "Zone di volo, permessi, meteo e checklist", incluso: true },
+        { testo: "Zone di volo, meteo e checklist; se serve un permesso e a chi chiederlo", incluso: true },
         { testo: "Documenti pronti per i controlli, attestati e droni", incluso: true },
         { testo: "Lezioni e quiz, calcolatori, scaletta riprese", incluso: true },
         { testo: `${LIMITI_FREE.voli} voli nel registro · ${LIMITI_FREE.batterie} batterie · ${LIMITI_FREE.reportMese} report al mese`, incluso: true },
@@ -7813,7 +7815,7 @@ function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
     { titolo: "Prima del volo", emoji: "🛡️", voci: [
       { e: "📍", t: "Posso volare qui?", d: "Sul posto: zona, altezza massima e dove andare adesso", k: "qui", c: "zona d-flight dove volare gps" },
       { e: "🗺️", t: "Zona di volo e regole", d: "Scrivi la via: zona D-Flight, aree militari, parchi e regole del tuo drone", k: "pianificazione", dove: "In Pianifica", c: "d-flight zone uas altezza militare parco natura 2000 classe c0 c1 c2" },
-      { e: "📝", t: "Permessi", d: "Se serve, a chi chiederlo, quanti giorni prima e il modulo pronto", k: "permessi", c: "autorizzazione aeroporto enac" },
+      { e: "📝", t: "Permessi", d: "Se serve, a chi chiederlo e quanti giorni prima · modulo già compilato con Pilota", k: "permessi", c: "autorizzazione aeroporto enac" },
       { e: "🌅", t: "Meteo e ora d'oro", d: "Vento per il tuo drone, indice Kp, alba, tramonto e sole", k: "pianificazione", dove: "In Pianifica", c: "vento pioggia kp luce tramonto" },
       { e: "📐", t: "Volumi STS-01", d: "Disegni l'area o la importi da DJI Pilot 2: contingenza e buffer", k: "pianificazione", dove: "In Pianifica", c: "sts specific buffer contingenza" },
       { e: "🏛️", t: "Pratica ENAC (STS)", d: "La dichiarazione e il manuale operativo per lo scenario STS", k: "pratica-enac", c: "enac sts dichiarazione manuale" },
@@ -7829,6 +7831,7 @@ function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
     { titolo: "Dopo il volo e controlli", emoji: "📒", voci: [
       { e: "📒", t: "Registro voli", d: "Anche automatico dalla scheda SD · illimitato con Pilota", k: "registro-voli", c: "logbook voli diario" },
       { e: "🖼️", t: "Foto e video", d: "Tutti i file dei tuoi voli in una galleria", k: "galleria", c: "galleria media" },
+      { e: "📦", t: "Copia di sicurezza", d: "Registro, attestati, droni e batterie in un solo PDF", k: "registro-voli", pilota: true, c: "backup copia sicurezza esporta pdf" },
       { e: "👮", t: "Pronto per i controlli", d: "Attestati, assicurazione, drone e permessi a schermo pieno, anche senza campo", k: "documenti-controllo", c: "polizia controllo documenti assicurazione" },
       { e: "📁", t: "Fascicolo del volo", d: "Un solo PDF con tutto, se dopo ti chiedono spiegazioni", k: "volo:fascicolo", pro: true, nascosta: true, c: "pdf spiegazioni assicurazione enac" },
       { e: "🎓", t: "Attestati", d: "A1/A3, A2 e STS con gli avvisi prima della scadenza", k: "attestati", c: "patentino scadenza" },
@@ -16467,6 +16470,42 @@ function RegistroVoli({ azioneDaFare, onAzioneFatta, spazio, azienda, droni, isp
     carica();
   };
 
+  // copia di sicurezza (piano Pilota): riepilogo di attestati, droni e batterie + tutto il registro voli, in un PDF
+  const [generandoCopia, setGenerandoCopia] = useState(false);
+  const copiaSicurezza = async () => {
+    if (!haPiano("pilota")) { if (onVaiAbbonamento) onVaiAbbonamento(); return; }
+    setGenerandoCopia(true);
+    try {
+      const { data: attestati } = await supabase.from("attestati").select("*").order("data_scadenza", { ascending: true });
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      let y = 18;
+      const riga = (t, opz = {}) => { if (y > 280) { doc.addPage(); y = 18; } doc.setFont("helvetica", opz.b ? "bold" : "normal"); doc.setFontSize(opz.s || 10); doc.setTextColor(...(opz.c || [30, 30, 30])); const r = doc.splitTextToSize(String(t), 180); doc.text(r, 15, y); y += r.length * (opz.s ? opz.s * 0.45 : 5) + (opz.dopo || 0); };
+      riga("Copia di sicurezza EyeDrones", { b: true, s: 18, dopo: 2 });
+      riga(`${azienda.nome || ""} · creata il ${formatData(new Date().toISOString())}`, { c: [110, 120, 130], dopo: 6 });
+      riga("Attestati e documenti", { b: true, s: 13, dopo: 2 });
+      if ((attestati || []).length) (attestati || []).forEach((a) => riga(`- ${a.tipo}${a.numero ? ` · n. ${a.numero}` : ""}${a.data_scadenza ? ` · scade il ${formatData(a.data_scadenza)}` : ""}`)); else riga("Nessun attestato salvato.", { c: [110, 120, 130] });
+      y += 4; riga("Droni", { b: true, s: 13, dopo: 2 });
+      if ((droni || []).length) (droni || []).forEach((d) => riga(`- ${[d.nome, d.modello, d.numero_serie || d.seriale ? `s/n ${d.numero_serie || d.seriale}` : null, d.classe ? `classe ${d.classe}` : null, d.prossima_manutenzione ? `manutenzione ${formatData(d.prossima_manutenzione)}` : null].filter(Boolean).join(" · ")}`)); else riga("Nessun drone salvato.", { c: [110, 120, 130] });
+      y += 4; riga("Batterie", { b: true, s: 13, dopo: 2 });
+      if ((batterie || []).length) (batterie || []).forEach((b) => riga(`- ${[b.nome, b.cicli != null ? `${b.cicli} cicli` : null, b.ritirata ? "ritirata" : null].filter(Boolean).join(" · ")}`)); else riga("Nessuna batteria salvata.", { c: [110, 120, 130] });
+      y += 4; riga(`Registro voli: ${tutti.length} ${tutti.length === 1 ? "volo" : "voli"}, nelle pagine seguenti.`, { b: true, dopo: 2 });
+      riga("Conserva questo file in un posto sicuro (Drive, email, computer). I file dei documenti restano nell'app.", { s: 9, c: [110, 120, 130] });
+      const { PDFDocument } = await import("pdf-lib");
+      const finale = await PDFDocument.create();
+      for (const d of [doc, costruisciPDFLogbook({ azienda, voli: tutti, titolo: "Registro voli completo" })]) {
+        const src = await PDFDocument.load(d.output("arraybuffer"));
+        (await finale.copyPages(src, src.getPageIndices())).forEach((pg) => finale.addPage(pg));
+      }
+      const blob = new Blob([await finale.save()], { type: "application/pdf" });
+      const nome = `copia-sicurezza-eyedrones-${dataLocale()}.pdf`;
+      // mostraPdf vuole un documento come quelli di jsPDF: gli passo le stesse due funzioni
+      await mostraPdf({ output: (t) => (t === "blob" ? blob : URL.createObjectURL(blob)), save: (n) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = n; document.body.appendChild(a); a.click(); a.remove(); } }, nome, { titolo: "Copia di sicurezza EyeDrones" });
+    } catch (err) {
+      alert("Non sono riuscito a preparare la copia: " + (err?.message || err));
+    }
+    setGenerandoCopia(false);
+  };
+
   const scaricaPdf = async () => {
     setGenerandoPdf(true);
     try {
@@ -16566,6 +16605,9 @@ function RegistroVoli({ azioneDaFare, onAzioneFatta, spazio, azienda, droni, isp
             <summary style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 13 }}>⋯ Altro</summary>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
               <StatisticheAnno voli={tutti} azienda={azienda} />
+              <button onClick={copiaSicurezza} disabled={generandoCopia || tutti.length === 0} title="Registro voli, attestati, droni e batterie in un solo PDF" style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: "7px 12px", fontSize: 13 }}>
+                📦 {generandoCopia ? "Preparo…" : "Copia di sicurezza"} <BadgePiano quale="pilota" stile={{ marginLeft: 4 }} />
+              </button>
               <button onClick={scaricaPdf} disabled={generandoPdf || visibili.length === 0} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1a2133", color: "#e7eaee", border: "1px solid #343e57", padding: "8px 14px", borderRadius: 6, fontSize: 13, opacity: visibili.length === 0 ? 0.5 : 1 }}>
                 <FileDown size={14} /> {generandoPdf ? "Preparazione..." : "PDF"}
               </button>
@@ -17379,7 +17421,8 @@ function AvvisoWeekend({ inHome }) {
     <div style={{ position: "relative", background: inHome ? "linear-gradient(135deg, #1b2433, #151b2b)" : "#10141f", border: `1px solid ${inHome ? "#3d8bfd55" : "#232b3f"}`, borderRadius: inHome ? 12 : 8, padding: 14, marginBottom: inHome ? 18 : 12, maxWidth: inHome ? 640 : undefined }}>
       {inHome && <button type="button" onClick={chiudi} aria-label="Non mostrarlo più" style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#8b95a3", fontSize: 18 }}>×</button>}
       <div style={{ fontSize: inHome ? 14.5 : 13, fontWeight: 700, paddingRight: inHome ? 30 : 0 }}>🌤️ Il weekend giusto per volare</div>
-      {stato.attivo && !cambio ? (
+      <NotaPiano quale="pilota" cosa="Email «Il weekend giusto per volare»" stile={{ margin: "8px 0 0 0" }} />
+      {!haPiano("pilota") ? null : stato.attivo && !cambio ? (
         <>
           <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 4 }}>✅ Attivo per <strong>{stato.zona || "la tua zona"}</strong>: il giovedì ti scrivo (email e, se le attivi, notifica) quando e dove volare nel weekend, se il tempo è buono.</div>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
