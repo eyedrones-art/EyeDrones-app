@@ -13,6 +13,7 @@
 //   protetto_rilasciato al pilota: i soldi sono partiti verso il suo conto
 //   protetto_problema   al pilota (e Telegram all'amministratore): il cliente ha segnalato un problema, soldi fermi
 //   protetto_rimborsato al cliente: i soldi gli sono stati restituiti
+//   fattura_dati        al pilota: il cliente ha scritto i dati per la fattura (consegna-e-fattura.sql)
 // Alle email per i clienti il database aggiunge «cliente»: il codice del loro link «I miei lavori».
 // Variabili su Netlify: RESEND_API_KEY, AVVISO_SEGRETO, AVVISO_MITTENTE (facoltativa), come per avviso-richiesta.js
 // Se ci sono anche TELEGRAM_TOKEN e TELEGRAM_CHAT_ID (assistente-telegram.js), all'amministratore arriva un messaggio
@@ -312,6 +313,30 @@ function componiEmail(d) {
       nota: `Una domanda veloce: ${pilota} ti ha contattato lo stesso, fuori da EyeDrones? Rispondi con un tocco nella pagina delle offerte: ci aiuti a tenere solo piloti seri.`,
     });
     return { a: [d.a], oggetto: "Scegli un altro pilota per il tuo lavoro", ...m };
+  }
+  if (d.tipo === "consegnato" && d.bloccata) {
+    const m = impagina({
+      etichetta: "Il tuo lavoro è pronto",
+      titolo: `${pilota} ha finito il tuo lavoro`,
+      sottotitolo: `${servizio ? `«${servizio}»: ` : ""}foto, video o report sono pronti. Paga la parte che manca con il Pagamento protetto e li vedi subito.`,
+      riquadro: pulisci(d.nota, 500) ? `${pilota}: ${pulisci(d.nota, 500)}` : "",
+      bottone: { href: `${linkOfferte}#pagamento`, testo: "Paga e guarda il lavoro" },
+      secondo: miei,
+      nota: "I soldi arrivano al pilota solo dopo che hai visto il lavoro: se c'è un problema puoi segnalarlo e restano fermi.",
+    });
+    return { a: [d.a], oggetto: `${pilota} ha finito il tuo lavoro`, ...m };
+  }
+  if (d.tipo === "fattura_dati") {
+    const f = d.fattura || {};
+    const m = impagina({
+      etichetta: "Dati per la fattura",
+      titolo: "Il cliente ti ha mandato i dati per la fattura",
+      sottotitolo: `${servizio ? `«${servizio}»: ` : ""}la fattura per il tuo lavoro la fai tu, con questi dati. Li ritrovi anche nell'app, nel lavoro confermato.`,
+      righe: [["Intestazione", pulisci(f.intestazione, 120)], ["P.IVA / C.F.", pulisci(f.piva_cf, 20)], pulisci(f.sdi_pec, 120) && ["SDI o PEC", pulisci(f.sdi_pec, 120)], pulisci(f.indirizzo, 200) && ["Indirizzo", pulisci(f.indirizzo, 200)]].filter(Boolean),
+      bottone: { href: linkPilota, testo: "Apri il lavoro" },
+      nota: "Se paga con il Pagamento protetto, la fattura va fatta per il tuo prezzo (la protezione la fattura EyeDrones).",
+    });
+    return { a: [d.a], oggetto: "Dati per la fattura del tuo lavoro", ...m };
   }
   if (d.tipo === "consegnato") {
     const m = impagina({
