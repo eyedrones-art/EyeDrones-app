@@ -12076,6 +12076,45 @@ function MieiLavori() {
   );
 }
 
+// «Mi serve la fattura» (script consegna-e-fattura.sql): i dati li vede solo il pilota che conferma il lavoro
+function FatturaCliente({ codice, iniziali, confermata }) {
+  const [dati, setDati] = useState(iniziali || null);
+  const [modulo, setModulo] = useState(null); // { intestazione, piva_cf, sdi_pec, indirizzo, errore, invio }
+  useEffect(() => { setDati(iniziali || null); }, [iniziali]);
+  const salva = async (nuovi) => {
+    setModulo((m) => ({ ...m, invio: true, errore: null }));
+    const { error } = await supabase.rpc("salva_fattura_cliente", { p_codice: codice, p_dati: nuovi });
+    if (error) { setModulo((m) => ({ ...m, invio: false, errore: /mancano/i.test(error.message || "") ? "Scrivi almeno l'intestazione e la P.IVA o il codice fiscale." : "Non è stato possibile: riprova." })); return; }
+    setDati(nuovi); setModulo(null);
+  };
+  const campo = { border: "1px solid #e2d8cc", borderRadius: 12, padding: "10px 12px", fontSize: 15, background: "#fff", color: "#2b241e", width: "100%", boxSizing: "border-box" };
+  if (!modulo && !dati) return (
+    <button type="button" onClick={() => setModulo({ intestazione: "", piva_cf: "", sdi_pec: "", indirizzo: "" })} style={{ alignSelf: "flex-start", background: "none", border: "none", padding: 0, color: "#6b6258", fontSize: 14, fontWeight: 700 }}>🧾 Ti serve la fattura? Scrivi i dati</button>
+  );
+  if (!modulo) return (
+    <div style={{ ...CLIENTE.scheda, padding: "12px 14px", fontSize: 14, color: "#4a433c", lineHeight: 1.5 }}>
+      🧾 <strong>Fattura a:</strong> {dati.intestazione} · {dati.piva_cf}{dati.sdi_pec ? ` · ${dati.sdi_pec}` : ""}
+      <div style={{ fontSize: 12.5, color: "#6b6258", marginTop: 4 }}>{confermata ? "Il pilota ha i tuoi dati: la fattura del lavoro la fa lui." : "Li riceve solo il pilota che sceglierai, quando conferma: è lui a fare la fattura del lavoro."} <button type="button" onClick={() => setModulo({ ...dati })} style={{ background: "none", border: "none", padding: 0, color: "#e0552f", fontWeight: 700, fontSize: 12.5 }}>Modifica</button></div>
+    </div>
+  );
+  return (
+    <div style={{ ...CLIENTE.scheda, display: "flex", flexDirection: "column", gap: 8 }}>
+      <strong style={{ fontSize: 15.5 }}>🧾 Dati per la fattura</strong>
+      <p style={{ fontSize: 13.5, color: "#6b6258", margin: 0, lineHeight: 1.5 }}>Li riceve solo il pilota che conferma il lavoro: è lui a fare la fattura. Nelle offerte trovi «🧾 emette fattura» accanto ai piloti con P.IVA.</p>
+      <input value={modulo.intestazione} onChange={(e) => setModulo({ ...modulo, intestazione: e.target.value })} maxLength={120} placeholder="Nome e cognome o ragione sociale" style={campo} />
+      <input value={modulo.piva_cf} onChange={(e) => setModulo({ ...modulo, piva_cf: e.target.value })} maxLength={20} placeholder="P.IVA o codice fiscale" style={campo} />
+      <input value={modulo.sdi_pec || ""} onChange={(e) => setModulo({ ...modulo, sdi_pec: e.target.value })} maxLength={120} placeholder="Codice SDI o PEC (facoltativo)" style={campo} />
+      <input value={modulo.indirizzo || ""} onChange={(e) => setModulo({ ...modulo, indirizzo: e.target.value })} maxLength={200} placeholder="Indirizzo (facoltativo)" style={campo} />
+      {modulo.errore && <p style={{ color: "#c0392b", fontSize: 14, margin: 0 }}>{modulo.errore}</p>}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" disabled={modulo.invio} onClick={() => salva({ intestazione: modulo.intestazione, piva_cf: modulo.piva_cf, sdi_pec: modulo.sdi_pec, indirizzo: modulo.indirizzo })} style={{ ...CLIENTE.bottone, flex: 2, padding: "11px 14px", fontSize: 14.5 }}>{modulo.invio ? "Salvo…" : "Salva"}</button>
+        <button type="button" onClick={() => setModulo(null)} style={{ flex: 1, background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "11px 14px", fontSize: 14.5, fontWeight: 700, color: "#3a332c" }}>Annulla</button>
+        {dati && <button type="button" disabled={modulo.invio} onClick={() => salva(null)} style={{ background: "none", border: "none", color: "#8a8076", fontSize: 13, textDecoration: "underline" }}>Non mi serve più</button>}
+      </div>
+    </div>
+  );
+}
+
 // «🛡️ Pagamento protetto» (script pagamento-protetto.sql): il cliente paga nell'app, i soldi restano fermi su Stripe
 // e arrivano al pilota quando conferma di aver ricevuto il lavoro. Spento (o pilota senza conto Stripe) → non compare.
 const PROTETTO_APPENA_PAGATO = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("protetto") === "pagato";
@@ -12125,12 +12164,12 @@ function PagamentoProtetto({ codice, nomePilota }) {
 
       {pagato === 0 && !attesa && (
         <>
-          <p style={{ fontSize: 14, color: "#3f5f4a", margin: 0, lineHeight: 1.55 }}>Paga qui e i soldi restano al sicuro: arrivano a {nomePilota} solo quando confermi di aver ricevuto il lavoro. Se il pilota non si presenta o non consegna, ti restituiamo tutto.</p>
+          <p style={{ fontSize: 14, color: "#3f5f4a", margin: 0, lineHeight: 1.55 }}>{s.consegnato ? `${nomePilota} ha finito il lavoro: paga qui e lo vedi subito. ` : `${nomePilota} vola dopo il tuo pagamento. `}I soldi restano al sicuro e arrivano al pilota solo quando confermi di aver ricevuto il lavoro. Se il pilota non si presenta o non consegna, ti restituiamo tutto.</p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" disabled={occupato} onClick={() => paga("anticipo")} style={{ ...CLIENTE.bottone, flex: 1, minWidth: 200, padding: "12px 14px", fontSize: 15 }}>Paga l'anticipo · {tot(s.anticipo)}</button>
-            <button type="button" disabled={occupato} onClick={() => paga("totale")} style={{ ...bottoneChiaro, flex: 1, minWidth: 200 }}>Paga tutto · {tot(s.totale)}</button>
+            {!s.consegnato && <button type="button" disabled={occupato} onClick={() => paga("anticipo")} style={{ ...CLIENTE.bottone, flex: 1, minWidth: 200, padding: "12px 14px", fontSize: 15 }}>Paga l'anticipo · {tot(s.anticipo)}</button>}
+            <button type="button" disabled={occupato} onClick={() => paga("totale")} style={s.consegnato ? { ...CLIENTE.bottone, flex: 1, minWidth: 200, padding: "12px 14px", fontSize: 15 } : { ...bottoneChiaro, flex: 1, minWidth: 200 }}>Paga tutto · {tot(s.totale)}</button>
           </div>
-          <p style={{ fontSize: 12.5, color: "#5b6b60", margin: 0, lineHeight: 1.5 }}>L'anticipo è il {Number(s.percento_anticipo)}% del prezzo ({euroIt(s.anticipo.pilota)}), il resto lo paghi dopo. Al prezzo del pilota si aggiunge la Protezione EyeDrones: {Number(s.percento)}% + {euroIt(s.fisso)} per pagamento. Paghi con carta su Stripe.</p>
+          <p style={{ fontSize: 12.5, color: "#5b6b60", margin: 0, lineHeight: 1.5 }}>{s.consegnato ? "" : <>L'anticipo è il {Number(s.percento_anticipo)}% del prezzo ({euroIt(s.anticipo.pilota)}), il resto lo paghi dopo. </>}Al prezzo del pilota si aggiunge la Protezione EyeDrones: {Number(s.percento)}% + {euroIt(s.fisso)} per pagamento. Paghi con carta su Stripe.</p>
         </>
       )}
 
@@ -12142,8 +12181,9 @@ function PagamentoProtetto({ codice, nomePilota }) {
           </p>
           {s.problema && <p style={{ fontSize: 14, color: "#8a5a12", background: "#fffaf0", borderRadius: 10, padding: "8px 10px", margin: 0 }}>Hai segnalato un problema: i soldi restano fermi. Ti scriviamo noi per risolverlo.</p>}
           {!s.ricevuto_il && !s.problema && s.consegnata_il && dataRilascio && <p style={{ fontSize: 12.5, color: "#5b6b60", margin: 0 }}>Il lavoro è stato consegnato: se non segnali problemi, i soldi vanno al pilota da soli {dataRilascio}.</p>}
+          {s.saldo && <p style={{ fontSize: 13, color: "#5b6b60", margin: 0 }}>{s.consegnato ? "Il lavoro è pronto: paga il resto e lo vedi subito." : "Il resto lo paghi quando il lavoro è pronto: lo vedrai appena pagato."}</p>}
           {s.saldo && <button type="button" disabled={occupato} onClick={() => paga("saldo")} style={{ ...CLIENTE.bottone, padding: "12px 14px", fontSize: 15 }}>Paga il resto · {tot(s.saldo)}</button>}
-          {!s.ricevuto_il && !s.problema && Number(s.rilasciato) < pagato && fase !== "problema" && (
+          {!s.ricevuto_il && !s.problema && !s.bloccata && Number(s.rilasciato) < pagato && fase !== "problema" && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="button" disabled={occupato} onClick={ricevuto} style={{ ...bottoneChiaro, flex: 2, borderColor: "#1f8a4c", color: "#1f6b40" }}>✅ Ho ricevuto il lavoro</button>
               <button type="button" disabled={occupato} onClick={() => setFase("problema")} style={{ ...bottoneChiaro, flex: 1, color: "#8a5a12" }}>⚠️ C'è un problema</button>
@@ -12395,7 +12435,7 @@ function OfferteCliente({ codice }) {
               : <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 9, background: "linear-gradient(135deg, #e0552f, #ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, color: "#fff", flexShrink: 0 }}>{iniziali}</span>}
             <div style={{ fontSize: 12.5, color: "#6b6258", lineHeight: 1.4 }}>
               Lo fa <strong style={{ color: "#3a332c" }}>{p.nome}</strong>{p.citta ? ` · ${p.citta}` : ""}
-              <div>{[p.registrato && "✓ operatore registrato", p.assicurato && "✓ assicurato"].filter(Boolean).join(" · ")}</div>
+              <div>{[p.registrato && "✓ operatore registrato", p.assicurato && "✓ assicurato", ["forfettario", "ordinario"].includes(o.dettagli?.regime) && "🧾 emette fattura", o.dettagli?.regime === "occasionale" && "ricevuta (senza P.IVA)"].filter(Boolean).join(" · ")}</div>
               {testoStelle(p.stelle) && <div style={{ color: "#c27c0e", fontWeight: 700 }}>{testoStelle(p.stelle)}</div>}
             </div>
           </div>
@@ -12403,6 +12443,13 @@ function OfferteCliente({ codice }) {
           {espansa && lavori.length > 3 && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, marginTop: 10 }}>
               {lavori.slice(3).map((u) => <img key={u} src={u} alt="" onClick={() => setFoto(u)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 8, cursor: "zoom-in" }} />)}
+            </div>
+          )}
+          {o.stato === "confermata" && o.consegna_bloccata && (
+            <div style={{ marginTop: 14, background: "#fff3eb", borderRadius: 12, padding: 14 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#c2410c", marginBottom: 6 }}>📦 Il tuo lavoro è pronto</div>
+              <p style={{ fontSize: 14, color: "#4a433c", margin: "0 0 10px 0", lineHeight: 1.5 }}>{p.nome} ha finito. Paga la parte che manca con il Pagamento protetto e lo vedi subito: i soldi arrivano al pilota solo dopo che l'hai visto.</p>
+              <a href="#pagamento" style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14 }}>Paga e guarda il lavoro</a>
             </div>
           )}
           {o.stato === "confermata" && o.consegna && /^https:\/\//i.test(o.consegna.link || "") && (
@@ -12475,6 +12522,7 @@ function OfferteCliente({ codice }) {
         {r.stato === "aperta" && (!(r.luogo || "").trim() || (r.descrizione || "").trim().length < 15) && <CompletaRichiesta codice={codice} r={r} fatto={carica} />}
         {r.stato === "aperta" && <DomandeCliente codice={codice} />}
         {r.stato !== "chiusa" && <AvvisiCliente codice={codice} />}
+        {r.stato !== "chiusa" && <FatturaCliente codice={codice} iniziali={r.fattura} confermata={!!confermata} />}
 
         {r.stato === "aperta" && (dati.rinunce || []).map((x, i) => (
           <div key={"r" + i} style={{ ...CLIENTE.scheda, background: "#fffaf0", borderColor: "#f3dfb0" }}>
@@ -12528,7 +12576,7 @@ function OfferteCliente({ codice }) {
         ))}
         {confermata && schedaOfferta(confermata)}
         {confermata && <PagamentoProtetto codice={codice} nomePilota={confermata.pilota?.nome || "il pilota"} />}
-        {confermata && !confermata.consegna && !cambio && (
+        {confermata && !confermata.consegna && !confermata.consegna_bloccata && !cambio && (
           <div style={{ display: "flex", gap: 16, justifyContent: "center", fontSize: 13.5 }}>
             <button type="button" onClick={() => setCambio({ tipo: "sposta", data: r.data_desiderata || "" })} style={{ background: "none", border: "none", color: "#6b6258", fontWeight: 700, padding: 0, fontSize: 13.5 }}>📅 Sposta la data</button>
             <button type="button" onClick={() => setCambio({ tipo: "annulla", motivo: "", altro: "" })} style={{ background: "none", border: "none", color: "#c0392b", fontWeight: 700, padding: 0, fontSize: 13.5 }}>Annulla il lavoro</button>
@@ -12932,6 +12980,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   const [domande, setDomande] = useState({}); // id richiesta → domande dei piloti e risposte del cliente (script domande-richiesta.sql)
   const [chiedo, setChiedo] = useState({}); // id richiesta → { testo, stato }
   const [parlaP, setParlaP] = useState({}); // id richiesta → il cliente vuole parlarmi (script parla-pilota.sql)
+  const [fattureP, setFattureP] = useState({}); // id richiesta → dati per la fattura del cliente (script consegna-e-fattura.sql)
   const [protP, setProtP] = useState(null); // «Pagamento protetto»: { collegato, pronto, lavori } (script pagamento-protetto.sql; spento → null)
   const [collego, setCollego] = useState(null); // null | "invio" | testo d'errore
   const [sblocco, setSblocco] = useState(null);
@@ -12994,6 +13043,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     supabase.rpc("storia_clienti_zona").then(({ data: st }) => st && typeof st === "object" && setStoria(st), () => {});
     if (Array.isArray(data) && data.length) supabase.rpc("domande_per_lavori", { p_ids: data.map((l) => l.id) }).then(({ data: dm }) => dm && typeof dm === "object" && setDomande(dm), () => {});
     supabase.rpc("parla_pilota").then(({ data: pp }) => pp && typeof pp === "object" && setParlaP(pp), () => {});
+    supabase.rpc("fatture_pilota").then(({ data: fp }) => fp && typeof fp === "object" && setFattureP(fp), () => {});
     supabase.rpc("protezione_pilota").then(({ data: pr, error: e }) => setProtP(e || !pr || typeof pr !== "object" ? null : pr), () => {});
     supabase.rpc("annullamenti_pilota").then(({ data: an }) => an && typeof an === "object" && setAnnulli(an), () => {});
     return Array.isArray(data) ? data : [];
@@ -13343,6 +13393,16 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
       {confermati.length > 0 && sezione("Lavori confermati")}
       {confermati.map((l) => (
         <div key={l.id} style={{ ...st.scheda, borderColor: l.mia.consegna ? "#2c5a3f" : "#3d8bfd66" }}>
+          {fattureP[l.id] && (
+            <div style={{ fontSize: 12.5, lineHeight: 1.5, marginBottom: 8, borderRadius: 8, padding: "8px 10px", background: "#16263d", border: "1px solid #2b4c80", color: "#cfe0ff" }}>
+              🧾 <strong>Il cliente vuole la fattura</strong> per il tuo lavoro: {fattureP[l.id].intestazione} · {fattureP[l.id].piva_cf}{fattureP[l.id].sdi_pec ? ` · SDI/PEC ${fattureP[l.id].sdi_pec}` : ""}{fattureP[l.id].indirizzo ? ` · ${fattureP[l.id].indirizzo}` : ""}
+            </div>
+          )}
+          {protP?.pronto && !(Number(protP?.lavori?.[l.id]?.pagato) > 0) && (
+            <div style={{ fontSize: 12.5, lineHeight: 1.45, marginBottom: 8, borderRadius: 8, padding: "8px 10px", background: "#3a2e10", border: "1px solid #6b5520", color: "#fde68a" }}>
+              ⏳ {l.mia.consegna ? "Il cliente vedrà il lavoro appena paga nell'app: i soldi arrivano a te dopo la sua conferma." : <><strong>Il cliente non ha ancora pagato nell'app.</strong> Vola quando vedi qui l'anticipo pagato: così sei sicuro di essere pagato.</>}
+            </div>
+          )}
           {(() => {
             const pr = protP?.lavori?.[l.id];
             if (!pr || !(Number(pr.pagato) > 0)) return null;
