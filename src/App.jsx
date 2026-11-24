@@ -12076,6 +12076,95 @@ function MieiLavori() {
   );
 }
 
+// «🛡️ Pagamento protetto» (script pagamento-protetto.sql): il cliente paga nell'app, i soldi restano fermi su Stripe
+// e arrivano al pilota quando conferma di aver ricevuto il lavoro. Spento (o pilota senza conto Stripe) → non compare.
+const PROTETTO_APPENA_PAGATO = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("protetto") === "pagato";
+function PagamentoProtetto({ codice, nomePilota }) {
+  const [s, setS] = useState(null);
+  const [fase, setFase] = useState(null); // null | "invio" | "problema" | testo d'errore
+  const [testo, setTesto] = useState("");
+  const [attesa, setAttesa] = useState(PROTETTO_APPENA_PAGATO);
+  const carica = () => supabase.rpc("protezione_cliente", { p_codice: codice }).then(({ data, error }) => setS(error ? null : data || null), () => setS(null));
+  useEffect(() => {
+    carica();
+    if (!PROTETTO_APPENA_PAGATO) return undefined;
+    // la conferma arriva da Stripe dopo qualche secondo
+    const t1 = setTimeout(carica, 4000);
+    const t2 = setTimeout(() => { carica(); setAttesa(false); }, 12000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [codice]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!s) return null;
+  const chiama = async (corpo) => {
+    setFase("invio");
+    try {
+      const r = await fetch("/.netlify/functions/pagamento-protetto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codice, ...corpo }) });
+      const j = await r.json().catch(() => null);
+      if (!r.ok) { setFase(j?.errore || "Non è stato possibile: riprova tra poco."); return null; }
+      return j;
+    } catch { setFase("Connessione assente: riprova quando hai campo."); return null; }
+  };
+  const paga = async (tipo) => { const j = await chiama({ azione: "paga", tipo }); if (j?.url) window.location.href = j.url; };
+  const ricevuto = async () => { const j = await chiama({ azione: "ricevuto" }); if (j) { setFase(null); carica(); } };
+  const problema = async () => {
+    if (testo.trim().length < 5) { setFase("problema"); return; }
+    setFase("invio");
+    const { error } = await supabase.rpc("protezione_problema", { p_codice: codice, p_testo: testo });
+    if (error) { setFase("Non è stato possibile: ricarica la pagina."); return; }
+    setFase(null); setTesto(""); carica();
+  };
+  const pagato = Number(s.pagato) || 0;
+  const giaPagatoTutto = pagato > 0 && !(Number(s.resto) > 0);
+  const tot = (x) => euroIt(Number(x.pilota) + Number(x.protezione));
+  const dataRilascio = s.rilascio_il ? new Date(s.rilascio_il).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" }) : null;
+  const bottoneChiaro = { background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "11px 14px", fontSize: 14.5, fontWeight: 700, color: "#3a332c" };
+  const occupato = fase === "invio";
+  return (
+    <section style={{ ...CLIENTE.scheda, borderColor: "#b9d9c6", background: "#f4fbf7", display: "flex", flexDirection: "column", gap: 10 }} id="pagamento">
+      <strong style={{ fontSize: 16 }}>🛡️ Pagamento protetto</strong>
+      {attesa && pagato === 0 && <p style={{ fontSize: 14, color: "#3f5f4a", margin: 0 }}>Stiamo ricevendo la conferma del pagamento…</p>}
+
+      {pagato === 0 && !attesa && (
+        <>
+          <p style={{ fontSize: 14, color: "#3f5f4a", margin: 0, lineHeight: 1.55 }}>Paga qui e i soldi restano al sicuro: arrivano a {nomePilota} solo quando confermi di aver ricevuto il lavoro. Se il pilota non si presenta o non consegna, ti restituiamo tutto.</p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" disabled={occupato} onClick={() => paga("anticipo")} style={{ ...CLIENTE.bottone, flex: 1, minWidth: 200, padding: "12px 14px", fontSize: 15 }}>Paga l'anticipo · {tot(s.anticipo)}</button>
+            <button type="button" disabled={occupato} onClick={() => paga("totale")} style={{ ...bottoneChiaro, flex: 1, minWidth: 200 }}>Paga tutto · {tot(s.totale)}</button>
+          </div>
+          <p style={{ fontSize: 12.5, color: "#5b6b60", margin: 0, lineHeight: 1.5 }}>L'anticipo è il {Number(s.percento_anticipo)}% del prezzo ({euroIt(s.anticipo.pilota)}), il resto lo paghi dopo. Al prezzo del pilota si aggiunge la Protezione EyeDrones: {Number(s.percento)}% + {euroIt(s.fisso)} per pagamento. Paghi con carta su Stripe.</p>
+        </>
+      )}
+
+      {pagato > 0 && (
+        <>
+          <p style={{ fontSize: 14, color: "#3f5f4a", margin: 0, lineHeight: 1.55 }}>
+            Hai pagato <strong>{euroIt(pagato)}</strong>{giaPagatoTutto ? " (tutto il prezzo)" : ` su ${euroIt(s.prezzo)}`}.
+            {Number(s.rilasciato) >= pagato ? ` I soldi sono stati mandati a ${nomePilota}.` : s.ricevuto_il ? ` Hai confermato: i soldi stanno andando a ${nomePilota}.` : ` Sono al sicuro: ${nomePilota} li riceve quando confermi di aver ricevuto il lavoro.`}
+          </p>
+          {s.problema && <p style={{ fontSize: 14, color: "#8a5a12", background: "#fffaf0", borderRadius: 10, padding: "8px 10px", margin: 0 }}>Hai segnalato un problema: i soldi restano fermi. Ti scriviamo noi per risolverlo.</p>}
+          {!s.ricevuto_il && !s.problema && s.consegnata_il && dataRilascio && <p style={{ fontSize: 12.5, color: "#5b6b60", margin: 0 }}>Il lavoro è stato consegnato: se non segnali problemi, i soldi vanno al pilota da soli {dataRilascio}.</p>}
+          {s.saldo && <button type="button" disabled={occupato} onClick={() => paga("saldo")} style={{ ...CLIENTE.bottone, padding: "12px 14px", fontSize: 15 }}>Paga il resto · {tot(s.saldo)}</button>}
+          {!s.ricevuto_il && !s.problema && Number(s.rilasciato) < pagato && fase !== "problema" && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" disabled={occupato} onClick={ricevuto} style={{ ...bottoneChiaro, flex: 2, borderColor: "#1f8a4c", color: "#1f6b40" }}>✅ Ho ricevuto il lavoro</button>
+              <button type="button" disabled={occupato} onClick={() => setFase("problema")} style={{ ...bottoneChiaro, flex: 1, color: "#8a5a12" }}>⚠️ C'è un problema</button>
+            </div>
+          )}
+          {fase === "problema" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <textarea rows={3} maxLength={600} value={testo} onChange={(e) => setTesto(e.target.value)} placeholder="Cosa non va? Es. il pilota non si è presentato, il lavoro non è quello concordato…" style={{ border: "1px solid #e2d8cc", borderRadius: 12, padding: "10px 12px", fontSize: 15, background: "#fff", color: "#2b241e", resize: "vertical" }} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" onClick={problema} disabled={occupato} style={{ ...CLIENTE.bottone, flex: 2, padding: "11px 14px", fontSize: 14.5 }}>{occupato ? "Un attimo…" : "Blocca i soldi e avvisa EyeDrones"}</button>
+                <button type="button" onClick={() => setFase(null)} style={{ ...bottoneChiaro, flex: 1 }}>Indietro</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+      {fase && !["invio", "problema"].includes(fase) && <p style={{ color: "#c0392b", fontSize: 14, margin: 0 }}>{fase}</p>}
+    </section>
+  );
+}
+
 // app.eyedrones.it/offerte/<codice>: il link privato che il cliente riceve per email
 function codiceOfferteDaIndirizzo() {
   const m = window.location.pathname.match(/^\/offerte\/([a-f0-9]{32,64})\/?$/i);
@@ -12438,6 +12527,7 @@ function OfferteCliente({ codice }) {
           </div>
         ))}
         {confermata && schedaOfferta(confermata)}
+        {confermata && <PagamentoProtetto codice={codice} nomePilota={confermata.pilota?.nome || "il pilota"} />}
         {confermata && !confermata.consegna && !cambio && (
           <div style={{ display: "flex", gap: 16, justifyContent: "center", fontSize: 13.5 }}>
             <button type="button" onClick={() => setCambio({ tipo: "sposta", data: r.data_desiderata || "" })} style={{ background: "none", border: "none", color: "#6b6258", fontWeight: 700, padding: 0, fontSize: 13.5 }}>📅 Sposta la data</button>
@@ -12842,6 +12932,8 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   const [domande, setDomande] = useState({}); // id richiesta → domande dei piloti e risposte del cliente (script domande-richiesta.sql)
   const [chiedo, setChiedo] = useState({}); // id richiesta → { testo, stato }
   const [parlaP, setParlaP] = useState({}); // id richiesta → il cliente vuole parlarmi (script parla-pilota.sql)
+  const [protP, setProtP] = useState(null); // «Pagamento protetto»: { collegato, pronto, lavori } (script pagamento-protetto.sql; spento → null)
+  const [collego, setCollego] = useState(null); // null | "invio" | testo d'errore
   const [sblocco, setSblocco] = useState(null);
   const [lavoro, setLavoro] = useState(null); // id in corso
   const [errore, setErrore] = useState(null);
@@ -12902,9 +12994,16 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     supabase.rpc("storia_clienti_zona").then(({ data: st }) => st && typeof st === "object" && setStoria(st), () => {});
     if (Array.isArray(data) && data.length) supabase.rpc("domande_per_lavori", { p_ids: data.map((l) => l.id) }).then(({ data: dm }) => dm && typeof dm === "object" && setDomande(dm), () => {});
     supabase.rpc("parla_pilota").then(({ data: pp }) => pp && typeof pp === "object" && setParlaP(pp), () => {});
+    supabase.rpc("protezione_pilota").then(({ data: pr, error: e }) => setProtP(e || !pr || typeof pr !== "object" ? null : pr), () => {});
     supabase.rpc("annullamenti_pilota").then(({ data: an }) => an && typeof an === "object" && setAnnulli(an), () => {});
     return Array.isArray(data) ? data : [];
   };
+  useEffect(() => {
+    // tornato da Stripe dopo aver collegato il conto: chiedo a Stripe se è pronto a ricevere
+    if (/^(collegato|riprova)$/.test(new URLSearchParams(window.location.search).get("protetto") || "")) {
+      chiamaProtetto("stato").then(() => carica());
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     carica();
     if (!LAVORO_APPENA_PAGATO) return undefined;
@@ -12949,6 +13048,25 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     carica();
   };
 
+  // «Pagamento protetto»: collego il conto Stripe (la pagina dei documenti è di Stripe, non di EyeDrones)
+  async function chiamaProtetto(azione) {
+    try {
+      const { data: ss } = await supabase.auth.getSession();
+      const r = await fetch("/.netlify/functions/pagamento-protetto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${ss?.session?.access_token || ""}` },
+        body: JSON.stringify({ azione }),
+      });
+      const j = await r.json().catch(() => null);
+      return r.ok ? j : { errore: j?.errore || "Non è stato possibile: riprova tra poco." };
+    } catch { return { errore: "Connessione assente: riprova quando hai campo." }; }
+  }
+  const collegaConto = async () => {
+    setCollego("invio");
+    const j = await chiamaProtetto("collega");
+    if (j?.url) { window.location.href = j.url; return; }
+    setCollego(j?.errore || "Non è stato possibile: riprova tra poco.");
+  };
   const conferma = async (l) => {
     setLavoro(l.id); setErrore(null);
     const { data, error } = await supabase.rpc("conferma_lavoro_zona", { p_offerta: l.mia.id });
@@ -13211,9 +13329,35 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
       {Number(annulli?.credito) > 0 && (
         <div style={{ ...st.scheda, borderColor: "#2c5a3f", fontSize: 13, color: "#c3cad4" }}>💶 Hai <strong style={{ color: "#86efac" }}>{euroIt(Number(annulli.credito))}</strong> di credito: paga la commissione del prossimo lavoro che confermi.</div>
       )}
+      {protP && !protP.pronto && (
+        <div style={{ ...st.scheda, borderColor: "#2c5a3f", fontSize: 13, color: "#c3cad4", lineHeight: 1.5 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#86efac", marginBottom: 4 }}>🛡️ Ricevi i Pagamenti protetti</div>
+          {protP.collegato
+            ? "Stripe non ha ancora finito di controllare i tuoi dati. Se ti chiede qualcosa, completa la registrazione: poi i clienti potranno pagarti in anticipo nell'app."
+            : "Il cliente paga l'anticipo nell'app e i soldi arrivano sul tuo conto a lavoro concluso: niente clienti che spariscono. Ricevi il 100% del tuo prezzo, la protezione la paga il cliente."}
+          <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 6 }}>I documenti li metti sul sito di Stripe, che gestisce i pagamenti: EyeDrones non vede i dati del tuo conto.</div>
+          <button type="button" disabled={collego === "invio"} onClick={collegaConto} style={{ marginTop: 10, background: "linear-gradient(90deg, #1f8a4c, #34c76f)", color: "#0b1a12", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13.5, fontWeight: 800 }}>{collego === "invio" ? "Apro Stripe…" : protP.collegato ? "Completa su Stripe" : "Collega il tuo conto (2 minuti)"}</button>
+          {collego && collego !== "invio" && <p style={{ fontSize: 12.5, color: "#ff9c9c", margin: "8px 0 0 0" }}>{collego}</p>}
+        </div>
+      )}
       {confermati.length > 0 && sezione("Lavori confermati")}
       {confermati.map((l) => (
         <div key={l.id} style={{ ...st.scheda, borderColor: l.mia.consegna ? "#2c5a3f" : "#3d8bfd66" }}>
+          {(() => {
+            const pr = protP?.lavori?.[l.id];
+            if (!pr || !(Number(pr.pagato) > 0)) return null;
+            const ril = pr.rilascio_il ? new Date(pr.rilascio_il).toLocaleDateString("it-IT", { day: "numeric", month: "long" }) : null;
+            const tutto = Number(pr.rilasciato) >= Number(pr.pagato);
+            return (
+              <div style={{ fontSize: 12.5, lineHeight: 1.45, marginBottom: 8, borderRadius: 8, padding: "8px 10px", background: pr.problema ? "#3a2e10" : "#163322", border: `1px solid ${pr.problema ? "#6b5520" : "#2c5a3f"}`, color: pr.problema ? "#fde68a" : "#bbf7d0" }}>
+                {pr.problema
+                  ? <>⚠️ <strong>Il cliente ha segnalato un problema</strong>: «{pr.problema}». I soldi restano fermi finché non si risolve: sentitevi, e se non vi accordate decide EyeDrones.</>
+                  : tutto
+                    ? <>✅ <strong>{euroIt(Number(pr.rilasciato))}</strong> mandati sul tuo conto con il Pagamento protetto.</>
+                    : <>🛡️ Il cliente ha pagato <strong>{euroIt(Number(pr.pagato))}</strong>{Number(pr.resto) > 0 ? ` su ${euroIt(Number(pr.prezzo))}` : ""} con il Pagamento protetto. Arrivano a te quando conferma di aver ricevuto il lavoro{ril ? `, o da soli il ${ril}` : ": consegnalo dall'app"}.</>}
+              </div>
+            );
+          })()}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
             <div style={{ fontSize: 14, fontWeight: 800 }}>{riga(l)} · {euroIt(l.mia.prezzo)}</div>
             <span style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 800, borderRadius: 20, padding: "3px 9px", background: l.mia.consegna ? "#163322" : "#16263d", color: l.mia.consegna ? "#86efac" : "#9cc4ff" }}>{l.mia.consegna ? "Consegnato ✓" : "Da consegnare"}</span>
@@ -17284,6 +17428,63 @@ function AccessoImpronta() {
 const BUDGET_NOMI = { fino_300: "fino a 300 €", "300_700": "300–700 €", "700_1500": "700–1.500 €", oltre_1500: "oltre 1.500 €" };
 const STATO_RICHIESTA = { aperta: ["Aperta", "#f5b942"], scelta: ["Pilota scelto", "#a78bfa"], confermata: ["Confermata", "#4ade80"], chiusa: ["Chiusa", "#8b95a3"] };
 const STATO_OFFERTA = { inviata: "inviata", scelta: "scelta dal cliente", confermata: "confermata", decaduta: "scaduta", rinunciata: "il pilota ha rinunciato", non_scelta: "non scelta" };
+// «🛡️ Pagamenti protetti» (script pagamento-protetto.sql): i lavori pagati nell'app e le decisioni in caso di problema
+function ProtettiAdmin() {
+  const [lista, setLista] = useState(null);
+  const [fase, setFase] = useState({}); // id offerta → "invio" | "fatto" | "errore"
+  const carica = () => supabase.rpc("protezione_admin").then(({ data, error }) => setLista(error || !Array.isArray(data) ? null : data), () => setLista(null));
+  useEffect(() => { carica(); }, []);
+  if (!lista || lista.length === 0) return null;
+  const eur = (v) => Number(v || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  const decidi = async (p, decisione) => {
+    setFase((x) => ({ ...x, [p.offerta]: "invio" }));
+    const { error } = await supabase.rpc("protezione_decidi", { p_offerta: p.offerta, p_decisione: decisione });
+    if (!error) {
+      // eseguo subito su Stripe (altrimenti parte comunque entro un'ora)
+      const { data: ss } = await supabase.auth.getSession();
+      await fetch("/.netlify/functions/pagamento-protetto", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${ss?.session?.access_token || ""}` },
+        body: JSON.stringify({ azione: "esegui" }),
+      }).catch(() => null);
+    }
+    setFase((x) => ({ ...x, [p.offerta]: error ? "errore" : "fatto" }));
+    carica();
+  };
+  const totProtezione = lista.reduce((t, p) => t + Number(p.protezione || 0), 0);
+  return (
+    <div style={{ background: "#151b2b", border: "1px solid #2c5a3f", borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
+        <strong style={{ fontSize: 15, color: "#86efac" }}>🛡️ Pagamenti protetti</strong>
+        <span style={{ fontSize: 12.5, color: "#8b95a3" }}>Protezione incassata: <strong style={{ color: "#e7eaee" }}>{eur(totProtezione)}</strong> (prima dei costi Stripe)</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+        {lista.map((p) => {
+          const x = p.situazione || {};
+          const decidere = (x.problema || p.stato_lavoro === "annullata") && Number(x.pagato) > Number(x.rilasciato) && !p.da_rimborsare;
+          const stato = p.da_rimborsare ? "⏳ rimborso in corso" : Number(x.rilasciato) >= Number(x.pagato) && Number(x.pagato) > 0 ? "✅ mandati al pilota" : x.problema ? "⚠️ problema segnalato" : p.stato_lavoro === "annullata" ? "❌ lavoro annullato" : x.ricevuto_il ? "↗ in invio al pilota" : "🔒 fermi su Stripe";
+          return (
+            <div key={p.offerta} style={{ background: "#0f1420", border: `1px solid ${decidere ? "#6b5520" : "#2a3349"}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#c3cad4" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                <strong style={{ color: "#e7eaee" }}>{p.servizio || "Lavoro"}{p.luogo ? ` · ${p.luogo}` : ""}{p.provincia ? ` (${p.provincia})` : ""}</strong>
+                <span>{stato}</span>
+              </div>
+              <div style={{ marginTop: 4 }}>Prezzo {eur(x.prezzo)} · pagato {eur(x.pagato)}{Number(x.rilasciato) ? ` · al pilota ${eur(x.rilasciato)}` : ""}{Number(x.rimborsato) ? ` · rimborsato ${eur(x.rimborsato)}` : ""}</div>
+              {x.problema && <div style={{ marginTop: 6, color: "#fde68a" }}>Il cliente: «{x.problema}»</div>}
+              {decidere && fase[p.offerta] !== "fatto" && (
+                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  <button type="button" disabled={fase[p.offerta] === "invio"} onClick={() => decidi(p, "pilota")} style={{ background: "#163322", border: "1px solid #2c5a3f", color: "#86efac", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>Soldi al pilota</button>
+                  <button type="button" disabled={fase[p.offerta] === "invio"} onClick={() => decidi(p, "cliente")} style={{ background: "#3a1c1c", border: "1px solid #7a3434", color: "#ffb4b4", borderRadius: 6, padding: "7px 12px", fontSize: 12.5, fontWeight: 700 }}>Rimborsa il cliente</button>
+                </div>
+              )}
+              {fase[p.offerta] === "errore" && <div style={{ marginTop: 6, color: "#ff9c9c" }}>Non è stato possibile: riprova.</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function RichiesteAdmin({ onIndietro }) {
   const [lista, setLista] = useState(undefined); // undefined = carico, null = script non eseguito
   const [filtro, setFiltro] = useState("tutte");
@@ -17317,6 +17518,7 @@ function RichiesteAdmin({ onIndietro }) {
       </TestataPagina>
       {lista === undefined && <div style={{ fontSize: 13, color: "#8b95a3" }}>Carico le richieste…</div>}
       {lista === null && <div style={{ ...riquadro, fontSize: 13, color: "#f5b942" }}>Per vedere le richieste esegui una volta lo script <strong>supabase/richieste-admin.sql</strong> nello SQL Editor di Supabase.</div>}
+      <ProtettiAdmin />
       {lista && (
         <>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>

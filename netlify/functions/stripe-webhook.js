@@ -1,5 +1,5 @@
 // Eyedrones — Stripe avvisa qui quando un pagamento è andato a buon fine: aggiungo i crediti dell'Esperto
-// o confermo il lavoro di «Trova un pilota» (commissione pagata dal pilota scelto).
+// o confermo il lavoro di «Trova un pilota» (commissione pagata dal pilota scelto), o registro un «Pagamento protetto».
 // Su Stripe: Developers → Webhooks → Add endpoint → https://app.eyedrones.it/.netlify/functions/stripe-webhook
 //   evento: checkout.session.completed
 // Variabili su Netlify: STRIPE_WEBHOOK_SECRET (whsec_..., la dà Stripe creando il webhook), AVVISO_SEGRETO (c'è già)
@@ -44,6 +44,22 @@ exports.handler = async (event) => {
     if (!r || !r.ok) return { statusCode: 500, body: "database non raggiungibile" };
     const ok = await r.json().catch(() => false);
     return ok === true ? { statusCode: 200, body: "ok" } : { statusCode: 500, body: "lavoro non confermato" };
+  }
+
+  // «Pagamento protetto»: il cliente ha pagato, i soldi restano fermi su Stripe fino alla conferma (pagamento-protetto.js)
+  if (s.metadata && s.metadata.tipo === "protetto") {
+    const m = s.metadata;
+    if (!m.offerta || !["anticipo", "saldo", "totale"].includes(m.quale)) return { statusCode: 200, body: "pagamento protetto incompleto" };
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/protezione_pagato`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_offerta: m.offerta, p_tipo: m.quale, p_pilota: Number(m.pilota) / 100, p_protezione: Number(m.protezione) / 100,
+        p_sessione: s.id, p_intent: typeof s.payment_intent === "string" ? s.payment_intent : (s.payment_intent && s.payment_intent.id) || null,
+        p_segreto: process.env.AVVISO_SEGRETO || "" }),
+    }).catch(() => null);
+    if (!r || !r.ok) return { statusCode: 500, body: "database non raggiungibile" };
+    const ok = await r.json().catch(() => false);
+    return ok === true ? { statusCode: 200, body: "ok" } : { statusCode: 500, body: "pagamento protetto non registrato" };
   }
 
   const crediti = Number(s.metadata && s.metadata.crediti);

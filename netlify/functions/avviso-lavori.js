@@ -9,6 +9,10 @@
 //   consegnato         al cliente: il pilota ha consegnato il lavoro (link alla galleria, a Drive o al report)
 //   recensione         al cliente: «com'è andata?», con le stelle da toccare
 //   miei_lavori        al cliente: il link a «I miei lavori» (tutte le sue richieste)
+//   protetto_pagato     al pilota: il cliente ha pagato con «Pagamento protetto» (i soldi sono fermi su Stripe)
+//   protetto_rilasciato al pilota: i soldi sono partiti verso il suo conto
+//   protetto_problema   al pilota (e Telegram all'amministratore): il cliente ha segnalato un problema, soldi fermi
+//   protetto_rimborsato al cliente: i soldi gli sono stati restituiti
 // Alle email per i clienti il database aggiunge «cliente»: il codice del loro link «I miei lavori».
 // Variabili su Netlify: RESEND_API_KEY, AVVISO_SEGRETO, AVVISO_MITTENTE (facoltativa), come per avviso-richiesta.js
 // Se ci sono anche TELEGRAM_TOKEN e TELEGRAM_CHAT_ID (assistente-telegram.js), all'amministratore arriva un messaggio
@@ -419,6 +423,50 @@ function componiEmail(d) {
     });
     return { a: [d.a], oggetto: "Le tue richieste su EyeDrones", ...m };
   }
+  if (d.tipo === "protetto_pagato") {
+    const quale = d.quale === "anticipo" ? "l'anticipo" : d.quale === "saldo" ? "il resto" : "l'intero importo";
+    const m = impagina({
+      etichetta: "Pagamento protetto",
+      titolo: `Il cliente ha pagato ${quale}: ${euro(d.importo)}`,
+      sottotitolo: `${servizio ? `«${servizio}»${luogo ? ` · ${luogo}` : ""}: ` : ""}i soldi sono al sicuro su Stripe e arrivano a te quando il cliente conferma di aver ricevuto il lavoro, o da soli qualche giorno dopo la consegna.`,
+      righe: [["Pagato ora", euro(d.importo)], Number(d.prezzo) && ["Il tuo prezzo", euro(d.prezzo)]].filter(Boolean),
+      bottone: { href: linkPilota, testo: "Apri il lavoro" },
+      nota: "Ricevi il 100% del tuo prezzo: la Protezione EyeDrones la paga il cliente. Ricordati di consegnare il lavoro dall'app.",
+    });
+    return { a: [d.a], oggetto: `Pagamento protetto: il cliente ha pagato ${euro(d.importo)}`, ...m };
+  }
+  if (d.tipo === "protetto_rilasciato") {
+    const m = impagina({
+      etichetta: "Pagamento protetto",
+      titolo: `${euro(d.importo)} in arrivo sul tuo conto`,
+      sottotitolo: `${servizio ? `«${servizio}»${luogo ? ` · ${luogo}` : ""}: ` : ""}il lavoro è concluso e Stripe ti ha mandato i soldi. Arrivano in banca in pochi giorni lavorativi.`,
+      bottone: { href: linkPilota, testo: "Apri EyeDrones" },
+      nota: "Ricordati di fare al cliente la fattura o la ricevuta per il tuo lavoro.",
+    });
+    return { a: [d.a], oggetto: `Pagamento protetto: ${euro(d.importo)} in arrivo`, ...m };
+  }
+  if (d.tipo === "protetto_problema") {
+    const m = impagina({
+      etichetta: "Pagamento protetto",
+      titolo: "Il cliente ha segnalato un problema",
+      sottotitolo: `${servizio ? `«${servizio}»${luogo ? ` · ${luogo}` : ""}: ` : ""}finché non è risolto i soldi restano fermi. Contatta il cliente per chiarire: se si risolve, è lui a confermare nell'app.`,
+      riquadro: pulisci(d.problema, 600) ? `Il cliente: ${pulisci(d.problema, 600)}` : "",
+      bottone: { href: linkPilota, testo: "Apri il lavoro" },
+      nota: "Se non vi mettete d'accordo, decide EyeDrones guardando la consegna. Rispondi a questa email per dirci la tua versione.",
+    });
+    return { a: [d.a], oggetto: "Pagamento protetto: il cliente ha segnalato un problema", replyTo: "eyedrones@libero.it", ...m };
+  }
+  if (d.tipo === "protetto_rimborsato") {
+    const m = impagina({
+      etichetta: "Pagamento protetto",
+      titolo: `Ti abbiamo restituito ${euro(d.importo)}`,
+      sottotitolo: `${servizio ? `«${servizio}»: ` : ""}il rimborso è partito. Arriva sulla carta o sul conto che hai usato, di solito in 5-10 giorni lavorativi.`,
+      bottone: { href: linkOfferte, testo: "Apri la tua richiesta" },
+      secondo: miei,
+      nota: "Per qualsiasi dubbio rispondi a questa email.",
+    });
+    return { a: [d.a], oggetto: `Rimborso di ${euro(d.importo)}`, replyTo: "eyedrones@libero.it", ...m };
+  }
   return null;
 }
 
@@ -440,6 +488,7 @@ async function avvisaTelegram(d) {
     const MOTIVI = { non_paga: "il cliente non paga", sparito: "il cliente è sparito", non_presentato: "il pilota non si è presentato", non_consegna: "il pilota non consegna", altro: "altro" };
     testo = `⚠️ Segnalazione su «Trova un pilota» dal ${d.chi === "cliente" ? "cliente" : "pilota"}: ${MOTIVI[d.motivo] || "altro"} · ${pulisci(d.servizio, 80) || "lavoro"} in provincia di ${prov || "?"}${Number(d.prezzo) ? ` · ${euro(d.prezzo)}` : ""}. Dettagli in Supabase (tabella segnalazioni_lavoro).`;
   }
+  else if (d.tipo === "protetto_problema") testo = `🛡️ Pagamento protetto: il cliente ha segnalato un problema · ${pulisci(d.servizio, 80) || "lavoro"} in provincia di ${prov || "?"}${Number(d.prezzo) ? ` · ${euro(d.prezzo)}` : ""}. Decidi in Impostazioni → Richieste di Trova un pilota.`;
   if (!testo) return;
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST", headers: { "Content-Type": "application/json" },
