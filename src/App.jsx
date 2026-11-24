@@ -1965,6 +1965,8 @@ function AppShell({ session }) {
   const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : vaiAControllo ? "documenti-controllo" : vaiAVoli ? "pianificazione" : vaiAQui ? "qui" : vaiAltro || (PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard")));
   // Esperto (AI): l'amministratore lo vede sempre; gli altri solo quando su Netlify c'è ESPERTO_PER_TUTTI=si
   const adminAI = AI_IN_PROVA.includes(String(session.user.email || "").toLowerCase());
+  // dentro l'app basta «EyeDrones»: nella finestra dell'app installata il nome lungo compariva due volte
+  useEffect(() => { document.title = "EyeDrones"; }, []);
   const [espertoAperto, setEspertoAperto] = useState(false);
   useEffect(() => {
     if (adminAI) return;
