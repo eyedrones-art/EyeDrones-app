@@ -382,6 +382,116 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .qta span{white-space:nowrap}
 .art .pie{flex-wrap:wrap;row-gap:6px}
 .peso{display:block;font-size:11.5px;line-height:1.3;color:var(--tenue)}
+.aiuto-tocca{margin:4px 0 0;font-size:13.5px;color:var(--tenue)}
+.hero-banco .cassa{border:0;padding:0;cursor:pointer;font:inherit;display:block;width:100%;transition:transform .15s}
+.hero-banco .cassa:hover{transform:translateY(-3px)}.hero-banco .cassa:active{transform:scale(.96)}
+.hero-banco .cassa:focus-visible{outline:3px solid var(--tuorlo);outline-offset:3px}
+
+/* le cassette della testata dondolano e saltano; le ricette */
+@keyframes dondola{0%,100%{transform:rotate(0)}25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}
+@keyframes saltella{0%{transform:translateY(0)}40%{transform:translateY(-18px) scale(1.08)}70%{transform:translateY(2px)}100%{transform:translateY(0)}}
+.hero-banco .cassa:hover .pila{animation:dondola .6s ease-in-out infinite}
+.hero-banco .cassa.salto .pila{animation:saltella .45s ease-out}
+.ric-capo{display:flex;gap:12px;align-items:center}.ric-capo>span{font-size:48px;line-height:1}
+.ricetta{background:var(--bianco);border-radius:16px;box-shadow:var(--ombra);padding:14px 16px;margin-top:12px}
+.ric-testa{display:flex;justify-content:space-between;gap:10px;align-items:baseline}.ric-testa h3{font-size:18px}.ric-testa span{font-size:12.5px;color:var(--tenue);white-space:nowrap}
+.ric-ing{font-size:14px;margin:8px 0 6px;color:var(--inchiostro)}
+.ricetta ol{margin:0;padding-left:20px;display:grid;gap:5px;font-size:14px;color:var(--tenue)}
+.pacchetto{margin-top:12px;background:var(--foglia-chiara);border-radius:14px;padding:12px;display:grid;gap:8px;font-size:13.5px}
+.pacchetto>b{font-family:var(--titoli);font-size:15px}.pacchetto small{color:var(--tenue)}
+.ric-salvate{display:grid;gap:8px;padding-top:10px}
+@media (min-width:640px){.ric-salvate{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.ric-mini{border:0;text-align:left;background:var(--bianco);border-radius:14px;box-shadow:var(--ombra);padding:12px 14px;cursor:pointer;font:inherit;color:inherit}
+.ric-mini b{display:block;font-family:var(--titoli);font-size:15.5px}.ric-mini small{color:var(--tenue);font-size:12.5px}
+
+/* «Al banco oggi» come un banco vero: ripiani, cassette con le foto, cartellini a gesso */
+.griglia.banco-oggi{gap:0;border-radius:18px;overflow:hidden;background:linear-gradient(#f8efe0,#efdfc4);box-shadow:inset 0 0 0 1px rgba(120,80,40,.15);padding-top:0;margin-top:12px}
+.griglia.banco-oggi::before{content:"";grid-column:1/-1;height:22px;background:repeating-linear-gradient(90deg,#0b8f68 0 28px,#fbfaf6 28px 56px);margin-bottom:6px;box-shadow:0 6px 10px -6px rgba(0,0,0,.3)}
+.banco-art{display:flex;flex-direction:column;min-width:0}
+.merce.grande{padding:22px 10px 24px}
+.merce.grande .cassa-m{height:150px}
+.merce.grande .cassa-m.con-foto .fronte-c{height:24%}
+.merce.grande .cassa-m:not(.con-foto) .dentro span{font-size:54px;margin:0 -12px}
+.merce.grande .cartel{bottom:18px}
+.merce.grande .cartel b{font-size:16.5px}.merce.grande .cartel span{font-size:15.5px}
+.banco-art .sotto{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 8px;padding:8px 10px 12px;font-size:12.5px;background:rgba(255,255,255,.55)}
+.banco-art .sotto .chi{font-size:12.5px;color:var(--tenue);border:0;background:none;padding:0;text-align:left;text-decoration:underline;text-decoration-color:var(--bordo);text-underline-offset:3px;cursor:pointer;font-family:inherit}
+.banco-art .sotto .qta{margin-left:auto}
+@media (min-width:960px){.merce.grande .cassa-m{height:170px}}
+
+/* la lente: ingrandisce la foto senza mettere nel cestino */
+.banco-art,.merce-w{position:relative;min-width:0}
+.merce-w>.merce{width:100%}
+.lente-w{position:absolute;z-index:4;left:6px;top:8px;width:38px;height:38px;border-radius:50%;box-shadow:0 0 0 2px #fff,0 4px 8px -3px rgba(0,0,0,.5);cursor:zoom-in}
+.lente{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.lente-w::after{content:"🔍";position:absolute;right:-6px;bottom:-6px;font-size:14px;background:#fff;border-radius:50%;width:20px;height:20px;display:grid;place-items:center;pointer-events:none;box-shadow:0 2px 4px rgba(0,0,0,.3)}
+
+.persone{display:flex;align-items:center;gap:6px;margin-top:12px;flex-wrap:wrap}
+.persone span{font-size:13.5px;color:var(--tenue);margin-right:4px}
+.persone button{border:1px solid var(--bordo);background:var(--bianco);border-radius:99px;min-width:42px;padding:7px 12px;font-weight:700;cursor:pointer}
+.persone button[aria-pressed="true"]{background:var(--foglia);border-color:var(--foglia);color:var(--bianco)}
+.pk-righe{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pk-righe li{display:flex;justify-content:space-between;gap:10px;background:rgba(255,255,255,.65);border-radius:10px;padding:7px 10px}
+.pk-prezzo{font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pk-avanzi{margin:0;padding-left:18px;font-size:13px;color:var(--tenue)}
+.pk-avanzi .link{font-size:13px;padding:0;border:0;background:none;color:var(--foglia);font-weight:700;text-decoration:underline;cursor:pointer}
+
+/* lista della spesa con la riga sopra quello che hai preso */
+.lista-ric{background:var(--bianco);border-radius:16px;box-shadow:var(--ombra);padding:12px 14px;margin-top:12px}
+.lista-testa{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.lista-testa .link{font:700 16px var(--titoli);color:var(--inchiostro);background:none;border:0;padding:0;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--bordo)}
+.lista-testa small{color:var(--tenue);font-size:12.5px}
+.lista-ric ul{list-style:none;margin:8px 0;padding:0;display:grid;gap:2px}
+.spunta-riga{display:flex;gap:10px;align-items:flex-start;padding:7px 4px;border-bottom:1px dashed var(--bordo);cursor:pointer;font-size:14.5px}
+.spunta-riga input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--foglia);flex:none}
+.spunta-riga span{flex:1;min-width:0}
+.spunta-riga em{float:right;font-style:normal;font-weight:800;font-variant-numeric:tabular-nums;margin-left:8px}
+.spunta-riga small{color:var(--tenue)}
+.spunta-riga.preso span{text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:var(--corallo);opacity:.55}
+.qui-trovi{margin-top:16px;background:var(--foglia-chiara);border-radius:18px;padding:12px 12px 14px}
+.qui-trovi h3{font-size:17px}
+.manca{margin:6px 0 0;font-size:13.5px;color:#9a3412;background:#fff1e6;border-radius:10px;padding:6px 10px}
+.manca.fatto{color:#14532d;background:#dcfce7}
+
+/* modalità cucina */
+.ric-azioni{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}.ric-azioni .cuore{margin-top:0}
+.cucina{position:fixed;inset:0;z-index:2500;background:var(--carta);display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top,0px) max(16px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(16px,env(safe-area-inset-left,0px))}
+.c-testa{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-block:14px 8px}
+.c-testa b{font:700 17px var(--titoli)}
+.c-chiudi{border:0;background:var(--bianco);border-radius:50%;width:40px;height:40px;font-size:18px;box-shadow:var(--ombra);cursor:pointer}
+.c-barra{height:6px;background:var(--carta2);border-radius:99px;overflow:hidden}.c-barra i{display:block;height:100%;background:var(--foglia);transition:width .3s}
+.c-corpo{flex:1;overflow:auto;padding-block:22px;max-width:720px;width:100%;margin:0 auto}
+.c-etichetta{font:400 22px var(--gessetto);color:var(--foglia)}
+.c-corpo h2{font-size:28px;margin-top:4px}
+.c-passo{font-size:clamp(22px,5.6vw,30px);line-height:1.4;margin:12px 0 0;color:var(--inchiostro)}
+.c-ing{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:4px}
+.c-ing label{display:flex;gap:12px;align-items:center;font-size:20px;padding:10px 4px;border-bottom:1px dashed var(--bordo);cursor:pointer}
+.c-ing input{width:24px;height:24px;accent-color:var(--foglia);flex:none}
+.c-ing input:checked+span{text-decoration:line-through;opacity:.5}
+.c-timer{margin-top:24px;border:0;background:var(--tuorlo);color:var(--scuro);font:800 20px var(--titoli);padding:16px 24px;border-radius:16px;box-shadow:var(--ombra);cursor:pointer}
+.c-conto{margin-top:24px;font:800 64px/1 var(--titoli);font-variant-numeric:tabular-nums;color:var(--foglia)}
+.c-conto.suona{color:var(--corallo);animation:salta .5s ease-in-out infinite alternate}
+.c-fine{font-size:72px}
+.c-piede{display:flex;gap:10px;padding-block:12px 18px;max-width:720px;width:100%;margin:0 auto}
+.c-piede button{flex:1;border:0;border-radius:16px;padding:18px;font:800 19px var(--titoli);cursor:pointer}
+.c-ind{background:var(--bianco);color:var(--inchiostro);box-shadow:var(--ombra)}.c-ind:disabled{opacity:.4}
+.c-av{background:var(--foglia);color:var(--bianco);flex:2!important}
+.c-chip{margin-left:auto;margin-right:8px;background:var(--tuorlo);color:var(--scuro);font-weight:800;border-radius:99px;padding:6px 12px;font-variant-numeric:tabular-nums}
+.c-chip.suona{background:var(--corallo);color:var(--su-corallo);animation:salta .5s ease-in-out infinite alternate}
+
+.consiglio{background:#fff7d6;border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.45;margin-top:12px}
+.consiglio b{display:block;font-family:var(--titoli);margin-bottom:2px}
+.mio-voto{margin:10px 0 0;font-size:13.5px;color:var(--tenue)}.mio-voto span,.ric-stelle{color:#e8a10c;font-size:16px;letter-spacing:1px}
+.ric-stelle{display:block;margin-top:4px}
+.voto{display:grid;gap:10px;margin-top:22px;background:var(--bianco);border-radius:18px;box-shadow:var(--ombra);padding:16px}
+.voto>b{font:700 20px var(--titoli)}.voto small{color:var(--tenue)}
+.voto-stelle{display:flex;gap:6px}
+.voto-stelle button{border:0;background:none;font-size:40px;line-height:1;color:#d9cdb8;cursor:pointer;padding:0 2px}
+.voto-stelle button[aria-pressed="true"]{color:#e8a10c}
+.voto textarea{width:100%;border:1px solid var(--bordo);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;resize:vertical;background:var(--carta)}
+.avanzo-box{margin-top:12px;background:#e3f7ee;border:1px dashed #0b8f68;border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.45}
+.ingresso.veloce .benvenuto,.ingresso.veloce .entra,.ingresso.veloce .scorri,.ingresso.veloce .salta{visibility:hidden}
 @media (prefers-reduced-motion:reduce){.ingresso,.anta{transition:opacity .3s!important}.ingresso.dentro{transform:none}}
 </style>
 <style>
@@ -476,7 +586,9 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
 // l'ingresso nella bottega: solo alla prima visita sulla pagina principale (non dai link a un produttore o a un ordine)
 (function(){try{
   const forza=/[?&]ingresso=1/.test(location.search);
-  if(!forza&&(location.hash||localStorage.getItem("ortaly_entrato")))return;
+  if(!forza&&location.hash)return;
+  // chi è già entrato una volta: la porta si apre da sola, in poco più di un secondo
+  const giaEntrato=!forza&&!!localStorage.getItem("ortaly_entrato");
   const m=new Date().getMonth();
   const V=[["🍊","🥬","🧀"],["🥦","🍊","🧀"],["🌿","🥚","🍋"],["🍓","🌿","🥚"],["🍓","🍒","🥒"],["🍑","🍅","🍒"],["🍑","🍅","🍈"],["🍉","🍑","🌽"],["🍇","🍄","🍐"],["🍇","🎃","🌰"],["🎃","🌰","🍎"],["🍊","🌰","🍯"]][m];
   const d=document.createElement("div");d.className="ingresso";d.setAttribute("role","dialog");d.setAttribute("aria-label","Benvenuto su Ortaly");
@@ -491,7 +603,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
   const entra=(subito)=>{if(fatto)return;fatto=true;try{localStorage.setItem("ortaly_entrato","1")}catch(e){}
     const fine=()=>{d.remove();document.documentElement.style.overflow=""};
     if(subito||matchMedia("(prefers-reduced-motion: reduce)").matches){d.style.opacity="0";setTimeout(fine,300);return}
-    d.classList.add("apre");setTimeout(()=>d.classList.add("dentro"),550);setTimeout(fine,1700)};
+    const v=d.classList.contains("veloce");d.classList.add("apre");setTimeout(()=>d.classList.add("dentro"),v?380:550);setTimeout(fine,v?1150:1700)};
   // scorrendo (rotella o dito) ci si avvicina: la porta si apre piano piano e si entra
   const ante=d.querySelectorAll(".anta"),fac=d.querySelector(".facciata"),testi=d.querySelectorAll(".benvenuto,.entra,.scorri,.salta,.cartello-porta");
   let pr=0,ferma=null;
@@ -511,7 +623,8 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
   d.querySelector("#portaBottega").onclick=()=>entra(false);
   d.querySelector("#saltaBottega").onclick=()=>entra(true);
   d.addEventListener("keydown",e=>{if(e.key==="Escape")entra(true)});
-  setTimeout(()=>{try{d.querySelector("#entraBottega").focus({preventScroll:true})}catch(e){}},50);
+  if(giaEntrato){d.classList.add("veloce");d.addEventListener("click",()=>entra(true));setTimeout(()=>entra(false),250)}
+  else setTimeout(()=>{try{d.querySelector("#entraBottega").focus({preventScroll:true})}catch(e){}},50);
 }catch(e){}})();
 </script>
 
@@ -545,7 +658,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
     <div id="boxInstallaCompro"></div>
     <div class="stagione" id="stagione"></div>
     <section class="sez" id="sezPreferiti" hidden><h2>❤️ I tuoi produttori <small>da chi compri sempre</small></h2><div class="preferiti" id="preferiti"></div></section>
-    <section class="sez"><h2><span id="titProd">Produttori vicino a te</span> <small>tocca per conoscerli</small></h2>
+    <section class="sez"><h2><span id="titProd">Produttori vicino a te</span></h2><p class="aiuto-tocca">👆 Tocca un produttore per entrare nella sua bottega</p>
       <div class="produttori" id="produttori"></div>
       <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Metti i tuoi prodotti con la foto una volta sola, poi ogni mattina tocchi quelli che hai al banco. Gli ordini dei clienti arrivano a te.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
     <section class="sez"><h2>Al banco oggi <small id="conta"></small></h2>
@@ -557,6 +670,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
     <section class="sez" id="sezNovita"><form class="novita-box" id="formNovita"><div class="t"><b>🍅 Ricette e cosa c'è di stagione</b><span>Due email al mese: i prodotti di stagione, cosa hanno al banco i produttori della tua zona e una ricetta semplice. Ti togli quando vuoi.</span></div>
       <div class="riga-iscr"><label for="nEmailNovita" class="vis-nascosto">La tua email</label><input id="nEmailNovita" type="email" required maxlength="120" placeholder="La tua email" autocomplete="email"><button class="grande" type="submit">Iscrivimi</button></div>
       <p class="nota" id="msgNovita" hidden></p></form></section>
+    <section class="sez" id="sezRicette" hidden><h2>📒 Le tue ricette <small>salvate su questo telefono</small></h2><button class="grande" data-lista="1" style="margin-top:10px">🛒 La tua lista della spesa</button><div class="ric-salvate" id="ricetteSalvate"></div></section>
     <section class="sez"><h2>Perché Ortaly <small>made in Italy, dal produttore a te</small></h2>
       <div class="perche">
         <div><span><i class="bandiera" aria-hidden="true"></i></span><div><b>Solo produttori italiani</b><p>Contadini, allevatori e artigiani del cibo con partita IVA italiana: compri da chi produce, in Italia.</p></div></div>
@@ -623,10 +737,210 @@ const zonaOk=b=>zona==="italia"?!!b.spedizione&&b.provincia!==prov:b.provincia==
 // ── COMPRO ──
 // il banco di stagione nella testata (solo sugli schermi larghi): sei prodotti del mese
 const BANCO_MESE=[[["🍊","Arance"],["🥬","Cavolo nero"],["🥕","Carote"],["🧀","Formaggi"],["🍯","Miele"],["🥚","Uova"]],[["🥦","Cavoli"],["🍊","Arance"],["🥔","Topinambur"],["🧄","Aglio"],["🧀","Formaggi"],["🍯","Miele"]],[["🌿","Asparagi"],["🥬","Spinaci"],["🍋","Limoni"],["🥚","Uova"],["🧀","Ricotta"],["🍯","Miele"]],[["🌿","Asparagi"],["🍓","Fragole"],["🥬","Insalata"],["🥚","Uova"],["🧀","Formaggi"],["🍯","Miele"]],[["🍓","Fragole"],["🍒","Ciliegie"],["🥒","Zucchine"],["🥬","Insalata"],["🧀","Formaggi"],["🍯","Miele"]],[["🍑","Albicocche"],["🍒","Ciliegie"],["🥒","Zucchine"],["🍅","Pomodori"],["🧀","Formaggi"],["🍯","Miele"]],[["🍑","Pesche"],["🍅","Pomodori"],["🍆","Melanzane"],["🍈","Meloni"],["🌶️","Peperoncini"],["🧀","Formaggi"]],[["🍉","Angurie"],["🍑","Pesche"],["🍅","Pomodori"],["🌽","Mais"],["🍆","Melanzane"],["🍯","Miele"]],[["🍇","Uva"],["🍄","Funghi"],["🍐","Pere"],["🍎","Mele"],["🌶️","Peperoncini"],["🍯","Miele"]],[["🍇","Uva"],["🌰","Castagne"],["🎃","Zucca"],["🍎","Mele"],["🍐","Pere"],["🍷","Vino nuovo"]],[["🎃","Zucca"],["🌰","Castagne"],["🍎","Mele"],["🥬","Cavolo nero"],["🧀","Formaggi"],["🍯","Miele"]],[["🍊","Mandarini"],["🥦","Cavoli"],["🌰","Castagne"],["🧀","Formaggi"],["🍯","Miele"],["🍷","Vino"]]];
+// due ricette semplici per ogni prodotto di stagione della testata (per 4 persone)
+const RICETTE_PRODOTTO={
+"Zucca":[{n:"Risotto alla zucca",t:"35 min",i:"320 g di riso, 500 g di zucca, 1 cipolla, 1 l di brodo, burro, formaggio grattugiato",p:["Soffriggi la cipolla con un filo d'olio, aggiungi la zucca a cubetti e cuoci 10 minuti.","Tosta il riso, poi cuoci 17 minuti aggiungendo il brodo poco alla volta.","Spegni e manteca con burro e formaggio."]},{n:"Zucca al forno con rosmarino",t:"40 min",i:"1 kg di zucca, rosmarino, 1 spicchio d'aglio, olio extravergine, sale",p:["Taglia la zucca a fette con la buccia e mettila in teglia.","Condisci con olio, sale, aglio schiacciato e rosmarino.","Inforna a 200 °C per 30 minuti, finché i bordi sono dorati."]}],
+"Castagne":[{n:"Caldarroste in padella",t:"30 min",i:"500 g di castagne, sale grosso",p:["Incidi ogni castagna sul lato bombato.","Mettile in una padella bucata (o una vecchia padella) con un pugno di sale grosso.","Cuoci a fuoco medio 25 minuti, girandole spesso, poi avvolgile 5 minuti in un panno."]},{n:"Castagne lesse con alloro",t:"50 min",i:"600 g di castagne, 2 foglie di alloro, 1 cucchiaino di finocchio selvatico, sale",p:["Sciacqua le castagne e mettile in pentola coperte d'acqua fredda.","Aggiungi alloro, finocchio e un pizzico di sale.","Cuoci 40 minuti a fuoco basso, scola e sbucciale ancora calde."]}],
+"Mele":[{n:"Torta di mele della nonna",t:"60 min",i:"4 mele, 3 uova, 150 g di zucchero, 200 g di farina, 100 ml di latte, 80 g di burro, 1 bustina di lievito, 1 limone",p:["Sbatti uova e zucchero, aggiungi burro fuso, latte, scorza di limone, farina e lievito.","Versa in una teglia e copri con le mele a fettine sottili.","Inforna a 180 °C per 45 minuti."]},{n:"Mele cotte alla cannella",t:"30 min",i:"4 mele, 2 cucchiai di miele, cannella, un po' di burro",p:["Togli il torsolo alle mele lasciandole intere.","Riempi il buco con miele e un pezzetto di burro, spolvera di cannella.","Inforna a 180 °C per 25 minuti."]}],
+"Cavolo nero":[{n:"Pasta al pesto di cavolo nero",t:"20 min",i:"320 g di pasta, 1 mazzo di cavolo nero, 1 spicchio d'aglio, olio extravergine, formaggio grattugiato",p:["Togli la costa centrale e lessa le foglie 5 minuti.","Frulla le foglie con aglio, olio e formaggio.","Condisci la pasta con un po' d'acqua di cottura."]},{n:"Ribollita semplice",t:"60 min",i:"1 mazzo di cavolo nero, 400 g di fagioli cotti, 2 carote, 1 cipolla, 1 costa di sedano, pane raffermo, olio",p:["Soffriggi cipolla, carote e sedano, aggiungi il cavolo a strisce.","Unisci i fagioli e copri d'acqua: cuoci 40 minuti.","Aggiungi il pane a fette, lascia riposare e servi con olio crudo."]}],
+"Formaggi":[{n:"Tagliere con miele e noci",t:"10 min",i:"3 formaggi diversi (fresco, semi-stagionato, stagionato), miele, noci, pane",p:["Togli i formaggi dal frigo mezz'ora prima.","Tagliali dal più delicato al più forte.","Servi con un filo di miele, le noci e pane casereccio."]},{n:"Patate e formaggio al forno",t:"45 min",i:"800 g di patate, 200 g di formaggio da fondere (toma, fontina), latte, burro, sale",p:["Taglia le patate a fette sottili e disponile in teglia imburrata.","Alterna con il formaggio a dadini e un po' di sale.","Bagna con mezzo bicchiere di latte e inforna a 190 °C per 35 minuti."]}],
+"Miele":[{n:"Yogurt, miele e frutta",t:"5 min",i:"4 vasetti di yogurt bianco, 4 cucchiai di miele, frutta di stagione, noci",p:["Metti lo yogurt nelle coppette.","Aggiungi la frutta a pezzetti e le noci tritate.","Finisci con un cucchiaio di miele."]},{n:"Biscotti al miele",t:"30 min",i:"250 g di farina, 100 g di miele, 70 g di burro, 1 uovo, mezza bustina di lievito",p:["Impasta burro morbido, miele e uovo, poi aggiungi farina e lievito.","Forma delle palline e schiacciale sulla teglia.","Inforna a 180 °C per 12 minuti."]}],
+"Uova":[{n:"Frittata di verdure",t:"20 min",i:"6 uova, verdure di stagione, 40 g di formaggio grattugiato, olio, sale",p:["Cuoci le verdure a pezzetti in padella con un filo d'olio.","Sbatti le uova con formaggio e sale e versale sulle verdure.","Cuoci coperto a fuoco basso, poi gira la frittata con un piatto."]},{n:"Uova al pomodoro",t:"20 min",i:"4 uova, 400 g di passata, 1 spicchio d'aglio, basilico, olio, sale",p:["Scalda olio e aglio, aggiungi la passata e cuoci 10 minuti.","Fai 4 incavi e rompi un uovo in ognuno.","Copri e cuoci 6-7 minuti; servi con pane e basilico."]}],
+"Arance":[{n:"Insalata di arance e finocchi",t:"10 min",i:"3 arance, 2 finocchi, olive nere, olio extravergine, sale e pepe",p:["Pela le arance a vivo e tagliale a fette.","Affetta sottili i finocchi e unisci le olive.","Condisci con olio, sale e pepe."]},{n:"Spremuta e dolce di arance",t:"40 min",i:"2 arance, 3 uova, 150 g di zucchero, 250 g di farina, 80 ml di olio, 1 bustina di lievito",p:["Frulla un'arancia intera lavata (con buccia, senza semi) e spremi l'altra.","Sbatti uova e zucchero, aggiungi olio, arance, farina e lievito.","Inforna a 180 °C per 35 minuti."]}],
+"Mandarini":[{n:"Mandarini caramellati",t:"20 min",i:"8 mandarini, 100 g di zucchero, acqua",p:["Pela i mandarini e separali a spicchi.","Fai un caramello con zucchero e 2 cucchiai d'acqua.","Passa gli spicchi nel caramello e lasciali raffreddare su carta da forno."]},{n:"Insalata d'inverno",t:"10 min",i:"4 mandarini, insalata mista, noci, formaggio fresco, olio, sale",p:["Metti l'insalata in una ciotola con gli spicchi di mandarino.","Aggiungi noci e formaggio a pezzetti.","Condisci con olio, sale e un po' di succo di mandarino."]}],
+"Carote":[{n:"Carote glassate al miele",t:"20 min",i:"600 g di carote, 1 cucchiaio di miele, burro, sale, prezzemolo",p:["Taglia le carote a bastoncini.","Cuocile in padella con burro e un dito d'acqua per 12 minuti.","Aggiungi il miele, fai glassare 2 minuti e finisci con il prezzemolo."]},{n:"Vellutata di carote",t:"30 min",i:"700 g di carote, 1 patata, 1 cipolla, brodo vegetale, olio",p:["Soffriggi la cipolla, aggiungi carote e patata a pezzi.","Copri di brodo e cuoci 20 minuti.","Frulla e servi con un filo d'olio."]}],
+"Cavoli":[{n:"Cavolfiore gratinato",t:"40 min",i:"1 cavolfiore, 40 g di formaggio grattugiato, pangrattato, olio, sale",p:["Dividi il cavolfiore in cimette e lessale 8 minuti.","Mettile in teglia con olio, formaggio e pangrattato.","Gratina in forno a 200 °C per 15 minuti."]},{n:"Pasta e broccoli",t:"25 min",i:"320 g di pasta corta, 500 g di broccoli, 1 spicchio d'aglio, peperoncino, olio",p:["Lessa i broccoli a cimette nella stessa acqua della pasta.","Scola insieme e ripassa in padella con olio, aglio e peperoncino.","Schiaccia un po' i broccoli e servi."]}],
+"Topinambur":[{n:"Topinambur in padella",t:"25 min",i:"600 g di topinambur, 1 spicchio d'aglio, prezzemolo, olio, sale",p:["Spazzola bene i topinambur e tagliali a fette.","Cuocili in padella con olio e aglio per 15 minuti.","Sala e finisci con il prezzemolo."]},{n:"Crema di topinambur",t:"35 min",i:"700 g di topinambur, 1 patata, 1 porro, brodo, olio",p:["Fai appassire il porro, aggiungi topinambur e patata a pezzi.","Copri di brodo e cuoci 25 minuti.","Frulla e servi con crostini."]}],
+"Aglio":[{n:"Spaghetti aglio, olio e peperoncino",t:"15 min",i:"320 g di spaghetti, 3 spicchi d'aglio, peperoncino, olio extravergine, prezzemolo",p:["Cuoci gli spaghetti al dente.","Scalda l'olio con aglio a fettine e peperoncino, senza bruciarlo.","Salta la pasta nell'olio con un po' d'acqua di cottura e il prezzemolo."]},{n:"Bruschetta all'aglio",t:"10 min",i:"pane casereccio, aglio, olio extravergine, sale",p:["Tosta le fette di pane.","Strofina l'aglio sul pane caldo.","Condisci con olio e un pizzico di sale."]}],
+"Asparagi":[{n:"Risotto agli asparagi",t:"35 min",i:"320 g di riso, 1 mazzo di asparagi, 1 cipolla, 1 l di brodo, burro, formaggio grattugiato",p:["Taglia le punte e fai a rondelle i gambi; soffriggi la cipolla.","Tosta il riso, aggiungi i gambi e cuoci con il brodo; le punte negli ultimi 5 minuti.","Manteca con burro e formaggio."]},{n:"Asparagi e uova",t:"15 min",i:"1 mazzo di asparagi, 4 uova, formaggio grattugiato, burro",p:["Lessa gli asparagi 8 minuti.","Cuoci le uova all'occhio di bue nel burro.","Servi gli asparagi con le uova sopra e il formaggio."]}],
+"Spinaci":[{n:"Frittata di spinaci",t:"20 min",i:"6 uova, 300 g di spinaci, 40 g di formaggio grattugiato, olio, sale",p:["Fai appassire gli spinaci in padella e strizzali.","Sbatti le uova con formaggio e sale, unisci gli spinaci.","Cuoci 5 minuti per lato a fuoco basso."]},{n:"Spinaci al burro e formaggio",t:"10 min",i:"600 g di spinaci, burro, formaggio grattugiato, sale",p:["Lava gli spinaci e cuocili in padella solo con l'acqua rimasta sulle foglie.","Aggiungi una noce di burro e sala.","Finisci con il formaggio."]}],
+"Limoni":[{n:"Pasta al limone",t:"15 min",i:"320 g di pasta, 2 limoni, burro, formaggio grattugiato, pepe",p:["Cuoci la pasta.","Sciogli il burro con la scorza grattugiata e un po' di succo.","Manteca la pasta con formaggio, pepe e acqua di cottura."]},{n:"Limonata fatta in casa",t:"10 min",i:"4 limoni, 1 l di acqua, 4 cucchiai di miele o zucchero, menta",p:["Spremi i limoni.","Sciogli il miele in un po' d'acqua tiepida e unisci il resto.","Aggiungi il succo, la menta e servi fredda."]}],
+"Ricotta":[{n:"Pasta ricotta e limone",t:"15 min",i:"320 g di pasta, 250 g di ricotta, 1 limone, formaggio grattugiato, pepe",p:["Lavora la ricotta con scorza di limone, formaggio e pepe.","Allungala con un po' d'acqua della pasta.","Condisci la pasta appena scolata."]},{n:"Ricotta, miele e noci",t:"5 min",i:"300 g di ricotta, miele, noci",p:["Metti la ricotta nelle coppette.","Aggiungi le noci tritate.","Finisci con un filo di miele."]}],
+"Fragole":[{n:"Fragole al limone",t:"10 min",i:"500 g di fragole, 1 limone, 2 cucchiai di zucchero, menta",p:["Lava e taglia le fragole.","Condiscile con succo di limone e zucchero.","Lascia riposare 15 minuti in frigo e servi con la menta."]},{n:"Yogurt e fragole",t:"5 min",i:"4 vasetti di yogurt, 300 g di fragole, miele",p:["Taglia le fragole a pezzetti.","Alterna yogurt e fragole nei bicchieri.","Finisci con il miele."]}],
+"Insalata":[{n:"Insalata di stagione",t:"10 min",i:"insalata mista, pomodori, carote, semi, olio, aceto, sale",p:["Lava e asciuga bene l'insalata.","Aggiungi le verdure tagliate sottili e i semi.","Condisci all'ultimo con olio, aceto e sale."]},{n:"Insalata con uova e formaggio",t:"15 min",i:"insalata, 4 uova sode, formaggio a scaglie, crostini, olio, sale",p:["Rassoda le uova (9 minuti) e tagliale a spicchi.","Unisci insalata, formaggio e crostini.","Condisci con olio e sale."]}],
+"Ciliegie":[{n:"Clafoutis di ciliegie",t:"45 min",i:"400 g di ciliegie, 3 uova, 80 g di zucchero, 80 g di farina, 250 ml di latte",p:["Snocciola le ciliegie e mettile in una teglia imburrata.","Sbatti uova, zucchero, farina e latte e versa sopra.","Inforna a 180 °C per 35 minuti."]},{n:"Ciliegie sciroppate veloci",t:"20 min",i:"500 g di ciliegie, 100 g di zucchero, 1 limone",p:["Snocciola le ciliegie.","Cuocile 10 minuti con zucchero e succo di limone.","Servile fredde sul gelato o sullo yogurt."]}],
+"Zucchine":[{n:"Pasta con le zucchine",t:"20 min",i:"320 g di pasta, 4 zucchine, 1 cipollotto, basilico, olio, formaggio grattugiato",p:["Soffriggi il cipollotto e aggiungi le zucchine a rondelle.","Cuoci 10 minuti finché sono morbide.","Condisci la pasta con zucchine, basilico e formaggio."]},{n:"Zucchine trifolate",t:"15 min",i:"5 zucchine, 1 spicchio d'aglio, prezzemolo, olio, sale",p:["Taglia le zucchine a rondelle.","Cuocile in padella con olio e aglio per 10 minuti.","Sala e aggiungi il prezzemolo."]}],
+"Albicocche":[{n:"Crostata di albicocche",t:"50 min",i:"1 rotolo di pasta frolla, 600 g di albicocche, 2 cucchiai di zucchero",p:["Stendi la frolla nella teglia.","Disponi le albicocche a metà e spolvera di zucchero.","Inforna a 180 °C per 35 minuti."]},{n:"Albicocche e yogurt",t:"5 min",i:"6 albicocche, 4 vasetti di yogurt, miele, mandorle",p:["Taglia le albicocche a spicchi.","Mettile sopra lo yogurt.","Finisci con miele e mandorle."]}],
+"Pomodori":[{n:"Pasta al pomodoro fresco",t:"20 min",i:"320 g di pasta, 600 g di pomodori maturi, aglio, basilico, olio",p:["Taglia i pomodori a pezzetti.","Cuocili 10 minuti con olio e aglio.","Condisci la pasta e aggiungi il basilico."]},{n:"Bruschette al pomodoro",t:"10 min",i:"pane casereccio, 4 pomodori, basilico, aglio, olio, sale",p:["Taglia i pomodori a dadini e condiscili con olio, sale e basilico.","Tosta il pane e strofina l'aglio.","Metti i pomodori sopra e servi subito."]}],
+"Pesche":[{n:"Pesche ripiene al forno",t:"35 min",i:"4 pesche, 6 amaretti, 1 cucchiaio di cacao, 1 tuorlo, zucchero",p:["Taglia le pesche a metà e togli il nocciolo.","Riempile con amaretti sbriciolati, cacao e tuorlo.","Inforna a 180 °C per 25 minuti."]},{n:"Pesche e vino",t:"5 min",i:"4 pesche, vino rosso o bianco, zucchero",p:["Taglia le pesche a spicchi.","Mettile in una ciotola con un po' di zucchero.","Copri di vino e lascia in frigo mezz'ora."]}],
+"Melanzane":[{n:"Melanzane alla parmigiana",t:"70 min",i:"3 melanzane, 500 g di passata, 250 g di mozzarella, formaggio grattugiato, basilico, olio",p:["Taglia le melanzane a fette e grigliale o friggile.","Alterna in teglia melanzane, passata, mozzarella, formaggio e basilico.","Inforna a 190 °C per 35 minuti."]},{n:"Melanzane a funghetto",t:"25 min",i:"3 melanzane, 1 spicchio d'aglio, pomodorini, basilico, olio, sale",p:["Taglia le melanzane a cubetti.","Cuocile in padella con olio e aglio per 15 minuti.","Aggiungi i pomodorini e il basilico negli ultimi 5 minuti."]}],
+"Meloni":[{n:"Melone e prosciutto",t:"10 min",i:"1 melone, 150 g di prosciutto crudo",p:["Taglia il melone a spicchi e togli la buccia.","Avvolgi ogni spicchio con una fetta di prosciutto.","Servi fresco."]},{n:"Macedonia con melone",t:"15 min",i:"1 melone, frutta di stagione, 1 limone, menta",p:["Taglia il melone e la frutta a cubetti.","Condisci con succo di limone.","Aggiungi la menta e servi fredda."]}],
+"Peperoncini":[{n:"Olio piccante",t:"10 min",i:"5 peperoncini secchi, 250 ml di olio extravergine",p:["Sbriciola i peperoncini ben asciutti.","Mettili in una bottiglia pulita e copri d'olio.","Aspetta una settimana prima di usarlo."]},{n:"Penne all'arrabbiata",t:"20 min",i:"320 g di penne, 400 g di passata, 2 spicchi d'aglio, peperoncino, prezzemolo, olio",p:["Soffriggi aglio e peperoncino nell'olio.","Aggiungi la passata e cuoci 10 minuti.","Condisci le penne e finisci con il prezzemolo."]}],
+"Angurie":[{n:"Ghiaccioli di anguria",t:"10 min + 4 ore",i:"mezza anguria, succo di 1 limone",p:["Frulla la polpa senza semi con il succo di limone.","Versa negli stampini da ghiacciolo.","Lascia in freezer 4 ore."]},{n:"Insalata di anguria e feta",t:"10 min",i:"mezza anguria, 200 g di feta, menta, olio, pepe",p:["Taglia l'anguria a cubetti.","Aggiungi la feta sbriciolata e la menta.","Condisci con un filo d'olio e pepe."]}],
+"Mais":[{n:"Pannocchie alla griglia",t:"20 min",i:"4 pannocchie, burro, sale",p:["Lessa le pannocchie 10 minuti.","Grigliale finché sono dorate.","Spennellale con burro e sala."]},{n:"Insalata di mais e pomodori",t:"10 min",i:"300 g di mais, 3 pomodori, 1 cetriolo, basilico, olio, sale",p:["Sgrana il mais lessato.","Unisci pomodori e cetriolo a dadini.","Condisci con olio, sale e basilico."]}],
+"Funghi":[{n:"Pasta con i funghi",t:"25 min",i:"320 g di pasta, 400 g di funghi, 1 spicchio d'aglio, prezzemolo, olio, sale",p:["Pulisci i funghi con un panno e tagliali a fettine.","Cuocili con olio e aglio per 10 minuti.","Condisci la pasta e aggiungi il prezzemolo."]},{n:"Funghi trifolati",t:"20 min",i:"500 g di funghi, aglio, prezzemolo, olio, sale e pepe",p:["Affetta i funghi.","Cuocili a fuoco vivace con olio e aglio.","Sala, pepa e finisci con il prezzemolo."]}],
+"Pere":[{n:"Pere e formaggio",t:"5 min",i:"2 pere, formaggio stagionato, noci, miele",p:["Taglia le pere a fette.","Servile con scaglie di formaggio e noci.","Un filo di miele sopra."]},{n:"Pere al vino rosso",t:"35 min",i:"4 pere, 500 ml di vino rosso, 100 g di zucchero, cannella",p:["Sbuccia le pere lasciando il picciolo.","Cuocile nel vino con zucchero e cannella per 25 minuti.","Servile con lo sciroppo ristretto."]}],
+"Uva":[{n:"Schiacciata con l'uva",t:"60 min",i:"500 g di pasta per pane, 500 g di uva nera, zucchero, olio",p:["Stendi metà pasta in teglia e copri con metà uva e zucchero.","Copri con l'altra pasta, poi il resto dell'uva, zucchero e olio.","Inforna a 200 °C per 35 minuti."]},{n:"Insalata con uva e formaggio",t:"10 min",i:"insalata, uva, formaggio, noci, olio, sale",p:["Taglia gli acini a metà.","Unisci insalata, formaggio a pezzetti e noci.","Condisci con olio e sale."]}],
+"Vino nuovo":[{n:"Castagne e vino nuovo",t:"30 min",i:"castagne, vino nuovo",p:["Prepara le caldarroste (incidi le castagne e cuocile in padella bucata 25 minuti).","Avvolgile in un panno 5 minuti.","Servile calde con un bicchiere di vino nuovo."]},{n:"Risotto al vino rosso",t:"35 min",i:"320 g di riso, 1 bicchiere di vino rosso, 1 cipolla, brodo, burro, formaggio grattugiato",p:["Soffriggi la cipolla e tosta il riso.","Sfuma con il vino e cuoci con il brodo per 17 minuti.","Manteca con burro e formaggio."]}],
+"Vino":[{n:"Vin brulé",t:"15 min",i:"1 l di vino rosso, 100 g di zucchero, 1 arancia, cannella, chiodi di garofano",p:["Metti in pentola vino, zucchero, scorza d'arancia e spezie.","Scalda senza far bollire per 10 minuti.","Filtra e servi caldo."]},{n:"Pere al vino rosso",t:"35 min",i:"4 pere, 500 ml di vino rosso, 100 g di zucchero, cannella",p:["Sbuccia le pere lasciando il picciolo.","Cuocile nel vino con zucchero e cannella per 25 minuti.","Servile con lo sciroppo ristretto."]}]
+};
+
+// un consiglio pratico per ogni prodotto: come conservarlo e come usarlo in cucina (a sceglierlo ci pensa il produttore)
+const CONSIGLI_PRODOTTO={
+"Zucca":"Intera dura anche 2 mesi in un posto fresco e asciutto. Tagliata, avvolgila nella pellicola e usala entro 4-5 giorni. I semi, lavati e tostati in forno con un po' di sale, sono uno snack.",
+"Castagne":"Tienile in frigo in un sacchetto di carta e consumale entro una settimana. Incidile sempre prima di cuocerle, altrimenti scoppiano.",
+"Mele":"Tienile in frigo, lontano dalle altre verdure: fanno maturare in fretta quello che hanno vicino. Una volta tagliate, un po' di limone le tiene bianche.",
+"Cavolo nero":"In frigo, avvolto in un panno umido, dura 4-5 giorni. Togli la costa centrale, che è dura: le foglie cuociono più in fretta.",
+"Formaggi":"Toglili dal frigo mezz'ora prima di mangiarli: il sapore si sente di più. Conservali nella carta del produttore, non nella pellicola.",
+"Miele":"Se diventa duro (cristallizza) è normale ed è un buon segno: scaldalo a bagnomaria sotto i 40 °C e torna liquido. Non serve il frigo.",
+"Uova":"Conservale in frigo con la punta in giù. Per capire se sono fresche mettile in un bicchiere d'acqua: se restano sul fondo sono freschissime.",
+"Arance":"Fuori dal frigo durano una settimana, in frigo anche tre. Prima di spremerle rotolale sul tavolo premendo: fanno più succo.",
+"Mandarini":"Si conservano in un posto fresco per 7-10 giorni. Le bucce, seccate, profumano i dolci e il vin brulé.",
+"Carote":"Toglile il ciuffo appena arrivi a casa, altrimenti si ammorbidiscono. In frigo durano due settimane.",
+"Cavoli":"In frigo, interi, durano una settimana. Per l'odore in cottura metti in pentola una foglia d'alloro.",
+"Topinambur":"Spazzolali sotto l'acqua invece di sbucciarli: la buccia è sottile e buona. In frigo durano una settimana.",
+"Aglio":"Tienilo all'asciutto e al buio, mai in frigo. Se ha il germoglio verde, toglilo: è quello che lo rende pesante.",
+"Asparagi":"Conservali in frigo in piedi in un bicchiere con un dito d'acqua. Spezza il gambo con le mani: si rompe da solo dove finisce la parte dura.",
+"Spinaci":"Lavali in tanta acqua cambiandola due volte, la terra va sul fondo. Cuocendo calano molto: 1 kg diventa un piatto per 3.",
+"Limoni":"Si conservano in frigo per tre settimane. Prima di spremerli rotolali sul tavolo premendo: fanno più succo.",
+"Ricotta":"Va mangiata in pochi giorni. Se la lasci scolare un'ora in un colino diventa più cremosa per i dolci.",
+"Fragole":"Lavale solo prima di mangiarle e con il picciolo: se le lavi senza, prendono acqua e perdono sapore.",
+"Insalata":"Asciugala bene dopo averla lavata: il condimento attacca meglio. Conservala in frigo in un panno umido.",
+"Ciliegie":"Lavale solo prima di mangiarle e tienile in frigo: durano 4-5 giorni.",
+"Zucchine":"In frigo durano 5-6 giorni. Il fiore si può friggere o mettere nella frittata.",
+"Albicocche":"Se sono ancora dure, lasciale un giorno fuori dal frigo in un sacchetto di carta e maturano.",
+"Pomodori":"Non metterli in frigo: perdono sapore. Tienili a temperatura ambiente, con il picciolo in giù.",
+"Pesche":"Mangiale a temperatura ambiente, non fredde di frigo: il profumo si sente di più.",
+"Melanzane":"Per togliere l'amaro, salale e lasciale mezz'ora in un colino prima di cuocerle. In frigo durano 4-5 giorni.",
+"Meloni":"Intero sta fuori dal frigo; tagliato, coprilo con la pellicola e mettilo in frigo.",
+"Peperoncini":"Lavati e ben asciutti, appendili in un posto arieggiato e si seccano da soli in 2-3 settimane.",
+"Angurie":"Intera sta in un posto fresco; tagliata, in frigo coperta con la pellicola, dura 3-4 giorni.",
+"Mais":"Cuocilo il giorno stesso: perde dolcezza con il passare delle ore.",
+"Funghi":"Non lavarli sotto l'acqua: puliscili con un panno umido o un pennellino. Conservali in frigo in un sacchetto di carta.",
+"Pere":"Se sono dure, lasciale fuori dal frigo finché il collo cede un poco premendo.",
+"Uva":"Lavala solo prima di mangiarla e tienila in frigo: dura 5-7 giorni.",
+"Vino nuovo":"Il vino nuovo si beve giovane, entro qualche settimana, leggermente fresco (12-14 °C).",
+"Vino":"Il rosso si serve a 16-18 °C, il bianco a 8-10 °C. Una bottiglia aperta, tappata e in frigo, dura 2-3 giorni."
+};
+// le ricette salvate dal cliente (solo su questo telefono)
+const VOTI=()=>leggi("voti",{}); // id ricetta → { stelle, nota }
+const stelleTxt=n=>"★".repeat(n)+"☆".repeat(5-n);
+const RIC_SALVATE=()=>leggi("ricette",[]);
+let ricPersone=leggi("persone",4); // per quante persone (le ricette sono per 4)
+let ricAvanzo=null; // { g, prod, ric }: la ricetta aperta per usare un avanzo
+// le dosi della ricetta per le persone scelte (i numeri all'inizio di ogni ingrediente)
+const scalaIng=(t,f)=>f===1?t:t.split(",").map(x=>x.replace(/^(\s*)(\d+(?:[.,]\d+)?)(\s*)(kg|g|l|ml)?\b/,(m0,sp,n,sp2,u)=>{let v=parseFloat(n.replace(",","."))*f;
+  if(u==="kg"&&v<1){v*=1000;u="g"}if(u==="l"&&v<1){v*=1000;u="ml"}
+  const num=u==="g"||u==="ml"?Math.max(10,Math.round(v/10)*10):!u?Math.max(1,Math.round(v*2)/2):+v.toFixed(2);
+  return sp+String(num).replace(".",",")+(u?sp2+u:sp2)})).join(",");
+// quanto serve di un ingrediente: { g: grammi } oppure { n: pezzi } (già moltiplicato per le persone)
+function quantoServe(ing,f){const t=ing.toLowerCase().trim();
+  const m=t.match(/^(\d+(?:[.,]\d+)?)\s*(kg|g|l|ml)?\b/);if(m){const v=parseFloat(m[1].replace(",","."))*f;if(m[2]==="kg")return{g:v*1000};if(m[2]==="g")return{g:v};if(m[2]==="l"||m[2]==="ml")return null;return{n:v}}
+  if(/^mezz[oa]\b/.test(t))return{n:.5*f};return null}
+// quanto prendere di un prodotto del banco per coprire quello che serve, e cosa avanza
+function quantoPrendere(a,serve){const u=String(a.unita||"").toLowerCase().trim();
+  if(!serve)return{qta:1,testo:"",avanzo:""};
+  const pesoU=u.match(/(\d+(?:[.,]\d+)?)\s*(kg|g)\b/),nU=u.match(/^(\d+)\s+\D/);
+  if(serve.g!=null){
+    if(aPeso(u)){const kg=serve.g/1000,q=Math.max(1,Math.ceil(kg-0.05));const av=q-kg;return{qta:q,testo:`servono ${fmtG(serve.g)} · prendi ${q} kg`,avanzo:av>=0.25?fmtG(av*1000):"",avanzoG:av*1000}}
+    if(pesoU){const conf=parseFloat(pesoU[1].replace(",","."))*(pesoU[2]==="kg"?1000:1),q=Math.max(1,Math.ceil(serve.g/conf-0.05));const av=q*conf-serve.g;return{qta:q,testo:`servono ${fmtG(serve.g)} · prendi ${q} × ${esc(a.unita)}`,avanzo:av>=Math.max(100,conf*.25)?fmtG(av):"",avanzoG:av}}
+    return{qta:1,testo:`servono ${fmtG(serve.g)}`,avanzo:""}}
+  // pezzi (es. «1 cipolla») ma venduto a peso: ne basta 1 unità
+  if(aPeso(u)||pesoU)return{qta:1,testo:`servono ${+serve.n.toFixed(1)} · prendi 1 ${esc(a.unita)}`,avanzo:""};
+  const per=nU?parseInt(nU[1],10):1,q=Math.max(1,Math.ceil(serve.n/per-0.01));const av=q*per-serve.n;
+  return{qta:q,testo:`servono ${+serve.n.toFixed(1)} · prendi ${q} ${esc(a.unita)}`,avanzo:av>=1?(+av.toFixed(1))+(per>1?"":" "+esc(a.unita)):""}}
+const fmtG=g=>g>=1000?(+(g/1000).toFixed(2)).toString().replace(".",",")+" kg":Math.round(g/10)*10+" g";
+// un'altra ricetta che usa lo stesso prodotto, per non sprecare quello che avanza
+function altraRicetta(prodotto,esclusa){const r0=prodotto.toLowerCase().split(/\s+/)[0].slice(0,5);
+  for(const [nome,R] of Object.entries(RICETTE_PRODOTTO))for(const r of R){if(r.n===esclusa)continue;if(r.i.toLowerCase().includes(r0)||nome.toLowerCase().startsWith(r0))return{nome,r}}return null}
+// gli ingredienti di una ricetta che si trovano al banco dei produttori (zona scelta): il «pacchetto ricetta»
+const NON_AL_BANCO=/^(sale|pepe|acqua|lievito|bustin|brodo|ghiaccio)/i;
+function pacchettoRicetta(r,soloBottega){const disp=ART.filter(a=>{const b=bot(a.bottega);if(!b||a.disponibile===false)return false;if(soloBottega)return a.bottega===soloBottega;return zona==="italia"?(b.spedizione&&b.provincia!==prov):b.provincia===prov});
+  const presi=[],casa=[],f=ricPersone/4;
+  r.i.split(",").map(x=>x.trim()).filter(Boolean).forEach(ing=>{
+    const parole=ing.toLowerCase().replace(/[\d½]+(?:[.,]\d+)?\s*(g|kg|l|ml|cucchia\w*|spicchi?|mazz\w*|bicchier\w*|vasett\w*|rotol\w*|bustin\w*)?\b/g," ").replace(/\b(di|d'|da|e|o|un|una|uno|il|la|le|lo|gli|i|per|con|mezza|mezzo|qualche|un po')\b/g," ").split(/[\s()']+/).filter(w=>w.length>=4);
+    const radici=parole.map(w=>w.slice(0,Math.max(4,w.length-2)));
+    if(!radici.length||NON_AL_BANCO.test(parole[0]||"")){casa.push(ing);return}
+    const a=disp.find(a=>!presi.some(x=>x.a.id===a.id)&&radici.some(r0=>a.nome.toLowerCase().includes(r0)));
+    if(a)presi.push({a,ing,...quantoPrendere(a,quantoServe(ing,f))});else casa.push(ing)});
+  return {presi,casa}}
+function apriRicette(nome){const R=RICETTE_PRODOTTO[nome];if(!R)return;const m=new Date().getMonth();
+  const sh=$("sheet"),sc=!sh.hidden&&sh.dataset.tipo==="ricette"&&sh.dataset.id===nome&&sh.querySelector(".sheet")?sh.querySelector(".sheet").scrollTop:0;
+  const em=(BANCO_MESE[m].find(x=>x[1]===nome)||BANCO_MESE.flat().find(x=>x[1]===nome)||["🍳"])[0];
+  const salvate=RIC_SALVATE();
+  const scheda=(r,k)=>{const id=nome+"|"+k,ok=salvate.includes(id),pk=pacchettoRicetta(r),tot=pk.presi.reduce((s,x)=>s+x.a.prezzo*x.qta,0);
+    const avanzi=pk.presi.filter(x=>x.avanzo).map(x=>{const alt=altraRicetta(x.a.nome,r.n);return `<li>♻️ Ti avanzano circa ${x.avanzo} di ${esc(x.a.nome.toLowerCase())}${alt?`: <button class="link" data-ricette="${esc(alt.nome)}" data-avg="${Math.round(x.avanzoG||0)}" data-avprod="${esc(x.a.nome)}" data-avric="${esc(alt.r.n)}">${esc(alt.r.n)} con quello che avanza</button>`:""}</li>`}).join("");
+    return `<article class="ricetta"><div class="ric-testa"><h3>${esc(r.n)}</h3><span>⏱ ${esc(r.t)}</span></div>
+    <p class="ric-ing"><b>Per ${ricPersone} ${ricPersone===1?"persona":"persone"}:</b> ${esc(scalaIng(r.i,ricPersone/4))}</p><ol>${r.p.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
+    ${pk.presi.length?`<div class="pacchetto"><b>🧺 Pacchetto ricetta · ${ricPersone} ${ricPersone===1?"persona":"persone"}</b><ul class="pk-righe">${pk.presi.map(x=>`<li><span><b>${esc(x.a.nome)}</b> <small>${esc(bot(x.a.bottega)?.nome||"")}</small>${x.testo?`<br><small>${x.testo}</small>`:""}</span><span class="pk-prezzo">${euro(Math.round(x.a.prezzo*x.qta*100)/100)}</span></li>`).join("")}</ul>${pk.casa.length?`<small>Da casa tua: ${esc(pk.casa.join(", "))}</small>`:""}${avanzi?`<ul class="pk-avanzi">${avanzi}</ul>`:""}<button class="grande" data-pacchetto="${esc(pk.presi.map(x=>x.a.id+":"+x.qta).join(","))}">Metti nel cestino · ${euro(Math.round(tot*100)/100)}</button></div>`:""}
+    ${VOTI()[id]?`<p class="mio-voto"><span>${stelleTxt(VOTI()[id].stelle)}</span>${VOTI()[id].nota?` «${esc(VOTI()[id].nota)}»`:""} <small>il tuo voto</small></p>`:""}
+    <div class="ric-azioni"><button class="grande" data-cucina="${esc(id)}">👩‍🍳 Cucina ora</button><button class="cuore" data-salvaric="${esc(id)}" aria-pressed="${ok}">${ok?"❤️ Salvata nelle tue ricette":"🤍 Salva la ricetta"}</button></div></article>`};
+  apriSheet(`<div class="corpo"><div class="ric-capo"><span>${em}</span><div><h2>${esc(nome)}</h2><p class="storia" style="margin:2px 0 0">Due ricette semplici: compri solo quello che ti serve, niente sprechi</p></div></div>
+    ${CONSIGLI_PRODOTTO[nome]?`<div class="consiglio"><b>💡 Consiglio</b>${esc(CONSIGLI_PRODOTTO[nome])}</div>`:""}
+    ${ricAvanzo?`<div class="avanzo-box">♻️ <b>Niente sprechi:</b> con i tuoi ${fmtG(ricAvanzo.g)} di ${esc(ricAvanzo.prod.toLowerCase())} fai «${esc(ricAvanzo.ric)}» per ${ricPersone} ${ricPersone===1?"persona":"persone"}. Le dosi qui sotto sono già calcolate.</div>`:""}
+    <div class="persone" role="group" aria-label="Per quante persone"><span>Per quante persone?</span>${[...new Set([2,4,6,ricPersone])].sort((x,y)=>x-y).map(n=>`<button data-persone="${n}" data-perric="${esc(nome)}" aria-pressed="${ricPersone===n}">${n}</button>`).join("")}</div>
+    <button class="piu" data-cassa="${esc(nome)}" style="margin:6px 0 4px">Vedi ${esc(nome.toLowerCase())} al banco ›</button>
+    ${(ricAvanzo?R.map((r,k)=>[r,k]).sort((x,y)=>(y[0].n===ricAvanzo.ric)-(x[0].n===ricAvanzo.ric)):R.map((r,k)=>[r,k])).map(([r,k])=>scheda(r,k)).join("")}</div>`,"ricette",nome);
+  if(sc&&!ricAvanzo){const n=sh.querySelector(".sheet");if(n)n.scrollTop=sc}}
+// la lista della spesa delle ricette salvate: si tira una riga su quello che hai già preso (solo su questo telefono)
+const SPUNTE=()=>leggi("spunte",{});
+function listaSpesaHtml(soloBottega){const sp=SPUNTE();
+  const ric=RIC_SALVATE().map(id=>{const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];return r?{id,n,r}:null}).filter(Boolean);
+  const blocchi=ric.map(({id,r})=>{const pk=pacchettoRicetta(r,soloBottega);if(soloBottega&&!pk.presi.length)return"";
+    const riga=(chiave,html)=>`<li><label class="spunta-riga${sp[chiave]?" preso":""}"><input type="checkbox" data-spunta="${esc(chiave)}"${sp[chiave]?" checked":""}><span>${html}</span></label></li>`;
+    const presi=pk.presi.map(x=>riga(id+"|"+x.ing,`<b>${esc(x.a.nome)}</b>${soloBottega?"":` <small>· ${esc(bot(x.a.bottega)?.nome||"")}</small>`}${x.testo?` <small>· ${x.testo}</small>`:""}<em>${euro(Math.round(x.a.prezzo*x.qta*100)/100)}</em>`)).join("");
+    const casa=soloBottega?"":pk.casa.map(ing=>riga(id+"|"+ing,`${esc(scalaIng(ing,ricPersone/4))} <small>· da casa o dal negozio</small>`)).join("");
+    const tot=pk.presi.reduce((s0,x)=>s0+x.a.prezzo*x.qta,0);
+    // cosa manca ancora: le righe senza la spunta
+    const mancano=[...pk.presi.filter(x=>!sp[id+"|"+x.ing]).map(x=>x.a.nome),...(soloBottega?[]:pk.casa.filter(ing=>!sp[id+"|"+ing]).map(ing=>ing.replace(/^[\d.,]+\s*(g|kg|l|ml)?\s*(di |d')?/i,"")))];
+    const stato=mancano.length?`<p class="manca">${soloBottega?"Qui puoi prendere":"Ti manca"}: <b>${esc(mancano.join(", "))}</b></p>`:`<p class="manca fatto">✅ Hai tutto per ${esc(r.n)}. Buon appetito!</p>`;
+    return `<div class="lista-ric"><div class="lista-testa"><button class="link" data-ricette="${esc(id.split("|")[0])}">${esc(r.n)}</button><button class="piu" data-cucina="${esc(id)}">👩‍🍳 Cucina</button></div>${stato}<ul>${presi}${casa}</ul>${pk.presi.length?`<button class="piu" data-pacchetto="${esc(pk.presi.map(x=>x.a.id+":"+x.qta).join(","))}">🧺 ${soloBottega?"Prendi qui":"Metti nel cestino"} · ${euro(Math.round(tot*100)/100)}</button>`:""}</div>`}).filter(Boolean);
+  return blocchi.join("")}
+function apriLista(){const h=listaSpesaHtml();
+  apriSheet(`<div class="corpo"><h2>🛒 La tua lista della spesa</h2><p class="storia">Dalle ricette che hai salvato. Tocca una riga quando l'hai presa: si tira una riga sopra.</p>${h||`<p class="storia">Salva una ricetta (tocca una cassetta in alto) e qui compare la lista.</p>`}${h?`<button class="link" data-azzera="1" style="margin-top:10px">Togli tutte le righe</button>`:""}</div>`,"lista")}
+// modalità cucina: a tutto schermo, un passo alla volta, timer, schermo sempre acceso
+let cucinaWake=null,cucinaTimer=null;
+function apriCucina(id){const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];if(!r)return;
+  try{chiudiSheet()}catch(e){}
+  const ing=r.i.split(",").map(x=>x.trim()).filter(Boolean).map(x=>scalaIng(x,ricPersone/4));
+  const passi=[{tipo:"ing"},...r.p.map((t,i)=>({tipo:"passo",t,i})),{tipo:"fine"}];let pos=0;
+  const d=document.createElement("div");d.className="cucina";d.setAttribute("role","dialog");d.setAttribute("aria-label","Modalità cucina: "+r.n);
+  document.body.appendChild(d);document.documentElement.style.overflow="hidden";
+  try{navigator.wakeLock&&navigator.wakeLock.request("screen").then(w=>cucinaWake=w).catch(()=>{})}catch(e){}
+  const minuti=t=>{const m=t.match(/(\d+)\s*minut/i);return m?parseInt(m[1],10):0};
+  let restoT=-1,avviato=false;const testoT=()=>restoT>0?`⏱ ${Math.floor(restoT/60)}:${String(restoT%60).padStart(2,"0")}`:"⏰ Tempo!";
+  const disegna=()=>{const p=passi[pos];const tot=passi.length-2;
+    let corpo="";
+    if(p.tipo==="ing")corpo=`<div class="c-etichetta">Prima di iniziare · ${ricPersone} ${ricPersone===1?"persona":"persone"}</div><h2>Prepara gli ingredienti</h2><ul class="c-ing">${ing.map((x,i)=>`<li><label><input type="checkbox"><span>${esc(x)}</span></label></li>`).join("")}</ul>${CONSIGLI_PRODOTTO[n]?`<div class="consiglio" style="margin-top:16px"><b>💡 Consiglio</b>${esc(CONSIGLI_PRODOTTO[n])}</div>`:""}`;
+    else if(p.tipo==="passo"){const m=minuti(p.t);corpo=`<div class="c-etichetta">Passo ${p.i+1} di ${tot}</div><p class="c-passo">${esc(p.t)}</p>${m?`<button class="c-timer" data-cmin="${m}">⏱ Avvia ${m} minuti</button><div class="c-conto" id="cConto" hidden></div>`:""}`}
+    else{const v=VOTI()[id]||{};corpo=`<div class="c-fine">🍽️</div><h2>Buon appetito!</h2><p class="c-passo" style="font-size:20px">${esc(r.n)} è pronto. Gli ingredienti freschi vengono dai produttori della tua zona.</p>
+      <div class="voto"><b>Com'è venuta?</b><span class="voto-stelle" role="group" aria-label="Il tuo voto">${[1,2,3,4,5].map(k2=>`<button data-cstelle="${k2}" aria-label="${k2} stelle" aria-pressed="${(v.stelle||0)>=k2}">★</button>`).join("")}</span>
+      <textarea id="cNota" maxlength="140" rows="2" placeholder="Una nota per la prossima volta (es. meno sale, più formaggio)">${esc(v.nota||"")}</textarea>
+      <button class="grande" data-cvoto="1">Salva nelle tue ricette</button><small>Così ti ricordi se ti è piaciuta. Puoi cambiare il voto quando vuoi.</small></div>`}
+    d.innerHTML=`<div class="c-testa"><b>${esc(r.n)}</b><span class="c-chip" id="cChip"${restoT>0||restoT===0&&avviato?"":" hidden"}>${testoT()}</span><button class="c-chiudi" aria-label="Chiudi la modalità cucina">✕</button></div>
+      <div class="c-barra"><i style="width:${Math.round(pos/(passi.length-1)*100)}%"></i></div>
+      <div class="c-corpo">${corpo}</div>
+      <div class="c-piede"><button class="c-ind" ${pos===0?"disabled":""}>‹ Indietro</button>${p.tipo==="fine"?`<button class="c-av" data-fine="1">Chiudi</button>`:`<button class="c-av">${p.tipo==="ing"?"Inizia ›":"Avanti ›"}</button>`}</div>`};
+  const chiudi=()=>{clearInterval(cucinaTimer);try{cucinaWake&&cucinaWake.release()}catch(e){}cucinaWake=null;d.remove();document.documentElement.style.overflow=""};
+  const vai=x=>{pos=Math.max(0,Math.min(passi.length-1,pos+x));disegna()};
+  const suona=()=>{try{navigator.vibrate&&navigator.vibrate([300,150,300,150,300])}catch(e){}
+    try{const ac=new (window.AudioContext||window.webkitAudioContext)();[0,0.4,0.8].forEach(t=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.25,ac.currentTime+t);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+t+.35);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+.36)})}catch(e){}};
+  d.addEventListener("click",e=>{
+    const st=e.target.closest("[data-cstelle]");
+    if(st){const k2=+st.dataset.cstelle;d.querySelectorAll("[data-cstelle]").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.cstelle<=k2));d.dataset.stelle=k2;return}
+    if(e.target.closest("[data-cvoto]")){const k2=+d.dataset.stelle||+(VOTI()[id]||{}).stelle||0;if(!k2){toast("Tocca le stelle per dare il voto");return}
+      const V=VOTI();V[id]={stelle:k2,nota:(d.querySelector("#cNota").value||"").trim().slice(0,140)};salva("voti",V);
+      let l=RIC_SALVATE();if(!l.includes(id))l=[id,...l].slice(0,40);salva("ricette",l);mostraRicetteSalvate();toast("📒 Salvata con "+k2+(k2===1?" stella":" stelle"));return chiudi()}
+    if(e.target.closest(".c-chiudi")||e.target.closest("[data-fine]"))return chiudi();
+    if(e.target.closest(".c-av"))return vai(1);
+    if(e.target.closest(".c-ind"))return vai(-1);
+    const tb=e.target.closest("[data-cmin]");
+    if(tb){clearInterval(cucinaTimer);restoT=+tb.dataset.cmin*60;avviato=true;tb.hidden=true;
+      const mostra=()=>{const c=d.querySelector("#cConto"),ch=d.querySelector("#cChip");
+        if(c){c.hidden=false;c.textContent=restoT>0?`${Math.floor(restoT/60)}:${String(restoT%60).padStart(2,"0")}`:"⏰ Tempo!";c.classList.toggle("suona",restoT<=0)}
+        if(ch){ch.hidden=false;ch.textContent=testoT();ch.classList.toggle("suona",restoT<=0)}};mostra();
+      cucinaTimer=setInterval(()=>{restoT--;if(restoT<=0){restoT=0;clearInterval(cucinaTimer);mostra();suona();return}mostra()},1000)}});
+  let x0=null;d.addEventListener("touchstart",e=>{x0=e.touches[0].clientX},{passive:true});
+  d.addEventListener("touchend",e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>60&&!e.target.closest(".c-ing"))vai(dx<0?1:-1)});
+  d.addEventListener("keydown",e=>{if(e.key==="ArrowRight")vai(1);else if(e.key==="ArrowLeft")vai(-1);else if(e.key==="Escape")chiudi()});
+  disegna();setTimeout(()=>{try{d.querySelector(".c-av").focus()}catch(e){}},50)}
+function mostraRicetteSalvate(){const el=$("ricetteSalvate");if(!el)return;const l=RIC_SALVATE().map(id=>{const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];return r?{n,r}:null}).filter(Boolean);
+  $("sezRicette").hidden=!l.length;
+  const V=VOTI();el.innerHTML=RIC_SALVATE().map(id=>{const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];if(!r)return"";const v=V[id];return `<button class="ric-mini" data-ricette="${esc(n)}"><b>${esc(r.n)}</b><small>${esc(n)} · ⏱ ${esc(r.t)}</small>${v?`<span class="ric-stelle">${stelleTxt(v.stelle)}</span>${v.nota?`<small>«${esc(v.nota)}»</small>`:""}`:""}</button>`}).join("")}
 function mostraBancoTestata(){const el=$("heroBanco");if(!el)return;const m=new Date().getMonth();
-  const cassa=([e,n])=>`<div class="cassa"><div class="pila"><span>${e}</span><span>${e}</span><span>${e}</span></div><div class="assi"></div><div class="nome">${n}</div></div>`;
+  const cassa=([e,n])=>`<button type="button" class="cassa" data-ricette="${esc(n)}" aria-label="Ricette con ${esc(n)}"><div class="pila"><span>${e}</span><span>${e}</span><span>${e}</span></div><div class="assi"></div><div class="nome">${n}</div></button>`;
   const tre=BANCO_MESE[m];
-  el.innerHTML=`<div class="insegna"><b>Oggi al banco</b><small>${zona==="italia"?"specialità da tutta Italia":MESI[m].toLowerCase()+", di stagione"}</small></div><div class="ripiano">${tre.slice(0,3).map(cassa).join("")}</div><div class="ripiano">${tre.slice(3).map(cassa).join("")}</div>`}
+  el.removeAttribute("aria-hidden");el.innerHTML=`<div class="insegna"><b>Oggi al banco</b><small>${zona==="italia"?"specialità da tutta Italia":MESI[m].toLowerCase()+", di stagione"}</small></div><div class="ripiano">${tre.slice(0,3).map(cassa).join("")}</div><div class="ripiano">${tre.slice(3).map(cassa).join("")}</div>`}
 function mostraStagione(){mostraBancoTestata();const m=new Date().getMonth();
   $("stagione").innerHTML=zona==="italia"?`<b>Dall'Italia</b><span>Specialità spedite dai produttori di tutta Italia: arrivano con il corriere in pochi giorni.</span>`:`<b>${MESI[m]}</b><span>È il momento di ${STAGIONI[m]}.</span>`}
 function mostraProduttori(){
@@ -664,14 +978,15 @@ function mostraGriglia(){
   $("conta").textContent=lista.length?lista.length+(lista.length===1?" prodotto":" prodotti"):"";
   const altrove=!lista.length&&(t||cat!=="Tutto"||filtri.bio||filtri.casa||filtri.sped)?trova(zona==="italia"?"vicino":"italia").length:0;
   $("altri").innerHTML=lista.length>mostrati?`<button class="piu" data-altri="1" style="margin-top:4px">Mostra altri ${Math.min(24,lista.length-mostrati)} (${lista.length-mostrati} in tutto)</button>`:"";
-  $("griglia").innerHTML=lista.length?lista.slice(0,mostrati).map(a=>{const b=bot(a.bottega);return `<article class="art">
-    <div class="banco-foto">${foto(colore(b.id),EMOJI[a.categoria]||"🧺",a.foto)}<div class="prezzo">${euro(a.prezzo)}<small>/${esc(a.unita)}</small></div></div>
-    <div class="t"><h3>${esc(a.nome)}</h3>${aPeso(a.unita)?`<span class="peso">⚖️ a peso: il totale esatto te lo conferma il produttore</span>`:""}<button class="chi" data-p="${esc(b.id)}">${esc(b.nome)}</button>${a.nota?`<div class="km" style="color:var(--tenue);font-weight:600">${esc(a.nota)}</div>`:""}
-    <div class="pie"><span class="km">${zona==="italia"?"📦 "+esc(b.provincia):"📍 "+esc(b.paese)}</span>${qtaHtml(a.id)}</div></div></article>`}).join("")
+  $("griglia").classList.toggle("banco-oggi",!!lista.length);
+  $("griglia").innerHTML=lista.length?lista.slice(0,mostrati).map(a=>{const b=bot(a.bottega);const q=carrello[a.id]||0;return `<article class="banco-art">
+    ${fotoOk(a.foto)?`<span class="lente-w"><img class="lente" data-zoom="1" src="${esc(a.foto)}" alt="Ingrandisci la foto di ${esc(a.nome)}" loading="lazy"></span>`:""}
+    <button class="merce grande" data-gioca="${esc(a.id)}" aria-label="Metti nel cestino: ${esc(a.nome)}, ${euro(a.prezzo)} al ${esc(a.unita)}"><div class="cassa-m${fotoOk(a.foto)?" con-foto":""}"><div class="dentro">${fotoOk(a.foto)?`<img src="${esc(a.foto)}" alt="" loading="lazy">`:`<span>${EMOJI[a.categoria]||"🧺"}</span><span>${EMOJI[a.categoria]||"🧺"}</span><span>${EMOJI[a.categoria]||"🧺"}</span>`}</div><div class="fronte-c"></div></div><div class="cartel"><b>${esc(a.nome)}</b><span>${euro(a.prezzo)}/${esc(a.unita)}${aPeso(a.unita)?" ⚖️":""}</span></div>${q?`<i class="qta">${q}</i>`:""}</button>
+    <div class="sotto"><button class="chi" data-p="${esc(b.id)}">${esc(b.nome)}</button><span class="km">${zona==="italia"?"📦 "+esc(b.provincia):"📍 "+esc(b.paese)}</span>${q?qtaHtml(a.id):""}</div></article>`}).join("")
     :`<div class="vuoto"><b>${t||cat!=="Tutto"||filtri.bio||filtri.casa||filtri.sped?"Nessun prodotto trovato":"Il banco è ancora vuoto qui"}</b>${altrove?`<button class="link" data-altrazona="1">${altrove===1?"C'è 1 prodotto":"Ci sono "+altrove+" prodotti"} ${zona==="italia"?"nella tua provincia":"in «Dall'Italia»"} ›</button>`:filtri.bio||filtri.casa||filtri.sped?"Prova a togliere qualche filtro.":t||cat!=="Tutto"?"Prova un'altra parola o un'altra categoria.":"Prova «Dall'Italia» o un'altra provincia."}</div>`;
   $("nCarrello").textContent=Object.values(carrello).reduce((s,q)=>s+q,0);
 }
-function aggiornaCompro(){mostraStagione();try{mostraBoxApp()}catch(e){};mostraPreferiti();mostraProduttori();mostraCategorie();mostraGriglia()}
+function aggiornaCompro(){try{mostraRicetteSalvate()}catch(e){};mostraStagione();try{mostraBoxApp()}catch(e){};mostraPreferiti();mostraProduttori();mostraCategorie();mostraGriglia()}
 // ── i produttori salvati dal cliente (solo su questo telefono) e «Ordina di nuovo» ──
 const PREF=()=>leggi("preferiti",[]);
 function salvaPref(id,on){const l=PREF().filter(x=>x!==id);if(on)l.unshift(id);salva("preferiti",l.slice(0,30));mostraPreferiti()}
@@ -700,7 +1015,7 @@ function cambia(id,d){carrello[id]=Math.max(0,Math.min(99,(carrello[id]||0)+d));
   rimetti();requestAnimationFrame(rimetti);setTimeout(rimetti,120)}
 
 function apriSheet(html,tipo,id){const s=$("sheet");s.dataset.tipo=tipo;s.dataset.id=id||"";s.innerHTML=`<div class="sheet-bg" data-chiudi="1"><div class="sheet" role="dialog" aria-modal="true"><div class="testa"><button class="chiudi" data-chiudi="1" aria-label="Chiudi">✕</button></div>${html}</div></div>`;s.hidden=false}
-function chiudiSheet(){$("sheet").hidden=true;if(/^#(bottega|ordine)-/.test(location.hash))try{history.replaceState(null,"",location.pathname)}catch(e){}}
+function chiudiSheet(){if(ricAvanzo){ricAvanzo=null;ricPersone=leggi("persone",4)}$("sheet").hidden=true;if(/^#(bottega|ordine)-/.test(location.hash))try{history.replaceState(null,"",location.pathname)}catch(e){}}
 // pagamento online: link del produttore (con l'importo già scritto per PayPal.me)
 const LINK_OK=/^https:\/\/([a-z0-9-]+\.)*(stripe\.com|paypal\.me|paypal\.com|sumup\.com|sumup\.link|satispay\.com|revolut\.me)(\/[^\s<>"]*)?$/i;
 function linkPaga(link,totale){if(!link||!LINK_OK.test(link))return null;try{const u=new URL(link);if(/(^|\.)paypal\.me$/i.test(u.hostname)&&u.pathname.split("/").filter(Boolean).length===1)return link.replace(/\/$/,"")+"/"+Number(totale).toFixed(2)+"EUR";}catch(e){}return link}
@@ -762,7 +1077,8 @@ function apriProduttoreDentro(id){const b=bot(id);if(!b)return;const suoi=ART.fi
   apriSheet(`${foto(colore(b.id)+" banner","🌾",b.foto)}<div class="corpo"><h2>${esc(b.nome)}</h2><button class="cuore" data-pref="${esc(b.id)}" aria-pressed="${PREF().includes(b.id)}">${PREF().includes(b.id)?"❤️ Tra i tuoi produttori":"🤍 Salva tra i tuoi produttori"}</button><div class="meta" style="color:var(--tenue);margin-top:4px">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(PROVINCE[b.provincia]||b.provincia)})${b.bio?" · 🌱 bio":""}</div>${b.banco_aggiornato&&new Date(b.banco_aggiornato).toDateString()===new Date().toDateString()?`<div class="meta" style="color:var(--foglia);font-weight:700;margin-top:4px">🟢 Banco aggiornato oggi alle ${new Date(b.banco_aggiornato).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}</div>`:""}
   ${b.storia?`<p class="storia">${esc(b.storia)}</p>`:""}<div class="consegne">${Object.entries(MODI).filter(([k,m])=>b[m[3]]).map(([k,m])=>`<div class="cons"><span>${m[0]}</span><div><b>${m[2]}</b>${esc(b[m[3]])}${k==="ritiro"?"":`<small class="costo">${costoConsegna(b,k)}</small>`}</div></div>`).join("")}<div class="cons"><span>${(b.pagamento||"consegna")==="consegna"?"💶":"💳"}</span><div><b>Come si paga</b>${b.pagamento==="online"?"Online: quando il produttore accetta l'ordine ti arriva il link per pagare":b.pagamento==="entrambi"?"Scegli tu: al produttore alla consegna o al ritiro, oppure online con il link che ti arriva quando accetta l'ordine":"Al produttore, alla consegna o al ritiro"}</div></div></div>
   ${valutazioniBottega(b.id)}
-  <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.length?`<p class="gioca-aiuto">👆 Tocca una cassetta per metterla nel cestino</p><div class="scena" style="--tinta:${TINTA[colore(b.id)]||"#0b8f68"}"><div class="scena-tenda"></div><div class="scena-insegna">Il banco di ${esc(b.nome)}</div><div class="scaffali">${suoi.map(a=>`<button class="merce" data-gioca="${esc(a.id)}" aria-label="Metti nel cestino: ${esc(a.nome)}, ${euro(a.prezzo)} al ${esc(a.unita)}"><div class="cassa-m${fotoOk(a.foto)?" con-foto":""}"><div class="dentro">${fotoOk(a.foto)?`<img src="${esc(a.foto)}" alt="" loading="lazy">`:`<span>${EMOJI[a.categoria]||"🧺"}</span><span>${EMOJI[a.categoria]||"🧺"}</span><span>${EMOJI[a.categoria]||"🧺"}</span>`}</div><div class="fronte-c"></div></div><div class="cartel"><b>${esc(a.nome)}</b><span>${euro(a.prezzo)}/${esc(a.unita)}</span></div>${carrello[a.id]?`<i class="qta">${carrello[a.id]}</i>`:""}</button>`).join("")}</div><div class="bancone"></div></div>`:""}${suoi.length?suoi.map(a=>`<div class="riga"><span class="riga-nome">${fotoOk(a.foto)?`<img class="mini" src="${esc(a.foto)}" alt="${esc(a.nome)}" data-zoom="1" loading="lazy">`:`<span class="mini-e">${EMOJI[a.categoria]||"🧺"}</span>`}<span>${esc(a.nome)}${a.nota?`<br><small style="color:var(--tenue)">${esc(a.nota)}</small>`:""}</span></span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${esc(a.unita)}</b>${qtaHtml(a.id)}</span></div>`).join(""):`<p class="storia">Nessun prodotto al banco in questo momento.</p>`}</div>`,"prod",id);
+  ${(()=>{const h=listaSpesaHtml(id);return h?`<div class="qui-trovi"><h3>📒 Le tue ricette: qui trovi</h3>${h}</div>`:""})()}
+  <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.length?`<p class="gioca-aiuto">👆 Tocca una cassetta per metterla nel cestino</p><div class="scena" style="--tinta:${TINTA[colore(b.id)]||"#0b8f68"}"><div class="scena-tenda"></div><div class="scena-insegna">Il banco di ${esc(b.nome)}</div><div class="scaffali">${suoi.map(a=>`<div class="merce-w">${fotoOk(a.foto)?`<span class="lente-w"><img class="lente" data-zoom="1" src="${esc(a.foto)}" alt="Ingrandisci la foto di ${esc(a.nome)}" loading="lazy"></span>`:""}<button class="merce" data-gioca="${esc(a.id)}" aria-label="Metti nel cestino: ${esc(a.nome)}, ${euro(a.prezzo)} al ${esc(a.unita)}"><div class="cassa-m${fotoOk(a.foto)?" con-foto":""}"><div class="dentro">${fotoOk(a.foto)?`<img src="${esc(a.foto)}" alt="" loading="lazy">`:`<span>${EMOJI[a.categoria]||"🧺"}</span><span>${EMOJI[a.categoria]||"🧺"}</span><span>${EMOJI[a.categoria]||"🧺"}</span>`}</div><div class="fronte-c"></div></div><div class="cartel"><b>${esc(a.nome)}</b><span>${euro(a.prezzo)}/${esc(a.unita)}</span></div>${carrello[a.id]?`<i class="qta">${carrello[a.id]}</i>`:""}</button></div>`).join("")}</div><div class="bancone"></div></div>`:""}${suoi.length?suoi.map(a=>`<div class="riga"><span class="riga-nome">${fotoOk(a.foto)?`<img class="mini" src="${esc(a.foto)}" alt="${esc(a.nome)}" data-zoom="1" loading="lazy">`:`<span class="mini-e">${EMOJI[a.categoria]||"🧺"}</span>`}<span>${esc(a.nome)}${a.nota?`<br><small style="color:var(--tenue)">${esc(a.nota)}</small>`:""}</span></span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${esc(a.unita)}</b>${qtaHtml(a.id)}</span></div>`).join(""):`<p class="storia">Nessun prodotto al banco in questo momento.</p>`}</div>`,"prod",id);
   try{history.replaceState(null,"","#bottega-"+id)}catch(e){}}
 function apriDaIndirizzo(){const m=location.hash.match(/^#bottega-([0-9a-f-]{36})$/);if(m&&bot(m[1])){const b=bot(m[1]);if(b.provincia!==prov&&!b.spedizione){prov=b.provincia;$("provincia").value=prov;salva("provincia",prov)}scegliZona(b.provincia===prov?"vicino":"italia",true);if(!PREF().includes(m[1])){salvaPref(m[1],true);setTimeout(()=>toast("❤️ "+b.nome+" è tra i tuoi produttori: lo ritrovi in alto"),600)}apriProduttore(m[1])}}
 
@@ -1353,6 +1669,36 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-gioc
 document.addEventListener("change",e=>{if(e.target.dataset.scelta){scelte[e.target.dataset.scelta]=e.target.value;apriCarrello()}if(e.target.dataset.pagscelta){pagScelte[e.target.dataset.pagscelta]=e.target.value}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")chiudiSheet()});
 $("cerca").addEventListener("input",e=>{testo=e.target.value;mostrati=24;mostraGriglia()});
+document.addEventListener("click",e=>{
+  const r=e.target.closest("[data-ricette]");
+  if(r&&r.dataset.avg){const g=+r.dataset.avg,R=RICETTE_PRODOTTO[r.dataset.ricette]||[],k=Math.max(0,R.findIndex(x=>x.n===r.dataset.avric)),rr=R[k];
+    // quanti grammi di quel prodotto usa la ricetta per 4 persone → le persone giuste per usare tutto l'avanzo
+    const rad=r.dataset.avprod.toLowerCase().split(/\s+/)[0].slice(0,5);const ing=rr?rr.i.split(",").find(x=>x.toLowerCase().includes(rad)):null;const q=ing?quantoServe(ing,1):null;
+    ricPersone=q&&q.g?Math.max(1,Math.min(8,Math.round(4*g/q.g))):2;ricAvanzo={g,prod:r.dataset.avprod,ric:rr?rr.n:""};apriRicette(r.dataset.ricette);return}
+  if(r){const c=r.classList.contains("cassa")?r:null;if(c){c.classList.remove("salto");void c.offsetWidth;c.classList.add("salto")}setTimeout(()=>apriRicette(r.dataset.ricette),c?260:0);return}
+  const sv=e.target.closest("[data-salvaric]");
+  if(sv){const id=sv.dataset.salvaric;let l=RIC_SALVATE();const on=!l.includes(id);l=on?[id,...l.filter(x=>x!==id)].slice(0,40):l.filter(x=>x!==id);salva("ricette",l);
+    sv.setAttribute("aria-pressed",on);sv.textContent=on?"❤️ Salvata nelle tue ricette":"🤍 Salva la ricetta";toast(on?"📒 Salvata: la ritrovi in «Le tue ricette»":"Tolta dalle tue ricette");mostraRicetteSalvate();return}
+  if(e.target.closest("[data-lista]")){apriLista();return}
+  const cu=e.target.closest("[data-cucina]");if(cu){apriCucina(cu.dataset.cucina);return}
+  const spn=e.target.closest("[data-spunta]");
+  if(spn){const sp=SPUNTE();if(spn.checked)sp[spn.dataset.spunta]=1;else delete sp[spn.dataset.spunta];salva("spunte",sp);spn.closest(".spunta-riga").classList.toggle("preso",spn.checked);
+    // aggiorno «ti manca» restando nello stesso punto della pagina
+    setTimeout(()=>{const sh=$("sheet"),el=sh.querySelector(".sheet"),sc=el?el.scrollTop:0;if(sh.dataset.tipo==="lista")apriLista();else if(sh.dataset.tipo==="prod")apriProduttore(sh.dataset.id);const n=sh.querySelector(".sheet");if(n&&sc)n.scrollTop=sc},180);return}
+  if(e.target.closest("[data-azzera]")){salva("spunte",{});apriLista();toast("Lista pronta per la prossima spesa");return}
+  const pp=e.target.closest("[data-persone]");
+  if(pp){ricPersone=+pp.dataset.persone||4;ricAvanzo=null;salva("persone",ricPersone);apriRicette(pp.dataset.perric);return}
+  const pk=e.target.closest("[data-pacchetto]");
+  if(pk){const voci=pk.dataset.pacchetto.split(",").filter(Boolean).map(x=>{const [id,q]=x.split(":");return[id,Math.max(1,parseInt(q,10)||1)]});
+    voci.forEach(([id,q])=>{carrello[id]=Math.min(99,(carrello[id]||0)+q)});salva("carrello",carrello);mostraGriglia();
+    try{volaNelCestino(pk,voci[0][0])}catch(x){};toast("🧺 Pacchetto ricetta nel cestino: "+voci.length+(voci.length===1?" prodotto":" prodotti"));return}
+});
+// tocco su «Vedi … al banco»: cerco quel prodotto e scendo al banco
+document.addEventListener("click",e=>{const c=e.target.closest("[data-cassa]");if(!c)return;try{chiudiSheet()}catch(x){}
+  const parola=c.dataset.cassa.toLowerCase().replace(/^vino nuovo$/,"vino");
+  const i=$("cerca");i.value=parola;testo=parola;mostrati=24;cat="Tutto";try{mostraCategorie()}catch(x){};mostraGriglia();
+  const g=$("griglia");if(g)window.scrollTo({top:g.getBoundingClientRect().top+scrollY-120,behavior:"smooth"});
+  if(!g||!g.querySelector(".art"))toast("Oggi nessuno ha "+c.dataset.cassa.toLowerCase()+" al banco: prova «Dall'Italia»")});
 $("ordina").addEventListener("change",e=>{ordine=e.target.value;mostrati=24;mostraGriglia()});
 mostraFiltri();
 $("provincia").innerHTML=Object.entries(PROVINCE).sort((x,y)=>x[1].localeCompare(y[1],"it")).map(([s,n])=>`<option value="${s}" ${s===prov?"selected":""}>${esc(n)}</option>`).join("");
