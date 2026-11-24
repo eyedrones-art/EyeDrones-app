@@ -435,6 +435,23 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .pk-prezzo{font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
 .pk-avanzi{margin:0;padding-left:18px;font-size:13px;color:var(--tenue)}
 .pk-avanzi .link{font-size:13px;padding:0;border:0;background:none;color:var(--foglia);font-weight:700;text-decoration:underline;cursor:pointer}
+
+/* lista della spesa con la riga sopra quello che hai preso */
+.lista-ric{background:var(--bianco);border-radius:16px;box-shadow:var(--ombra);padding:12px 14px;margin-top:12px}
+.lista-testa{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.lista-testa .link{font:700 16px var(--titoli);color:var(--inchiostro);background:none;border:0;padding:0;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--bordo)}
+.lista-testa small{color:var(--tenue);font-size:12.5px}
+.lista-ric ul{list-style:none;margin:8px 0;padding:0;display:grid;gap:2px}
+.spunta-riga{display:flex;gap:10px;align-items:flex-start;padding:7px 4px;border-bottom:1px dashed var(--bordo);cursor:pointer;font-size:14.5px}
+.spunta-riga input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--foglia);flex:none}
+.spunta-riga span{flex:1;min-width:0}
+.spunta-riga em{float:right;font-style:normal;font-weight:800;font-variant-numeric:tabular-nums;margin-left:8px}
+.spunta-riga small{color:var(--tenue)}
+.spunta-riga.preso span{text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:var(--corallo);opacity:.55}
+.qui-trovi{margin-top:16px;background:var(--foglia-chiara);border-radius:18px;padding:12px 12px 14px}
+.qui-trovi h3{font-size:17px}
+.manca{margin:6px 0 0;font-size:13.5px;color:#9a3412;background:#fff1e6;border-radius:10px;padding:6px 10px}
+.manca.fatto{color:#14532d;background:#dcfce7}
 @media (prefers-reduced-motion:reduce){.ingresso,.anta{transition:opacity .3s!important}.ingresso.dentro{transform:none}}
 </style>
 <style>
@@ -610,7 +627,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
     <section class="sez" id="sezNovita"><form class="novita-box" id="formNovita"><div class="t"><b>🍅 Ricette e cosa c'è di stagione</b><span>Due email al mese: i prodotti di stagione, cosa hanno al banco i produttori della tua zona e una ricetta semplice. Ti togli quando vuoi.</span></div>
       <div class="riga-iscr"><label for="nEmailNovita" class="vis-nascosto">La tua email</label><input id="nEmailNovita" type="email" required maxlength="120" placeholder="La tua email" autocomplete="email"><button class="grande" type="submit">Iscrivimi</button></div>
       <p class="nota" id="msgNovita" hidden></p></form></section>
-    <section class="sez" id="sezRicette" hidden><h2>📒 Le tue ricette <small>salvate su questo telefono</small></h2><div class="ric-salvate" id="ricetteSalvate"></div></section>
+    <section class="sez" id="sezRicette" hidden><h2>📒 Le tue ricette <small>salvate su questo telefono</small></h2><button class="grande" data-lista="1" style="margin-top:10px">🛒 La tua lista della spesa</button><div class="ric-salvate" id="ricetteSalvate"></div></section>
     <section class="sez"><h2>Perché Ortaly <small>made in Italy, dal produttore a te</small></h2>
       <div class="perche">
         <div><span><i class="bandiera" aria-hidden="true"></i></span><div><b>Solo produttori italiani</b><p>Contadini, allevatori e artigiani del cibo con partita IVA italiana: compri da chi produce, in Italia.</p></div></div>
@@ -717,7 +734,7 @@ const RICETTE_PRODOTTO={
 
 // le ricette salvate dal cliente (solo su questo telefono)
 const RIC_SALVATE=()=>leggi("ricette",[]);
-let ricPersone=4; // per quante persone (le ricette sono per 4)
+let ricPersone=leggi("persone",4); // per quante persone (le ricette sono per 4)
 // le dosi della ricetta per le persone scelte (i numeri all'inizio di ogni ingrediente)
 const scalaIng=(t,f)=>f===1?t:t.split(",").map(x=>x.replace(/^(\s*)(\d+(?:[.,]\d+)?)/,(m0,sp,n)=>{const v=parseFloat(n.replace(",","."))*f;return sp+(v>=10?Math.round(v/10)*10:+v.toFixed(1)).toString().replace(".",",")})).join(",");
 // quanto serve di un ingrediente: { g: grammi } oppure { n: pezzi } (già moltiplicato per le persone)
@@ -742,7 +759,7 @@ function altraRicetta(prodotto,esclusa){const r0=prodotto.toLowerCase().split(/\
   for(const [nome,R] of Object.entries(RICETTE_PRODOTTO))for(const r of R){if(r.n===esclusa)continue;if(r.i.toLowerCase().includes(r0)||nome.toLowerCase().startsWith(r0))return{nome,r}}return null}
 // gli ingredienti di una ricetta che si trovano al banco dei produttori (zona scelta): il «pacchetto ricetta»
 const NON_AL_BANCO=/^(sale|pepe|acqua|lievito|bustin|brodo|ghiaccio)/i;
-function pacchettoRicetta(r){const disp=ART.filter(a=>{const b=bot(a.bottega);return b&&(zona==="italia"?(b.spedizione&&b.provincia!==prov):b.provincia===prov)&&a.disponibile!==false});
+function pacchettoRicetta(r,soloBottega){const disp=ART.filter(a=>{const b=bot(a.bottega);if(!b||a.disponibile===false)return false;if(soloBottega)return a.bottega===soloBottega;return zona==="italia"?(b.spedizione&&b.provincia!==prov):b.provincia===prov});
   const presi=[],casa=[],f=ricPersone/4;
   r.i.split(",").map(x=>x.trim()).filter(Boolean).forEach(ing=>{
     const parole=ing.toLowerCase().replace(/[\d½]+(?:[.,]\d+)?\s*(g|kg|l|ml|cucchia\w*|spicchi?|mazz\w*|bicchier\w*|vasett\w*|rotol\w*|bustin\w*)?\b/g," ").replace(/\b(di|d'|da|e|o|un|una|uno|il|la|le|lo|gli|i|per|con|mezza|mezzo|qualche|un po')\b/g," ").split(/[\s()']+/).filter(w=>w.length>=4);
@@ -766,6 +783,22 @@ function apriRicette(nome){const R=RICETTE_PRODOTTO[nome];if(!R)return;const m=n
     <button class="piu" data-cassa="${esc(nome)}" style="margin:6px 0 4px">Vedi ${esc(nome.toLowerCase())} al banco ›</button>
     ${R.map(scheda).join("")}</div>`,"ricette",nome);
   if(sc){const n=sh.querySelector(".sheet");if(n)n.scrollTop=sc}}
+// la lista della spesa delle ricette salvate: si tira una riga su quello che hai già preso (solo su questo telefono)
+const SPUNTE=()=>leggi("spunte",{});
+function listaSpesaHtml(soloBottega){const sp=SPUNTE();
+  const ric=RIC_SALVATE().map(id=>{const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];return r?{id,n,r}:null}).filter(Boolean);
+  const blocchi=ric.map(({id,r})=>{const pk=pacchettoRicetta(r,soloBottega);if(soloBottega&&!pk.presi.length)return"";
+    const riga=(chiave,html)=>`<li><label class="spunta-riga${sp[chiave]?" preso":""}"><input type="checkbox" data-spunta="${esc(chiave)}"${sp[chiave]?" checked":""}><span>${html}</span></label></li>`;
+    const presi=pk.presi.map(x=>riga(id+"|"+x.ing,`<b>${esc(x.a.nome)}</b>${soloBottega?"":` <small>· ${esc(bot(x.a.bottega)?.nome||"")}</small>`}${x.testo?` <small>· ${x.testo}</small>`:""}<em>${euro(Math.round(x.a.prezzo*x.qta*100)/100)}</em>`)).join("");
+    const casa=soloBottega?"":pk.casa.map(ing=>riga(id+"|"+ing,`${esc(scalaIng(ing,ricPersone/4))} <small>· da casa o dal negozio</small>`)).join("");
+    const tot=pk.presi.reduce((s0,x)=>s0+x.a.prezzo*x.qta,0);
+    // cosa manca ancora: le righe senza la spunta
+    const mancano=[...pk.presi.filter(x=>!sp[id+"|"+x.ing]).map(x=>x.a.nome),...(soloBottega?[]:pk.casa.filter(ing=>!sp[id+"|"+ing]).map(ing=>ing.replace(/^[\d.,]+\s*(g|kg|l|ml)?\s*(di |d')?/i,"")))];
+    const stato=mancano.length?`<p class="manca">${soloBottega?"Qui puoi prendere":"Ti manca"}: <b>${esc(mancano.join(", "))}</b></p>`:`<p class="manca fatto">✅ Hai tutto per ${esc(r.n)}. Buon appetito!</p>`;
+    return `<div class="lista-ric"><div class="lista-testa"><button class="link" data-ricette="${esc(id.split("|")[0])}">${esc(r.n)}</button><small>${ricPersone} persone</small></div>${stato}<ul>${presi}${casa}</ul>${pk.presi.length?`<button class="piu" data-pacchetto="${esc(pk.presi.map(x=>x.a.id+":"+x.qta).join(","))}">🧺 ${soloBottega?"Prendi qui":"Metti nel cestino"} · ${euro(Math.round(tot*100)/100)}</button>`:""}</div>`}).filter(Boolean);
+  return blocchi.join("")}
+function apriLista(){const h=listaSpesaHtml();
+  apriSheet(`<div class="corpo"><h2>🛒 La tua lista della spesa</h2><p class="storia">Dalle ricette che hai salvato. Tocca una riga quando l'hai presa: si tira una riga sopra.</p>${h||`<p class="storia">Salva una ricetta (tocca una cassetta in alto) e qui compare la lista.</p>`}${h?`<button class="link" data-azzera="1" style="margin-top:10px">Togli tutte le righe</button>`:""}</div>`,"lista")}
 function mostraRicetteSalvate(){const el=$("ricetteSalvate");if(!el)return;const l=RIC_SALVATE().map(id=>{const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];return r?{n,r}:null}).filter(Boolean);
   $("sezRicette").hidden=!l.length;
   el.innerHTML=l.map(({n,r})=>`<button class="ric-mini" data-ricette="${esc(n)}"><b>${esc(r.n)}</b><small>${esc(n)} · ⏱ ${esc(r.t)}</small></button>`).join("")}
@@ -909,6 +942,7 @@ function apriProduttoreDentro(id){const b=bot(id);if(!b)return;const suoi=ART.fi
   apriSheet(`${foto(colore(b.id)+" banner","🌾",b.foto)}<div class="corpo"><h2>${esc(b.nome)}</h2><button class="cuore" data-pref="${esc(b.id)}" aria-pressed="${PREF().includes(b.id)}">${PREF().includes(b.id)?"❤️ Tra i tuoi produttori":"🤍 Salva tra i tuoi produttori"}</button><div class="meta" style="color:var(--tenue);margin-top:4px">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(PROVINCE[b.provincia]||b.provincia)})${b.bio?" · 🌱 bio":""}</div>${b.banco_aggiornato&&new Date(b.banco_aggiornato).toDateString()===new Date().toDateString()?`<div class="meta" style="color:var(--foglia);font-weight:700;margin-top:4px">🟢 Banco aggiornato oggi alle ${new Date(b.banco_aggiornato).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}</div>`:""}
   ${b.storia?`<p class="storia">${esc(b.storia)}</p>`:""}<div class="consegne">${Object.entries(MODI).filter(([k,m])=>b[m[3]]).map(([k,m])=>`<div class="cons"><span>${m[0]}</span><div><b>${m[2]}</b>${esc(b[m[3]])}${k==="ritiro"?"":`<small class="costo">${costoConsegna(b,k)}</small>`}</div></div>`).join("")}<div class="cons"><span>${(b.pagamento||"consegna")==="consegna"?"💶":"💳"}</span><div><b>Come si paga</b>${b.pagamento==="online"?"Online: quando il produttore accetta l'ordine ti arriva il link per pagare":b.pagamento==="entrambi"?"Scegli tu: al produttore alla consegna o al ritiro, oppure online con il link che ti arriva quando accetta l'ordine":"Al produttore, alla consegna o al ritiro"}</div></div></div>
   ${valutazioniBottega(b.id)}
+  ${(()=>{const h=listaSpesaHtml(id);return h?`<div class="qui-trovi"><h3>📒 Le tue ricette: qui trovi</h3>${h}</div>`:""})()}
   <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.length?`<p class="gioca-aiuto">👆 Tocca una cassetta per metterla nel cestino</p><div class="scena" style="--tinta:${TINTA[colore(b.id)]||"#0b8f68"}"><div class="scena-tenda"></div><div class="scena-insegna">Il banco di ${esc(b.nome)}</div><div class="scaffali">${suoi.map(a=>`<div class="merce-w">${fotoOk(a.foto)?`<span class="lente-w"><img class="lente" data-zoom="1" src="${esc(a.foto)}" alt="Ingrandisci la foto di ${esc(a.nome)}" loading="lazy"></span>`:""}<button class="merce" data-gioca="${esc(a.id)}" aria-label="Metti nel cestino: ${esc(a.nome)}, ${euro(a.prezzo)} al ${esc(a.unita)}"><div class="cassa-m${fotoOk(a.foto)?" con-foto":""}"><div class="dentro">${fotoOk(a.foto)?`<img src="${esc(a.foto)}" alt="" loading="lazy">`:`<span>${EMOJI[a.categoria]||"🧺"}</span><span>${EMOJI[a.categoria]||"🧺"}</span><span>${EMOJI[a.categoria]||"🧺"}</span>`}</div><div class="fronte-c"></div></div><div class="cartel"><b>${esc(a.nome)}</b><span>${euro(a.prezzo)}/${esc(a.unita)}</span></div>${carrello[a.id]?`<i class="qta">${carrello[a.id]}</i>`:""}</button></div>`).join("")}</div><div class="bancone"></div></div>`:""}${suoi.length?suoi.map(a=>`<div class="riga"><span class="riga-nome">${fotoOk(a.foto)?`<img class="mini" src="${esc(a.foto)}" alt="${esc(a.nome)}" data-zoom="1" loading="lazy">`:`<span class="mini-e">${EMOJI[a.categoria]||"🧺"}</span>`}<span>${esc(a.nome)}${a.nota?`<br><small style="color:var(--tenue)">${esc(a.nota)}</small>`:""}</span></span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${esc(a.unita)}</b>${qtaHtml(a.id)}</span></div>`).join(""):`<p class="storia">Nessun prodotto al banco in questo momento.</p>`}</div>`,"prod",id);
   try{history.replaceState(null,"","#bottega-"+id)}catch(e){}}
 function apriDaIndirizzo(){const m=location.hash.match(/^#bottega-([0-9a-f-]{36})$/);if(m&&bot(m[1])){const b=bot(m[1]);if(b.provincia!==prov&&!b.spedizione){prov=b.provincia;$("provincia").value=prov;salva("provincia",prov)}scegliZona(b.provincia===prov?"vicino":"italia",true);if(!PREF().includes(m[1])){salvaPref(m[1],true);setTimeout(()=>toast("❤️ "+b.nome+" è tra i tuoi produttori: lo ritrovi in alto"),600)}apriProduttore(m[1])}}
@@ -1506,8 +1540,14 @@ document.addEventListener("click",e=>{
   const sv=e.target.closest("[data-salvaric]");
   if(sv){const id=sv.dataset.salvaric;let l=RIC_SALVATE();const on=!l.includes(id);l=on?[id,...l.filter(x=>x!==id)].slice(0,40):l.filter(x=>x!==id);salva("ricette",l);
     sv.setAttribute("aria-pressed",on);sv.textContent=on?"❤️ Salvata nelle tue ricette":"🤍 Salva la ricetta";toast(on?"📒 Salvata: la ritrovi in «Le tue ricette»":"Tolta dalle tue ricette");mostraRicetteSalvate();return}
+  if(e.target.closest("[data-lista]")){apriLista();return}
+  const spn=e.target.closest("[data-spunta]");
+  if(spn){const sp=SPUNTE();if(spn.checked)sp[spn.dataset.spunta]=1;else delete sp[spn.dataset.spunta];salva("spunte",sp);spn.closest(".spunta-riga").classList.toggle("preso",spn.checked);
+    // aggiorno «ti manca» restando nello stesso punto della pagina
+    setTimeout(()=>{const sh=$("sheet"),el=sh.querySelector(".sheet"),sc=el?el.scrollTop:0;if(sh.dataset.tipo==="lista")apriLista();else if(sh.dataset.tipo==="prod")apriProduttore(sh.dataset.id);const n=sh.querySelector(".sheet");if(n&&sc)n.scrollTop=sc},180);return}
+  if(e.target.closest("[data-azzera]")){salva("spunte",{});apriLista();toast("Lista pronta per la prossima spesa");return}
   const pp=e.target.closest("[data-persone]");
-  if(pp){ricPersone=+pp.dataset.persone||4;apriRicette(pp.dataset.perric);return}
+  if(pp){ricPersone=+pp.dataset.persone||4;salva("persone",ricPersone);apriRicette(pp.dataset.perric);return}
   const pk=e.target.closest("[data-pacchetto]");
   if(pk){const voci=pk.dataset.pacchetto.split(",").filter(Boolean).map(x=>{const [id,q]=x.split(":");return[id,Math.max(1,parseInt(q,10)||1)]});
     voci.forEach(([id,q])=>{carrello[id]=Math.min(99,(carrello[id]||0)+q)});salva("carrello",carrello);mostraGriglia();
