@@ -425,6 +425,16 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .lente-w{position:absolute;z-index:4;left:6px;top:8px;width:38px;height:38px;border-radius:50%;box-shadow:0 0 0 2px #fff,0 4px 8px -3px rgba(0,0,0,.5);cursor:zoom-in}
 .lente{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
 .lente-w::after{content:"🔍";position:absolute;right:-6px;bottom:-6px;font-size:14px;background:#fff;border-radius:50%;width:20px;height:20px;display:grid;place-items:center;pointer-events:none;box-shadow:0 2px 4px rgba(0,0,0,.3)}
+
+.persone{display:flex;align-items:center;gap:6px;margin-top:12px;flex-wrap:wrap}
+.persone span{font-size:13.5px;color:var(--tenue);margin-right:4px}
+.persone button{border:1px solid var(--bordo);background:var(--bianco);border-radius:99px;min-width:42px;padding:7px 12px;font-weight:700;cursor:pointer}
+.persone button[aria-pressed="true"]{background:var(--foglia);border-color:var(--foglia);color:var(--bianco)}
+.pk-righe{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pk-righe li{display:flex;justify-content:space-between;gap:10px;background:rgba(255,255,255,.65);border-radius:10px;padding:7px 10px}
+.pk-prezzo{font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pk-avanzi{margin:0;padding-left:18px;font-size:13px;color:var(--tenue)}
+.pk-avanzi .link{font-size:13px;padding:0;border:0;background:none;color:var(--foglia);font-weight:700;text-decoration:underline;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.ingresso,.anta{transition:opacity .3s!important}.ingresso.dentro{transform:none}}
 </style>
 <style>
@@ -707,27 +717,55 @@ const RICETTE_PRODOTTO={
 
 // le ricette salvate dal cliente (solo su questo telefono)
 const RIC_SALVATE=()=>leggi("ricette",[]);
+let ricPersone=4; // per quante persone (le ricette sono per 4)
+// le dosi della ricetta per le persone scelte (i numeri all'inizio di ogni ingrediente)
+const scalaIng=(t,f)=>f===1?t:t.split(",").map(x=>x.replace(/^(\s*)(\d+(?:[.,]\d+)?)/,(m0,sp,n)=>{const v=parseFloat(n.replace(",","."))*f;return sp+(v>=10?Math.round(v/10)*10:+v.toFixed(1)).toString().replace(".",",")})).join(",");
+// quanto serve di un ingrediente: { g: grammi } oppure { n: pezzi } (già moltiplicato per le persone)
+function quantoServe(ing,f){const t=ing.toLowerCase().trim();
+  const m=t.match(/^(\d+(?:[.,]\d+)?)\s*(kg|g|l|ml)?\b/);if(m){const v=parseFloat(m[1].replace(",","."))*f;if(m[2]==="kg")return{g:v*1000};if(m[2]==="g")return{g:v};if(m[2]==="l"||m[2]==="ml")return null;return{n:v}}
+  if(/^mezz[oa]\b/.test(t))return{n:.5*f};return null}
+// quanto prendere di un prodotto del banco per coprire quello che serve, e cosa avanza
+function quantoPrendere(a,serve){const u=String(a.unita||"").toLowerCase().trim();
+  if(!serve)return{qta:1,testo:"",avanzo:""};
+  const pesoU=u.match(/(\d+(?:[.,]\d+)?)\s*(kg|g)\b/),nU=u.match(/^(\d+)\s+\D/);
+  if(serve.g!=null){
+    if(aPeso(u)){const kg=serve.g/1000,q=Math.max(1,Math.ceil(kg-0.05));const av=q-kg;return{qta:q,testo:`servono ${fmtG(serve.g)} · prendi ${q} kg`,avanzo:av>=0.25?fmtG(av*1000):""}}
+    if(pesoU){const conf=parseFloat(pesoU[1].replace(",","."))*(pesoU[2]==="kg"?1000:1),q=Math.max(1,Math.ceil(serve.g/conf-0.05));const av=q*conf-serve.g;return{qta:q,testo:`servono ${fmtG(serve.g)} · prendi ${q} × ${esc(a.unita)}`,avanzo:av>=Math.max(100,conf*.25)?fmtG(av):""}}
+    return{qta:1,testo:`servono ${fmtG(serve.g)}`,avanzo:""}}
+  // pezzi (es. «1 cipolla») ma venduto a peso: ne basta 1 unità
+  if(aPeso(u)||pesoU)return{qta:1,testo:`servono ${+serve.n.toFixed(1)} · prendi 1 ${esc(a.unita)}`,avanzo:""};
+  const per=nU?parseInt(nU[1],10):1,q=Math.max(1,Math.ceil(serve.n/per-0.01));const av=q*per-serve.n;
+  return{qta:q,testo:`servono ${+serve.n.toFixed(1)} · prendi ${q} ${esc(a.unita)}`,avanzo:av>=1?(+av.toFixed(1))+(per>1?"":" "+esc(a.unita)):""}}
+const fmtG=g=>g>=1000?(+(g/1000).toFixed(2)).toString().replace(".",",")+" kg":Math.round(g/10)*10+" g";
+// un'altra ricetta che usa lo stesso prodotto, per non sprecare quello che avanza
+function altraRicetta(prodotto,esclusa){const r0=prodotto.toLowerCase().split(/\s+/)[0].slice(0,5);
+  for(const [nome,R] of Object.entries(RICETTE_PRODOTTO))for(const r of R){if(r.n===esclusa)continue;if(r.i.toLowerCase().includes(r0)||nome.toLowerCase().startsWith(r0))return{nome,r}}return null}
 // gli ingredienti di una ricetta che si trovano al banco dei produttori (zona scelta): il «pacchetto ricetta»
 const NON_AL_BANCO=/^(sale|pepe|acqua|lievito|bustin|brodo|ghiaccio)/i;
-function pacchettoRicetta(r){const disp=ART.filter(a=>{const b=bot(a.bottega);return b&&(zona==="italia"?(b.spedizione&&b.provincia!==prov):b.provincia===prov)&&a.disponibile!==false});const presi=[],casa=[];
+function pacchettoRicetta(r){const disp=ART.filter(a=>{const b=bot(a.bottega);return b&&(zona==="italia"?(b.spedizione&&b.provincia!==prov):b.provincia===prov)&&a.disponibile!==false});
+  const presi=[],casa=[],f=ricPersone/4;
   r.i.split(",").map(x=>x.trim()).filter(Boolean).forEach(ing=>{
-    const parole=ing.toLowerCase().replace(/[\d½]+\s*(g|kg|l|ml|cucchia\w*|spicchi?|mazz\w*|bicchier\w*|vasett\w*|rotol\w*|bustin\w*)?\b/g," ").replace(/\b(di|d'|da|e|o|un|una|uno|il|la|le|lo|gli|i|per|con|mezza|mezzo|qualche|un po')\b/g," ").split(/[\s()']+/).filter(w=>w.length>=4);
+    const parole=ing.toLowerCase().replace(/[\d½]+(?:[.,]\d+)?\s*(g|kg|l|ml|cucchia\w*|spicchi?|mazz\w*|bicchier\w*|vasett\w*|rotol\w*|bustin\w*)?\b/g," ").replace(/\b(di|d'|da|e|o|un|una|uno|il|la|le|lo|gli|i|per|con|mezza|mezzo|qualche|un po')\b/g," ").split(/[\s()']+/).filter(w=>w.length>=4);
     const radici=parole.map(w=>w.slice(0,Math.max(4,w.length-2)));
     if(!radici.length||NON_AL_BANCO.test(parole[0]||"")){casa.push(ing);return}
-    const a=disp.find(a=>!presi.some(x=>x.id===a.id)&&radici.some(r0=>a.nome.toLowerCase().includes(r0)));
-    if(a)presi.push(a);else casa.push(ing)});
+    const a=disp.find(a=>!presi.some(x=>x.a.id===a.id)&&radici.some(r0=>a.nome.toLowerCase().includes(r0)));
+    if(a)presi.push({a,ing,...quantoPrendere(a,quantoServe(ing,f))});else casa.push(ing)});
   return {presi,casa}}
 function apriRicette(nome){const R=RICETTE_PRODOTTO[nome];if(!R)return;const m=new Date().getMonth();
+  const sh=$("sheet"),sc=!sh.hidden&&sh.dataset.tipo==="ricette"&&sh.dataset.id===nome&&sh.querySelector(".sheet")?sh.querySelector(".sheet").scrollTop:0;
   const em=(BANCO_MESE[m].find(x=>x[1]===nome)||BANCO_MESE.flat().find(x=>x[1]===nome)||["🍳"])[0];
   const salvate=RIC_SALVATE();
-  const scheda=(r,k)=>{const id=nome+"|"+k,ok=salvate.includes(id),pk=pacchettoRicetta(r),tot=pk.presi.reduce((s,a)=>s+a.prezzo,0);
+  const scheda=(r,k)=>{const id=nome+"|"+k,ok=salvate.includes(id),pk=pacchettoRicetta(r),tot=pk.presi.reduce((s,x)=>s+x.a.prezzo*x.qta,0);
+    const avanzi=pk.presi.filter(x=>x.avanzo).map(x=>{const alt=altraRicetta(x.a.nome,r.n);return `<li>Ti avanzano circa ${x.avanzo} di ${esc(x.a.nome.toLowerCase())}${alt?`: prova anche <button class="link" data-ricette="${esc(alt.nome)}">${esc(alt.r.n)}</button>`:""}</li>`}).join("");
     return `<article class="ricetta"><div class="ric-testa"><h3>${esc(r.n)}</h3><span>⏱ ${esc(r.t)}</span></div>
-    <p class="ric-ing"><b>Per 4 persone:</b> ${esc(r.i)}</p><ol>${r.p.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
-    ${pk.presi.length?`<div class="pacchetto"><b>🧺 Pacchetto ricetta</b><span>Al banco vicino a te: ${pk.presi.map(a=>`${esc(a.nome)} <small>(${esc(bot(a.bottega)?.nome||"")})</small>`).join(", ")}${pk.casa.length?`<br><small>Da casa tua: ${esc(pk.casa.join(", "))}</small>`:""}</span><button class="grande" data-pacchetto="${esc(pk.presi.map(a=>a.id).join(","))}">Metti nel cestino · ${euro(Math.round(tot*100)/100)}</button></div>`:""}
+    <p class="ric-ing"><b>Per ${ricPersone} persone:</b> ${esc(scalaIng(r.i,ricPersone/4))}</p><ol>${r.p.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
+    ${pk.presi.length?`<div class="pacchetto"><b>🧺 Pacchetto ricetta · ${ricPersone} persone</b><ul class="pk-righe">${pk.presi.map(x=>`<li><span><b>${esc(x.a.nome)}</b> <small>${esc(bot(x.a.bottega)?.nome||"")}</small>${x.testo?`<br><small>${x.testo}</small>`:""}</span><span class="pk-prezzo">${euro(Math.round(x.a.prezzo*x.qta*100)/100)}</span></li>`).join("")}</ul>${pk.casa.length?`<small>Da casa tua: ${esc(pk.casa.join(", "))}</small>`:""}${avanzi?`<ul class="pk-avanzi">${avanzi}</ul>`:""}<button class="grande" data-pacchetto="${esc(pk.presi.map(x=>x.a.id+":"+x.qta).join(","))}">Metti nel cestino · ${euro(Math.round(tot*100)/100)}</button></div>`:""}
     <button class="cuore" data-salvaric="${esc(id)}" aria-pressed="${ok}">${ok?"❤️ Salvata nelle tue ricette":"🤍 Salva la ricetta"}</button></article>`};
-  apriSheet(`<div class="corpo"><div class="ric-capo"><span>${em}</span><div><h2>${esc(nome)}</h2><p class="storia" style="margin:2px 0 0">Due ricette semplici, con quello che trovi al banco</p></div></div>
-    <button class="piu" data-cassa="${esc(nome)}" style="margin:10px 0 4px">Vedi ${esc(nome.toLowerCase())} al banco ›</button>
-    ${R.map(scheda).join("")}</div>`,"ricette",nome)}
+  apriSheet(`<div class="corpo"><div class="ric-capo"><span>${em}</span><div><h2>${esc(nome)}</h2><p class="storia" style="margin:2px 0 0">Due ricette semplici: compri solo quello che ti serve, niente sprechi</p></div></div>
+    <div class="persone" role="group" aria-label="Per quante persone"><span>Per quante persone?</span>${[2,4,6].map(n=>`<button data-persone="${n}" data-perric="${esc(nome)}" aria-pressed="${ricPersone===n}">${n}</button>`).join("")}</div>
+    <button class="piu" data-cassa="${esc(nome)}" style="margin:6px 0 4px">Vedi ${esc(nome.toLowerCase())} al banco ›</button>
+    ${R.map(scheda).join("")}</div>`,"ricette",nome);
+  if(sc){const n=sh.querySelector(".sheet");if(n)n.scrollTop=sc}}
 function mostraRicetteSalvate(){const el=$("ricetteSalvate");if(!el)return;const l=RIC_SALVATE().map(id=>{const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];return r?{n,r}:null}).filter(Boolean);
   $("sezRicette").hidden=!l.length;
   el.innerHTML=l.map(({n,r})=>`<button class="ric-mini" data-ricette="${esc(n)}"><b>${esc(r.n)}</b><small>${esc(n)} · ⏱ ${esc(r.t)}</small></button>`).join("")}
@@ -1468,9 +1506,12 @@ document.addEventListener("click",e=>{
   const sv=e.target.closest("[data-salvaric]");
   if(sv){const id=sv.dataset.salvaric;let l=RIC_SALVATE();const on=!l.includes(id);l=on?[id,...l.filter(x=>x!==id)].slice(0,40):l.filter(x=>x!==id);salva("ricette",l);
     sv.setAttribute("aria-pressed",on);sv.textContent=on?"❤️ Salvata nelle tue ricette":"🤍 Salva la ricetta";toast(on?"📒 Salvata: la ritrovi in «Le tue ricette»":"Tolta dalle tue ricette");mostraRicetteSalvate();return}
+  const pp=e.target.closest("[data-persone]");
+  if(pp){ricPersone=+pp.dataset.persone||4;apriRicette(pp.dataset.perric);return}
   const pk=e.target.closest("[data-pacchetto]");
-  if(pk){const ids=pk.dataset.pacchetto.split(",").filter(Boolean);ids.forEach(id=>{carrello[id]=Math.min(99,(carrello[id]||0)+1)});salva("carrello",carrello);mostraGriglia();
-    try{volaNelCestino(pk,ids[0])}catch(x){};toast("🧺 Pacchetto ricetta nel cestino: "+ids.length+(ids.length===1?" prodotto":" prodotti"));return}
+  if(pk){const voci=pk.dataset.pacchetto.split(",").filter(Boolean).map(x=>{const [id,q]=x.split(":");return[id,Math.max(1,parseInt(q,10)||1)]});
+    voci.forEach(([id,q])=>{carrello[id]=Math.min(99,(carrello[id]||0)+q)});salva("carrello",carrello);mostraGriglia();
+    try{volaNelCestino(pk,voci[0][0])}catch(x){};toast("🧺 Pacchetto ricetta nel cestino: "+voci.length+(voci.length===1?" prodotto":" prodotti"));return}
 });
 // tocco su «Vedi … al banco»: cerco quel prodotto e scendo al banco
 document.addEventListener("click",e=>{const c=e.target.closest("[data-cassa]");if(!c)return;try{chiudiSheet()}catch(x){}
