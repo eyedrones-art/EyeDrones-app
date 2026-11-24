@@ -452,6 +452,33 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .qui-trovi h3{font-size:17px}
 .manca{margin:6px 0 0;font-size:13.5px;color:#9a3412;background:#fff1e6;border-radius:10px;padding:6px 10px}
 .manca.fatto{color:#14532d;background:#dcfce7}
+
+/* modalità cucina */
+.ric-azioni{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}.ric-azioni .cuore{margin-top:0}
+.cucina{position:fixed;inset:0;z-index:2500;background:var(--carta);display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top,0px) max(16px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(16px,env(safe-area-inset-left,0px))}
+.c-testa{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-block:14px 8px}
+.c-testa b{font:700 17px var(--titoli)}
+.c-chiudi{border:0;background:var(--bianco);border-radius:50%;width:40px;height:40px;font-size:18px;box-shadow:var(--ombra);cursor:pointer}
+.c-barra{height:6px;background:var(--carta2);border-radius:99px;overflow:hidden}.c-barra i{display:block;height:100%;background:var(--foglia);transition:width .3s}
+.c-corpo{flex:1;overflow:auto;padding-block:22px;max-width:720px;width:100%;margin:0 auto}
+.c-etichetta{font:400 22px var(--gessetto);color:var(--foglia)}
+.c-corpo h2{font-size:28px;margin-top:4px}
+.c-passo{font-size:clamp(22px,5.6vw,30px);line-height:1.4;margin:12px 0 0;color:var(--inchiostro)}
+.c-ing{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:4px}
+.c-ing label{display:flex;gap:12px;align-items:center;font-size:20px;padding:10px 4px;border-bottom:1px dashed var(--bordo);cursor:pointer}
+.c-ing input{width:24px;height:24px;accent-color:var(--foglia);flex:none}
+.c-ing input:checked+span{text-decoration:line-through;opacity:.5}
+.c-timer{margin-top:24px;border:0;background:var(--tuorlo);color:var(--scuro);font:800 20px var(--titoli);padding:16px 24px;border-radius:16px;box-shadow:var(--ombra);cursor:pointer}
+.c-conto{margin-top:24px;font:800 64px/1 var(--titoli);font-variant-numeric:tabular-nums;color:var(--foglia)}
+.c-conto.suona{color:var(--corallo);animation:salta .5s ease-in-out infinite alternate}
+.c-fine{font-size:72px}
+.c-piede{display:flex;gap:10px;padding-block:12px 18px;max-width:720px;width:100%;margin:0 auto}
+.c-piede button{flex:1;border:0;border-radius:16px;padding:18px;font:800 19px var(--titoli);cursor:pointer}
+.c-ind{background:var(--bianco);color:var(--inchiostro);box-shadow:var(--ombra)}.c-ind:disabled{opacity:.4}
+.c-av{background:var(--foglia);color:var(--bianco);flex:2!important}
+.c-chip{margin-left:auto;margin-right:8px;background:var(--tuorlo);color:var(--scuro);font-weight:800;border-radius:99px;padding:6px 12px;font-variant-numeric:tabular-nums}
+.c-chip.suona{background:var(--corallo);color:var(--su-corallo);animation:salta .5s ease-in-out infinite alternate}
 @media (prefers-reduced-motion:reduce){.ingresso,.anta{transition:opacity .3s!important}.ingresso.dentro{transform:none}}
 </style>
 <style>
@@ -777,7 +804,7 @@ function apriRicette(nome){const R=RICETTE_PRODOTTO[nome];if(!R)return;const m=n
     return `<article class="ricetta"><div class="ric-testa"><h3>${esc(r.n)}</h3><span>⏱ ${esc(r.t)}</span></div>
     <p class="ric-ing"><b>Per ${ricPersone} persone:</b> ${esc(scalaIng(r.i,ricPersone/4))}</p><ol>${r.p.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
     ${pk.presi.length?`<div class="pacchetto"><b>🧺 Pacchetto ricetta · ${ricPersone} persone</b><ul class="pk-righe">${pk.presi.map(x=>`<li><span><b>${esc(x.a.nome)}</b> <small>${esc(bot(x.a.bottega)?.nome||"")}</small>${x.testo?`<br><small>${x.testo}</small>`:""}</span><span class="pk-prezzo">${euro(Math.round(x.a.prezzo*x.qta*100)/100)}</span></li>`).join("")}</ul>${pk.casa.length?`<small>Da casa tua: ${esc(pk.casa.join(", "))}</small>`:""}${avanzi?`<ul class="pk-avanzi">${avanzi}</ul>`:""}<button class="grande" data-pacchetto="${esc(pk.presi.map(x=>x.a.id+":"+x.qta).join(","))}">Metti nel cestino · ${euro(Math.round(tot*100)/100)}</button></div>`:""}
-    <button class="cuore" data-salvaric="${esc(id)}" aria-pressed="${ok}">${ok?"❤️ Salvata nelle tue ricette":"🤍 Salva la ricetta"}</button></article>`};
+    <div class="ric-azioni"><button class="grande" data-cucina="${esc(id)}">👩‍🍳 Cucina ora</button><button class="cuore" data-salvaric="${esc(id)}" aria-pressed="${ok}">${ok?"❤️ Salvata nelle tue ricette":"🤍 Salva la ricetta"}</button></div></article>`};
   apriSheet(`<div class="corpo"><div class="ric-capo"><span>${em}</span><div><h2>${esc(nome)}</h2><p class="storia" style="margin:2px 0 0">Due ricette semplici: compri solo quello che ti serve, niente sprechi</p></div></div>
     <div class="persone" role="group" aria-label="Per quante persone"><span>Per quante persone?</span>${[2,4,6].map(n=>`<button data-persone="${n}" data-perric="${esc(nome)}" aria-pressed="${ricPersone===n}">${n}</button>`).join("")}</div>
     <button class="piu" data-cassa="${esc(nome)}" style="margin:6px 0 4px">Vedi ${esc(nome.toLowerCase())} al banco ›</button>
@@ -795,10 +822,48 @@ function listaSpesaHtml(soloBottega){const sp=SPUNTE();
     // cosa manca ancora: le righe senza la spunta
     const mancano=[...pk.presi.filter(x=>!sp[id+"|"+x.ing]).map(x=>x.a.nome),...(soloBottega?[]:pk.casa.filter(ing=>!sp[id+"|"+ing]).map(ing=>ing.replace(/^[\d.,]+\s*(g|kg|l|ml)?\s*(di |d')?/i,"")))];
     const stato=mancano.length?`<p class="manca">${soloBottega?"Qui puoi prendere":"Ti manca"}: <b>${esc(mancano.join(", "))}</b></p>`:`<p class="manca fatto">✅ Hai tutto per ${esc(r.n)}. Buon appetito!</p>`;
-    return `<div class="lista-ric"><div class="lista-testa"><button class="link" data-ricette="${esc(id.split("|")[0])}">${esc(r.n)}</button><small>${ricPersone} persone</small></div>${stato}<ul>${presi}${casa}</ul>${pk.presi.length?`<button class="piu" data-pacchetto="${esc(pk.presi.map(x=>x.a.id+":"+x.qta).join(","))}">🧺 ${soloBottega?"Prendi qui":"Metti nel cestino"} · ${euro(Math.round(tot*100)/100)}</button>`:""}</div>`}).filter(Boolean);
+    return `<div class="lista-ric"><div class="lista-testa"><button class="link" data-ricette="${esc(id.split("|")[0])}">${esc(r.n)}</button><button class="piu" data-cucina="${esc(id)}">👩‍🍳 Cucina</button></div>${stato}<ul>${presi}${casa}</ul>${pk.presi.length?`<button class="piu" data-pacchetto="${esc(pk.presi.map(x=>x.a.id+":"+x.qta).join(","))}">🧺 ${soloBottega?"Prendi qui":"Metti nel cestino"} · ${euro(Math.round(tot*100)/100)}</button>`:""}</div>`}).filter(Boolean);
   return blocchi.join("")}
 function apriLista(){const h=listaSpesaHtml();
   apriSheet(`<div class="corpo"><h2>🛒 La tua lista della spesa</h2><p class="storia">Dalle ricette che hai salvato. Tocca una riga quando l'hai presa: si tira una riga sopra.</p>${h||`<p class="storia">Salva una ricetta (tocca una cassetta in alto) e qui compare la lista.</p>`}${h?`<button class="link" data-azzera="1" style="margin-top:10px">Togli tutte le righe</button>`:""}</div>`,"lista")}
+// modalità cucina: a tutto schermo, un passo alla volta, timer, schermo sempre acceso
+let cucinaWake=null,cucinaTimer=null;
+function apriCucina(id){const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];if(!r)return;
+  try{chiudiSheet()}catch(e){}
+  const ing=scalaIng(r.i,ricPersone/4).split(",").map(x=>x.trim()).filter(Boolean);
+  const passi=[{tipo:"ing"},...r.p.map((t,i)=>({tipo:"passo",t,i})),{tipo:"fine"}];let pos=0;
+  const d=document.createElement("div");d.className="cucina";d.setAttribute("role","dialog");d.setAttribute("aria-label","Modalità cucina: "+r.n);
+  document.body.appendChild(d);document.documentElement.style.overflow="hidden";
+  try{navigator.wakeLock&&navigator.wakeLock.request("screen").then(w=>cucinaWake=w).catch(()=>{})}catch(e){}
+  const minuti=t=>{const m=t.match(/(\d+)\s*minut/i);return m?parseInt(m[1],10):0};
+  let restoT=-1,avviato=false;const testoT=()=>restoT>0?`⏱ ${Math.floor(restoT/60)}:${String(restoT%60).padStart(2,"0")}`:"⏰ Tempo!";
+  const disegna=()=>{const p=passi[pos];const tot=passi.length-2;
+    let corpo="";
+    if(p.tipo==="ing")corpo=`<div class="c-etichetta">Prima di iniziare · ${ricPersone} persone</div><h2>Prepara gli ingredienti</h2><ul class="c-ing">${ing.map((x,i)=>`<li><label><input type="checkbox"><span>${esc(x)}</span></label></li>`).join("")}</ul>`;
+    else if(p.tipo==="passo"){const m=minuti(p.t);corpo=`<div class="c-etichetta">Passo ${p.i+1} di ${tot}</div><p class="c-passo">${esc(p.t)}</p>${m?`<button class="c-timer" data-cmin="${m}">⏱ Avvia ${m} minuti</button><div class="c-conto" id="cConto" hidden></div>`:""}`}
+    else corpo=`<div class="c-fine">🍽️</div><h2>Buon appetito!</h2><p class="c-passo" style="font-size:20px">${esc(r.n)} è pronto. Gli ingredienti freschi vengono dai produttori della tua zona.</p>`;
+    d.innerHTML=`<div class="c-testa"><b>${esc(r.n)}</b><span class="c-chip" id="cChip"${restoT>0||restoT===0&&avviato?"":" hidden"}>${testoT()}</span><button class="c-chiudi" aria-label="Chiudi la modalità cucina">✕</button></div>
+      <div class="c-barra"><i style="width:${Math.round(pos/(passi.length-1)*100)}%"></i></div>
+      <div class="c-corpo">${corpo}</div>
+      <div class="c-piede"><button class="c-ind" ${pos===0?"disabled":""}>‹ Indietro</button>${p.tipo==="fine"?`<button class="c-av" data-fine="1">Chiudi</button>`:`<button class="c-av">${p.tipo==="ing"?"Inizia ›":"Avanti ›"}</button>`}</div>`};
+  const chiudi=()=>{clearInterval(cucinaTimer);try{cucinaWake&&cucinaWake.release()}catch(e){}cucinaWake=null;d.remove();document.documentElement.style.overflow=""};
+  const vai=x=>{pos=Math.max(0,Math.min(passi.length-1,pos+x));disegna()};
+  const suona=()=>{try{navigator.vibrate&&navigator.vibrate([300,150,300,150,300])}catch(e){}
+    try{const ac=new (window.AudioContext||window.webkitAudioContext)();[0,0.4,0.8].forEach(t=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.25,ac.currentTime+t);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+t+.35);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+.36)})}catch(e){}};
+  d.addEventListener("click",e=>{
+    if(e.target.closest(".c-chiudi")||e.target.closest("[data-fine]"))return chiudi();
+    if(e.target.closest(".c-av"))return vai(1);
+    if(e.target.closest(".c-ind"))return vai(-1);
+    const tb=e.target.closest("[data-cmin]");
+    if(tb){clearInterval(cucinaTimer);restoT=+tb.dataset.cmin*60;avviato=true;tb.hidden=true;
+      const mostra=()=>{const c=d.querySelector("#cConto"),ch=d.querySelector("#cChip");
+        if(c){c.hidden=false;c.textContent=restoT>0?`${Math.floor(restoT/60)}:${String(restoT%60).padStart(2,"0")}`:"⏰ Tempo!";c.classList.toggle("suona",restoT<=0)}
+        if(ch){ch.hidden=false;ch.textContent=testoT();ch.classList.toggle("suona",restoT<=0)}};mostra();
+      cucinaTimer=setInterval(()=>{restoT--;if(restoT<=0){restoT=0;clearInterval(cucinaTimer);mostra();suona();return}mostra()},1000)}});
+  let x0=null;d.addEventListener("touchstart",e=>{x0=e.touches[0].clientX},{passive:true});
+  d.addEventListener("touchend",e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>60&&!e.target.closest(".c-ing"))vai(dx<0?1:-1)});
+  d.addEventListener("keydown",e=>{if(e.key==="ArrowRight")vai(1);else if(e.key==="ArrowLeft")vai(-1);else if(e.key==="Escape")chiudi()});
+  disegna();setTimeout(()=>{try{d.querySelector(".c-av").focus()}catch(e){}},50)}
 function mostraRicetteSalvate(){const el=$("ricetteSalvate");if(!el)return;const l=RIC_SALVATE().map(id=>{const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];return r?{n,r}:null}).filter(Boolean);
   $("sezRicette").hidden=!l.length;
   el.innerHTML=l.map(({n,r})=>`<button class="ric-mini" data-ricette="${esc(n)}"><b>${esc(r.n)}</b><small>${esc(n)} · ⏱ ${esc(r.t)}</small></button>`).join("")}
@@ -1541,6 +1606,7 @@ document.addEventListener("click",e=>{
   if(sv){const id=sv.dataset.salvaric;let l=RIC_SALVATE();const on=!l.includes(id);l=on?[id,...l.filter(x=>x!==id)].slice(0,40):l.filter(x=>x!==id);salva("ricette",l);
     sv.setAttribute("aria-pressed",on);sv.textContent=on?"❤️ Salvata nelle tue ricette":"🤍 Salva la ricetta";toast(on?"📒 Salvata: la ritrovi in «Le tue ricette»":"Tolta dalle tue ricette");mostraRicetteSalvate();return}
   if(e.target.closest("[data-lista]")){apriLista();return}
+  const cu=e.target.closest("[data-cucina]");if(cu){apriCucina(cu.dataset.cucina);return}
   const spn=e.target.closest("[data-spunta]");
   if(spn){const sp=SPUNTE();if(spn.checked)sp[spn.dataset.spunta]=1;else delete sp[spn.dataset.spunta];salva("spunte",sp);spn.closest(".spunta-riga").classList.toggle("preso",spn.checked);
     // aggiorno «ti manca» restando nello stesso punto della pagina
