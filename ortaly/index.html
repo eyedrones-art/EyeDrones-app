@@ -382,6 +382,10 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .qta span{white-space:nowrap}
 .art .pie{flex-wrap:wrap;row-gap:6px}
 .peso{display:block;font-size:11.5px;line-height:1.3;color:var(--tenue)}
+.aiuto-tocca{margin:4px 0 0;font-size:13.5px;color:var(--tenue)}
+.hero-banco .cassa{border:0;padding:0;cursor:pointer;font:inherit;display:block;width:100%;transition:transform .15s}
+.hero-banco .cassa:hover{transform:translateY(-3px)}.hero-banco .cassa:active{transform:scale(.96)}
+.hero-banco .cassa:focus-visible{outline:3px solid var(--tuorlo);outline-offset:3px}
 @media (prefers-reduced-motion:reduce){.ingresso,.anta{transition:opacity .3s!important}.ingresso.dentro{transform:none}}
 </style>
 <style>
@@ -545,7 +549,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
     <div id="boxInstallaCompro"></div>
     <div class="stagione" id="stagione"></div>
     <section class="sez" id="sezPreferiti" hidden><h2>❤️ I tuoi produttori <small>da chi compri sempre</small></h2><div class="preferiti" id="preferiti"></div></section>
-    <section class="sez"><h2><span id="titProd">Produttori vicino a te</span> <small>tocca per conoscerli</small></h2>
+    <section class="sez"><h2><span id="titProd">Produttori vicino a te</span></h2><p class="aiuto-tocca">👆 Tocca un produttore per entrare nella sua bottega</p>
       <div class="produttori" id="produttori"></div>
       <div class="invito"><div style="flex:1;min-width:0"><b>Sei un produttore?</b><p>Metti i tuoi prodotti con la foto una volta sola, poi ogni mattina tocchi quelli che hai al banco. Gli ordini dei clienti arrivano a te.</p></div><button data-iscrivi="1">Iscriviti</button></div></section>
     <section class="sez"><h2>Al banco oggi <small id="conta"></small></h2>
@@ -624,9 +628,9 @@ const zonaOk=b=>zona==="italia"?!!b.spedizione&&b.provincia!==prov:b.provincia==
 // il banco di stagione nella testata (solo sugli schermi larghi): sei prodotti del mese
 const BANCO_MESE=[[["🍊","Arance"],["🥬","Cavolo nero"],["🥕","Carote"],["🧀","Formaggi"],["🍯","Miele"],["🥚","Uova"]],[["🥦","Cavoli"],["🍊","Arance"],["🥔","Topinambur"],["🧄","Aglio"],["🧀","Formaggi"],["🍯","Miele"]],[["🌿","Asparagi"],["🥬","Spinaci"],["🍋","Limoni"],["🥚","Uova"],["🧀","Ricotta"],["🍯","Miele"]],[["🌿","Asparagi"],["🍓","Fragole"],["🥬","Insalata"],["🥚","Uova"],["🧀","Formaggi"],["🍯","Miele"]],[["🍓","Fragole"],["🍒","Ciliegie"],["🥒","Zucchine"],["🥬","Insalata"],["🧀","Formaggi"],["🍯","Miele"]],[["🍑","Albicocche"],["🍒","Ciliegie"],["🥒","Zucchine"],["🍅","Pomodori"],["🧀","Formaggi"],["🍯","Miele"]],[["🍑","Pesche"],["🍅","Pomodori"],["🍆","Melanzane"],["🍈","Meloni"],["🌶️","Peperoncini"],["🧀","Formaggi"]],[["🍉","Angurie"],["🍑","Pesche"],["🍅","Pomodori"],["🌽","Mais"],["🍆","Melanzane"],["🍯","Miele"]],[["🍇","Uva"],["🍄","Funghi"],["🍐","Pere"],["🍎","Mele"],["🌶️","Peperoncini"],["🍯","Miele"]],[["🍇","Uva"],["🌰","Castagne"],["🎃","Zucca"],["🍎","Mele"],["🍐","Pere"],["🍷","Vino nuovo"]],[["🎃","Zucca"],["🌰","Castagne"],["🍎","Mele"],["🥬","Cavolo nero"],["🧀","Formaggi"],["🍯","Miele"]],[["🍊","Mandarini"],["🥦","Cavoli"],["🌰","Castagne"],["🧀","Formaggi"],["🍯","Miele"],["🍷","Vino"]]];
 function mostraBancoTestata(){const el=$("heroBanco");if(!el)return;const m=new Date().getMonth();
-  const cassa=([e,n])=>`<div class="cassa"><div class="pila"><span>${e}</span><span>${e}</span><span>${e}</span></div><div class="assi"></div><div class="nome">${n}</div></div>`;
+  const cassa=([e,n])=>`<button type="button" class="cassa" data-cassa="${esc(n)}" aria-label="Cerca ${esc(n)} al banco"><div class="pila"><span>${e}</span><span>${e}</span><span>${e}</span></div><div class="assi"></div><div class="nome">${n}</div></button>`;
   const tre=BANCO_MESE[m];
-  el.innerHTML=`<div class="insegna"><b>Oggi al banco</b><small>${zona==="italia"?"specialità da tutta Italia":MESI[m].toLowerCase()+", di stagione"}</small></div><div class="ripiano">${tre.slice(0,3).map(cassa).join("")}</div><div class="ripiano">${tre.slice(3).map(cassa).join("")}</div>`}
+  el.removeAttribute("aria-hidden");el.innerHTML=`<div class="insegna"><b>Oggi al banco</b><small>${zona==="italia"?"specialità da tutta Italia":MESI[m].toLowerCase()+", di stagione"}</small></div><div class="ripiano">${tre.slice(0,3).map(cassa).join("")}</div><div class="ripiano">${tre.slice(3).map(cassa).join("")}</div>`}
 function mostraStagione(){mostraBancoTestata();const m=new Date().getMonth();
   $("stagione").innerHTML=zona==="italia"?`<b>Dall'Italia</b><span>Specialità spedite dai produttori di tutta Italia: arrivano con il corriere in pochi giorni.</span>`:`<b>${MESI[m]}</b><span>È il momento di ${STAGIONI[m]}.</span>`}
 function mostraProduttori(){
@@ -1353,6 +1357,12 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-gioc
 document.addEventListener("change",e=>{if(e.target.dataset.scelta){scelte[e.target.dataset.scelta]=e.target.value;apriCarrello()}if(e.target.dataset.pagscelta){pagScelte[e.target.dataset.pagscelta]=e.target.value}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")chiudiSheet()});
 $("cerca").addEventListener("input",e=>{testo=e.target.value;mostrati=24;mostraGriglia()});
+// tocco su una cassetta della testata: cerco quel prodotto e scendo al banco
+document.addEventListener("click",e=>{const c=e.target.closest("[data-cassa]");if(!c)return;
+  const parola=c.dataset.cassa.toLowerCase().replace(/^vino nuovo$/,"vino");
+  const i=$("cerca");i.value=parola;testo=parola;mostrati=24;cat="Tutto";try{mostraCategorie()}catch(x){};mostraGriglia();
+  const g=$("griglia");if(g)window.scrollTo({top:g.getBoundingClientRect().top+scrollY-120,behavior:"smooth"});
+  if(!g||!g.querySelector(".art"))toast("Oggi nessuno ha "+c.dataset.cassa.toLowerCase()+" al banco: prova «Dall'Italia»")});
 $("ordina").addEventListener("change",e=>{ordine=e.target.value;mostrati=24;mostraGriglia()});
 mostraFiltri();
 $("provincia").innerHTML=Object.entries(PROVINCE).sort((x,y)=>x[1].localeCompare(y[1],"it")).map(([s,n])=>`<option value="${s}" ${s===prov?"selected":""}>${esc(n)}</option>`).join("");
