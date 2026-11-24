@@ -230,6 +230,8 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .cliente small{color:var(--tenue);display:block}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--lavagna);color:var(--gesso);border-radius:14px;padding:11px 16px;font-weight:700;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.3)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* bandiera italiana disegnata: su Windows l'emoji 🇮🇹 compare come «IT» */
+.bandiera{display:inline-block;width:1.15em;height:.8em;border-radius:2px;vertical-align:-.05em;background:linear-gradient(90deg,#009246 0 33.3%,#fff 33.3% 66.6%,#ce2b37 66.6%);box-shadow:0 0 0 1px rgba(0,0,0,.15)}
 </style>
 <style>
 /* aggiunte dell'app vera */
@@ -341,7 +343,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
     <label class="dove">📍 Sei in provincia di <select id="provincia" aria-label="La tua provincia"></select></label>
     <div class="zone" role="group" aria-label="Da dove">
       <button id="zVicino" aria-pressed="true">📍 Vicino a te<small>fresco, dalla tua provincia</small></button>
-      <button id="zItalia" aria-pressed="false">🇮🇹 Dall'Italia<small>specialità spedite</small></button>
+      <button id="zItalia" aria-pressed="false"><i class="bandiera" aria-hidden="true"></i> Dall'Italia<small>specialità spedite</small></button>
     </div>
     <div class="cerca"><input id="cerca" type="search" placeholder="Cerca: zucca, toma, miele…" aria-label="Cerca un prodotto"></div>
   </div></section>
@@ -363,7 +365,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
       <p class="nota" id="msgNovita" hidden></p></form></section>
     <section class="sez"><h2>Perché Ortaly <small>made in Italy, dal produttore a te</small></h2>
       <div class="perche">
-        <div><span>🇮🇹</span><div><b>Solo produttori italiani</b><p>Contadini, allevatori e artigiani del cibo con partita IVA italiana: compri da chi produce, in Italia.</p></div></div>
+        <div><span><i class="bandiera" aria-hidden="true"></i></span><div><b>Solo produttori italiani</b><p>Contadini, allevatori e artigiani del cibo con partita IVA italiana: compri da chi produce, in Italia.</p></div></div>
         <div><span>🤝</span><div><b>Dal produttore a te</b><p>Nessun intermediario: ordini da chi produce, paghi a lui e ci parli in chat. Il prezzo giusto resta a chi lavora la terra.</p></div></div>
         <div><span>🌱</span><div><b>Fresco e di stagione</b><p>Ogni produttore mette al banco solo quello che ha oggi. Ritiri in azienda, te lo porta a casa o lo spedisce.</p></div></div>
       </div>
