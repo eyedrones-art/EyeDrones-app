@@ -71,7 +71,9 @@ export default function VoloHero({ data, titolo, sottotitolo, children }) {
     document.addEventListener("scroll", suScorri, { capture: true, passive: true });
     window.addEventListener("pointermove", suMouse, { passive: true });
     // su iPhone il giroscopio serve un tocco per il permesso; altrove parte da solo
-    const ios = typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function";
+    // (solo su telefoni e tablet: alcuni browser del computer hanno la stessa funzione ma non hanno il giroscopio)
+    const touch = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches && navigator.maxTouchPoints > 0;
+    const ios = touch && typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function";
     if (ios) setChiedi(true); else window.addEventListener("deviceorientation", suInclina);
     s.suInclina = suInclina;
     suScorri();

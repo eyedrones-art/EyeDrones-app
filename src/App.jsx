@@ -1965,6 +1965,8 @@ function AppShell({ session }) {
   const [page, setPageInterna] = useState(() => (vaiARichieste ? "pagina-pilota" : vaiAControllo ? "documenti-controllo" : vaiAVoli ? "pianificazione" : vaiAQui ? "qui" : vaiAltro || (PAGINE_RIPRISTINABILI.includes(leggiSessione("eyedrones_pagina")) ? leggiSessione("eyedrones_pagina") : "dashboard")));
   // Esperto (AI): l'amministratore lo vede sempre; gli altri solo quando su Netlify c'è ESPERTO_PER_TUTTI=si
   const adminAI = AI_IN_PROVA.includes(String(session.user.email || "").toLowerCase());
+  // dentro l'app basta «EyeDrones»: nella finestra dell'app installata il nome lungo compariva due volte
+  useEffect(() => { document.title = "EyeDrones"; }, []);
   const [espertoAperto, setEspertoAperto] = useState(false);
   useEffect(() => {
     if (adminAI) return;
@@ -2361,6 +2363,11 @@ function AppShell({ session }) {
         .sidebar-label { display: inline; }
         .sidebar-brand-label { display: inline; }
         .main-content { padding: 28px 32px; }
+        /* schermi larghi: le pagine con una larghezza massima stanno al centro, non appoggiate a sinistra */
+        .colonna-pagine > * { margin-left: auto; margin-right: auto; width: -moz-available; width: -webkit-fill-available; width: stretch; }
+        .home > div { margin-left: auto; margin-right: auto; }
+        /* la Panoramica occupa tutto lo schermo: anche i riquadri sotto vanno da bordo a bordo */
+        .home > div > * { max-width: none !important; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
         .menu-telefono { display: none; }
@@ -2426,7 +2433,7 @@ function AppShell({ session }) {
 
       <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} usaAI={adminAI || espertoAperto} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} spazio={spazioAperto} spazi={spazi} onCambiaSpazio={cambiaSpazio} cartelle={allaRadice} onCartelle={apriCartelle} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
 
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      <div className="colonna-pagine" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AvvisoInstallaApp />
         {paginaRiaperta && (
           <div role="alert" style={{ margin: "12px 16px 0 16px", background: "#2a2416", border: "1px solid #5a4a20", borderRadius: 10, padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -3210,7 +3217,6 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ...vociSpazio,
     { intestazione: "Voli" },
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
-    { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
     { key: "telemetria", label: "Telemetria sul video", icon: Gauge },
     { key: "calcolatori", label: "Calcolatori", icon: Calculator },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
@@ -3255,7 +3261,6 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ] : []),
     { intestazione: "Voli e riprese" },
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
-    { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
     { key: "telemetria", label: "Telemetria sul video", icon: Gauge },
     { key: "calcolatori", label: "Calcolatori", icon: Calculator },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
@@ -4137,7 +4142,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
 
   return (
     <div className="home" style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ maxWidth: 1000 }}>
+      <div>
         <VoloHero data={oggi} titolo={<>{saluto}{nomeSaluto ? <>,<br />{nomeSaluto}</> : ""}.</>} sottotitolo={sottotitolo}>
           <SiVolaQui />
         </VoloHero>
@@ -11730,7 +11735,7 @@ function TrovaPilota() {
               <input type="text" name="sito_web" tabIndex={-1} autoComplete="off" value={modulo.sito_web} onChange={cambia("sito_web")} aria-hidden="true" style={{ position: "absolute", left: -9999, width: 1, height: 1, opacity: 0 }} />
               <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, color: "#5b534b", lineHeight: 1.45 }}>
                 <input type="checkbox" checked={consenso} onChange={(e) => { setConsenso(e.target.checked); if (invio && invio !== "invio") setInvio(null); }} style={{ marginTop: 3, width: 18, height: 18 }} />
-                <span>Acconsento a far vedere la mia richiesta ai piloti EyeDrones della provincia scelta. Nome, email e telefono li riceve solo il pilota che sceglierò. <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#8a8076" }}>Privacy</a></span>
+                <span>Acconsento a far vedere la mia richiesta ai piloti EyeDrones della provincia scelta. Nome, email e telefono li riceve solo il pilota che sceglierò o con cui chiederò di parlare. <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#8a8076" }}>Privacy</a></span>
               </label>
               {invio && invio !== "invio" && <p role="alert" style={{ fontSize: 14, color: "#c0392b", margin: 0, fontWeight: 600 }}>{invio}</p>}
               <button type="submit" disabled={invio === "invio"} style={{ ...CLIENTE.bottone, width: "100%", opacity: invio === "invio" ? 0.7 : 1 }}>{invio === "invio" ? "Invio…" : "Ricevi le offerte senza costi"}</button>
@@ -12178,9 +12183,20 @@ function OfferteCliente({ codice }) {
     carica();
   };
 
+  const [parla, setParla] = useState({}); // id offerta → { stato: chiesto | sbloccato, contatti } (script parla-pilota.sql)
+  const [parlaChiedi, setParlaChiedi] = useState(null); // offerta per cui chiedo conferma
+  const chiediParla = async (o) => {
+    setLavoro("invio");
+    const { data, error } = await supabase.rpc("parla_con_pilota", { p_codice: codice, p_offerta: o.id });
+    setLavoro(null); setParlaChiedi(null);
+    if (error) { setLavoro("Non è stato possibile: ricarica la pagina e riprova."); return; }
+    setParla((x) => ({ ...x, [o.id]: { stato: data || "chiesto" } }));
+    supabase.rpc("parla_cliente", { p_codice: codice }).then(({ data: pc }) => pc && typeof pc === "object" && setParla(pc), () => {});
+  };
   const carica = async () => {
     const { data, error } = await supabase.rpc("offerte_cliente", { p_codice: codice });
     setDati(error ? null : data || null);
+    supabase.rpc("parla_cliente", { p_codice: codice }).then(({ data: pc }) => pc && typeof pc === "object" && setParla(pc), () => {});
     supabase.rpc("annullamenti_cliente", { p_codice: codice }).then(({ data: an }) => setAnnulli(Array.isArray(an) ? an : []), () => {});
   };
   useEffect(() => {
@@ -12318,6 +12334,31 @@ function OfferteCliente({ codice }) {
               <SegnalaProblema chi="cliente" codice={codice} chiaro />
             </div>
           )}
+          {o.stato === "inviata" && r.stato === "aperta" && (() => {
+            const pc = parla[o.id];
+            const c = pc && pc.contatti;
+            if (pc && pc.stato === "sbloccato") return (
+              <div style={{ marginTop: 14, background: "#eaf6ef", borderRadius: 12, padding: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#1f6b40", marginBottom: 6 }}>📞 {p.nome} ha i tuoi contatti e ti chiamerà</div>
+                {c && (c.telefono || c.email_pubblica) && <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {c.telefono && <a href={`tel:${String(c.telefono).replace(/[^\d+]/g, "")}`} style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14 }}>📞 {c.telefono}</a>}
+                  {c.email_pubblica && <a href={`mailto:${c.email_pubblica}`} style={{ ...CLIENTE.bottone, padding: "10px 14px", fontSize: 14, background: "#fff", color: "#1f2328", border: "1px solid #e2d8cc", boxShadow: "none" }}>✉️ {c.email_pubblica}</a>}
+                </div>}
+                <div style={{ fontSize: 12.5, color: "#3f5f4a", marginTop: 8 }}>Parlare non ti impegna: scegli l'offerta quando sei convinto.</div>
+              </div>
+            );
+            if (pc && pc.stato === "chiesto") return <div style={{ marginTop: 14, fontSize: 14, color: "#5b534b" }}>📞 Abbiamo avvisato {p.nome}: ti contatterà a breve.</div>;
+            if (parlaChiedi === o.id) return (
+              <div style={{ marginTop: 14, background: "#fffaf0", border: "1px solid #f3dfb0", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ fontSize: 14, lineHeight: 1.5 }}>Mandiamo a <strong>{p.nome}</strong> il tuo nome, email e telefono, così ti chiama e vi accordate sui dettagli. Non ti impegna: l'offerta la scegli dopo, se vuoi.</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button type="button" disabled={lavoro === "invio"} onClick={() => chiediParla(o)} style={{ ...CLIENTE.bottone, padding: "10px 16px", fontSize: 15 }}>{lavoro === "invio" ? "Invio…" : "Sì, voglio sentirlo"}</button>
+                  <button type="button" onClick={() => setParlaChiedi(null)} style={{ background: "#fff", border: "1px solid #e2d8cc", borderRadius: 12, padding: "10px 14px", fontSize: 14 }}>Annulla</button>
+                </div>
+              </div>
+            );
+            return <button type="button" onClick={() => setParlaChiedi(o.id)} style={{ display: "block", marginTop: 12, background: "none", border: "none", padding: 0, color: "#c2410c", fontSize: 14.5, fontWeight: 700 }}>📞 Vuoi sentirlo prima di scegliere? Parla con questo pilota</button>;
+          })()}
           {o.stato === "inviata" && r.stato === "aperta" && (
             <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
               <button type="button" onClick={() => setScelgo(o)} style={{ ...CLIENTE.bottone, flex: 1, padding: "12px 16px", fontSize: 15 }}>Scelgo questa offerta</button>
@@ -12800,6 +12841,8 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   const [aperto, setAperto] = useState(null); // richiesta con il modulo dell'offerta aperto
   const [domande, setDomande] = useState({}); // id richiesta → domande dei piloti e risposte del cliente (script domande-richiesta.sql)
   const [chiedo, setChiedo] = useState({}); // id richiesta → { testo, stato }
+  const [parlaP, setParlaP] = useState({}); // id richiesta → il cliente vuole parlarmi (script parla-pilota.sql)
+  const [sblocco, setSblocco] = useState(null);
   const [lavoro, setLavoro] = useState(null); // id in corso
   const [errore, setErrore] = useState(null);
   const [pagato, setPagato] = useState(LAVORO_APPENA_PAGATO);
@@ -12858,6 +12901,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     }
     supabase.rpc("storia_clienti_zona").then(({ data: st }) => st && typeof st === "object" && setStoria(st), () => {});
     if (Array.isArray(data) && data.length) supabase.rpc("domande_per_lavori", { p_ids: data.map((l) => l.id) }).then(({ data: dm }) => dm && typeof dm === "object" && setDomande(dm), () => {});
+    supabase.rpc("parla_pilota").then(({ data: pp }) => pp && typeof pp === "object" && setParlaP(pp), () => {});
     supabase.rpc("annullamenti_pilota").then(({ data: an }) => an && typeof an === "object" && setAnnulli(an), () => {});
     return Array.isArray(data) ? data : [];
   };
@@ -13252,6 +13296,29 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
         return (
           <div key={l.id} style={st.scheda}>
             {testaLavoro(l)}
+            {parlaP[l.id] && (() => {
+              const pp = parlaP[l.id];
+              const box = { marginTop: 10, borderRadius: 10, padding: "10px 12px", fontSize: 13, lineHeight: 1.5 };
+              if (pp.stato === "sbloccato" && pp.cliente) return (
+                <div style={{ ...box, background: "#12261b", border: "1px solid #2f6b45" }}>
+                  <div style={{ fontWeight: 800, color: "#86efac" }}>📞 Il cliente vuole parlarti: contattalo appena puoi</div>
+                  <div style={{ color: "#e7eaee", marginTop: 4 }}>{pp.cliente.nome}{pp.cliente.telefono ? <> · <a href={`tel:${String(pp.cliente.telefono).replace(/[^\d+]/g, "")}`} style={{ color: "#86efac" }}>{pp.cliente.telefono}</a></> : null}{pp.cliente.email ? <> · <a href={`mailto:${pp.cliente.email}`} style={{ color: "#86efac" }}>{pp.cliente.email}</a></> : null}</div>
+                  <div style={{ color: "#8b95a3", fontSize: 12, marginTop: 4 }}>Il cliente non ha ancora scelto: se dopo la telefonata cambi il prezzo, aggiorna l'offerta.</div>
+                </div>
+              );
+              return (
+                <div style={{ ...box, background: "#2a2416", border: "1px solid #5a4a20" }}>
+                  <div style={{ fontWeight: 800, color: "#ffd68a" }}>📞 Il cliente vuole parlarti prima di scegliere</div>
+                  {pp.senza_costi ? (
+                    <button type="button" disabled={sblocco === l.id} onClick={async () => { setSblocco(l.id); await supabase.rpc("sblocca_contatto", { p_richiesta: l.id }).then(() => {}, () => {}); setSblocco(null); carica(); }} style={{ marginTop: 8, background: "#f5b942", color: "#10141f", border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 800 }}>{sblocco === l.id ? "Sblocco…" : "Vedi i contatti del cliente"}</button>
+                  ) : (
+                    <div style={{ marginTop: 6, color: "#e7eaee" }}>Sblocca il contatto per {euroIt(Number(pp.prezzo) || 4.9)}, oppure abbonati: con <strong>Pilota</strong> o <strong>Pro</strong> i contatti li hai sempre senza costi.
+                      <div><button type="button" onClick={() => window.dispatchEvent(new CustomEvent("eyedrones-vai", { detail: { pagina: "abbonamento" } }))} style={{ marginTop: 8, background: "#f5b942", color: "#10141f", border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 800 }}>Vedi gli abbonamenti</button></div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {(() => {
               const elenco = Array.isArray(domande[l.id]) ? domande[l.id] : [];
               const c = chiedo[l.id] || {};
@@ -13291,7 +13358,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                   ) : c.inviata ? (
                     <div style={{ fontSize: 12.5, color: "#86efac", marginTop: 10 }}>✓ Domanda inviata: ti scriviamo quando il cliente risponde.</div>
                   ) : (
-                    <button type="button" onClick={() => setChiedo({ ...chiedo, [l.id]: { aperta: true } })} style={{ marginTop: 10, background: "none", border: "none", padding: 0, color: "#3d8bfd", fontSize: 13, fontWeight: 700 }}>❓ Chiedi un dettaglio al cliente</button>
+                    <button type="button" onClick={() => setChiedo({ ...chiedo, [l.id]: { aperta: true } })} style={{ display: "block", marginTop: 10, background: "none", border: "none", padding: 0, color: "#3d8bfd", fontSize: 13, fontWeight: 700 }}>❓ Chiedi un dettaglio al cliente</button>
                   ))}
                 </>
               );

@@ -142,6 +142,48 @@ function componiEmail(d) {
     });
     return { a, oggetto: `Nuovo lavoro: ${servizio || "richiesta"}${luogo ? ` a ${luogo}` : ""}`, ...m };
   }
+  if (d.tipo === "parla_pilota") {
+    const a = [d.a].filter(emailValida);
+    const cliente = pulisci(d.cliente_nome, 80) || "Il cliente";
+    const tel = pulisci(d.cliente_telefono, 40);
+    const em = emailValida(d.cliente_email) ? pulisci(d.cliente_email, 120) : "";
+    const m = impagina({
+      etichetta: "Un cliente vuole parlarti",
+      titolo: `${cliente} vuole sentirti per la tua offerta`,
+      sottotitolo: `Prima di scegliere, il cliente vuole parlare con te${servizio ? ` (${servizio}${luogo ? ` · ${luogo}` : ""})` : ""}. Contattalo appena puoi: chi risponde subito ha più possibilità.`,
+      righe: [["Nome", cliente], tel && ["Telefono", tel], em && ["Email", em]].filter(Boolean),
+      bottone: { href: linkPilota, testo: "Apri la richiesta" },
+      nota: "Il cliente non ha ancora scelto: se dopo la telefonata cambi il prezzo, aggiorna l'offerta nell'app.",
+    });
+    return { a, oggetto: `${cliente} vuole parlarti della tua offerta`, ...m };
+  }
+  if (d.tipo === "parla_cliente") {
+    const a = [d.a].filter(emailValida);
+    const pil = pulisci(d.pilota, 80) || "Il pilota";
+    const tel = pulisci(d.pilota_telefono, 40);
+    const em = emailValida(d.pilota_email) ? pulisci(d.pilota_email, 120) : "";
+    const m = impagina({
+      etichetta: "Contatti del pilota",
+      titolo: `${pil} ti contatterà a breve`,
+      sottotitolo: `Gli abbiamo mandato i tuoi contatti. Se vuoi, puoi chiamarlo anche tu.`,
+      righe: [["Pilota", pil], tel && ["Telefono", tel], em && ["Email", em]].filter(Boolean),
+      bottone: { href: linkOfferte, testo: "Torna alle offerte" },
+      secondo: miei,
+      nota: "Parlare con un pilota non ti impegna: scegli l'offerta solo quando sei convinto.",
+    });
+    return { a, oggetto: `I contatti di ${pil}`, ...m };
+  }
+  if (d.tipo === "parla_da_sbloccare") {
+    const a = [d.a].filter(emailValida);
+    const m = impagina({
+      etichetta: "Un cliente vuole parlarti",
+      titolo: "Un cliente vuole sentirti per la tua offerta",
+      sottotitolo: `Prima di scegliere, il cliente vuole parlare con te${servizio ? ` (${servizio}${luogo ? ` · ${luogo}` : ""})` : ""}. Sblocca il contatto per ${euro(d.prezzo)}, oppure abbonati: con Pilota o Pro i contatti li hai sempre senza costi.`,
+      bottone: { href: linkPilota, testo: "Sblocca il contatto" },
+      nota: "Chi risponde subito ha più possibilità.",
+    });
+    return { a, oggetto: "Un cliente vuole parlarti della tua offerta", ...m };
+  }
   if (d.tipo === "domanda_pilota") {
     const a = [d.a].filter(emailValida);
     const m = impagina({
