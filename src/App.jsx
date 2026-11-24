@@ -11657,9 +11657,9 @@ function TrovaPilota() {
               <h2 style={{ fontFamily: "'Archivo', sans-serif", fontStretch: "112%", fontSize: 22, margin: "6px 0 8px 0" }}>Richiesta inviata!</h2>
               <p style={{ fontSize: 15, color: "#4a433c", lineHeight: 1.55, margin: "0 0 16px 0" }}>
                 {invio.regione && invio.piloti > 0
-                  ? <>In provincia di {nomeProvincia} non ci sono ancora piloti: l'abbiamo girata {invio.piloti === 1 ? "al pilota" : `ai ${invio.piloti} piloti`} della regione <strong>{invio.regione}</strong>. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
+                  ? <>L'abbiamo inviata ai piloti EyeDrones della regione <strong>{invio.regione}</strong>. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
                   : invio.piloti > 0
-                  ? <>È arrivata a <strong>{invio.piloti === 1 ? "1 pilota" : `${invio.piloti} piloti`}</strong> della provincia di {nomeProvincia}. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
+                  ? <>È arrivata ai <strong>piloti EyeDrones</strong> della provincia di {nomeProvincia}. Ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>
                   : <>Nella tua zona non ci sono ancora piloti iscritti per questo lavoro: cerchiamo noi un pilota per te e ti scriviamo a <strong>{modulo.email}</strong> appena arriva un'offerta.</>}
               </p>
               {invio.codice && <a href={`/offerte/${invio.codice}`} style={CLIENTE.bottone}>Vai alle tue offerte</a>}

@@ -170,9 +170,9 @@ function componiEmail(d) {
       sottotitolo: d.diretto_pilota
         ? `La tua richiesta è arrivata a ${pulisci(d.diretto_pilota, 80)}. Ti scriviamo appena manda l'offerta.`
         : n > 0 && d.regione
-          ? `Nella tua provincia non ci sono ancora piloti: l'abbiamo girata a ${n === 1 ? "1 pilota" : `${n} piloti`} della regione ${pulisci(d.regione, 40)}. Ti scriviamo appena arriva un'offerta.`
+          ? `L'abbiamo inviata ai piloti EyeDrones della regione ${pulisci(d.regione, 40)}. Ti scriviamo appena arriva un'offerta.`
           : n > 0
-          ? `La tua richiesta è arrivata a ${n === 1 ? "1 pilota" : `${n} piloti`} della tua provincia. Ti scriviamo appena arriva un'offerta.`
+          ? "La tua richiesta è arrivata ai piloti EyeDrones della tua zona. Ti scriviamo appena arriva un'offerta."
           : "Nella tua zona non ci sono ancora piloti iscritti per questo lavoro: cerchiamo noi un pilota per te e ti scriviamo appena arriva un'offerta.",
       bottone: { href: linkOfferte, testo: "Vedi le offerte" },
       secondo: miei,
