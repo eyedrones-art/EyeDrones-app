@@ -325,6 +325,63 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .ingresso .scorri{font-size:13px;color:#5c6b63;animation:scorri 1.6s ease-in-out infinite}
 @keyframes scorri{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
 .facciata{will-change:transform}
+
+/* la bottega del produttore: tendone e insegna con il suo colore, porta che si apre da sola */
+.ingresso.produttore{background:linear-gradient(#cfeee0 0,#eef7f2 40%,#efe7da 40.2%,#e9dfcf 80%,#bda98e 80.2%,#a8937a 100%);transition:transform .75s cubic-bezier(.6,0,.35,1),opacity .45s ease .25s}
+.ingresso.produttore .tenda{background:repeating-linear-gradient(90deg,var(--tinta) 0 40px,#fbfaf6 40px 80px)}
+.ingresso.produttore .tenda::after{background:radial-gradient(circle at 20px 0,var(--tinta) 19px,transparent 20px) 0 0/80px 16px repeat-x,radial-gradient(circle at 60px 0,#fbfaf6 19px,transparent 20px) 0 0/80px 16px repeat-x}
+.ingresso.produttore .insegna-b b{font-size:28px;max-width:80vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ingresso.produttore .anta{transition:transform .65s cubic-bezier(.5,0,.3,1)}
+.vetrina.v-foto{padding:10px 10px 18px;align-items:center}
+.vetrina.v-foto img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:6px;box-shadow:0 8px 12px -8px rgba(0,0,0,.5)}
+.vetrina.v-foto span{font-size:56px}
+.porta .dentro-luce img{width:70%;height:60%;object-fit:cover;border-radius:10px;box-shadow:0 10px 18px -8px rgba(0,0,0,.4)}
+/* le foto dei prodotti appoggiate sul banco di legno, con una luce calda */
+.banco-foto{position:relative;padding:10px 10px 18px;background:radial-gradient(120% 90% at 50% 0%,#fffaf0,#f1e6d3)}
+.banco-foto::after{content:"";position:absolute;left:0;right:0;bottom:0;height:16px;z-index:0;background:linear-gradient(#d6a06a,#b97d48);box-shadow:inset 0 2px 0 rgba(255,255,255,.3),inset 0 -2px 0 rgba(0,0,0,.12)}
+.banco-foto .foto{position:relative;z-index:1;border-radius:12px;box-shadow:0 14px 16px -12px rgba(70,45,20,.6)}
+.banco-foto .foto img{filter:saturate(1.12) contrast(1.04) brightness(1.02)}
+.banco-foto .prezzo{bottom:24px;right:16px}
+.art{border-bottom:0}
+.scaffale-p{display:grid;grid-auto-flow:column;grid-auto-columns:128px;gap:14px;overflow-x:auto;scrollbar-width:none;padding:14px 4px 0;margin:6px -4px 10px;
+  background:linear-gradient(transparent calc(100% - 14px),#b97d48 calc(100% - 14px));border-radius:0 0 4px 4px}
+.scaffale-p figure{margin:0 0 14px;position:relative;display:flex;flex-direction:column;align-items:center}
+.scaffale-p img,.scaffale-p span{width:128px;height:104px;object-fit:cover;border-radius:12px;background:var(--carta2);display:grid;place-items:center;font-size:48px;box-shadow:0 12px 14px -10px rgba(70,45,20,.6);filter:saturate(1.1) contrast(1.03);cursor:zoom-in}
+.scaffale-p figcaption{margin-top:-12px;position:relative;background:#1d2a24;color:#f8f4e6;font:400 15px/1 var(--gessetto);padding:4px 8px 5px;border-radius:5px;transform:rotate(-2deg);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scaffale-p b{font:400 17px/1 var(--gessetto);color:var(--corallo);margin-top:4px;margin-bottom:6px}
+.volo{position:fixed;z-index:3000;pointer-events:none;border-radius:14px;overflow:hidden;box-shadow:0 12px 22px -10px rgba(0,0,0,.5);display:grid;place-items:center;background:#fff}
+.volo img{width:100%;height:100%;object-fit:cover}.volo span{font-size:40px}
+
+/* il banco completo del produttore: ripiani, cassette con le foto, cartellini a gesso */
+.gioca-aiuto{margin:8px 0 6px;font-size:13.5px;color:var(--tenue);text-align:center}
+.scena{position:relative;border-radius:16px;overflow:hidden;margin:0 -6px 14px;background:linear-gradient(#f8efe0,#efdfc4);box-shadow:inset 0 0 0 1px rgba(120,80,40,.15)}
+.scena-tenda{height:22px;background:repeating-linear-gradient(90deg,var(--tinta) 0 28px,#fbfaf6 28px 56px);position:relative}
+.scena-tenda::after{content:"";position:absolute;left:0;right:0;top:100%;height:11px;background:radial-gradient(circle at 14px 0,var(--tinta) 13px,transparent 14px) 0 0/56px 11px repeat-x,radial-gradient(circle at 42px 0,#fbfaf6 13px,transparent 14px) 0 0/56px 11px repeat-x}
+.scena-insegna{width:max-content;max-width:86%;margin:20px auto 0;background:#1d2a24;border:5px solid #9a6a3e;border-radius:8px;color:#f8f4e6;font:400 21px/1.1 var(--gessetto);padding:5px 14px 7px;transform:rotate(-1.5deg);text-align:center;box-shadow:0 8px 14px -8px rgba(0,0,0,.5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scaffali{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:4px 0 0}
+@media (min-width:620px){.scaffali{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.merce{position:relative;border:0;background:none;padding:34px 8px 24px;cursor:pointer;font:inherit;color:inherit;min-width:0;-webkit-tap-highlight-color:transparent}
+.merce::after{content:"";position:absolute;left:0;right:0;bottom:0;height:14px;background:linear-gradient(#cf965c,#9b6534);box-shadow:0 6px 8px -4px rgba(0,0,0,.35)}
+.merce:active .cassa-m{transform:scale(.95)}
+.cassa-m{position:relative;height:96px;border-radius:6px 6px 3px 3px;overflow:visible;transition:transform .15s}
+.cassa-m .dentro{position:absolute;inset:0;border-radius:6px 6px 3px 3px;overflow:hidden;background:radial-gradient(90% 80% at 50% 30%,#fff6e3,#f1dcb6)}
+.cassa-m.con-foto .dentro img{width:100%;height:100%;object-fit:cover;filter:saturate(1.15) contrast(1.05) brightness(1.03)}
+.cassa-m:not(.con-foto) .dentro{overflow:visible;background:none;display:flex;justify-content:center;align-items:flex-start;padding-top:2px}
+.cassa-m:not(.con-foto) .dentro span{font-size:40px;line-height:1;margin:0 -9px;filter:drop-shadow(0 3px 2px rgba(0,0,0,.25))}
+.cassa-m:not(.con-foto) .dentro span:nth-child(2){transform:translateY(-12px) rotate(8deg);z-index:1}
+.cassa-m:not(.con-foto) .dentro span:nth-child(1){transform:rotate(-10deg)}
+.fronte-c{position:absolute;left:0;right:0;bottom:0;height:46%;border-radius:2px;background:repeating-linear-gradient(180deg,#d8a067 0 13px,#9b6534 13px 15px),#c58b55;box-shadow:inset 3px 0 0 rgba(255,255,255,.14),inset -3px 0 0 rgba(0,0,0,.14),0 6px 8px -6px rgba(0,0,0,.4)}
+.cassa-m:not(.con-foto) .fronte-c{height:60%}
+.cartel{position:absolute;left:50%;bottom:24px;transform:translateX(-50%) rotate(-2.5deg);width:max-content;max-width:96%;min-width:70%;background:#1d2a24;color:#f8f4e6;border-radius:6px;padding:4px 8px 5px;text-align:center;box-shadow:0 4px 6px -3px rgba(0,0,0,.55);font-family:var(--gessetto);line-height:1.05}
+.cartel::before{content:"";position:absolute;left:50%;top:-6px;width:7px;height:7px;margin-left:-3px;border-radius:50%;background:#e9dcc3;box-shadow:inset 0 0 0 2px #9a6a3e}
+.cartel b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:400;font-size:15px;white-space:normal}
+.cartel span{display:block;font-size:14px;color:var(--tuorlo);white-space:nowrap}
+.merce .qta{position:absolute;top:22px;right:4px;z-index:3;font-style:normal;background:var(--corallo);color:var(--su-corallo);border-radius:99px;min-width:26px;height:26px;padding:0 6px;font-weight:800;font-size:13px;display:grid;place-items:center;box-shadow:0 4px 8px -3px rgba(0,0,0,.45);animation:salta .35s ease-out}
+@keyframes salta{0%{transform:scale(.4)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+.bancone{height:26px;background:linear-gradient(#b97d48,#8a5a33);box-shadow:inset 0 3px 0 rgba(255,255,255,.2)}
+.qta span{white-space:nowrap}
+.art .pie{flex-wrap:wrap;row-gap:6px}
+.peso{display:block;font-size:11.5px;line-height:1.3;color:var(--tenue)}
 @media (prefers-reduced-motion:reduce){.ingresso,.anta{transition:opacity .3s!important}.ingresso.dentro{transform:none}}
 </style>
 <style>
@@ -582,7 +639,10 @@ function mostraCategorie(){
   const presenti=new Set(ART.filter(a=>{const b=bot(a.bottega);return b&&zonaOk(b)}).map(a=>a.categoria));
   $("categorie").innerHTML=["Tutto",...CAT.filter(c=>presenti.has(c))].map(c=>`<button aria-pressed="${c===cat}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
 }
-function qtaHtml(id){const q=carrello[id]||0;return q?`<div class="qta"><button data-meno="${esc(id)}" aria-label="Togli uno">−</button><span>${q}</span><button data-piu="${esc(id)}" aria-label="Aggiungi uno">+</button></div>`:`<button class="piu" data-piu="${esc(id)}">Aggiungi</button>`}
+// a peso (kg, g, etti): il totale esatto lo conferma il produttore dopo aver pesato
+const aPeso=u=>/^\s*(kg|chil|g\b|gr|grammi|hg|ett)/i.test(String(u||""));
+const qtaTesto=(q,u)=>{const t=String(u||"").trim();if(aPeso(t))return q+" "+t.split(/\s/)[0];if(/^pezz/i.test(t))return q+(q===1?" pezzo":" pezzi");return String(q)};
+function qtaHtml(id){const q=carrello[id]||0;const a=ART.find(x=>x.id===id);return q?`<div class="qta"><button data-meno="${esc(id)}" aria-label="Togli uno">−</button><span>${qtaTesto(q,a&&a.unita)}</span><button data-piu="${esc(id)}" aria-label="Aggiungi uno">+</button></div>`:`<button class="piu" data-piu="${esc(id)}">Aggiungi</button>`}
 // ricerca: più parole insieme, senza badare ad accenti e maiuscole
 const semplice=t=>String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 // ricerca senza badare a singolare/plurale: \u00abpomodori\u00bb trova \u00abpomodoro\u00bb, \u00abzucche\u00bb trova \u00abzucca\u00bb, \u00abfragole\u00bb trova \u00abfragola\u00bb
@@ -605,8 +665,8 @@ function mostraGriglia(){
   const altrove=!lista.length&&(t||cat!=="Tutto"||filtri.bio||filtri.casa||filtri.sped)?trova(zona==="italia"?"vicino":"italia").length:0;
   $("altri").innerHTML=lista.length>mostrati?`<button class="piu" data-altri="1" style="margin-top:4px">Mostra altri ${Math.min(24,lista.length-mostrati)} (${lista.length-mostrati} in tutto)</button>`:"";
   $("griglia").innerHTML=lista.length?lista.slice(0,mostrati).map(a=>{const b=bot(a.bottega);return `<article class="art">
-    <div style="position:relative">${foto(colore(b.id),EMOJI[a.categoria]||"🧺",a.foto)}<div class="prezzo">${euro(a.prezzo)}<small>/${esc(a.unita)}</small></div></div>
-    <div class="t"><h3>${esc(a.nome)}</h3><button class="chi" data-p="${esc(b.id)}">${esc(b.nome)}</button>${a.nota?`<div class="km" style="color:var(--tenue);font-weight:600">${esc(a.nota)}</div>`:""}
+    <div class="banco-foto">${foto(colore(b.id),EMOJI[a.categoria]||"🧺",a.foto)}<div class="prezzo">${euro(a.prezzo)}<small>/${esc(a.unita)}</small></div></div>
+    <div class="t"><h3>${esc(a.nome)}</h3>${aPeso(a.unita)?`<span class="peso">⚖️ a peso: il totale esatto te lo conferma il produttore</span>`:""}<button class="chi" data-p="${esc(b.id)}">${esc(b.nome)}</button>${a.nota?`<div class="km" style="color:var(--tenue);font-weight:600">${esc(a.nota)}</div>`:""}
     <div class="pie"><span class="km">${zona==="italia"?"📦 "+esc(b.provincia):"📍 "+esc(b.paese)}</span>${qtaHtml(a.id)}</div></div></article>`}).join("")
     :`<div class="vuoto"><b>${t||cat!=="Tutto"||filtri.bio||filtri.casa||filtri.sped?"Nessun prodotto trovato":"Il banco è ancora vuoto qui"}</b>${altrove?`<button class="link" data-altrazona="1">${altrove===1?"C'è 1 prodotto":"Ci sono "+altrove+" prodotti"} ${zona==="italia"?"nella tua provincia":"in «Dall'Italia»"} ›</button>`:filtri.bio||filtri.casa||filtri.sped?"Prova a togliere qualche filtro.":t||cat!=="Tutto"?"Prova un'altra parola o un'altra categoria.":"Prova «Dall'Italia» o un'altra provincia."}</div>`;
   $("nCarrello").textContent=Object.values(carrello).reduce((s,q)=>s+q,0);
@@ -634,7 +694,10 @@ async function caricaBanco(){
   aggiornaCompro();apriDaIndirizzo();
 }
 function cambia(id,d){carrello[id]=Math.max(0,Math.min(99,(carrello[id]||0)+d));if(!carrello[id])delete carrello[id];salva("carrello",carrello);mostraGriglia();
-  const s=$("sheet");if(!s.hidden&&s.dataset.tipo==="carrello")apriCarrello();else if(!s.hidden&&s.dataset.tipo==="prod")apriProduttore(s.dataset.id)}
+  const s=$("sheet");const sc=s.querySelector(".sheet")?s.querySelector(".sheet").scrollTop:0;
+  if(!s.hidden&&s.dataset.tipo==="carrello")apriCarrello();else if(!s.hidden&&s.dataset.tipo==="prod")apriProduttore(s.dataset.id);
+  const rimetti=()=>{const nuovo=s.querySelector(".sheet");if(nuovo&&sc&&Math.abs(nuovo.scrollTop-sc)>2)nuovo.scrollTop=sc};
+  rimetti();requestAnimationFrame(rimetti);setTimeout(rimetti,120)}
 
 function apriSheet(html,tipo,id){const s=$("sheet");s.dataset.tipo=tipo;s.dataset.id=id||"";s.innerHTML=`<div class="sheet-bg" data-chiudi="1"><div class="sheet" role="dialog" aria-modal="true"><div class="testa"><button class="chiudi" data-chiudi="1" aria-label="Chiudi">✕</button></div>${html}</div></div>`;s.hidden=false}
 function chiudiSheet(){$("sheet").hidden=true;if(/^#(bottega|ordine)-/.test(location.hash))try{history.replaceState(null,"",location.pathname)}catch(e){}}
@@ -663,11 +726,43 @@ function valutazioniBottega(id){
   return `<h3 style="margin-top:18px;font-size:18px">Valutazioni ${st?`<span class="voto">★ ${String(st.media).replace(".",",")}</span> <small style="font:600 13px var(--testo);color:var(--tenue)">(${st.numero})</small>`:""}</h3>
   <div style="display:grid;gap:8px;margin-top:8px">${l.slice(0,6).map(x=>`<div class="rec"><div>${voto(x.stelle)} <b>${esc(x.nome)}</b> <small style="color:var(--tenue)">${new Date(x.creata).toLocaleDateString("it-IT",{month:"short",year:"numeric"})}</small></div>${x.commento?`<div>${esc(x.commento)}</div>`:""}${x.risposta?`<div class="risp"><b>Risposta:</b> ${esc(x.risposta)}</div>`:""}</div>`).join("")}</div>`}
 
-function apriProduttore(id){const b=bot(id);if(!b)return;const suoi=ART.filter(a=>a.bottega===id);
+// come in un gioco: il prodotto aggiunto vola nel cestino e il cestino fa un saltello
+function volaNelCestino(btn,id){try{
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const cesto=$("apriCarrello");if(!cesto)return;
+  const a=ART.find(x=>x.id===id);const card=btn.closest(".art,.riga,.merce");const img=card&&card.querySelector(".foto img,img.mini,.cassa-m img");
+  const da=(img||btn).getBoundingClientRect(),a2=cesto.getBoundingClientRect();
+  const v=document.createElement("div");v.className="volo";
+  v.innerHTML=img?`<img src="${img.src}" alt="">`:`<span>${(a&&EMOJI[a.categoria])||"🧺"}</span>`;
+  const w=Math.min(84,da.width),h=img?Math.min(84,da.height):w;
+  Object.assign(v.style,{left:(da.left+da.width/2-w/2)+"px",top:(da.top+da.height/2-h/2)+"px",width:w+"px",height:h+"px"});
+  document.body.appendChild(v);
+  const dx=a2.left+a2.width/2-(da.left+da.width/2),dy=a2.top+a2.height/2-(da.top+da.height/2);
+  v.animate([{transform:"translate(0,0) scale(1) rotate(0)",opacity:1},{transform:`translate(${dx*.5}px,${dy*.5-90}px) scale(.8) rotate(-12deg)`,opacity:1,offset:.5},{transform:`translate(${dx}px,${dy}px) scale(.18) rotate(8deg)`,opacity:.6}],{duration:720,easing:"cubic-bezier(.45,0,.35,1)"}).onfinish=()=>{v.remove();
+    cesto.animate([{transform:"scale(1)"},{transform:"scale(1.25) rotate(-8deg)"},{transform:"scale(.95) rotate(4deg)"},{transform:"scale(1)"}],{duration:420,easing:"ease-out"})};
+}catch(e){}}
+// si entra nella bottega del produttore: la sua insegna, il suo tendone, le sue foto in vetrina, la porta si apre
+const TINTA={f1:"#059669",f2:"#e8960c",f3:"#e0444f",f4:"#db3d8a",f5:"#0e93cf",f6:"#7c4fe0"};
+function entraDalProduttore(id){const b=bot(id);if(!b)return;
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches||!$("sheet").hidden){apriProduttore(id);return}
+  const suoi=ART.filter(a=>a.bottega===id),t=TINTA[colore(b.id)]||"#0b8f68";
+  const pezzo=a=>a?(fotoOk(a.foto)?`<img src="${esc(a.foto)}" alt="">`:`<span>${EMOJI[a.categoria]||"🧺"}</span>`):`<span>🧺</span>`;
+  const d=document.createElement("div");d.className="ingresso produttore";d.style.setProperty("--tinta",t);d.setAttribute("aria-hidden","true");
+  d.innerHTML=`<div class="facciata"><div class="insegna-b"><b>${esc(b.nome)}</b><small>${esc(b.paese||b.tipo||"la bottega")}</small></div><div class="tenda"></div>
+    <div class="fronte"><div class="vetrina v-foto">${pezzo(suoi[0])}<div class="ripiano-v"></div></div>
+    <div class="porta"><div class="dentro-luce">${b.foto&&fotoOk(b.foto)?`<img src="${esc(b.foto)}" alt="">`:"🧺"}</div><div class="cartello-porta">Aperto</div><div class="anta sx"></div><div class="anta dx"></div></div>
+    <div class="vetrina v-foto">${pezzo(suoi[1]||suoi[0])}<div class="ripiano-v"></div></div></div><div class="marciapiede"></div></div>`;
+  document.body.appendChild(d);
+  let fatto=false;const fine=()=>{if(fatto)return;fatto=true;apriProduttore(id);d.classList.add("dentro");setTimeout(()=>d.remove(),700)};
+  d.addEventListener("click",fine);
+  setTimeout(()=>d.classList.add("apre"),380);setTimeout(fine,1150)}
+function apriProduttore(id){const sh=$("sheet"),stessa=!sh.hidden&&sh.dataset.tipo==="prod"&&sh.dataset.id===id,sc=stessa&&sh.querySelector(".sheet")?sh.querySelector(".sheet").scrollTop:0;
+  apriProduttoreDentro(id);if(sc){const n=sh.querySelector(".sheet");if(n)n.scrollTop=sc}}
+function apriProduttoreDentro(id){const b=bot(id);if(!b)return;const suoi=ART.filter(a=>a.bottega===id);
   apriSheet(`${foto(colore(b.id)+" banner","🌾",b.foto)}<div class="corpo"><h2>${esc(b.nome)}</h2><button class="cuore" data-pref="${esc(b.id)}" aria-pressed="${PREF().includes(b.id)}">${PREF().includes(b.id)?"❤️ Tra i tuoi produttori":"🤍 Salva tra i tuoi produttori"}</button><div class="meta" style="color:var(--tenue);margin-top:4px">${esc(b.tipo||"Produttore")} · ${esc(b.paese)} (${esc(PROVINCE[b.provincia]||b.provincia)})${b.bio?" · 🌱 bio":""}</div>${b.banco_aggiornato&&new Date(b.banco_aggiornato).toDateString()===new Date().toDateString()?`<div class="meta" style="color:var(--foglia);font-weight:700;margin-top:4px">🟢 Banco aggiornato oggi alle ${new Date(b.banco_aggiornato).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}</div>`:""}
   ${b.storia?`<p class="storia">${esc(b.storia)}</p>`:""}<div class="consegne">${Object.entries(MODI).filter(([k,m])=>b[m[3]]).map(([k,m])=>`<div class="cons"><span>${m[0]}</span><div><b>${m[2]}</b>${esc(b[m[3]])}${k==="ritiro"?"":`<small class="costo">${costoConsegna(b,k)}</small>`}</div></div>`).join("")}<div class="cons"><span>${(b.pagamento||"consegna")==="consegna"?"💶":"💳"}</span><div><b>Come si paga</b>${b.pagamento==="online"?"Online: quando il produttore accetta l'ordine ti arriva il link per pagare":b.pagamento==="entrambi"?"Scegli tu: al produttore alla consegna o al ritiro, oppure online con il link che ti arriva quando accetta l'ordine":"Al produttore, alla consegna o al ritiro"}</div></div></div>
   ${valutazioniBottega(b.id)}
-  <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.length?suoi.map(a=>`<div class="riga"><span class="riga-nome">${fotoOk(a.foto)?`<img class="mini" src="${esc(a.foto)}" alt="${esc(a.nome)}" data-zoom="1" loading="lazy">`:`<span class="mini-e">${EMOJI[a.categoria]||"🧺"}</span>`}<span>${esc(a.nome)}${a.nota?`<br><small style="color:var(--tenue)">${esc(a.nota)}</small>`:""}</span></span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${esc(a.unita)}</b>${qtaHtml(a.id)}</span></div>`).join(""):`<p class="storia">Nessun prodotto al banco in questo momento.</p>`}</div>`,"prod",id);
+  <h3 style="margin-top:18px;font-size:18px">Al banco (${suoi.length})</h3>${suoi.length?`<p class="gioca-aiuto">👆 Tocca una cassetta per metterla nel cestino</p><div class="scena" style="--tinta:${TINTA[colore(b.id)]||"#0b8f68"}"><div class="scena-tenda"></div><div class="scena-insegna">Il banco di ${esc(b.nome)}</div><div class="scaffali">${suoi.map(a=>`<button class="merce" data-gioca="${esc(a.id)}" aria-label="Metti nel cestino: ${esc(a.nome)}, ${euro(a.prezzo)} al ${esc(a.unita)}"><div class="cassa-m${fotoOk(a.foto)?" con-foto":""}"><div class="dentro">${fotoOk(a.foto)?`<img src="${esc(a.foto)}" alt="" loading="lazy">`:`<span>${EMOJI[a.categoria]||"🧺"}</span><span>${EMOJI[a.categoria]||"🧺"}</span><span>${EMOJI[a.categoria]||"🧺"}</span>`}</div><div class="fronte-c"></div></div><div class="cartel"><b>${esc(a.nome)}</b><span>${euro(a.prezzo)}/${esc(a.unita)}</span></div>${carrello[a.id]?`<i class="qta">${carrello[a.id]}</i>`:""}</button>`).join("")}</div><div class="bancone"></div></div>`:""}${suoi.length?suoi.map(a=>`<div class="riga"><span class="riga-nome">${fotoOk(a.foto)?`<img class="mini" src="${esc(a.foto)}" alt="${esc(a.nome)}" data-zoom="1" loading="lazy">`:`<span class="mini-e">${EMOJI[a.categoria]||"🧺"}</span>`}<span>${esc(a.nome)}${a.nota?`<br><small style="color:var(--tenue)">${esc(a.nota)}</small>`:""}</span></span><span style="display:flex;gap:10px;align-items:center"><b style="font-variant-numeric:tabular-nums">${euro(a.prezzo)}/${esc(a.unita)}</b>${qtaHtml(a.id)}</span></div>`).join(""):`<p class="storia">Nessun prodotto al banco in questo momento.</p>`}</div>`,"prod",id);
   try{history.replaceState(null,"","#bottega-"+id)}catch(e){}}
 function apriDaIndirizzo(){const m=location.hash.match(/^#bottega-([0-9a-f-]{36})$/);if(m&&bot(m[1])){const b=bot(m[1]);if(b.provincia!==prov&&!b.spedizione){prov=b.provincia;$("provincia").value=prov;salva("provincia",prov)}scegliZona(b.provincia===prov?"vicino":"italia",true);if(!PREF().includes(m[1])){salvaPref(m[1],true);setTimeout(()=>toast("❤️ "+b.nome+" è tra i tuoi produttori: lo ritrovi in alto"),600)}apriProduttore(m[1])}}
 
@@ -680,14 +775,14 @@ function apriCarrello(){
     const opz=Object.entries(MODI).filter(([k,m])=>b[m[3]]);if(!scelte[bid]||!b[MODI[scelte[bid]][3]])scelte[bid]=opz[0][0];if(scelte[bid]!=="ritiro")serveIndirizzo=true;
     const sp=speseDi(b,scelte[bid],sub);tot+=sp;
     return `<div class="gruppo"><h3><span>${esc(b.nome)}</span><span style="font-variant-numeric:tabular-nums">${euro(sub+sp)}</span></h3>
-    ${arts.map(a=>`<div class="riga"><span>${esc(a.nome)}<br><small style="color:var(--tenue)">${euro(a.prezzo)}/${esc(a.unita)}</small></span>${qtaHtml(a.id)}</div>`).join("")}
+    ${arts.map(a=>`<div class="riga"><span>${esc(a.nome)}<br><small style="color:var(--tenue)">${euro(a.prezzo)}/${esc(a.unita)}${aPeso(a.unita)?" · a peso":""}</small></span>${qtaHtml(a.id)}</div>`).join("")}
     <div class="scelte" role="radiogroup" aria-label="Come ricevi da ${esc(b.nome)}">${opz.map(([k,m])=>`<label class="scelta"><input type="radio" name="c-${esc(bid)}" value="${k}" data-scelta="${esc(bid)}" ${scelte[bid]===k?"checked":""}><span><b>${m[0]} ${m[2]}</b><small>${esc(b[m[3]])}${speseTesto(b,k)}</small></span></label>`).join("")}</div>
     ${scelte[bid]!=="ritiro"?`<div class="riga" style="border:0"><span>${scelte[bid]==="spedizione"?"Spedizione":"Consegna"}</span><b>${sp?euro(sp):"inclusa"}</b></div>`:""}
     ${b.pagamento==="entrambi"?`<div class="scelte" role="radiogroup" aria-label="Come paghi ${esc(b.nome)}">${[["consegna","💶 Pago alla consegna o al ritiro"],["online","💳 Pago online (dopo che il produttore accetta)"]].map(([k,t])=>`<label class="scelta"><input type="radio" name="p-${esc(bid)}" value="${k}" data-pagscelta="${esc(bid)}" ${(pagScelte[bid]||"consegna")===k?"checked":""}><span><b>${t}</b></span></label>`).join("")}</div>`
       :b.pagamento==="online"?`<p class="nota">💳 Questo produttore accetta solo il pagamento online: quando accetta l'ordine ti mandiamo il link per pagare.</p>`:`<p class="nota">💶 Paghi al produttore alla consegna o al ritiro.</p>`}</div>`}).join("");
   const n=Object.keys(g).length;
   apriSheet(`<div class="corpo"><h2>Il tuo cestino</h2><p class="storia">${n>1?`Mandi ${n} ordini, uno per produttore: ognuno prepara e consegna i suoi prodotti.`:"Il produttore prepara il tuo ordine e ti scrive nella chat dell'ordine per giorno e ora."}</p>${html}
-  <div class="totale"><span>Totale</span><b>${euro(Math.round(tot*100)/100)}</b></div>
+  ${(()=>{const peso=Object.keys(carrello).some(id=>{const a=ART.find(x=>x.id===id);return a&&aPeso(a.unita)});return `<div class="totale"><span>${peso?"Totale indicativo":"Totale"}</span><b>${euro(Math.round(tot*100)/100)}</b></div>${peso?`<p class="nota" style="margin-top:4px">⚖️ Alcuni prodotti sono a peso: il produttore li pesa e ti conferma il totale esatto nella chat dell'ordine, prima di prepararlo. Può cambiare di poco, in più o in meno.</p>`:""}`})()}
   <form class="nuovo" id="formOrdine">
     <label for="oNome">Nome e cognome<input id="oNome" required minlength="2" maxlength="60" autocomplete="name" value="${esc(cliente.nome||"")}"></label>
     <label for="oEmail">Email <span class="aiuto">(ti avvisiamo qui quando il produttore risponde; lui non la vede)</span><input id="oEmail" type="email" required maxlength="120" autocomplete="email" value="${esc(cliente.email||"")}"></label>
@@ -924,7 +1019,8 @@ function mostraVendo(){
     c.innerHTML=`<form class="nuovo" id="formProdotto"><h3 style="font-size:18px">Metti un prodotto</h3>
         <label for="nNome">Prodotto<input id="nNome" required minlength="2" maxlength="50" placeholder="Es. Topinambur"></label>
         <div class="due"><label for="nCat">Categoria<select id="nCat">${CAT.map(x=>`<option>${x}</option>`).join("")}</select></label>
-          <label for="nUnita">Venduto a<input id="nUnita" required maxlength="30" list="unita" placeholder="kg"><datalist id="unita"><option>kg</option><option>pezzo</option><option>mazzo</option><option>confezione</option><option>vasetto 500 g</option><option>bottiglia 0,75 l</option><option>cassetta 5 kg</option></datalist></label></div>
+          <label for="nUnita">Venduto a<input id="nUnita" required maxlength="30" list="unita" placeholder="kg"><datalist id="unita"><option>kg</option><option>pezzo</option><option>mazzo</option><option>confezione</option><option>vasetto 500 g</option><option>bottiglia 0,75 l</option><option>cassetta 5 kg</option><option>pezzo (circa 1 kg)</option><option>pezzo (circa 2 kg)</option></datalist></label></div>
+          <p class="nota" style="margin:2px 0 0">⚖️ Al kg il cliente vede «a peso» e paga il peso vero: dopo aver pesato gli confermi il totale nella chat. Per zucche, cavoli o meloni è più semplice <b>al pezzo con il peso indicativo</b>, es. «pezzo (circa 2 kg)».</p>
         <div class="due"><label for="nPrezzo">Prezzo (€)<input id="nPrezzo" required inputmode="decimal" placeholder="3,20"></label>
           <label for="nNota">Nota <span class="aiuto">(facoltativa)</span><input id="nNota" maxlength="60" placeholder="Es. raccolta ieri"></label></div>
         <label for="nFoto">Foto del prodotto <span class="aiuto">(scattala tu, dal telefono: la metti una volta sola)</span><div class="foto-scelta"><button type="button" class="foto-btn" data-foto-cam="nFoto">📷 Scatta foto</button><button type="button" class="foto-btn chiaro" data-foto-gal="nFoto">🖼️ Dalla galleria</button></div><img class="foto-ante" id="nFotoAnte" hidden alt="Anteprima della foto"><input id="nFoto" type="file" accept="image/*" hidden></label>
@@ -1176,7 +1272,7 @@ function modo(v){$("vistaCompro").hidden=v;$("vistaVendo").hidden=!v;$("mCompro"
   if(v){vendoScheda="auto";if(!pronto){V().innerHTML=vendoCartello("Ortaly <span>sta per aprire</span>","Le iscrizioni dei produttori aprono a giorni.");}else caricaMia()}else mostraGriglia();
   window.scrollTo(0,0);try{history.replaceState(null,"",v?"#vendo":location.pathname)}catch(e){}}
 
-document.addEventListener("click",async e=>{const t=e.target.closest("[data-oggi],[data-banco],[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui],[data-correggi],[data-rispondi],[data-risolta],[data-contesta],[data-pagato],[data-rimborsato],[data-filtro],[data-altri],[data-altrazona],[data-spedito]");if(!t)return;
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-gioca],[data-oggi],[data-banco],[data-piu],[data-meno],[data-p],[data-c],[data-chiudi],[data-iscrivi],[data-reg],[data-esci],[data-scheda],[data-stato],[data-attiva],[data-prezzo],[data-elimina],[data-copia],[data-installa],[data-notifiche],[data-chiudibottega],[data-chat],[data-ordinecliente],[data-segui],[data-correggi],[data-rispondi],[data-risolta],[data-contesta],[data-pagato],[data-rimborsato],[data-filtro],[data-altri],[data-altrazona],[data-spedito]");if(!t)return;
   if(t.dataset.chiudi!==undefined&&t.classList.contains("sheet-bg")&&e.target!==t)return;
   if(t.dataset.installa){installa();return}
   if(t.dataset.chat){apriChatProduttore(t.dataset.chat);return}
@@ -1222,9 +1318,10 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-oggi
     mia=null;mieiProd=[];mieiOrd=[];statoNotifiche="?";clearInterval(timerOrdini);toast("Bottega cancellata");caricaBanco();caricaMia();return}
   if(t.dataset.notifiche){t.disabled=true;if(t.dataset.notifiche==="attiva")await attivaNotifiche();else await spegniNotifiche();return}
   if(t.dataset.iscrivi){chiudiSheet();modo(true)}
-  else if(t.dataset.piu)cambia(t.dataset.piu,1);
+  else if(t.dataset.piu){volaNelCestino(t,t.dataset.piu);cambia(t.dataset.piu,1)}
+  else if(t.dataset.gioca){volaNelCestino(t,t.dataset.gioca);cambia(t.dataset.gioca,1);const a=ART.find(x=>x.id===t.dataset.gioca);if(a)toast("🧺 "+a.nome+" nel cestino")}
   else if(t.dataset.meno)cambia(t.dataset.meno,-1);
-  else if(t.dataset.p)apriProduttore(t.dataset.p);
+  else if(t.dataset.p)entraDalProduttore(t.dataset.p);
   else if(t.dataset.c!==undefined){cat=t.dataset.c;mostrati=24;mostraCategorie();mostraGriglia()}
   else if(t.dataset.chiudi)chiudiSheet();
   else if(t.dataset.reg!==undefined)vistaAccesso(!!t.dataset.reg);
