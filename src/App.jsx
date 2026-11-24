@@ -2366,6 +2366,8 @@ function AppShell({ session }) {
         /* schermi larghi: le pagine con una larghezza massima stanno al centro, non appoggiate a sinistra */
         .colonna-pagine > * { margin-left: auto; margin-right: auto; width: -moz-available; width: -webkit-fill-available; width: stretch; }
         .home > div { margin-left: auto; margin-right: auto; }
+        /* la Panoramica occupa tutto lo schermo: anche i riquadri sotto vanno da bordo a bordo */
+        .home > div > * { max-width: none !important; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
         .menu-telefono { display: none; }
@@ -4140,7 +4142,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
 
   return (
     <div className="home" style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ maxWidth: 1160 }}>
+      <div>
         <VoloHero data={oggi} titolo={<>{saluto}{nomeSaluto ? <>,<br />{nomeSaluto}</> : ""}.</>} sottotitolo={sottotitolo}>
           <SiVolaQui />
         </VoloHero>
