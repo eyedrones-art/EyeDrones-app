@@ -13296,7 +13296,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
                   ) : c.inviata ? (
                     <div style={{ fontSize: 12.5, color: "#86efac", marginTop: 10 }}>✓ Domanda inviata: ti scriviamo quando il cliente risponde.</div>
                   ) : (
-                    <button type="button" onClick={() => setChiedo({ ...chiedo, [l.id]: { aperta: true } })} style={{ marginTop: 10, background: "none", border: "none", padding: 0, color: "#3d8bfd", fontSize: 13, fontWeight: 700 }}>❓ Chiedi un dettaglio al cliente</button>
+                    <button type="button" onClick={() => setChiedo({ ...chiedo, [l.id]: { aperta: true } })} style={{ display: "block", marginTop: 10, background: "none", border: "none", padding: 0, color: "#3d8bfd", fontSize: 13, fontWeight: 700 }}>❓ Chiedi un dettaglio al cliente</button>
                   ))}
                 </>
               );
