@@ -230,6 +230,37 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 /* bandiera italiana disegnata: su Windows l'emoji 🇮🇹 compare come «IT» */
 .bandiera{display:inline-block;width:1.15em;height:.8em;border-radius:2px;vertical-align:-.05em;background:linear-gradient(90deg,#009246 0 33.3%,#fff 33.3% 66.6%,#ce2b37 66.6%);box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+
+/* computer: pagina larga, testata in due colonne con il banco di stagione */
+.hero-banco{display:none}
+@media (min-width:960px){
+  .wrap{max-width:1120px}
+  .cartello{padding-block:30px 52px}
+  .cartello .hero{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);gap:56px;align-items:center}
+  .cartello h1{font-size:62px;letter-spacing:-1.6px}
+  .cartello p{font-size:17px;max-width:46ch}
+  .cerca input{padding:15px 16px;font-size:16px}
+  .hero-banco{display:block;position:relative;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-radius:26px;padding:22px 22px 26px;transform:rotate(1.4deg);box-shadow:0 34px 60px -34px rgba(0,0,0,.55)}
+  .hero-banco .tit{font:400 34px/1 var(--gessetto);color:var(--tuorlo);transform:rotate(-2deg);display:inline-block}
+  .hero-banco .sub{font-size:13.5px;color:var(--su-lavagna);margin-top:6px}
+  .hero-banco .tess{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+  .hero-banco .tess div{border-radius:18px;aspect-ratio:1;display:grid;place-items:center;align-content:center;gap:6px;color:var(--scuro);font-weight:700;font-size:13.5px;background:var(--gesso);box-shadow:0 10px 18px -12px rgba(0,0,0,.45)}
+  .hero-banco .tess div:nth-child(6n+1){background:#fff0e6}.hero-banco .tess div:nth-child(6n+2){background:#fff7d6}.hero-banco .tess div:nth-child(6n+3){background:#fde8f0}
+  .hero-banco .tess div:nth-child(6n+4){background:#e3f7ee}.hero-banco .tess div:nth-child(6n+5){background:#efe9ff}.hero-banco .tess div:nth-child(6n+6){background:#e7f0ff}
+  .hero-banco .tess div:nth-child(even){transform:translateY(6px)}
+  .hero-banco .tess span{font-size:46px;line-height:1}
+  .hero-banco .cartellino{position:absolute;right:-12px;bottom:-16px;background:var(--corallo);color:var(--su-corallo);font:400 20px/1 var(--gessetto);padding:8px 14px 9px;border-radius:12px 12px 12px 3px;transform:rotate(-5deg);box-shadow:0 8px 16px -8px rgba(0,0,0,.5)}
+  .sez{padding-block:34px 4px}
+  .sez h2{font-size:27px}
+  .produttori{grid-auto-columns:calc(25% - 9px);gap:14px}
+  .prod .foto{height:140px}
+  .griglia{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+  .perche{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .perche>div{flex-direction:column;padding:18px}
+  .invito{padding:22px 26px}
+  .invito b{font-size:30px}
+  .stagione{display:none} /* il mese c'è già nel banco della testata */
+}
 </style>
 <style>
 /* aggiunte dell'app vera */
@@ -335,7 +366,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
 </div></header>
 
 <main id="vistaCompro">
-  <section class="cartello"><div class="wrap">
+  <section class="cartello"><div class="wrap hero"><div class="hero-testo">
     <h1>Dal campo <span>a casa tua</span></h1>
     <p>Compri direttamente dai produttori italiani: frutta, verdura, formaggi, miele e vino della tua zona e di tutta Italia. Niente intermediari: il giusto va a chi coltiva, a te arriva fresco.</p>
     <label class="dove">📍 Sei in provincia di <select id="provincia" aria-label="La tua provincia"></select></label>
@@ -344,7 +375,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
       <button id="zItalia" aria-pressed="false"><i class="bandiera" aria-hidden="true"></i> Dall'Italia<small>specialità spedite</small></button>
     </div>
     <div class="cerca"><input id="cerca" type="search" placeholder="Cerca: zucca, toma, miele…" aria-label="Cerca un prodotto"></div>
-  </div></section>
+  </div><aside class="hero-banco" id="heroBanco" aria-hidden="true"></aside></div></section>
   <div class="wrap">
     <div id="boxInstallaCompro"></div>
     <div class="stagione" id="stagione"></div>
@@ -425,7 +456,11 @@ const bot=id=>BOT.find(b=>b.id===id);
 const zonaOk=b=>zona==="italia"?!!b.spedizione&&b.provincia!==prov:b.provincia===prov;
 
 // ── COMPRO ──
-function mostraStagione(){const m=new Date().getMonth();
+// il banco di stagione nella testata (solo sugli schermi larghi): sei prodotti del mese
+const BANCO_MESE=[[["🍊","Arance"],["🥬","Cavolo nero"],["🥕","Carote"],["🧀","Formaggi"],["🍯","Miele"],["🥚","Uova"]],[["🥦","Cavoli"],["🍊","Arance"],["🥔","Topinambur"],["🧄","Aglio"],["🧀","Formaggi"],["🍯","Miele"]],[["🌿","Asparagi"],["🥬","Spinaci"],["🍋","Limoni"],["🥚","Uova"],["🧀","Ricotta"],["🍯","Miele"]],[["🌿","Asparagi"],["🍓","Fragole"],["🥬","Insalata"],["🥚","Uova"],["🧀","Formaggi"],["🍯","Miele"]],[["🍓","Fragole"],["🍒","Ciliegie"],["🥒","Zucchine"],["🥬","Insalata"],["🧀","Formaggi"],["🍯","Miele"]],[["🍑","Albicocche"],["🍒","Ciliegie"],["🥒","Zucchine"],["🍅","Pomodori"],["🧀","Formaggi"],["🍯","Miele"]],[["🍑","Pesche"],["🍅","Pomodori"],["🍆","Melanzane"],["🍈","Meloni"],["🌶️","Peperoncini"],["🧀","Formaggi"]],[["🍉","Angurie"],["🍑","Pesche"],["🍅","Pomodori"],["🌽","Mais"],["🍆","Melanzane"],["🍯","Miele"]],[["🍇","Uva"],["🍄","Funghi"],["🍐","Pere"],["🍎","Mele"],["🌶️","Peperoncini"],["🍯","Miele"]],[["🍇","Uva"],["🌰","Castagne"],["🎃","Zucca"],["🍎","Mele"],["🍐","Pere"],["🍷","Vino nuovo"]],[["🎃","Zucca"],["🌰","Castagne"],["🍎","Mele"],["🥬","Cavolo nero"],["🧀","Formaggi"],["🍯","Miele"]],[["🍊","Mandarini"],["🥦","Cavoli"],["🌰","Castagne"],["🧀","Formaggi"],["🍯","Miele"],["🍷","Vino"]]];
+function mostraBancoTestata(){const el=$("heroBanco");if(!el)return;const m=new Date().getMonth();
+  el.innerHTML=`<div class="tit">Al banco a ${MESI[m].toLowerCase()}</div><div class="sub">${zona==="italia"?"Specialità spedite da tutta Italia":"Fresco di stagione, dai produttori della tua zona"}</div><div class="tess">${BANCO_MESE[m].map(([e,n])=>`<div><span>${e}</span>${n}</div>`).join("")}</div><div class="cartellino">dal produttore a te</div>`}
+function mostraStagione(){mostraBancoTestata();const m=new Date().getMonth();
   $("stagione").innerHTML=zona==="italia"?`<b>Dall'Italia</b><span>Specialità spedite dai produttori di tutta Italia: arrivano con il corriere in pochi giorni.</span>`:`<b>${MESI[m]}</b><span>È il momento di ${STAGIONI[m]}.</span>`}
 function mostraProduttori(){
   const lista=BOT.filter(zonaOk);
