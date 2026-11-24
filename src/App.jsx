@@ -17129,12 +17129,14 @@ const STATO_OFFERTA = { inviata: "inviata", scelta: "scelta dal cliente", confer
 function RichiesteAdmin({ onIndietro }) {
   const [lista, setLista] = useState(undefined); // undefined = carico, null = script non eseguito
   const [filtro, setFiltro] = useState("tutte");
-  const [estendo, setEstendo] = useState({}); // id → "chiedi" | "invio" | numero piloti | "errore"
-  const estendi = async (r) => {
-    setEstendo((x) => ({ ...x, [r.id]: "invio" }));
-    const { data, error } = await supabase.rpc("estendi_richiesta_admin", { p_richiesta: r.id });
-    setEstendo((x) => ({ ...x, [r.id]: error ? "errore" : Number(data) || 0 }));
-    if (!error) setLista((l) => (l || []).map((y) => (y.id === r.id ? { ...y, estesa: true } : y)));
+  const [estendo, setEstendo] = useState({}); // id → { fase: "chiedi" | "invio" | "fatto" | "errore", ambito, n }
+  const estendi = async (r, ambito) => {
+    setEstendo((x) => ({ ...x, [r.id]: { fase: "invio", ambito } }));
+    // con l'ambito (script richieste-regione.sql); se manca, la versione vecchia vale per tutta Italia
+    let { data, error } = await supabase.rpc("estendi_richiesta_admin", { p_richiesta: r.id, p_ambito: ambito });
+    if (error && ambito === "italia") ({ data, error } = await supabase.rpc("estendi_richiesta_admin", { p_richiesta: r.id }));
+    setEstendo((x) => ({ ...x, [r.id]: error ? { fase: "errore", ambito } : { fase: "fatto", ambito, n: Number(data) || 0 } }));
+    if (!error) setLista((l) => (l || []).map((y) => (y.id === r.id ? { ...y, estesa: true, ambito: y.ambito === "italia" ? "italia" : ambito, piloti_estesi: null } : y)));
   };
   const carica = () => {
     setLista(undefined);
@@ -17186,7 +17188,7 @@ function RichiesteAdmin({ onIndietro }) {
                 {r.descrizione && <div style={{ background: "#10141f", borderRadius: 8, padding: "10px 12px", fontSize: 13, lineHeight: 1.5, marginTop: 10, whiteSpace: "pre-wrap" }}>{r.descrizione}</div>}
 
                 <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12.5, marginTop: 10, color: "#c3cad4" }}>
-                  <span>👥 Piloti che la vedono: <strong className="mono">{r.piloti_zona}</strong></span>
+                  <span>👥 In provincia: <strong className="mono">{r.piloti_zona}</strong>{r.piloti_estesi != null && r.estesa ? <> · 📣 {r.ambito === "regione" ? "in regione" : "in tutta Italia"}: <strong className="mono">{r.piloti_estesi}</strong></> : null} {r.piloti_zona === 1 && !r.estesa ? "pilota" : "piloti"} che la vedono</span>
                   {a ? (
                     <>
                       <span>📧 Email inviate: <strong className="mono">{a.email_ok}</strong>{a.email_ko > 0 && <span style={{ color: "#ff9c9c" }}> · {a.email_ko} non partite</span>}</span>
@@ -17197,19 +17199,28 @@ function RichiesteAdmin({ onIndietro }) {
                 {a && a.email_ok === 0 && <div style={{ fontSize: 12.5, color: "#ff9c9c", marginTop: 6 }}>⚠️ Nessuna email partita: in quella zona non c'erano piloti da avvisare.</div>}
                 {ferma(r) && <div style={{ fontSize: 12.5, color: "#ff9c9c", marginTop: 6 }}>⚠️ Ferma da più di un giorno senza offerte: servono piloti in provincia di {r.provincia}.</div>}
                 {r.id && r.stato === "aperta" && (() => {
-                  const e = estendo[r.id];
-                  const btn = { borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700, marginTop: 10 };
-                  if (typeof e === "number") return <div style={{ fontSize: 12.5, color: "#4ade80", marginTop: 10 }}>📣 Estesa a tutta Italia: email inviata a {e} {e === 1 ? "pilota" : "piloti"} che fanno «{r.servizio || "questo servizio"}». La vedono anche i piloti che attivano la pagina dopo.</div>;
-                  if (e === "errore") return <div style={{ fontSize: 12.5, color: "#ff9c9c", marginTop: 10 }}>Non riuscito: esegui lo script supabase/richieste-estese.sql e riprova.</div>;
-                  if (r.estesa) return <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 10 }}>📣 Già estesa ai piloti di tutta Italia che fanno questo servizio.</div>;
-                  if (e === "chiedi" || e === "invio") return (
+                  const e = estendo[r.id] || {};
+                  const servizio = r.servizio || "questo servizio";
+                  const dove = (a) => (a === "regione" ? "della stessa regione" : "di tutta Italia");
+                  const btn = { borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700 };
+                  if (e.fase === "fatto") return <div style={{ fontSize: 12.5, color: "#4ade80", marginTop: 10 }}>📣 Estesa ai piloti {dove(e.ambito)}: email inviata a {e.n} {e.n === 1 ? "pilota" : "piloti"} che fanno «{servizio}». La vedono anche i piloti che attivano la pagina dopo.</div>;
+                  if (e.fase === "errore") return <div style={{ fontSize: 12.5, color: "#ff9c9c", marginTop: 10 }}>Non riuscito: {e.ambito === "regione" ? "esegui lo script supabase/richieste-regione.sql" : "esegui lo script supabase/richieste-estese.sql"} e riprova.</div>;
+                  if (e.fase === "chiedi" || e.fase === "invio") return (
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
-                      <span style={{ fontSize: 12.5, color: "#c3cad4", flexBasis: "100%" }}>La mandiamo ai piloti di tutta Italia che fanno «{r.servizio || "questo servizio"}»? Ricevono l'email e possono fare l'offerta, senza i contatti del cliente.</span>
-                      <button type="button" disabled={e === "invio"} onClick={() => estendi(r)} style={{ ...btn, marginTop: 0, background: "#3d8bfd", color: "#fff", border: "none" }}>{e === "invio" ? "Invio…" : "Sì, estendi"}</button>
-                      <button type="button" disabled={e === "invio"} onClick={() => setEstendo((x) => ({ ...x, [r.id]: undefined }))} style={{ ...btn, marginTop: 0, background: "transparent", color: "#c3cad4", border: "1px solid #343e57" }}>Annulla</button>
+                      <span style={{ fontSize: 12.5, color: "#c3cad4", flexBasis: "100%" }}>La mandiamo ai piloti {dove(e.ambito)} che fanno «{servizio}»? Ricevono l'email e possono fare l'offerta, senza i contatti del cliente.</span>
+                      <button type="button" disabled={e.fase === "invio"} onClick={() => estendi(r, e.ambito)} style={{ ...btn, background: "#3d8bfd", color: "#fff", border: "none" }}>{e.fase === "invio" ? "Invio…" : "Sì, estendi"}</button>
+                      <button type="button" disabled={e.fase === "invio"} onClick={() => setEstendo((x) => ({ ...x, [r.id]: undefined }))} style={{ ...btn, background: "transparent", color: "#c3cad4", border: "1px solid #343e57" }}>Annulla</button>
                     </div>
                   );
-                  return <button type="button" onClick={() => setEstendo((x) => ({ ...x, [r.id]: "chiedi" }))} style={{ ...btn, background: "transparent", color: "#3d8bfd", border: "1px solid #3d8bfd66" }}>📣 Estendi ai piloti di tutta Italia</button>;
+                  if (r.ambito === "italia") return <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 10 }}>📣 Estesa ai piloti di tutta Italia che fanno questo servizio.</div>;
+                  return (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
+                      {r.ambito === "regione" && <span style={{ fontSize: 12.5, color: "#aab3bf", flexBasis: "100%" }}>📣 Estesa ai piloti della stessa regione.</span>}
+                      {!r.ambito && !r.estesa && <button type="button" onClick={() => setEstendo((x) => ({ ...x, [r.id]: { fase: "chiedi", ambito: "regione" } }))} style={{ ...btn, background: "transparent", color: "#3d8bfd", border: "1px solid #3d8bfd66" }}>📣 Estendi alla regione</button>}
+                      {!r.estesa || r.ambito === "regione" ? <button type="button" onClick={() => setEstendo((x) => ({ ...x, [r.id]: { fase: "chiedi", ambito: "italia" } }))} style={{ ...btn, background: "transparent", color: "#3d8bfd", border: "1px solid #3d8bfd66" }}>📣 Estendi a tutta Italia</button>
+                        : <span style={{ fontSize: 12.5, color: "#aab3bf" }}>📣 Già estesa ai piloti di tutta Italia che fanno questo servizio.</span>}
+                    </div>
+                  );
                 })()}
 
                 <div style={{ marginTop: 10 }}>
