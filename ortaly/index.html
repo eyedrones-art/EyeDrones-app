@@ -13,6 +13,7 @@
  {"@type":"Organization","@id":"https://ortaly.it/#org","name":"Ortaly","url":"https://ortaly.it/","logo":"https://ortaly.it/icona-512.png","email":"info@ortaly.it","description":"Mercato online dei produttori agricoli: frutta, verdura, formaggi, miele e vino a km zero."},
  {"@type":"WebSite","@id":"https://ortaly.it/#sito","url":"https://ortaly.it/","name":"Ortaly","inLanguage":"it","publisher":{"@id":"https://ortaly.it/#org"}}]}</script>
 <meta name="theme-color" content="#05634a">
+<meta name="color-scheme" content="light">
 <meta property="og:title" content="Ortaly · dal campo a casa tua">
 <meta property="og:description" content="Dai produttori italiani a casa tua, senza intermediari: frutta, verdura, formaggi, miele e vino made in Italy.">
 <meta property="og:url" content="https://ortaly.it/">
@@ -36,12 +37,9 @@
   --titoli:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
   --testo:"Figtree","Segoe UI",system-ui,sans-serif;
   --gessetto:"Caveat Brush","Comic Sans MS",cursive;
+  color-scheme:light;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --carta:#0b1714; --carta2:#12241e; --bianco:#14261f; --inchiostro:#e6f6ef; --tenue:#9cb9ad;
-  --foglia:#34d399; --foglia-chiara:#123a2d; --lavagna:#052e24; --gesso:#ecfdf5; --tuorlo:#fcd34d; --pomodoro:#f87171; --bordo:#22413a;
-  --corallo:#ff8a92; --su-corallo:#2a0d10; --scuro:#0f2a24; --su-lavagna:#a8dcc6;
-  --p1:#2e211a; --p2:#2e1a24; --p3:#2c2914; --p4:#16233a; --p5:#221a38; color-scheme:dark}}
+/* Ortaly è sempre chiara (banco di mercato alla luce del giorno), anche con il tema scuro del computer */
 :root[data-theme="dark"]{
   --carta:#0b1714; --carta2:#12241e; --bianco:#14261f; --inchiostro:#e6f6ef; --tenue:#9cb9ad;
   --foglia:#34d399; --foglia-chiara:#123a2d; --lavagna:#052e24; --gesso:#ecfdf5; --tuorlo:#fcd34d; --pomodoro:#f87171; --bordo:#22413a;
