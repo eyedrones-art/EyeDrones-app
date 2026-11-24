@@ -491,6 +491,7 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .voto-stelle button[aria-pressed="true"]{color:#e8a10c}
 .voto textarea{width:100%;border:1px solid var(--bordo);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;resize:vertical;background:var(--carta)}
 .avanzo-box{margin-top:12px;background:#e3f7ee;border:1px dashed #0b8f68;border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.45}
+.ingresso.veloce .benvenuto,.ingresso.veloce .entra,.ingresso.veloce .scorri,.ingresso.veloce .salta{visibility:hidden}
 @media (prefers-reduced-motion:reduce){.ingresso,.anta{transition:opacity .3s!important}.ingresso.dentro{transform:none}}
 </style>
 <style>
@@ -585,7 +586,9 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
 // l'ingresso nella bottega: solo alla prima visita sulla pagina principale (non dai link a un produttore o a un ordine)
 (function(){try{
   const forza=/[?&]ingresso=1/.test(location.search);
-  if(!forza&&(location.hash||localStorage.getItem("ortaly_entrato")))return;
+  if(!forza&&location.hash)return;
+  // chi è già entrato una volta: la porta si apre da sola, in poco più di un secondo
+  const giaEntrato=!forza&&!!localStorage.getItem("ortaly_entrato");
   const m=new Date().getMonth();
   const V=[["🍊","🥬","🧀"],["🥦","🍊","🧀"],["🌿","🥚","🍋"],["🍓","🌿","🥚"],["🍓","🍒","🥒"],["🍑","🍅","🍒"],["🍑","🍅","🍈"],["🍉","🍑","🌽"],["🍇","🍄","🍐"],["🍇","🎃","🌰"],["🎃","🌰","🍎"],["🍊","🌰","🍯"]][m];
   const d=document.createElement("div");d.className="ingresso";d.setAttribute("role","dialog");d.setAttribute("aria-label","Benvenuto su Ortaly");
@@ -600,7 +603,7 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
   const entra=(subito)=>{if(fatto)return;fatto=true;try{localStorage.setItem("ortaly_entrato","1")}catch(e){}
     const fine=()=>{d.remove();document.documentElement.style.overflow=""};
     if(subito||matchMedia("(prefers-reduced-motion: reduce)").matches){d.style.opacity="0";setTimeout(fine,300);return}
-    d.classList.add("apre");setTimeout(()=>d.classList.add("dentro"),550);setTimeout(fine,1700)};
+    const v=d.classList.contains("veloce");d.classList.add("apre");setTimeout(()=>d.classList.add("dentro"),v?380:550);setTimeout(fine,v?1150:1700)};
   // scorrendo (rotella o dito) ci si avvicina: la porta si apre piano piano e si entra
   const ante=d.querySelectorAll(".anta"),fac=d.querySelector(".facciata"),testi=d.querySelectorAll(".benvenuto,.entra,.scorri,.salta,.cartello-porta");
   let pr=0,ferma=null;
@@ -620,7 +623,8 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
   d.querySelector("#portaBottega").onclick=()=>entra(false);
   d.querySelector("#saltaBottega").onclick=()=>entra(true);
   d.addEventListener("keydown",e=>{if(e.key==="Escape")entra(true)});
-  setTimeout(()=>{try{d.querySelector("#entraBottega").focus({preventScroll:true})}catch(e){}},50);
+  if(giaEntrato){d.classList.add("veloce");d.addEventListener("click",()=>entra(true));setTimeout(()=>entra(false),250)}
+  else setTimeout(()=>{try{d.querySelector("#entraBottega").focus({preventScroll:true})}catch(e){}},50);
 }catch(e){}})();
 </script>
 
