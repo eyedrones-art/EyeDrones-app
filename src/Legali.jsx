@@ -58,6 +58,7 @@ export function Privacy() {
           <><strong>Supabase</strong>: database, accesso all'account e archiviazione di file e foto.</>,
           <><strong>Netlify</strong>: pubblicazione dell'app e funzioni che inviano le email.</>,
           <><strong>Resend</strong>: invio delle email (server in Irlanda).</>,
+          <><strong>Stripe</strong>: i pagamenti con carta, compreso il «Pagamento protetto» di «Trova un pilota». I dati della carta e, per i piloti, i documenti e il conto per ricevere i soldi li riceve solo Stripe: EyeDrones non li vede.</>,
           <><strong>OpenStreetMap, Nominatim e Overpass</strong>: mappe, ricerca degli indirizzi e dei posti. Ricevono il testo cercato o le coordinate.</>,
           <><strong>Open-Meteo</strong> e <strong>NOAA</strong>: meteo e indice geomagnetico. Ricevono solo le coordinate del luogo, nessun dato personale.</>,
           <><strong>Anthropic</strong>: l'intelligenza artificiale dell'Esperto e dell'assistente fotovoltaico. Riceve le foto o le domande inviate, non il tuo account.</>,
@@ -131,6 +132,15 @@ export function Termini() {
           "La tua pagina pilota, se la attivi, è pubblica. In «Trova un pilota» i clienti della tua provincia vedono il tuo nome abbreviato (es. «Luca R.»), città, servizi e foto della pagina, e con le tue offerte anche la presentazione, senza numeri, email, siti e codici; i tuoi attestati non li vedono; nome completo, logo e contatti solo dopo che confermi un lavoro (puoi toglierti da «La mia pagina»).",
           "In «Trova un pilota», quando un cliente sceglie la tua offerta, confermi entro 48 ore; se la commissione è attiva la paghi con la conferma, e solo per i lavori che ottieni. Se lasci scadere 2 scelte, o se il cliente ci dice che l'hai contattato fuori da EyeDrones dopo non aver confermato, non ricevi più richieste in zona. Dopo il lavoro il cliente può darti da 1 a 5 stelle con un breve commento: la media e i commenti si vedono nelle offerte, nell'elenco dei piloti e nella tua pagina.",
           "I posti che consigli sono visibili agli altri utenti registrati, senza il tuo nome.",
+        ]} />
+
+        <H2>6-bis. Pagamento protetto («Trova un pilota»)</H2>
+        <Lista voci={[
+          "Quando è attivo, il cliente può pagare il lavoro nell'app: un anticipo (con il resto dopo) o l'intero importo. Il pagamento lo gestisce Stripe con Stripe Connect: i soldi restano su Stripe e non passano da un conto di EyeDrones.",
+          "Il pilota riceve il 100% del prezzo della sua offerta. Il cliente paga in più la «Protezione EyeDrones» (percentuale e quota fissa indicate prima di pagare), che resta a EyeDrones.",
+          "I soldi vanno al pilota quando il cliente conferma di aver ricevuto il lavoro, oppure da soli alcuni giorni dopo la consegna nell'app (indicati nella pagina del lavoro) se il cliente non segnala problemi.",
+          "Se il pilota annulla il lavoro, il cliente riceve indietro tutto, compresa la protezione. Se il cliente segnala un problema, i soldi restano fermi: EyeDrones sente entrambi, guarda la consegna e decide se mandarli al pilota o restituirli al cliente, in tutto o in parte. Se annulla il cliente, decide EyeDrones caso per caso.",
+          "Il contratto per il lavoro è tra cliente e pilota: è il pilota a fare la fattura o la ricevuta per il suo prezzo. Per ricevere i pagamenti il pilota collega un conto Stripe e mette i suoi dati direttamente sul sito di Stripe.",
         ]} />
 
         <H2>7. Piani e prezzi</H2>

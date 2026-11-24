@@ -9,6 +9,10 @@
 [functions]
   included_files = ["netlify/functions/*.so.1", "netlify/functions/thermal-worker.js", "node_modules/dji-thermal-sdk/**"]
 
+# «Pagamento protetto»: ogni ora manda al pilota i soldi dei lavori consegnati da qualche giorno (pagamento-protetto.sql)
+[functions."protetto-rilascio"]
+  schedule = "23 * * * *"
+
 # sicurezza per tutte le pagine dell'app:
 # - nessun altro sito può mostrare l'app dentro una sua pagina (contro le pagine false che la copiano)
 # - il browser usa sempre https e non «indovina» il tipo dei file
