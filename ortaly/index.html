@@ -858,7 +858,7 @@ function apriRicette(nome){const R=RICETTE_PRODOTTO[nome];if(!R)return;const m=n
     const avanzi=pk.presi.filter(x=>x.avanzo).map(x=>{const alt=altraRicetta(x.a.nome,r.n);return `<li>♻️ Ti avanzano circa ${x.avanzo} di ${esc(x.a.nome.toLowerCase())}${alt?`: <button class="link" data-ricette="${esc(alt.nome)}" data-avg="${Math.round(x.avanzoG||0)}" data-avprod="${esc(x.a.nome)}" data-avric="${esc(alt.r.n)}">${esc(alt.r.n)} con quello che avanza</button>`:""}</li>`}).join("");
     return `<article class="ricetta"><div class="ric-testa"><h3>${esc(r.n)}</h3><span>⏱ ${esc(r.t)}</span></div>
     <p class="ric-ing"><b>Per ${ricPersone} ${ricPersone===1?"persona":"persone"}:</b> ${esc(scalaIng(r.i,ricPersone/4))}</p><ol>${r.p.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
-    ${pk.presi.length?`<div class="pacchetto"><b>🧺 Pacchetto ricetta · ${ricPersone} persone</b><ul class="pk-righe">${pk.presi.map(x=>`<li><span><b>${esc(x.a.nome)}</b> <small>${esc(bot(x.a.bottega)?.nome||"")}</small>${x.testo?`<br><small>${x.testo}</small>`:""}</span><span class="pk-prezzo">${euro(Math.round(x.a.prezzo*x.qta*100)/100)}</span></li>`).join("")}</ul>${pk.casa.length?`<small>Da casa tua: ${esc(pk.casa.join(", "))}</small>`:""}${avanzi?`<ul class="pk-avanzi">${avanzi}</ul>`:""}<button class="grande" data-pacchetto="${esc(pk.presi.map(x=>x.a.id+":"+x.qta).join(","))}">Metti nel cestino · ${euro(Math.round(tot*100)/100)}</button></div>`:""}
+    ${pk.presi.length?`<div class="pacchetto"><b>🧺 Pacchetto ricetta · ${ricPersone} ${ricPersone===1?"persona":"persone"}</b><ul class="pk-righe">${pk.presi.map(x=>`<li><span><b>${esc(x.a.nome)}</b> <small>${esc(bot(x.a.bottega)?.nome||"")}</small>${x.testo?`<br><small>${x.testo}</small>`:""}</span><span class="pk-prezzo">${euro(Math.round(x.a.prezzo*x.qta*100)/100)}</span></li>`).join("")}</ul>${pk.casa.length?`<small>Da casa tua: ${esc(pk.casa.join(", "))}</small>`:""}${avanzi?`<ul class="pk-avanzi">${avanzi}</ul>`:""}<button class="grande" data-pacchetto="${esc(pk.presi.map(x=>x.a.id+":"+x.qta).join(","))}">Metti nel cestino · ${euro(Math.round(tot*100)/100)}</button></div>`:""}
     ${VOTI()[id]?`<p class="mio-voto"><span>${stelleTxt(VOTI()[id].stelle)}</span>${VOTI()[id].nota?` «${esc(VOTI()[id].nota)}»`:""} <small>il tuo voto</small></p>`:""}
     <div class="ric-azioni"><button class="grande" data-cucina="${esc(id)}">👩‍🍳 Cucina ora</button><button class="cuore" data-salvaric="${esc(id)}" aria-pressed="${ok}">${ok?"❤️ Salvata nelle tue ricette":"🤍 Salva la ricetta"}</button></div></article>`};
   apriSheet(`<div class="corpo"><div class="ric-capo"><span>${em}</span><div><h2>${esc(nome)}</h2><p class="storia" style="margin:2px 0 0">Due ricette semplici: compri solo quello che ti serve, niente sprechi</p></div></div>
@@ -866,8 +866,8 @@ function apriRicette(nome){const R=RICETTE_PRODOTTO[nome];if(!R)return;const m=n
     ${ricAvanzo?`<div class="avanzo-box">♻️ <b>Niente sprechi:</b> con i tuoi ${fmtG(ricAvanzo.g)} di ${esc(ricAvanzo.prod.toLowerCase())} fai «${esc(ricAvanzo.ric)}» per ${ricPersone} ${ricPersone===1?"persona":"persone"}. Le dosi qui sotto sono già calcolate.</div>`:""}
     <div class="persone" role="group" aria-label="Per quante persone"><span>Per quante persone?</span>${[...new Set([2,4,6,ricPersone])].sort((x,y)=>x-y).map(n=>`<button data-persone="${n}" data-perric="${esc(nome)}" aria-pressed="${ricPersone===n}">${n}</button>`).join("")}</div>
     <button class="piu" data-cassa="${esc(nome)}" style="margin:6px 0 4px">Vedi ${esc(nome.toLowerCase())} al banco ›</button>
-    ${R.map(scheda).join("")}</div>`,"ricette",nome);
-  if(sc){const n=sh.querySelector(".sheet");if(n)n.scrollTop=sc}}
+    ${(ricAvanzo?R.map((r,k)=>[r,k]).sort((x,y)=>(y[0].n===ricAvanzo.ric)-(x[0].n===ricAvanzo.ric)):R.map((r,k)=>[r,k])).map(([r,k])=>scheda(r,k)).join("")}</div>`,"ricette",nome);
+  if(sc&&!ricAvanzo){const n=sh.querySelector(".sheet");if(n)n.scrollTop=sc}}
 // la lista della spesa delle ricette salvate: si tira una riga su quello che hai già preso (solo su questo telefono)
 const SPUNTE=()=>leggi("spunte",{});
 function listaSpesaHtml(soloBottega){const sp=SPUNTE();
@@ -888,7 +888,7 @@ function apriLista(){const h=listaSpesaHtml();
 let cucinaWake=null,cucinaTimer=null;
 function apriCucina(id){const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];if(!r)return;
   try{chiudiSheet()}catch(e){}
-  const ing=scalaIng(r.i,ricPersone/4).split(",").map(x=>x.trim()).filter(Boolean);
+  const ing=r.i.split(",").map(x=>x.trim()).filter(Boolean).map(x=>scalaIng(x,ricPersone/4));
   const passi=[{tipo:"ing"},...r.p.map((t,i)=>({tipo:"passo",t,i})),{tipo:"fine"}];let pos=0;
   const d=document.createElement("div");d.className="cucina";d.setAttribute("role","dialog");d.setAttribute("aria-label","Modalità cucina: "+r.n);
   document.body.appendChild(d);document.documentElement.style.overflow="hidden";
