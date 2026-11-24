@@ -142,6 +142,30 @@ function componiEmail(d) {
     });
     return { a, oggetto: `Nuovo lavoro: ${servizio || "richiesta"}${luogo ? ` a ${luogo}` : ""}`, ...m };
   }
+  if (d.tipo === "domanda_pilota") {
+    const a = [d.a].filter(emailValida);
+    const m = impagina({
+      etichetta: "Un pilota ti fa una domanda",
+      titolo: `${nome ? `${nome}, un` : "Un"} pilota vuole farti il preventivo`,
+      sottotitolo: `Per la tua richiesta${servizio ? ` (${servizio})` : ""} un pilota ha bisogno di un dettaglio. Rispondi: la risposta la vedono tutti i piloti, così le offerte sono più precise.`,
+      riquadro: `❓ ${String(d.domanda || "").trim().slice(0, 400)}`,
+      bottone: { href: codiceValido(d.codice) ? `${linkOfferte}#domande` : linkOfferte, testo: "Rispondi" },
+      nota: "I tuoi contatti restano nascosti: li riceve solo il pilota che sceglierai.",
+    });
+    return { a, oggetto: "Un pilota ti chiede un dettaglio sulla tua richiesta", ...m };
+  }
+  if (d.tipo === "risposta_cliente") {
+    const a = [d.a].filter(emailValida);
+    const m = impagina({
+      etichetta: "Il cliente ti ha risposto",
+      titolo: `${servizio || "La richiesta"}${luogo ? ` · ${luogo}` : ""}`,
+      sottotitolo: "Il cliente ha risposto alla tua domanda. Ora puoi mandare un'offerta più precisa.",
+      riquadro: `❓ ${String(d.domanda || "").trim().slice(0, 400)}\n\n💬 ${String(d.risposta || "").trim().slice(0, 800)}`,
+      bottone: { href: linkPilota, testo: "Manda la tua offerta" },
+      nota: "I contatti del cliente li vedi quando ti sceglie e confermi.",
+    });
+    return { a, oggetto: "Il cliente ha risposto alla tua domanda", ...m };
+  }
   if (d.tipo === "lavori_aperti") {
     const a = [d.a].filter(emailValida);
     const lavori = (Array.isArray(d.lavori) ? d.lavori : []).slice(0, 10);

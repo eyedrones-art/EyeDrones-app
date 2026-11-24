@@ -12113,6 +12113,49 @@ function CompletaRichiesta({ codice, r, fatto }) {
   );
 }
 
+// le domande dei piloti sulla richiesta: il cliente risponde qui (script domande-richiesta.sql; se manca non compare niente)
+function DomandeCliente({ codice }) {
+  const [lista, setLista] = useState([]);
+  const [testi, setTesti] = useState({});
+  const [stato, setStato] = useState({});
+  const carica = () => supabase.rpc("domande_cliente", { p_codice: codice }).then(({ data }) => setLista(Array.isArray(data) ? data : []), () => {});
+  useEffect(() => { carica(); }, [codice]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (window.location.hash === "#domande" && lista.length) setTimeout(() => document.getElementById("domande")?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+  }, [lista.length]);
+  if (!lista.length) return null;
+  const rispondi = async (d) => {
+    const t = (testi[d.id] || "").trim();
+    if (!t) { setStato({ ...stato, [d.id]: "Scrivi la risposta." }); return; }
+    setStato({ ...stato, [d.id]: "invio" });
+    const { error } = await supabase.rpc("rispondi_domanda", { p_codice: codice, p_domanda: d.id, p_risposta: t });
+    if (error) { setStato({ ...stato, [d.id]: "Non è stato possibile salvare: riprova." }); return; }
+    setStato({ ...stato, [d.id]: null });
+    carica();
+  };
+  const daRispondere = lista.filter((d) => !d.risposta).length;
+  return (
+    <div id="domande" style={{ ...CLIENTE.scheda, background: daRispondere ? "#fffaf0" : CLIENTE.scheda.background, borderColor: daRispondere ? "#f3dfb0" : CLIENTE.scheda.borderColor, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div>
+        <strong style={{ fontSize: 16.5 }}>❓ {daRispondere ? (daRispondere === 1 ? "Un pilota ti chiede un dettaglio" : `${daRispondere} domande dei piloti`) : "Le domande dei piloti"}</strong>
+        <p style={{ fontSize: 14, color: "#5b534b", margin: "6px 0 0 0", lineHeight: 1.5 }}>Rispondi qui: la risposta la vedono tutti i piloti, così le offerte sono più precise. I tuoi contatti restano nascosti.</p>
+      </div>
+      {lista.map((d) => (
+        <div key={d.id} style={{ borderTop: "1px solid #eadfcf", paddingTop: 10 }}>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>❓ {d.domanda}</div>
+          {d.risposta ? <div style={{ fontSize: 14.5, color: "#2f6b45", marginTop: 6 }}>💬 {d.risposta}</div> : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+              <textarea style={{ ...CLIENTE.input, minHeight: 70, resize: "vertical" }} maxLength={800} value={testi[d.id] || ""} onChange={(e) => setTesti({ ...testi, [d.id]: e.target.value })} placeholder="La tua risposta" />
+              {stato[d.id] && stato[d.id] !== "invio" && <p style={{ color: "#b3261e", fontSize: 13.5, margin: 0 }}>{stato[d.id]}</p>}
+              <button type="button" disabled={stato[d.id] === "invio"} onClick={() => rispondi(d)} style={CLIENTE.bottone}>{stato[d.id] === "invio" ? "Invio…" : "Rispondi"}</button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // la pagina del cliente: le offerte arrivate, il confronto e la scelta del pilota
 function OfferteCliente({ codice }) {
   const [dati, setDati] = useState(undefined); // undefined = carico | null = non trovata
@@ -12300,6 +12343,7 @@ function OfferteCliente({ codice }) {
           <p style={{ fontSize: 14.5, color: "#6b6258", margin: 0 }}>{[r.servizio, r.luogo, quando].filter(Boolean).join(" · ")}</p>
         </header>
         {r.stato === "aperta" && (!(r.luogo || "").trim() || (r.descrizione || "").trim().length < 15) && <CompletaRichiesta codice={codice} r={r} fatto={carica} />}
+        {r.stato === "aperta" && <DomandeCliente codice={codice} />}
         {r.stato !== "chiusa" && <AvvisiCliente codice={codice} />}
 
         {r.stato === "aperta" && (dati.rinunce || []).map((x, i) => (
@@ -12754,6 +12798,8 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   const [lavori, setLavori] = useState(null); // null = caricamento o script non eseguito
   const [bozze, setBozze] = useState({}); // id → { prezzo, messaggio }
   const [aperto, setAperto] = useState(null); // richiesta con il modulo dell'offerta aperto
+  const [domande, setDomande] = useState({}); // id richiesta → domande dei piloti e risposte del cliente (script domande-richiesta.sql)
+  const [chiedo, setChiedo] = useState({}); // id richiesta → { testo, stato }
   const [lavoro, setLavoro] = useState(null); // id in corso
   const [errore, setErrore] = useState(null);
   const [pagato, setPagato] = useState(LAVORO_APPENA_PAGATO);
@@ -12811,6 +12857,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
       try { localStorage.setItem(CHIAVE_LAVORI_VISTI, JSON.stringify(data.map((l) => l.id).slice(0, 200))); window.dispatchEvent(new Event("eyedrones-lavori-visti")); } catch { /* niente */ }
     }
     supabase.rpc("storia_clienti_zona").then(({ data: st }) => st && typeof st === "object" && setStoria(st), () => {});
+    if (Array.isArray(data) && data.length) supabase.rpc("domande_per_lavori", { p_ids: data.map((l) => l.id) }).then(({ data: dm }) => dm && typeof dm === "object" && setDomande(dm), () => {});
     supabase.rpc("annullamenti_pilota").then(({ data: an }) => an && typeof an === "object" && setAnnulli(an), () => {});
     return Array.isArray(data) ? data : [];
   };
@@ -13205,6 +13252,50 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
         return (
           <div key={l.id} style={st.scheda}>
             {testaLavoro(l)}
+            {(() => {
+              const elenco = Array.isArray(domande[l.id]) ? domande[l.id] : [];
+              const c = chiedo[l.id] || {};
+              const mie = elenco.filter((d) => d.mia).length;
+              const invia = async () => {
+                const testo = (c.testo || "").trim();
+                if (testo.length < 5) { setChiedo({ ...chiedo, [l.id]: { ...c, stato: "Scrivi la tua domanda (almeno qualche parola)." } }); return; }
+                setChiedo({ ...chiedo, [l.id]: { ...c, stato: "invio" } });
+                const { error } = await supabase.rpc("chiedi_dettaglio", { p_richiesta: l.id, p_domanda: testo });
+                if (error) { setChiedo({ ...chiedo, [l.id]: { ...c, stato: /troppe/i.test(error.message || "") ? "Hai già fatto 2 domande su questa richiesta." : "Invio non riuscito: riprova." } }); return; }
+                setChiedo({ ...chiedo, [l.id]: { inviata: true } });
+                supabase.rpc("domande_per_lavori", { p_ids: [l.id] }).then(({ data: dm }) => dm && setDomande((x) => ({ ...x, ...dm })), () => {});
+              };
+              return (
+                <>
+                  {elenco.length > 0 && (
+                    <div style={{ marginTop: 10, background: "#10141f", borderRadius: 8, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ fontSize: 11.5, color: "#8b95a3", fontWeight: 700, letterSpacing: ".04em" }}>DOMANDE DEI PILOTI</div>
+                      {elenco.map((d, i) => (
+                        <div key={i} style={{ fontSize: 13, lineHeight: 1.45 }}>
+                          <div style={{ color: "#c3cad4" }}>❓ {d.domanda}{d.mia && <span style={{ color: "#8b95a3", fontSize: 11.5 }}> · la tua</span>}</div>
+                          <div style={{ color: d.risposta ? "#86efac" : "#8b95a3", marginTop: 2 }}>{d.risposta ? <>💬 {d.risposta}</> : "In attesa della risposta del cliente"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {l.stato === "aperta" && !l.mia && mie < 2 && (c.aperta ? (
+                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      <textarea value={c.testo || ""} maxLength={400} onChange={(e) => setChiedo({ ...chiedo, [l.id]: { ...c, testo: e.target.value, stato: null } })} placeholder="Es. Quanti metri di fiume vanno rilevati? Serve anche la parte sott'acqua?" style={{ ...inputStyle, minHeight: 70, resize: "vertical" }} />
+                      <div style={{ fontSize: 11.5, color: "#8b95a3" }}>La risposta la vedono tutti i piloti. Numeri, email e siti vengono tolti.</div>
+                      {c.stato && c.stato !== "invio" && <div style={{ fontSize: 12.5, color: "#ff9c9c" }}>{c.stato}</div>}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button type="button" disabled={c.stato === "invio"} onClick={invia} style={{ background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700 }}>{c.stato === "invio" ? "Invio…" : "Manda la domanda"}</button>
+                        <button type="button" onClick={() => setChiedo({ ...chiedo, [l.id]: {} })} style={{ background: "transparent", color: "#c3cad4", border: "1px solid #343e57", borderRadius: 8, padding: "8px 12px", fontSize: 13 }}>Annulla</button>
+                      </div>
+                    </div>
+                  ) : c.inviata ? (
+                    <div style={{ fontSize: 12.5, color: "#86efac", marginTop: 10 }}>✓ Domanda inviata: ti scriviamo quando il cliente risponde.</div>
+                  ) : (
+                    <button type="button" onClick={() => setChiedo({ ...chiedo, [l.id]: { aperta: true } })} style={{ marginTop: 10, background: "none", border: "none", padding: 0, color: "#3d8bfd", fontSize: 13, fontWeight: 700 }}>❓ Chiedi un dettaglio al cliente</button>
+                  ))}
+                </>
+              );
+            })()}
             {l.mia && !modulo && <div style={{ fontSize: 12.5, color: "#86efac", marginTop: 10 }}>✓ Hai offerto {euroIt(l.mia.prezzo)}: il cliente sta guardando le offerte. <button type="button" onClick={() => setAperto(l.id)} style={{ background: "none", border: "none", color: "#7fb0ff", padding: 0, fontSize: 12.5, textDecoration: "underline" }}>Cambia</button></div>}
             {!l.mia && !modulo && <button type="button" onClick={() => setAperto(l.id)} style={{ marginTop: 12, background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13.5, fontWeight: 700 }}>Manda la tua offerta</button>}
             {modulo && (
