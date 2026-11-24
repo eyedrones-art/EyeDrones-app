@@ -479,6 +479,18 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .c-av{background:var(--foglia);color:var(--bianco);flex:2!important}
 .c-chip{margin-left:auto;margin-right:8px;background:var(--tuorlo);color:var(--scuro);font-weight:800;border-radius:99px;padding:6px 12px;font-variant-numeric:tabular-nums}
 .c-chip.suona{background:var(--corallo);color:var(--su-corallo);animation:salta .5s ease-in-out infinite alternate}
+
+.consiglio{background:#fff7d6;border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.45;margin-top:12px}
+.consiglio b{display:block;font-family:var(--titoli);margin-bottom:2px}
+.mio-voto{margin:10px 0 0;font-size:13.5px;color:var(--tenue)}.mio-voto span,.ric-stelle{color:#e8a10c;font-size:16px;letter-spacing:1px}
+.ric-stelle{display:block;margin-top:4px}
+.voto{display:grid;gap:10px;margin-top:22px;background:var(--bianco);border-radius:18px;box-shadow:var(--ombra);padding:16px}
+.voto>b{font:700 20px var(--titoli)}.voto small{color:var(--tenue)}
+.voto-stelle{display:flex;gap:6px}
+.voto-stelle button{border:0;background:none;font-size:40px;line-height:1;color:#d9cdb8;cursor:pointer;padding:0 2px}
+.voto-stelle button[aria-pressed="true"]{color:#e8a10c}
+.voto textarea{width:100%;border:1px solid var(--bordo);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;resize:vertical;background:var(--carta)}
+.avanzo-box{margin-top:12px;background:#e3f7ee;border:1px dashed #0b8f68;border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.45}
 @media (prefers-reduced-motion:reduce){.ingresso,.anta{transition:opacity .3s!important}.ingresso.dentro{transform:none}}
 </style>
 <style>
@@ -759,11 +771,54 @@ const RICETTE_PRODOTTO={
 "Vino":[{n:"Vin brulé",t:"15 min",i:"1 l di vino rosso, 100 g di zucchero, 1 arancia, cannella, chiodi di garofano",p:["Metti in pentola vino, zucchero, scorza d'arancia e spezie.","Scalda senza far bollire per 10 minuti.","Filtra e servi caldo."]},{n:"Pere al vino rosso",t:"35 min",i:"4 pere, 500 ml di vino rosso, 100 g di zucchero, cannella",p:["Sbuccia le pere lasciando il picciolo.","Cuocile nel vino con zucchero e cannella per 25 minuti.","Servile con lo sciroppo ristretto."]}]
 };
 
+// un consiglio pratico per ogni prodotto: come conservarlo e come usarlo in cucina (a sceglierlo ci pensa il produttore)
+const CONSIGLI_PRODOTTO={
+"Zucca":"Intera dura anche 2 mesi in un posto fresco e asciutto. Tagliata, avvolgila nella pellicola e usala entro 4-5 giorni. I semi, lavati e tostati in forno con un po' di sale, sono uno snack.",
+"Castagne":"Tienile in frigo in un sacchetto di carta e consumale entro una settimana. Incidile sempre prima di cuocerle, altrimenti scoppiano.",
+"Mele":"Tienile in frigo, lontano dalle altre verdure: fanno maturare in fretta quello che hanno vicino. Una volta tagliate, un po' di limone le tiene bianche.",
+"Cavolo nero":"In frigo, avvolto in un panno umido, dura 4-5 giorni. Togli la costa centrale, che è dura: le foglie cuociono più in fretta.",
+"Formaggi":"Toglili dal frigo mezz'ora prima di mangiarli: il sapore si sente di più. Conservali nella carta del produttore, non nella pellicola.",
+"Miele":"Se diventa duro (cristallizza) è normale ed è un buon segno: scaldalo a bagnomaria sotto i 40 °C e torna liquido. Non serve il frigo.",
+"Uova":"Conservale in frigo con la punta in giù. Per capire se sono fresche mettile in un bicchiere d'acqua: se restano sul fondo sono freschissime.",
+"Arance":"Fuori dal frigo durano una settimana, in frigo anche tre. Prima di spremerle rotolale sul tavolo premendo: fanno più succo.",
+"Mandarini":"Si conservano in un posto fresco per 7-10 giorni. Le bucce, seccate, profumano i dolci e il vin brulé.",
+"Carote":"Toglile il ciuffo appena arrivi a casa, altrimenti si ammorbidiscono. In frigo durano due settimane.",
+"Cavoli":"In frigo, interi, durano una settimana. Per l'odore in cottura metti in pentola una foglia d'alloro.",
+"Topinambur":"Spazzolali sotto l'acqua invece di sbucciarli: la buccia è sottile e buona. In frigo durano una settimana.",
+"Aglio":"Tienilo all'asciutto e al buio, mai in frigo. Se ha il germoglio verde, toglilo: è quello che lo rende pesante.",
+"Asparagi":"Conservali in frigo in piedi in un bicchiere con un dito d'acqua. Spezza il gambo con le mani: si rompe da solo dove finisce la parte dura.",
+"Spinaci":"Lavali in tanta acqua cambiandola due volte, la terra va sul fondo. Cuocendo calano molto: 1 kg diventa un piatto per 3.",
+"Limoni":"Si conservano in frigo per tre settimane. Prima di spremerli rotolali sul tavolo premendo: fanno più succo.",
+"Ricotta":"Va mangiata in pochi giorni. Se la lasci scolare un'ora in un colino diventa più cremosa per i dolci.",
+"Fragole":"Lavale solo prima di mangiarle e con il picciolo: se le lavi senza, prendono acqua e perdono sapore.",
+"Insalata":"Asciugala bene dopo averla lavata: il condimento attacca meglio. Conservala in frigo in un panno umido.",
+"Ciliegie":"Lavale solo prima di mangiarle e tienile in frigo: durano 4-5 giorni.",
+"Zucchine":"In frigo durano 5-6 giorni. Il fiore si può friggere o mettere nella frittata.",
+"Albicocche":"Se sono ancora dure, lasciale un giorno fuori dal frigo in un sacchetto di carta e maturano.",
+"Pomodori":"Non metterli in frigo: perdono sapore. Tienili a temperatura ambiente, con il picciolo in giù.",
+"Pesche":"Mangiale a temperatura ambiente, non fredde di frigo: il profumo si sente di più.",
+"Melanzane":"Per togliere l'amaro, salale e lasciale mezz'ora in un colino prima di cuocerle. In frigo durano 4-5 giorni.",
+"Meloni":"Intero sta fuori dal frigo; tagliato, coprilo con la pellicola e mettilo in frigo.",
+"Peperoncini":"Lavati e ben asciutti, appendili in un posto arieggiato e si seccano da soli in 2-3 settimane.",
+"Angurie":"Intera sta in un posto fresco; tagliata, in frigo coperta con la pellicola, dura 3-4 giorni.",
+"Mais":"Cuocilo il giorno stesso: perde dolcezza con il passare delle ore.",
+"Funghi":"Non lavarli sotto l'acqua: puliscili con un panno umido o un pennellino. Conservali in frigo in un sacchetto di carta.",
+"Pere":"Se sono dure, lasciale fuori dal frigo finché il collo cede un poco premendo.",
+"Uva":"Lavala solo prima di mangiarla e tienila in frigo: dura 5-7 giorni.",
+"Vino nuovo":"Il vino nuovo si beve giovane, entro qualche settimana, leggermente fresco (12-14 °C).",
+"Vino":"Il rosso si serve a 16-18 °C, il bianco a 8-10 °C. Una bottiglia aperta, tappata e in frigo, dura 2-3 giorni."
+};
 // le ricette salvate dal cliente (solo su questo telefono)
+const VOTI=()=>leggi("voti",{}); // id ricetta → { stelle, nota }
+const stelleTxt=n=>"★".repeat(n)+"☆".repeat(5-n);
 const RIC_SALVATE=()=>leggi("ricette",[]);
 let ricPersone=leggi("persone",4); // per quante persone (le ricette sono per 4)
+let ricAvanzo=null; // { g, prod, ric }: la ricetta aperta per usare un avanzo
 // le dosi della ricetta per le persone scelte (i numeri all'inizio di ogni ingrediente)
-const scalaIng=(t,f)=>f===1?t:t.split(",").map(x=>x.replace(/^(\s*)(\d+(?:[.,]\d+)?)/,(m0,sp,n)=>{const v=parseFloat(n.replace(",","."))*f;return sp+(v>=10?Math.round(v/10)*10:+v.toFixed(1)).toString().replace(".",",")})).join(",");
+const scalaIng=(t,f)=>f===1?t:t.split(",").map(x=>x.replace(/^(\s*)(\d+(?:[.,]\d+)?)(\s*)(kg|g|l|ml)?\b/,(m0,sp,n,sp2,u)=>{let v=parseFloat(n.replace(",","."))*f;
+  if(u==="kg"&&v<1){v*=1000;u="g"}if(u==="l"&&v<1){v*=1000;u="ml"}
+  const num=u==="g"||u==="ml"?Math.max(10,Math.round(v/10)*10):!u?Math.max(1,Math.round(v*2)/2):+v.toFixed(2);
+  return sp+String(num).replace(".",",")+(u?sp2+u:sp2)})).join(",");
 // quanto serve di un ingrediente: { g: grammi } oppure { n: pezzi } (già moltiplicato per le persone)
 function quantoServe(ing,f){const t=ing.toLowerCase().trim();
   const m=t.match(/^(\d+(?:[.,]\d+)?)\s*(kg|g|l|ml)?\b/);if(m){const v=parseFloat(m[1].replace(",","."))*f;if(m[2]==="kg")return{g:v*1000};if(m[2]==="g")return{g:v};if(m[2]==="l"||m[2]==="ml")return null;return{n:v}}
@@ -773,8 +828,8 @@ function quantoPrendere(a,serve){const u=String(a.unita||"").toLowerCase().trim(
   if(!serve)return{qta:1,testo:"",avanzo:""};
   const pesoU=u.match(/(\d+(?:[.,]\d+)?)\s*(kg|g)\b/),nU=u.match(/^(\d+)\s+\D/);
   if(serve.g!=null){
-    if(aPeso(u)){const kg=serve.g/1000,q=Math.max(1,Math.ceil(kg-0.05));const av=q-kg;return{qta:q,testo:`servono ${fmtG(serve.g)} · prendi ${q} kg`,avanzo:av>=0.25?fmtG(av*1000):""}}
-    if(pesoU){const conf=parseFloat(pesoU[1].replace(",","."))*(pesoU[2]==="kg"?1000:1),q=Math.max(1,Math.ceil(serve.g/conf-0.05));const av=q*conf-serve.g;return{qta:q,testo:`servono ${fmtG(serve.g)} · prendi ${q} × ${esc(a.unita)}`,avanzo:av>=Math.max(100,conf*.25)?fmtG(av):""}}
+    if(aPeso(u)){const kg=serve.g/1000,q=Math.max(1,Math.ceil(kg-0.05));const av=q-kg;return{qta:q,testo:`servono ${fmtG(serve.g)} · prendi ${q} kg`,avanzo:av>=0.25?fmtG(av*1000):"",avanzoG:av*1000}}
+    if(pesoU){const conf=parseFloat(pesoU[1].replace(",","."))*(pesoU[2]==="kg"?1000:1),q=Math.max(1,Math.ceil(serve.g/conf-0.05));const av=q*conf-serve.g;return{qta:q,testo:`servono ${fmtG(serve.g)} · prendi ${q} × ${esc(a.unita)}`,avanzo:av>=Math.max(100,conf*.25)?fmtG(av):"",avanzoG:av}}
     return{qta:1,testo:`servono ${fmtG(serve.g)}`,avanzo:""}}
   // pezzi (es. «1 cipolla») ma venduto a peso: ne basta 1 unità
   if(aPeso(u)||pesoU)return{qta:1,testo:`servono ${+serve.n.toFixed(1)} · prendi 1 ${esc(a.unita)}`,avanzo:""};
@@ -800,13 +855,16 @@ function apriRicette(nome){const R=RICETTE_PRODOTTO[nome];if(!R)return;const m=n
   const em=(BANCO_MESE[m].find(x=>x[1]===nome)||BANCO_MESE.flat().find(x=>x[1]===nome)||["🍳"])[0];
   const salvate=RIC_SALVATE();
   const scheda=(r,k)=>{const id=nome+"|"+k,ok=salvate.includes(id),pk=pacchettoRicetta(r),tot=pk.presi.reduce((s,x)=>s+x.a.prezzo*x.qta,0);
-    const avanzi=pk.presi.filter(x=>x.avanzo).map(x=>{const alt=altraRicetta(x.a.nome,r.n);return `<li>Ti avanzano circa ${x.avanzo} di ${esc(x.a.nome.toLowerCase())}${alt?`: prova anche <button class="link" data-ricette="${esc(alt.nome)}">${esc(alt.r.n)}</button>`:""}</li>`}).join("");
+    const avanzi=pk.presi.filter(x=>x.avanzo).map(x=>{const alt=altraRicetta(x.a.nome,r.n);return `<li>♻️ Ti avanzano circa ${x.avanzo} di ${esc(x.a.nome.toLowerCase())}${alt?`: <button class="link" data-ricette="${esc(alt.nome)}" data-avg="${Math.round(x.avanzoG||0)}" data-avprod="${esc(x.a.nome)}" data-avric="${esc(alt.r.n)}">${esc(alt.r.n)} con quello che avanza</button>`:""}</li>`}).join("");
     return `<article class="ricetta"><div class="ric-testa"><h3>${esc(r.n)}</h3><span>⏱ ${esc(r.t)}</span></div>
-    <p class="ric-ing"><b>Per ${ricPersone} persone:</b> ${esc(scalaIng(r.i,ricPersone/4))}</p><ol>${r.p.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
+    <p class="ric-ing"><b>Per ${ricPersone} ${ricPersone===1?"persona":"persone"}:</b> ${esc(scalaIng(r.i,ricPersone/4))}</p><ol>${r.p.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
     ${pk.presi.length?`<div class="pacchetto"><b>🧺 Pacchetto ricetta · ${ricPersone} persone</b><ul class="pk-righe">${pk.presi.map(x=>`<li><span><b>${esc(x.a.nome)}</b> <small>${esc(bot(x.a.bottega)?.nome||"")}</small>${x.testo?`<br><small>${x.testo}</small>`:""}</span><span class="pk-prezzo">${euro(Math.round(x.a.prezzo*x.qta*100)/100)}</span></li>`).join("")}</ul>${pk.casa.length?`<small>Da casa tua: ${esc(pk.casa.join(", "))}</small>`:""}${avanzi?`<ul class="pk-avanzi">${avanzi}</ul>`:""}<button class="grande" data-pacchetto="${esc(pk.presi.map(x=>x.a.id+":"+x.qta).join(","))}">Metti nel cestino · ${euro(Math.round(tot*100)/100)}</button></div>`:""}
+    ${VOTI()[id]?`<p class="mio-voto"><span>${stelleTxt(VOTI()[id].stelle)}</span>${VOTI()[id].nota?` «${esc(VOTI()[id].nota)}»`:""} <small>il tuo voto</small></p>`:""}
     <div class="ric-azioni"><button class="grande" data-cucina="${esc(id)}">👩‍🍳 Cucina ora</button><button class="cuore" data-salvaric="${esc(id)}" aria-pressed="${ok}">${ok?"❤️ Salvata nelle tue ricette":"🤍 Salva la ricetta"}</button></div></article>`};
   apriSheet(`<div class="corpo"><div class="ric-capo"><span>${em}</span><div><h2>${esc(nome)}</h2><p class="storia" style="margin:2px 0 0">Due ricette semplici: compri solo quello che ti serve, niente sprechi</p></div></div>
-    <div class="persone" role="group" aria-label="Per quante persone"><span>Per quante persone?</span>${[2,4,6].map(n=>`<button data-persone="${n}" data-perric="${esc(nome)}" aria-pressed="${ricPersone===n}">${n}</button>`).join("")}</div>
+    ${CONSIGLI_PRODOTTO[nome]?`<div class="consiglio"><b>💡 Consiglio</b>${esc(CONSIGLI_PRODOTTO[nome])}</div>`:""}
+    ${ricAvanzo?`<div class="avanzo-box">♻️ <b>Niente sprechi:</b> con i tuoi ${fmtG(ricAvanzo.g)} di ${esc(ricAvanzo.prod.toLowerCase())} fai «${esc(ricAvanzo.ric)}» per ${ricPersone} ${ricPersone===1?"persona":"persone"}. Le dosi qui sotto sono già calcolate.</div>`:""}
+    <div class="persone" role="group" aria-label="Per quante persone"><span>Per quante persone?</span>${[...new Set([2,4,6,ricPersone])].sort((x,y)=>x-y).map(n=>`<button data-persone="${n}" data-perric="${esc(nome)}" aria-pressed="${ricPersone===n}">${n}</button>`).join("")}</div>
     <button class="piu" data-cassa="${esc(nome)}" style="margin:6px 0 4px">Vedi ${esc(nome.toLowerCase())} al banco ›</button>
     ${R.map(scheda).join("")}</div>`,"ricette",nome);
   if(sc){const n=sh.querySelector(".sheet");if(n)n.scrollTop=sc}}
@@ -839,9 +897,12 @@ function apriCucina(id){const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||
   let restoT=-1,avviato=false;const testoT=()=>restoT>0?`⏱ ${Math.floor(restoT/60)}:${String(restoT%60).padStart(2,"0")}`:"⏰ Tempo!";
   const disegna=()=>{const p=passi[pos];const tot=passi.length-2;
     let corpo="";
-    if(p.tipo==="ing")corpo=`<div class="c-etichetta">Prima di iniziare · ${ricPersone} persone</div><h2>Prepara gli ingredienti</h2><ul class="c-ing">${ing.map((x,i)=>`<li><label><input type="checkbox"><span>${esc(x)}</span></label></li>`).join("")}</ul>`;
+    if(p.tipo==="ing")corpo=`<div class="c-etichetta">Prima di iniziare · ${ricPersone} ${ricPersone===1?"persona":"persone"}</div><h2>Prepara gli ingredienti</h2><ul class="c-ing">${ing.map((x,i)=>`<li><label><input type="checkbox"><span>${esc(x)}</span></label></li>`).join("")}</ul>${CONSIGLI_PRODOTTO[n]?`<div class="consiglio" style="margin-top:16px"><b>💡 Consiglio</b>${esc(CONSIGLI_PRODOTTO[n])}</div>`:""}`;
     else if(p.tipo==="passo"){const m=minuti(p.t);corpo=`<div class="c-etichetta">Passo ${p.i+1} di ${tot}</div><p class="c-passo">${esc(p.t)}</p>${m?`<button class="c-timer" data-cmin="${m}">⏱ Avvia ${m} minuti</button><div class="c-conto" id="cConto" hidden></div>`:""}`}
-    else corpo=`<div class="c-fine">🍽️</div><h2>Buon appetito!</h2><p class="c-passo" style="font-size:20px">${esc(r.n)} è pronto. Gli ingredienti freschi vengono dai produttori della tua zona.</p>`;
+    else{const v=VOTI()[id]||{};corpo=`<div class="c-fine">🍽️</div><h2>Buon appetito!</h2><p class="c-passo" style="font-size:20px">${esc(r.n)} è pronto. Gli ingredienti freschi vengono dai produttori della tua zona.</p>
+      <div class="voto"><b>Com'è venuta?</b><span class="voto-stelle" role="group" aria-label="Il tuo voto">${[1,2,3,4,5].map(k2=>`<button data-cstelle="${k2}" aria-label="${k2} stelle" aria-pressed="${(v.stelle||0)>=k2}">★</button>`).join("")}</span>
+      <textarea id="cNota" maxlength="140" rows="2" placeholder="Una nota per la prossima volta (es. meno sale, più formaggio)">${esc(v.nota||"")}</textarea>
+      <button class="grande" data-cvoto="1">Salva nelle tue ricette</button><small>Così ti ricordi se ti è piaciuta. Puoi cambiare il voto quando vuoi.</small></div>`}
     d.innerHTML=`<div class="c-testa"><b>${esc(r.n)}</b><span class="c-chip" id="cChip"${restoT>0||restoT===0&&avviato?"":" hidden"}>${testoT()}</span><button class="c-chiudi" aria-label="Chiudi la modalità cucina">✕</button></div>
       <div class="c-barra"><i style="width:${Math.round(pos/(passi.length-1)*100)}%"></i></div>
       <div class="c-corpo">${corpo}</div>
@@ -851,6 +912,11 @@ function apriCucina(id){const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||
   const suona=()=>{try{navigator.vibrate&&navigator.vibrate([300,150,300,150,300])}catch(e){}
     try{const ac=new (window.AudioContext||window.webkitAudioContext)();[0,0.4,0.8].forEach(t=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.25,ac.currentTime+t);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+t+.35);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+.36)})}catch(e){}};
   d.addEventListener("click",e=>{
+    const st=e.target.closest("[data-cstelle]");
+    if(st){const k2=+st.dataset.cstelle;d.querySelectorAll("[data-cstelle]").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.cstelle<=k2));d.dataset.stelle=k2;return}
+    if(e.target.closest("[data-cvoto]")){const k2=+d.dataset.stelle||+(VOTI()[id]||{}).stelle||0;if(!k2){toast("Tocca le stelle per dare il voto");return}
+      const V=VOTI();V[id]={stelle:k2,nota:(d.querySelector("#cNota").value||"").trim().slice(0,140)};salva("voti",V);
+      let l=RIC_SALVATE();if(!l.includes(id))l=[id,...l].slice(0,40);salva("ricette",l);mostraRicetteSalvate();toast("📒 Salvata con "+k2+(k2===1?" stella":" stelle"));return chiudi()}
     if(e.target.closest(".c-chiudi")||e.target.closest("[data-fine]"))return chiudi();
     if(e.target.closest(".c-av"))return vai(1);
     if(e.target.closest(".c-ind"))return vai(-1);
@@ -866,7 +932,7 @@ function apriCucina(id){const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||
   disegna();setTimeout(()=>{try{d.querySelector(".c-av").focus()}catch(e){}},50)}
 function mostraRicetteSalvate(){const el=$("ricetteSalvate");if(!el)return;const l=RIC_SALVATE().map(id=>{const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];return r?{n,r}:null}).filter(Boolean);
   $("sezRicette").hidden=!l.length;
-  el.innerHTML=l.map(({n,r})=>`<button class="ric-mini" data-ricette="${esc(n)}"><b>${esc(r.n)}</b><small>${esc(n)} · ⏱ ${esc(r.t)}</small></button>`).join("")}
+  const V=VOTI();el.innerHTML=RIC_SALVATE().map(id=>{const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];if(!r)return"";const v=V[id];return `<button class="ric-mini" data-ricette="${esc(n)}"><b>${esc(r.n)}</b><small>${esc(n)} · ⏱ ${esc(r.t)}</small>${v?`<span class="ric-stelle">${stelleTxt(v.stelle)}</span>${v.nota?`<small>«${esc(v.nota)}»</small>`:""}`:""}</button>`}).join("")}
 function mostraBancoTestata(){const el=$("heroBanco");if(!el)return;const m=new Date().getMonth();
   const cassa=([e,n])=>`<button type="button" class="cassa" data-ricette="${esc(n)}" aria-label="Ricette con ${esc(n)}"><div class="pila"><span>${e}</span><span>${e}</span><span>${e}</span></div><div class="assi"></div><div class="nome">${n}</div></button>`;
   const tre=BANCO_MESE[m];
@@ -945,7 +1011,7 @@ function cambia(id,d){carrello[id]=Math.max(0,Math.min(99,(carrello[id]||0)+d));
   rimetti();requestAnimationFrame(rimetti);setTimeout(rimetti,120)}
 
 function apriSheet(html,tipo,id){const s=$("sheet");s.dataset.tipo=tipo;s.dataset.id=id||"";s.innerHTML=`<div class="sheet-bg" data-chiudi="1"><div class="sheet" role="dialog" aria-modal="true"><div class="testa"><button class="chiudi" data-chiudi="1" aria-label="Chiudi">✕</button></div>${html}</div></div>`;s.hidden=false}
-function chiudiSheet(){$("sheet").hidden=true;if(/^#(bottega|ordine)-/.test(location.hash))try{history.replaceState(null,"",location.pathname)}catch(e){}}
+function chiudiSheet(){if(ricAvanzo){ricAvanzo=null;ricPersone=leggi("persone",4)}$("sheet").hidden=true;if(/^#(bottega|ordine)-/.test(location.hash))try{history.replaceState(null,"",location.pathname)}catch(e){}}
 // pagamento online: link del produttore (con l'importo già scritto per PayPal.me)
 const LINK_OK=/^https:\/\/([a-z0-9-]+\.)*(stripe\.com|paypal\.me|paypal\.com|sumup\.com|sumup\.link|satispay\.com|revolut\.me)(\/[^\s<>"]*)?$/i;
 function linkPaga(link,totale){if(!link||!LINK_OK.test(link))return null;try{const u=new URL(link);if(/(^|\.)paypal\.me$/i.test(u.hostname)&&u.pathname.split("/").filter(Boolean).length===1)return link.replace(/\/$/,"")+"/"+Number(totale).toFixed(2)+"EUR";}catch(e){}return link}
@@ -1601,6 +1667,10 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")chiudiSheet()});
 $("cerca").addEventListener("input",e=>{testo=e.target.value;mostrati=24;mostraGriglia()});
 document.addEventListener("click",e=>{
   const r=e.target.closest("[data-ricette]");
+  if(r&&r.dataset.avg){const g=+r.dataset.avg,R=RICETTE_PRODOTTO[r.dataset.ricette]||[],k=Math.max(0,R.findIndex(x=>x.n===r.dataset.avric)),rr=R[k];
+    // quanti grammi di quel prodotto usa la ricetta per 4 persone → le persone giuste per usare tutto l'avanzo
+    const rad=r.dataset.avprod.toLowerCase().split(/\s+/)[0].slice(0,5);const ing=rr?rr.i.split(",").find(x=>x.toLowerCase().includes(rad)):null;const q=ing?quantoServe(ing,1):null;
+    ricPersone=q&&q.g?Math.max(1,Math.min(8,Math.round(4*g/q.g))):2;ricAvanzo={g,prod:r.dataset.avprod,ric:rr?rr.n:""};apriRicette(r.dataset.ricette);return}
   if(r){const c=r.classList.contains("cassa")?r:null;if(c){c.classList.remove("salto");void c.offsetWidth;c.classList.add("salto")}setTimeout(()=>apriRicette(r.dataset.ricette),c?260:0);return}
   const sv=e.target.closest("[data-salvaric]");
   if(sv){const id=sv.dataset.salvaric;let l=RIC_SALVATE();const on=!l.includes(id);l=on?[id,...l.filter(x=>x!==id)].slice(0,40):l.filter(x=>x!==id);salva("ricette",l);
@@ -1613,7 +1683,7 @@ document.addEventListener("click",e=>{
     setTimeout(()=>{const sh=$("sheet"),el=sh.querySelector(".sheet"),sc=el?el.scrollTop:0;if(sh.dataset.tipo==="lista")apriLista();else if(sh.dataset.tipo==="prod")apriProduttore(sh.dataset.id);const n=sh.querySelector(".sheet");if(n&&sc)n.scrollTop=sc},180);return}
   if(e.target.closest("[data-azzera]")){salva("spunte",{});apriLista();toast("Lista pronta per la prossima spesa");return}
   const pp=e.target.closest("[data-persone]");
-  if(pp){ricPersone=+pp.dataset.persone||4;salva("persone",ricPersone);apriRicette(pp.dataset.perric);return}
+  if(pp){ricPersone=+pp.dataset.persone||4;ricAvanzo=null;salva("persone",ricPersone);apriRicette(pp.dataset.perric);return}
   const pk=e.target.closest("[data-pacchetto]");
   if(pk){const voci=pk.dataset.pacchetto.split(",").filter(Boolean).map(x=>{const [id,q]=x.split(":");return[id,Math.max(1,parseInt(q,10)||1)]});
     voci.forEach(([id,q])=>{carrello[id]=Math.min(99,(carrello[id]||0)+q)});salva("carrello",carrello);mostraGriglia();
