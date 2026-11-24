@@ -492,6 +492,10 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .voto textarea{width:100%;border:1px solid var(--bordo);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;resize:vertical;background:var(--carta)}
 .avanzo-box{margin-top:12px;background:#e3f7ee;border:1px dashed #0b8f68;border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.45}
 .ingresso.veloce .benvenuto,.ingresso.veloce .entra,.ingresso.veloce .scorri,.ingresso.veloce .salta{visibility:hidden}
+.quando{border:1px solid var(--bordo);border-radius:14px;padding:10px 12px 12px;margin:0}
+.quando legend{font-weight:700;padding:0 4px}
+.pref-quando{font-size:13.5px;background:#fff7d6;border-radius:10px;padding:6px 10px;margin:4px 0}
+.pref-quando small{color:var(--tenue)}
 @media (prefers-reduced-motion:reduce){.ingresso,.anta{transition:opacity .3s!important}.ingresso.dentro{transform:none}}
 </style>
 <style>
@@ -1103,7 +1107,11 @@ function apriCarrello(){
     <label for="oNome">Nome e cognome<input id="oNome" required minlength="2" maxlength="60" autocomplete="name" value="${esc(cliente.nome||"")}"></label>
     <label for="oEmail">Email <span class="aiuto">(ti avvisiamo qui quando il produttore risponde; lui non la vede)</span><input id="oEmail" type="email" required maxlength="120" autocomplete="email" value="${esc(cliente.email||"")}"></label>
     ${serveIndirizzo?`<label for="oInd">Indirizzo di consegna<input id="oInd" required minlength="8" maxlength="200" autocomplete="street-address" placeholder="Via, numero, città" value="${esc(cliente.ind||"")}"></label>`:""}
-    <label for="oNota">Nota per il produttore <span class="aiuto">(facoltativa)</span><textarea id="oNota" maxlength="300" placeholder="Es. citofono Rossi, meglio dopo le 18"></textarea></label>
+    <fieldset class="quando"><legend>📅 Quando ti va bene? <span class="aiuto">(facoltativo)</span></legend>
+      <div class="due"><label for="oGiorno">Giorno<input id="oGiorno" type="date" min="${oggiISO(0)}" max="${oggiISO(30)}"></label>
+      <label for="oFascia">Orario<select id="oFascia"><option value="">Qualsiasi ora</option><option>Mattina (8-12)</option><option>Pranzo (12-14)</option><option>Pomeriggio (14-18)</option><option>Sera (18-21)</option></select></label></div>
+      <p class="nota" style="margin:4px 0 0">Il produttore ti conferma nella chat dell'ordine se riesce, oppure ti propone un altro momento.</p></fieldset>
+    <label for="oNota">Nota per il produttore <span class="aiuto">(facoltativa)</span><textarea id="oNota" maxlength="220" placeholder="Es. citofono Rossi"></textarea></label>
     ${pushOk()&&Notification.permission!=="denied"?`<label class="scelta"><input type="checkbox" id="oAvvisi" checked><span><b>🔔 Avvisami su questo telefono</b><small>Quando il produttore accetta, ti scrive o l'ordine è pronto</small></span></label>`:iPhone()&&!installata()?`<p class="nota" style="margin:0">🔔 Per gli avvisi sul telefono aggiungi Ortaly alla schermata Home (Safari → Condividi → Aggiungi alla schermata Home). Intanto ti avvisiamo via email.</p>`:""}
     <label class="scelta"><input type="checkbox" id="oNovita"><span><b>🍅 Mandami ricette, promozioni e cosa c'è di stagione</b><small>Facoltativo · al massimo un paio di email al mese · ti togli quando vuoi</small></span></label>
     <p class="errore" id="oErr" hidden></p>
@@ -1112,8 +1120,13 @@ function apriCarrello(){
   </form></div>`,"carrello");
   $("formOrdine").addEventListener("submit",mandaOrdini);
 }
+// «Quando ti va bene?»: giorno e fascia oraria scelti dal cliente (il produttore conferma in chat)
+const oggiISO=g=>{const d=new Date(Date.now()+g*864e5);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+function quandoTesto(){const g=$("oGiorno")&&$("oGiorno").value,f=$("oFascia")&&$("oFascia").value;if(!g&&!f)return"";
+  const giorno=g?new Date(g+"T12:00:00").toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long"}):"";
+  return "📅 Preferisce: "+[giorno,f?f.toLowerCase():""].filter(Boolean).join(", ")}
 async function mandaOrdini(e){e.preventDefault();const btn=$("oInvia"),err=$("oErr");err.hidden=true;
-  const dati={nome:$("oNome").value.trim(),email:$("oEmail").value.trim(),novita:$("oNovita").checked,ind:$("oInd")?$("oInd").value.trim():(cliente.ind||""),nota:$("oNota").value.trim()};
+  const dati={nome:$("oNome").value.trim(),email:$("oEmail").value.trim(),novita:$("oNovita").checked,ind:$("oInd")?$("oInd").value.trim():(cliente.ind||""),nota:[quandoTesto(),$("oNota").value.trim()].filter(Boolean).join(" · ")};
   cliente={nome:dati.nome,email:dati.email,ind:dati.ind};salva("cliente",cliente);
   const permesso=$("oAvvisi")&&$("oAvvisi").checked?Notification.requestPermission().catch(()=>"default"):null;
   btn.disabled=true;btn.textContent="Invio…";
@@ -1318,7 +1331,7 @@ function mostraVendo(){
     c.innerHTML=mieiOrd.length?mieiOrd.map(o=>`<div class="ordine"><div class="su"><b>${esc(o.cliente_nome)}</b><span class="stato s-${o.stato}">${nomeStato(o)}</span></div>
       <ul class="righe">${(o.righe||[]).map(r=>`<li>${r.qta} × ${esc(r.nome)} <span style="color:var(--tenue)">(${esc(r.unita)})</span></li>`).join("")}</ul>
       <div style="font-size:13px;color:var(--tenue)">${MODI[o.modo][0]} ${MODI[o.modo][2]}${o.indirizzo?" · "+esc(o.indirizzo):""} · <b style="color:var(--inchiostro)">${euro(o.totale)}</b> · ${new Date(o.creato).toLocaleString("it-IT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} · ${esc(o.codice)}</div>
-      ${o.nota?`<div style="font-size:13.5px">📝 ${esc(o.nota)}</div>`:""}
+      ${o.nota?(()=>{const m=String(o.nota).match(/^📅 Preferisce: ([^·]+)(?: · (.*))?$/);return m?`<div class="pref-quando">📅 Il cliente preferisce: <b>${esc(m[1].trim())}</b> <small>· confermalo nella chat, o proponi un altro momento</small></div>${m[2]?`<div style="font-size:13.5px">📝 ${esc(m[2])}</div>`:""}`:`<div style="font-size:13.5px">📝 ${esc(o.nota)}</div>`})():""}
       ${o.stato==="annullato"&&o.pagato?`<div class="segn${o.rimborsato?" ok":""}">${o.rimborsato?`✅ Rimborsato al cliente`:`<div>⚠️ <b>Devi restituire ${euro(o.totale)} al cliente</b>: aveva già pagato.</div><div class="azioni"><button class="si" data-rimborsato="${o.id}">✓ Rimborsato</button></div>`}</div>`:""}
       ${Number(o.spese)?`<div style="font-size:13px;color:var(--tenue)">di cui ${o.modo==="spedizione"?"spedizione":"consegna"} ${euro(o.spese)}</div>`:""}
       ${o.stato==="annullato"?"":o.pagamento==="online"?`<div style="font-size:13.5px">💳 Online · ${o.pagato?"<b>✅ pagato</b>":`<b style="color:var(--pomodoro)">da pagare</b> · <button class="link" data-pagato="${o.id}">Segna pagato</button>`}</div>`:`<div style="font-size:13.5px">💶 Alla consegna</div>`}
