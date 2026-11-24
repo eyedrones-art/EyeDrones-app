@@ -47,6 +47,13 @@ exception when others then return true;
 end $$;
 revoke all on function privato.admin_adatto(jsonb, text, text) from public, anon, authenticated;
 
+-- le richieste che l'amministratore ha esteso a tutta Italia (script richieste-estese.sql)
+create table if not exists privato.richieste_estese (
+  richiesta_id uuid primary key references public.richieste_zona(id) on delete cascade,
+  estesa_il timestamptz not null default now()
+);
+revoke all on privato.richieste_estese from public, anon, authenticated;
+
 -- 3) Le ultime richieste, solo per l'amministratore
 create or replace function public.richieste_admin()
 returns jsonb
@@ -64,6 +71,8 @@ begin
     select jsonb_agg(riga order by (riga ->> 'creata') desc)
     from (
       select jsonb_build_object(
+        'id', z.id,
+        'estesa', exists (select 1 from privato.richieste_estese e where e.richiesta_id = z.id),
         'creata', z.created_at,
         'provincia', z.provincia,
         'servizio', z.servizio,

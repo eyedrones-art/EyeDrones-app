@@ -2144,10 +2144,11 @@ function AppShell({ session }) {
     const { count } = await supabase.from("richieste_preventivo").select("id", { count: "exact", head: true }).eq("stato", "nuova");
     setRichiesteNuove(count || 0);
     // lavori di «Trova un pilota» nella sua provincia ancora aperti e senza la sua offerta (se non ha la pagina: lista vuota)
-    supabase.rpc("lavori_in_zona").then(({ data, error }) => {
+    Promise.all([supabase.rpc("lavori_in_zona"), supabase.rpc("lavori_estesi").then((r) => r, () => ({ data: null }))]).then(([{ data, error }, { data: estese }]) => {
       let visti = [];
       try { visti = JSON.parse(localStorage.getItem(CHIAVE_LAVORI_VISTI) || "[]"); } catch { /* niente */ }
-      setLavoriAperti(!error && Array.isArray(data) ? data.filter((l) => l.stato === "aperta" && !l.mia && !visti.includes(l.id)).length : 0);
+      const tutti = [...(Array.isArray(data) ? data : []), ...(Array.isArray(estese) ? estese : [])];
+      setLavoriAperti(!error && Array.isArray(data) ? tutti.filter((l, i) => l.stato === "aperta" && !l.mia && !visti.includes(l.id) && tutti.findIndex((y) => y.id === l.id) === i).length : 0);
     }, () => {});
   };
 
@@ -12800,7 +12801,10 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
   }, [lavori]); // eslint-disable-line react-hooks/exhaustive-deps
   const [storia, setStoria] = useState({}); // id richiesta → { nuovo, confermati }: il cliente è nuovo su EyeDrones?
   const carica = async () => {
-    const { data, error } = await supabase.rpc("lavori_in_zona");
+    const { data: zona, error } = await supabase.rpc("lavori_in_zona");
+    // le richieste che l'amministratore ha esteso a tutta Italia (script richieste-estese.sql; se manca restano solo quelle della zona)
+    const { data: estese } = await supabase.rpc("lavori_estesi").then((r) => r, () => ({ data: null }));
+    const data = error ? zona : [...(Array.isArray(zona) ? zona : []), ...(Array.isArray(estese) ? estese.filter((e) => !(zona || []).some((z) => z.id === e.id)) : [])];
     setLavori(error ? null : Array.isArray(data) ? data : []);
     // visti: il riquadro in Home non li conta più come nuovi
     if (!error && Array.isArray(data)) {
@@ -12847,7 +12851,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     voci.numeri.forEach(([k]) => { dettagli[k] = numero(b[k], k === "ettari"); });
     voci.spunte.forEach(([k]) => { dettagli[k] = !!b[k]; });
     if (["ordinario", "forfettario", "occasionale"].includes(fisco?.regime)) dettagli.regime = fisco.regime;
-    const { error } = await supabase.rpc("invia_offerta_zona", { p_richiesta: l.id, p_prezzo: prezzo, p_messaggio: b.messaggio, p_dettagli: dettagli });
+    const { error } = await supabase.rpc(l.estesa ? "invia_offerta_estesa" : "invia_offerta_zona", { p_richiesta: l.id, p_prezzo: prezzo, p_messaggio: b.messaggio, p_dettagli: dettagli });
     setLavoro(null);
     if (error) { setErrore({ id: l.id, testo: /completo/i.test(error.message || "") ? "Per questa richiesta sono già arrivate abbastanza offerte." : /non disponibile/i.test(error.message || "") ? "Questa richiesta non è più aperta." : "Invio non riuscito: riprova." }); carica(); return; }
     setAperto(null);
@@ -12997,6 +13001,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     return (
       <>
         {l.diretto && <div style={{ display: "inline-block", fontSize: 12, fontWeight: 800, color: "#86efac", background: "#163322", border: "1px solid #2c5a3f", borderRadius: 20, padding: "3px 10px", marginBottom: 8 }}>🔁 {l.cliente || "Un tuo cliente"} ti richiede di nuovo: è arrivata solo a te</div>}
+        {l.estesa && <div style={{ display: "inline-block", fontSize: 12, fontWeight: 800, color: "#93c5fd", background: "#14243f", border: "1px solid #2b4c80", borderRadius: 20, padding: "3px 10px", marginBottom: 8, marginRight: 6 }}>🧭 Fuori zona · provincia di {l.provincia}: in zona non ci sono abbastanza piloti per questo servizio</div>}
         {!l.diretto && storia[l.id]?.nuovo && (!l.mia || l.mia.stato === "inviata" || l.mia.stato === "scelta") && (
           <div style={{ fontSize: 12.5, color: "#fde68a", background: "#3a2e10", border: "1px solid #6b5520", borderRadius: 10, padding: "8px 10px", marginBottom: 8, lineHeight: 1.45 }}>
             🆕 <strong>Cliente nuovo su EyeDrones.</strong> Prima del volo mettete per iscritto cosa è compreso e il prezzo, e conferma il lavoro solo qui su EyeDrones.
@@ -17124,6 +17129,13 @@ const STATO_OFFERTA = { inviata: "inviata", scelta: "scelta dal cliente", confer
 function RichiesteAdmin({ onIndietro }) {
   const [lista, setLista] = useState(undefined); // undefined = carico, null = script non eseguito
   const [filtro, setFiltro] = useState("tutte");
+  const [estendo, setEstendo] = useState({}); // id → "chiedi" | "invio" | numero piloti | "errore"
+  const estendi = async (r) => {
+    setEstendo((x) => ({ ...x, [r.id]: "invio" }));
+    const { data, error } = await supabase.rpc("estendi_richiesta_admin", { p_richiesta: r.id });
+    setEstendo((x) => ({ ...x, [r.id]: error ? "errore" : Number(data) || 0 }));
+    if (!error) setLista((l) => (l || []).map((y) => (y.id === r.id ? { ...y, estesa: true } : y)));
+  };
   const carica = () => {
     setLista(undefined);
     supabase.rpc("richieste_admin").then(({ data, error }) => setLista(error || !Array.isArray(data) ? null : data), () => setLista(null));
@@ -17184,6 +17196,21 @@ function RichiesteAdmin({ onIndietro }) {
                 </div>
                 {a && a.email_ok === 0 && <div style={{ fontSize: 12.5, color: "#ff9c9c", marginTop: 6 }}>⚠️ Nessuna email partita: in quella zona non c'erano piloti da avvisare.</div>}
                 {ferma(r) && <div style={{ fontSize: 12.5, color: "#ff9c9c", marginTop: 6 }}>⚠️ Ferma da più di un giorno senza offerte: servono piloti in provincia di {r.provincia}.</div>}
+                {r.id && r.stato === "aperta" && (() => {
+                  const e = estendo[r.id];
+                  const btn = { borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 700, marginTop: 10 };
+                  if (typeof e === "number") return <div style={{ fontSize: 12.5, color: "#4ade80", marginTop: 10 }}>📣 Estesa a tutta Italia: email inviata a {e} {e === 1 ? "pilota" : "piloti"} che fanno «{r.servizio || "questo servizio"}». La vedono anche i piloti che attivano la pagina dopo.</div>;
+                  if (e === "errore") return <div style={{ fontSize: 12.5, color: "#ff9c9c", marginTop: 10 }}>Non riuscito: esegui lo script supabase/richieste-estese.sql e riprova.</div>;
+                  if (r.estesa) return <div style={{ fontSize: 12.5, color: "#aab3bf", marginTop: 10 }}>📣 Già estesa ai piloti di tutta Italia che fanno questo servizio.</div>;
+                  if (e === "chiedi" || e === "invio") return (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
+                      <span style={{ fontSize: 12.5, color: "#c3cad4", flexBasis: "100%" }}>La mandiamo ai piloti di tutta Italia che fanno «{r.servizio || "questo servizio"}»? Ricevono l'email e possono fare l'offerta, senza i contatti del cliente.</span>
+                      <button type="button" disabled={e === "invio"} onClick={() => estendi(r)} style={{ ...btn, marginTop: 0, background: "#3d8bfd", color: "#fff", border: "none" }}>{e === "invio" ? "Invio…" : "Sì, estendi"}</button>
+                      <button type="button" disabled={e === "invio"} onClick={() => setEstendo((x) => ({ ...x, [r.id]: undefined }))} style={{ ...btn, marginTop: 0, background: "transparent", color: "#c3cad4", border: "1px solid #343e57" }}>Annulla</button>
+                    </div>
+                  );
+                  return <button type="button" onClick={() => setEstendo((x) => ({ ...x, [r.id]: "chiedi" }))} style={{ ...btn, background: "transparent", color: "#3d8bfd", border: "1px solid #3d8bfd66" }}>📣 Estendi ai piloti di tutta Italia</button>;
+                })()}
 
                 <div style={{ marginTop: 10 }}>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 4 }}>Offerte: {off.length}</div>
