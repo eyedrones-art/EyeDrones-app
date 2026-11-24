@@ -13001,7 +13001,7 @@ function LavoriInZona({ provincia, pagina, onPreso, onPermessi, onApriPagina, on
     return (
       <>
         {l.diretto && <div style={{ display: "inline-block", fontSize: 12, fontWeight: 800, color: "#86efac", background: "#163322", border: "1px solid #2c5a3f", borderRadius: 20, padding: "3px 10px", marginBottom: 8 }}>🔁 {l.cliente || "Un tuo cliente"} ti richiede di nuovo: è arrivata solo a te</div>}
-        {l.estesa && <div style={{ display: "inline-block", fontSize: 12, fontWeight: 800, color: "#93c5fd", background: "#14243f", border: "1px solid #2b4c80", borderRadius: 20, padding: "3px 10px", marginBottom: 8, marginRight: 6 }}>🧭 Fuori zona · provincia di {l.provincia}: in zona non ci sono abbastanza piloti per questo servizio</div>}
+        {l.estesa && <div style={{ display: "inline-block", fontSize: 12, fontWeight: 800, color: "#93c5fd", background: "#14243f", border: "1px solid #2b4c80", borderRadius: 20, padding: "3px 10px", marginBottom: 8, marginRight: 6 }}>🧭 Fuori zona · provincia di {l.provincia}</div>}
         {!l.diretto && storia[l.id]?.nuovo && (!l.mia || l.mia.stato === "inviata" || l.mia.stato === "scelta") && (
           <div style={{ fontSize: 12.5, color: "#fde68a", background: "#3a2e10", border: "1px solid #6b5520", borderRadius: 10, padding: "8px 10px", marginBottom: 8, lineHeight: 1.45 }}>
             🆕 <strong>Cliente nuovo su EyeDrones.</strong> Prima del volo mettete per iscritto cosa è compreso e il prezzo, e conferma il lavoro solo qui su EyeDrones.
