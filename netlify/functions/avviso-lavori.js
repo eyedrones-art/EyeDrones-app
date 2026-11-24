@@ -142,6 +142,26 @@ function componiEmail(d) {
     });
     return { a, oggetto: `Nuovo lavoro: ${servizio || "richiesta"}${luogo ? ` a ${luogo}` : ""}`, ...m };
   }
+  if (d.tipo === "lavori_aperti") {
+    const a = [d.a].filter(emailValida);
+    const lavori = (Array.isArray(d.lavori) ? d.lavori : []).slice(0, 10);
+    if (!lavori.length) return null;
+    const n = lavori.length;
+    const elenco = lavori.map((l) => {
+      const q = dataItaliana(l.data_desiderata);
+      return `• ${pulisci(l.servizio, 80) || "Lavoro"}${pulisci(l.luogo, 120) ? ` · ${pulisci(l.luogo, 120)}` : ""}${q ? ` · ${q}` : ""}`;
+    }).join("\n");
+    const m = impagina({
+      etichetta: "Lavori già aperti nella tua zona",
+      titolo: `${nome ? `${nome}, ` : ""}${n === 1 ? "c'è già un lavoro" : `ci sono già ${n} lavori`} che aspetta${n === 1 ? "" : "no"} la tua offerta`,
+      sottotitolo: `Clienti in provincia di ${pulisci(d.provincia, 2)} che cercano un pilota per i servizi che fai. Manda la tua offerta: se ti scelgono, il lavoro è tuo.`,
+      riquadro: elenco,
+      bottone: { href: linkPilota, testo: n === 1 ? "Vedi il lavoro e manda l'offerta" : "Vedi i lavori e manda l'offerta" },
+      nota: "I contatti del cliente li vedi quando ti sceglie e confermi. Chi risponde prima ha più possibilità.",
+      piede: "Ricevi questo avviso perché hai una pagina pubblica su EyeDrones. Puoi toglierti da «Trova un pilota» in «La mia pagina».",
+    });
+    return { a, oggetto: n === 1 ? "C'è già un lavoro nella tua zona" : `Ci sono già ${n} lavori nella tua zona`, ...m };
+  }
   if (d.tipo === "richiesta_inviata") {
     const n = Number(d.piloti) || 0;
     const m = impagina({

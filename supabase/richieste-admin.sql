@@ -34,7 +34,20 @@ end $$;
 revoke all on function public.avvisi_registra(text, text, text, text, int, int, int) from public;
 grant execute on function public.avvisi_registra(text, text, text, text, int, int, int) to anon;
 
--- 2) Le ultime richieste, solo per l'amministratore
+-- 2) «Questo pilota fa quel servizio?»: usa la regola dell'invio se c'è (lavori-per-servizio.sql), altrimenti sì
+create or replace function privato.admin_adatto(p_pagina jsonb, p_servizio text, p_provincia text)
+returns boolean language plpgsql stable security definer set search_path = public as $$
+declare v boolean;
+begin
+  if to_regprocedure('privato.pilota_adatto(text[],text,text)') is null then return true; end if;
+  execute 'select privato.pilota_adatto($1, $2, $3)' into v
+    using array(select jsonb_array_elements_text(coalesce(p_pagina -> 'servizi', '[]'::jsonb))), p_servizio, p_provincia;
+  return coalesce(v, true);
+exception when others then return true;
+end $$;
+revoke all on function privato.admin_adatto(jsonb, text, text) from public, anon, authenticated;
+
+-- 3) Le ultime richieste, solo per l'amministratore
 create or replace function public.richieste_admin()
 returns jsonb
 language plpgsql
@@ -62,15 +75,12 @@ begin
         'scelta_il', z.scelta_il,
         'in_regione', coalesce((to_jsonb(z) ->> 'in_regione')::boolean, false),
         'diretto', (to_jsonb(z) ->> 'pilota_diretto') is not null,
-        -- i piloti che oggi la vedono (stessa regola dell'invio: provincia, o regione se è stata girata)
+        -- i piloti della provincia che fanno quel servizio
         'piloti_zona', (
           select count(*) from public.pagine_pilota g
-          left join privato.regioni rg on rg.sigla = g.provincia
           where g.attiva and g.in_elenco and g.scelte_decadute < 2 and not g.escluso_trova
-            and privato.pilota_adatto(g.servizi, z.servizio, g.provincia)
-            and (g.provincia = z.provincia
-                 or (coalesce((to_jsonb(z) ->> 'in_regione')::boolean, false)
-                     and rg.regione = (select r2.regione from privato.regioni r2 where r2.sigla = z.provincia)))),
+            and g.provincia = z.provincia
+            and privato.admin_adatto(to_jsonb(g), z.servizio, g.provincia)),
         -- l'avviso partito per questa richiesta (registrato pochi secondi dopo)
         'avviso', (
           select jsonb_build_object('email_ok', a.email_ok, 'email_ko', a.email_ko, 'push_ok', a.push_ok)
