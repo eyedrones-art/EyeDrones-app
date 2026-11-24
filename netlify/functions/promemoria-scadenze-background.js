@@ -255,6 +255,41 @@ function emailPagina(u) {
   return { oggetto, testo, corpo };
 }
 
+// --- «Ci sono lavori aperti»: una volta sola a chi non ha ancora la pagina, con i lavori di Trova un pilota aperti adesso ----
+const SIGLA_NOME = (s) => String(s || "").toUpperCase().slice(0, 2);
+function emailInvitoLavori(u, lavori) {
+  const link = `${APP_URL}/?vai=pagina-pilota`;
+  const ciao = `Ciao${u.nome ? ` ${u.nome}` : ""}!`;
+  const elenco = (Array.isArray(lavori) ? lavori : []).slice(0, 5)
+    .map((l) => `${String(l.servizio || "Lavoro con drone").slice(0, 80)} · provincia di ${SIGLA_NOME(l.provincia)}`);
+  const n = elenco.length;
+  const oggetto = n === 1 ? "C'è un lavoro con drone che aspetta un pilota 📍" : `Ci sono ${n} lavori con drone che aspettano un pilota 📍`;
+  const passi = ["apri «La mia pagina» in EyeDrones;", "scegli la tua provincia e i servizi che fai (per esempio «Rilievi e fotogrammetria»);", "attiva la pagina: ti arrivano subito via email i lavori aperti nella tua zona."];
+  const testo = [
+    ciao, "",
+    `Su Trova un pilota ${n === 1 ? "c'è un cliente che cerca" : "ci sono clienti che cercano"} un pilota di droni in questo momento:`,
+    ...elenco.map((t) => `• ${t}`), "",
+    "Per vedere i lavori e mandare la tua offerta ti serve la pagina pilota. Bastano 3 minuti:",
+    ...passi.map((t, i) => `${i + 1}. ${t}`), "",
+    `Crea la tua pagina: ${link}`, "",
+    "I contatti del cliente li ricevi quando ti sceglie. Per ora non c'è nessuna commissione sui lavori ottenuti.", "",
+    "Buoni voli!", "EyeDrones", "",
+    "Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.",
+  ].join("\n");
+  const corpo = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#222">
+    <h2 style="color:#e0552f;margin:0 0 12px">📍 ${n === 1 ? "Un lavoro aspetta un pilota" : `${n} lavori aspettano un pilota`}</h2>
+    <p style="font-size:15px">${html(ciao)} Su <b>Trova un pilota</b> ${n === 1 ? "c'è un cliente che cerca" : "ci sono clienti che cercano"} un pilota di droni in questo momento:</p>
+    <ul style="font-size:15px;padding-left:20px">${elenco.map((t) => `<li style="margin:0 0 6px 0"><b>${html(t)}</b></li>`).join("")}</ul>
+    <p style="font-size:15px;margin-bottom:6px">Per vedere i lavori e mandare la tua offerta ti serve la <b>pagina pilota</b>. Bastano 3 minuti:</p>
+    <ol style="font-size:15px;padding-left:20px;margin-top:0">${passi.map((t) => `<li style="margin:0 0 6px 0">${html(t)}</li>`).join("")}</ol>
+    <p><a href="${link}" style="display:inline-block;background:#e0552f;color:#fff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;font-size:16px">Crea la tua pagina ›</a></p>
+    <p style="font-size:14px;color:#444">I contatti del cliente li ricevi quando ti sceglie. Per ora non c'è nessuna commissione sui lavori ottenuti.</p>
+    <p style="font-size:15px">Buoni voli!<br>EyeDrones</p>
+    <p style="font-size:12px;color:#888">Non vuoi più email da EyeDrones? Spegnile in EyeDrones → Impostazioni.</p>
+  </div>`;
+  return { oggetto, testo, corpo };
+}
+
 // --- «Una domanda veloce: cosa ti mancava?»: una volta sola a chi si è iscritto e non ha mai usato davvero l'app ----
 // I tasti aprono app.eyedrones.it/cosa-ti-mancava.html, che salva la risposta con il codice dell'email (niente accesso)
 const RISPOSTE_MANCAVA = [
@@ -587,6 +622,14 @@ exports.handler = async (event) => {
     await invia(chiave, mittente, u.email, emailPagina(u));
     restano -= 1;
     await pausa(600);
+  }
+  if (Array.isArray(dati.lavori_aperti) && dati.lavori_aperti.length) {
+    for (const u of (dati.invito_lavori || []).slice(0, Math.max(0, restano))) {
+      if (!emailValida(u.email)) continue;
+      await invia(chiave, mittente, u.email, emailInvitoLavori(u, dati.lavori_aperti));
+      restano -= 1;
+      await pausa(600);
+    }
   }
   for (const u of (dati.mancava || []).slice(0, Math.max(0, restano))) {
     if (!emailValida(u.email) || !/^[0-9a-f-]{36}$/i.test(String(u.codice || ""))) continue;
