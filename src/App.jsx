@@ -2363,6 +2363,9 @@ function AppShell({ session }) {
         .sidebar-label { display: inline; }
         .sidebar-brand-label { display: inline; }
         .main-content { padding: 28px 32px; }
+        /* schermi larghi: le pagine con una larghezza massima stanno al centro, non appoggiate a sinistra */
+        .colonna-pagine > * { margin-left: auto; margin-right: auto; width: -moz-available; width: -webkit-fill-available; width: stretch; }
+        .home > div { margin-left: auto; margin-right: auto; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
         .menu-telefono { display: none; }
@@ -2428,7 +2431,7 @@ function AppShell({ session }) {
 
       <Sidebar page={paginaMenu} setPage={vai} userEmail={session.user.email} usaAI={adminAI || espertoAperto} piano={piano} reportQuestoMese={reportQuestoMese} attestatiInScadenza={attestati.filter((a) => a.data_scadenza && new Date(a.data_scadenza) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} droniInScadenza={droni.filter((d) => d.prossima_manutenzione && new Date(d.prossima_manutenzione) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).length} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} spazio={spazioAperto} spazi={spazi} onCambiaSpazio={cambiaSpazio} cartelle={allaRadice} onCartelle={apriCartelle} batterieAvvisi={batterie.reduce((n, b) => n + avvisiBatteria(b).length, 0)} richiesteNuove={richiesteNuove} onControllo={() => { setControlloSubito(true); setPage("documenti-controllo"); }} />
 
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      <div className="colonna-pagine" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AvvisoInstallaApp />
         {paginaRiaperta && (
           <div role="alert" style={{ margin: "12px 16px 0 16px", background: "#2a2416", border: "1px solid #5a4a20", borderRadius: 10, padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -3212,7 +3215,6 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ...vociSpazio,
     { intestazione: "Voli" },
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
-    { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
     { key: "telemetria", label: "Telemetria sul video", icon: Gauge },
     { key: "calcolatori", label: "Calcolatori", icon: Calculator },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
@@ -3257,7 +3259,6 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ] : []),
     { intestazione: "Voli e riprese" },
     { key: "pianificazione", label: "Pianifica volo e riprese", icon: CalendarDays },
-    { key: "scaletta", label: "Scaletta riprese", icon: Clapperboard },
     { key: "telemetria", label: "Telemetria sul video", icon: Gauge },
     { key: "calcolatori", label: "Calcolatori", icon: Calculator },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
@@ -4139,7 +4140,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
 
   return (
     <div className="home" style={{ padding: "28px 32px", overflow: "auto" }}>
-      <div style={{ maxWidth: 1000 }}>
+      <div style={{ maxWidth: 1160 }}>
         <VoloHero data={oggi} titolo={<>{saluto}{nomeSaluto ? <>,<br />{nomeSaluto}</> : ""}.</>} sottotitolo={sottotitolo}>
           <SiVolaQui />
         </VoloHero>
