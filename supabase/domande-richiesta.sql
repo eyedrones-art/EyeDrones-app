@@ -22,8 +22,8 @@ returns boolean language sql stable security definer set search_path = public as
     select 1 from public.richieste_zona z
     join public.pagine_pilota g on g.user_id = p_uid and g.attiva and g.scelte_decadute < 2 and not g.escluso_trova
     where z.id = p_richiesta and z.stato = 'aperta'
-      and ((to_jsonb(z) ->> 'pilota_diretto') is null and z.provincia = g.provincia
-           or (to_jsonb(z) ->> 'pilota_diretto') = p_uid::text))
+      and (((to_jsonb(z) ->> 'pilota_diretto') is null and z.provincia = g.provincia)
+           or (to_jsonb(z) ->> 'pilota_diretto') = p_uid::text)
   ) or privato.vede_estesa(p_uid, p_richiesta);
 $$;
 revoke all on function privato.pilota_vede_richiesta(uuid, uuid) from public, anon, authenticated;
