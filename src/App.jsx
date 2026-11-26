@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Suspense, lazy, Fragment } from "react";
-import { LayoutDashboard, LayoutGrid, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Palette, Gauge, Calculator } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Zap, Plus, Camera, FileDown, ChevronRight, X, MapPin, TrendingUp, Sun, Settings, Upload, Loader2, FileText, ShieldCheck, Award, Plane, Thermometer, LogOut, BookOpen, BatteryCharging, CalendarDays, MoreHorizontal, MessageSquare, Globe, Lightbulb, Users, ClipboardCheck, GraduationCap, Compass, Handshake, Sprout, Sparkles, Ruler, Gamepad2, ScanSearch, Clapperboard, Glasses, Palette, Gauge, Calculator } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { installaSegnalazioneErrori } from "./segnalaErrori";
@@ -36,6 +36,9 @@ import { leggiZoneSalvate, salvaZone, motivoZona, messaggioBreve, zonaFinita, si
 const VUOTO = () => null;
 const pigro = (carica, nome = "default") => lazy(() => carica().then((m) => ({ default: (m && m[nome]) || VUOTO })));
 const MappaVoli = pigro(() => import("./MappaVoli.jsx"));
+const FotoVideo = pigro(() => import("./FotoVideo.jsx"));
+const SceltaInquadrature = pigro(() => import("./FotoVideo.jsx"), "SceltaInquadrature");
+const Fpv = pigro(() => import("./Fpv.jsx"));
 const MappaPunto = pigro(() => import("./MappaPunto.jsx"));
 const MappaAreaSTS = pigro(() => import("./MappaAreaSTS.jsx"));
 const AssistentePermessi = pigro(() => import("./AssistentePermessi.jsx"));
@@ -1757,6 +1760,9 @@ export default function App() {
   // link di consegna al cliente: pagina pubblica, senza login
   const tokenGalleria = new URLSearchParams(window.location.search).get("galleria");
   if (tokenGalleria) return <GalleriaCondivisa token={tokenGalleria} />;
+  // le scene che il pilota propone al cliente (cartella «Foto e video»): il cliente sceglie, senza login
+  const tokenScelte = new URLSearchParams(window.location.search).get("scelte");
+  if (tokenScelte && /^[0-9a-f-]{36}$/i.test(tokenScelte)) return <Suspense fallback={null}><SceltaInquadrature supabase={supabase} token={tokenScelte} /></Suspense>;
   // pagina pubblica del pilota: app.eyedrones.it/p/nome (o ?pilota=nome), senza login
   const slugPilota = slugPilotaDaIndirizzo();
   if (slugPilota) return <PaginaPilotaPubblica slug={slugPilota} />;
@@ -1977,7 +1983,7 @@ function AppAutenticata() {
 function AppShell({ session }) {
   MIO_ID = session && session.user ? session.user.id : null;
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "specific", "termocamera", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "funzioni", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "specific", "termocamera", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "funzioni", "campi", "foto-video", "fpv", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2337,6 +2343,9 @@ function AppShell({ session }) {
     if (chiave === "galleria") { setVistaVoli("galleria"); setPage("registro-voli"); return; }
     // dalle «Tutte le funzioni»: consegna, liberatoria e fascicolo stanno dentro un volo → Registro voli con «scegli il volo»
     if (chiave.startsWith("volo:")) { setAzioneVolo(chiave.slice(5)); setVistaVoli("voli"); setPage("registro-voli"); window.scrollTo(0, 0); return; }
+    // cartelle «Foto e video» e «FPV» aperte su una scheda precisa (es. «foto-video:contratto»)
+    const scheda = /^(foto-video|fpv):(\w+)$/.exec(chiave);
+    if (scheda) { try { sessionStorage.setItem(scheda[1] === "fpv" ? "eyedrones_fpv_vista" : "eyedrones_fotovideo_vista", scheda[2]); } catch { /* niente */ } setPage(scheda[1]); window.scrollTo(0, 0); return; }
     if (chiave === "registro-voli") setVistaVoli("voli");
     // «La mia pagina» dal menu: se ci sono richieste nuove apre subito quelle
     if (chiave === "pagina-pilota") setSchedaPagina(richiesteNuove > 0 || lavoriAperti > 0 ? "richieste" : "pagina");
@@ -2368,7 +2377,7 @@ function AppShell({ session }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moduliCaricati]);
   const usaIspezioni = spazioAperto ? spazioAperto.key === "ispezioni" : true;
-  const usaRiprese = spazioAperto ? spazioAperto.key === "video" || spazioAperto.key === "rilievi" : true;
+  const usaRiprese = spazioAperto ? spazioAperto.key === "video" || spazioAperto.key === "fpv" || spazioAperto.key === "rilievi" : true;
   const usaAgricoltura = spazioAperto ? spazioAperto.key === "agricoltura" : false;
   const voliDashboard = [...voliManuali, ...costruisciVoliDaIspezioni(ispezioni, impianti)].sort((a, b) => {
     const da = `${a.data || ""} ${a.ora ? String(a.ora).slice(0, 5) : "00:00"}`;
@@ -2599,6 +2608,16 @@ function AppShell({ session }) {
         {page === "pratica-enac" && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
             <PraticaEnac supabase={supabase} inputStyle={inputStyle} azienda={azienda} attestati={attestati} droni={droni} emailUtente={session.user.email} />
+          </Suspense>
+        )}
+        {page === "foto-video" && (
+          <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
+            <FotoVideo supabase={supabase} inputStyle={inputStyle} azienda={azienda} droni={droni} onNav={vai} cercaIndirizzo={cercaIndirizzoItalia} />
+          </Suspense>
+        )}
+        {page === "fpv" && (
+          <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
+            <Fpv supabase={supabase} inputStyle={inputStyle} onNav={vai} onVoliCambiati={caricaVoli} />
           </Suspense>
         )}
         {page === "campi" && (
@@ -3268,9 +3287,15 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
   // con uno spazio aperto: prima le sue voci, poi quelle in comune. Senza spazio (non ancora scelto): tutto come prima
   const vociSpazio = k === "video" ? [
     { intestazione: spazio.nome },
-    { key: "galleria", label: "Foto e video", icon: Camera },
+    { key: "foto-video", label: "Foto e video: contratto, sole, scene", icon: Clapperboard },
+    { key: "galleria", label: "Galleria e consegna", icon: Camera },
     ...(usaAI ? [{ key: "analisi-ai", label: "Esperto AI: problemi e consigli", icon: Sparkles }] : []),
     { key: "posti", label: "Posti", icon: Compass },
+  ] : k === "fpv" ? [
+    { intestazione: spazio.nome },
+    { key: "fpv", label: "FPV: osservatore, percorsi, LiPo", icon: Glasses },
+    { key: "galleria", label: "Galleria e consegna", icon: Camera },
+    ...(usaAI ? [{ key: "analisi-ai", label: "Esperto AI: problemi e consigli", icon: Sparkles }] : []),
   ] : k === "ispezioni" ? [
     { intestazione: spazio.nome },
     { key: "impianti", label: "Impianti", icon: Sun },
@@ -3294,7 +3319,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "telemetria", label: "Telemetria sul video", icon: Gauge },
     { key: "calcolatori", label: "Calcolatori", icon: Calculator },
     { key: "registro-voli", label: "Registro voli", icon: BookOpen },
-    ...(k !== "video" ? [{ key: "galleria", label: "Foto e video", icon: Camera }] : []),
+    ...(k !== "video" && k !== "fpv" ? [{ key: "galleria", label: "Foto e video", icon: Camera }] : []),
     { key: "batterie", label: "Batterie", icon: BatteryCharging },
     ...(k !== "video" ? [{ key: "posti", label: "Posti", icon: Compass }] : []),
     // l'Esperto anche nella Home delle cartelle (nelle cartelle è già tra le voci della cartella)
@@ -3318,6 +3343,9 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "pagina-pilota", label: "La mia pagina", icon: Globe },
     { key: "campi", label: "Agricoltura (Agras)", icon: Sprout },
     { key: "rilievi", label: "Fotogrammetria e rilievi", icon: Ruler },
+    { key: "termocamera", label: "Termografia (termocamera)", icon: Thermometer },
+    { key: "foto-video", label: "Foto e video: contratto, sole, scene", icon: Clapperboard },
+    { key: "fpv", label: "FPV: osservatore, percorsi, LiPo", icon: Glasses },
     { intestazione: "Account" },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
@@ -3361,6 +3389,9 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "pagina-pilota", label: "La mia pagina", icon: Globe },
     { key: "campi", label: "Agricoltura (Agras)", icon: Sprout },
     { key: "rilievi", label: "Fotogrammetria e rilievi", icon: Ruler },
+    { key: "termocamera", label: "Termografia (termocamera)", icon: Thermometer },
+    { key: "foto-video", label: "Foto e video: contratto, sole, scene", icon: Clapperboard },
+    { key: "fpv", label: "FPV: osservatore, percorsi, LiPo", icon: Glasses },
     { intestazione: "Account" },
     { key: "abbonamento", label: "Abbonamento", icon: Zap },
     { key: "impostazioni", label: "Impostazioni azienda", icon: Settings },
@@ -3566,7 +3597,7 @@ function AvvisoInstallaApp() {
 }
 
 // menu per il telefono: barra fissa in basso con le 5 voci principali, il resto nel pannello "Altro"
-const ICONE_TAB = { galleria: Camera, impianti: Sun, campi: Sprout, rilievi: Ruler };
+const ICONE_TAB = { galleria: Camera, impianti: Sun, campi: Sprout, rilievi: Ruler, fpv: Glasses, "foto-video": Clapperboard };
 function MenuTelefono({ items, page, setPage, userEmail, piano, usaIspezioni, avvisi, onControllo, spazio, spazi = [], onCambiaSpazio, cartelle, onCartelle }) {
   const [altroAperto, setAltroAperto] = useState(false);
   const [sceltaSpazio, setSceltaSpazio] = useState(false);
@@ -3720,17 +3751,17 @@ function TitoloSezione({ emoji, titolo, azione }) {
 
 // scelta di cosa fa il pilota con il drone: decide quali sezioni vedere nel menu e nella prima pagina
 function SelettoreModuli({ moduli, onSave, testoBottone = "Conferma" }) {
-  const daModuli = (m) => ({ ispezioni: !m || m.includes("ispezioni"), riprese: !m || m.includes("riprese"), agricoltura: !!m && m.includes("agricoltura"), rilievi: !!m && m.includes("rilievi") });
+  const daModuli = (m) => Object.fromEntries(SPAZI.map((x) => [x.modulo, m ? m.includes(x.modulo) : x.modulo === "ispezioni" || x.modulo === "riprese"]));
   const [sel, setSel] = useState(daModuli(moduli));
   const [salvando, setSalvando] = useState(false);
   const [salvato, setSalvato] = useState(false);
   useEffect(() => { setSel(daModuli(moduli)); }, [moduli]);
-  const nessuno = !sel.ispezioni && !sel.riprese && !sel.agricoltura && !sel.rilievi;
+  const nessuno = !SPAZI.some((x) => sel[x.modulo]);
 
   const salva = async () => {
     if (nessuno) return;
     setSalvando(true);
-    await onSave([sel.riprese ? "riprese" : null, sel.ispezioni ? "ispezioni" : null, sel.agricoltura ? "agricoltura" : null, sel.rilievi ? "rilievi" : null].filter(Boolean).join(","));
+    await onSave(SPAZI.filter((x) => sel[x.modulo]).map((x) => x.modulo).join(","));
     setSalvando(false);
     setSalvato(true);
     setTimeout(() => setSalvato(false), 2500);
@@ -4260,7 +4291,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         <div style={{ height: 18 }} />
         {bloccoScadenze}
         {/* la pagina pilota a tutti, in alto: senza pagina non arrivano i lavori di «Trova un pilota» */}
-        <InvitoPaginaPilota onNav={onNav} nome={nomeSaluto} />
+        <InvitoPaginaPilota onNav={onNav} nome={nomeSaluto} moduli={moduli} onSalvaModuli={onSalvaModuli} />
         <PrimiPassi droni={droni} attestati={attestati} voli={voli} preventivi={preventivi} onNav={onNav} />
         <NotifichePush tema="impostazioni" inHome />
         {(droni || []).length > 0 && <AvvisoWeekend inHome />}
@@ -4272,7 +4303,7 @@ function Dashboard({ spazio, cartelle, onEntraSpazio, impianti, loading, onOpenI
         {!spazio && !cartelle && (
           <div style={{ background: "linear-gradient(135deg, #241d16, #151b2b)", border: "1px solid #ff8c4288", borderRadius: 12, padding: 18, marginBottom: 22 }}>
             <h3 style={{ fontSize: 17, fontWeight: 800, margin: "0 0 4px 0" }}>Cosa fai col drone?</h3>
-            <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0" }}>Scegli la tua cartella: dentro trovi solo quello che ti serve. Se fai più cose, ne aggiungi altre in Impostazioni e in Home le trovi tutte.</p>
+            <p style={{ fontSize: 12.5, color: "#c3cad4", margin: "0 0 14px 0" }}>Scegli la tua cartella: dentro trovi solo quello che ti serve, e la stessa scelta riempie già i servizi della tua pagina pilota. Se fai più cose, ne aggiungi altre in Impostazioni.</p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
               {SPAZI.map((x) => (
                 <button key={x.key} type="button" onClick={() => onEntraSpazio(x.key)} style={{ display: "flex", gap: 12, alignItems: "flex-start", textAlign: "left", background: "#10141f", border: "1px solid #343e57", borderRadius: 10, padding: "14px", color: "#e7eaee" }}>
@@ -4385,29 +4416,25 @@ function Cartelle({ spazi, impianti = [], voli = [], onApri, onAggiungi }) {
   const daFare = rilievi.filter((v) => statoRilievo(v) !== "consegnato").length;
   const anomalie = impianti.reduce((t, i) => t + (i.anomalie || 0), 0);
   const riga = {
-    video: "Galleria, scaletta, colore e liberatorie",
+    video: "Contratto, sole, scene del cliente, galleria",
+    fpv: "Osservatore, percorsi, LiPo e canali",
     ispezioni: impianti.length ? `${impianti.length} ${impianti.length === 1 ? "impianto" : "impianti"}${anomalie ? ` · ${anomalie} ${anomalie === 1 ? "anomalia aperta" : "anomalie aperte"}` : ""}` : "Impianti, termografia e report",
     agricoltura: "Campi, trattamenti, meteo e SCIA",
     rilievi: rilievi.length ? (daFare ? `${daFare} ${daFare === 1 ? "rilievo" : "rilievi"} da completare` : `${rilievi.length} ${rilievi.length === 1 ? "rilievo" : "rilievi"}, tutti consegnati`) : "Calcolatore, lista e report di consegna",
   };
   const avviso = { ispezioni: anomalie > 0, rilievi: daFare > 0 };
   return (
-    <section style={{ marginBottom: 22 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "#c3cad4", marginBottom: 10 }}>📁 Le tue cartelle</div>
-      <div className="cartelle">
+    <section style={{ marginBottom: 18 }} data-cartelle>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8b95a3", marginBottom: 8 }}>📁 Le tue cartelle</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {spazi.map((x) => (
-          <button key={x.key} type="button" onClick={() => onApri(x.key)} className="cartella">
-            <span className="cartella-linguetta" aria-hidden="true" />
-            <span style={{ fontSize: 30, lineHeight: 1 }}>{x.emoji}</span>
-            <span style={{ display: "block", fontSize: 15.5, fontWeight: 800, marginTop: 8 }}>{x.nome}</span>
-            <span style={{ display: "block", fontSize: 12, color: avviso[x.key] ? "#f5b942" : "#8b95a3", marginTop: 3, lineHeight: 1.35 }}>{riga[x.key]}</span>
+          <button key={x.key} type="button" onClick={() => onApri(x.key)} title={riga[x.key]} style={{ display: "flex", alignItems: "center", gap: 8, background: "#151b2b", border: `1px solid ${avviso[x.key] ? "#f5b94288" : "#ff8c4255"}`, borderRadius: 999, padding: "7px 14px 7px 10px", color: "#e7eaee", fontSize: 13.5, fontWeight: 700, minHeight: 40, maxWidth: "100%" }}>
+            <span style={{ fontSize: 18, lineHeight: 1 }}>{x.emoji}</span>{x.nome}
+            {avviso[x.key] && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#f5b942" }} aria-label={riga[x.key]} />}
           </button>
         ))}
         {spazi.length < SPAZI.length && (
-          <button type="button" onClick={onAggiungi} className="cartella cartella-nuova">
-            <span style={{ fontSize: 26, lineHeight: 1, color: "#6b7480" }}>＋</span>
-            <span style={{ display: "block", fontSize: 13.5, fontWeight: 700, marginTop: 8, color: "#8b95a3" }}>Aggiungi una cartella</span>
-          </button>
+          <button type="button" onClick={onAggiungi} style={{ background: "transparent", border: "1px dashed #343e57", borderRadius: 999, padding: "7px 14px", color: "#8b95a3", fontSize: 13, fontWeight: 700, minHeight: 40 }}>＋ Aggiungi</button>
         )}
       </div>
     </section>
@@ -7981,6 +8008,11 @@ function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
       { e: "👥", t: "Clienti", d: "La rubrica dei clienti, con WhatsApp a un tocco", k: "clienti", pro: true, c: "rubrica contatti" },
       { e: "📤", t: "Consegna al cliente", d: "Galleria con il tuo logo, PIN, filigrana e preferiti", k: "volo:condividi", pro: true, nascosta: true, c: "consegna galleria cliente foto pin filigrana" },
       { e: "✍️", t: "Liberatorie", d: "La persona ripresa firma col dito sul telefono", k: "volo:liberatorie", pro: true, nascosta: true, c: "liberatoria firma privacy immagine" },
+      { e: "🗓️", t: "Giornata dell'evento e sole", d: "Momenti del matrimonio con la luce e il sole di ogni ora, e quante batterie portare", k: "foto-video", c: "matrimonio evento giornata sole luce ora d'oro batterie scaletta orari" },
+      { e: "📝", t: "Contratto per le riprese", d: "Consegna, uso delle immagini e maltempo: il cliente firma col dito", k: "foto-video:contratto", c: "contratto accordo firma cliente diritti immagini acconto maltempo" },
+      { e: "🎯", t: "Scene scelte dal cliente", d: "Mandi un link, il cliente spunta le riprese che vuole e finiscono nella scaletta", k: "foto-video:inquadrature", c: "inquadrature scene cliente link scelta scaletta matrimonio" },
+      { e: "⏱️", t: "Timelapse e iperlapse", d: "Quante foto, ogni quanto, quanto dura e quante batterie", k: "foto-video:timelapse", c: "timelapse iperlapse hyperlapse intervallo foto" },
+      { e: "🥽", t: "FPV: osservatore, percorsi, LiPo", d: "L'osservatore firma nel registro, percorso sulla piantina, LiPo e canali per più piloti", k: "fpv", c: "fpv visore osservatore firma piantina percorso capannone lipo canali frequenze raceband gyroflow reelsteady stabilizzazione" },
       ...(usaIspezioni ? [{ e: "🔍", t: "Ispezioni e report", d: "Fotovoltaico, edifici e anomalie termiche, con report PDF", k: "impianti", c: "termografia fotovoltaico report anomalie" }] : []),
       { e: "🌾", t: "Agricoltura con droni Agras", d: "Campi da KML, quaderno con carenza, miscela per pieno, fasce di rispetto", k: "campi", c: "agras agricoltura trattamenti delta t quaderno campagna carenza miscela serbatoio fasce rispetto kml fitosanitari" },
       { e: "📐", t: "Fotogrammetria e rilievi", d: "Controllo foto dopo il volo, punti GCP, volumi dei cumuli, export per Pix4D", k: "rilievi", c: "fotogrammetria rilievo gcp volumi cumuli pix4d metashape webodm ortofoto sovrapposizione dsm" },
@@ -16308,7 +16340,7 @@ async function costruisciFascicoloVolo({ volo, drone, batterie, media, eventi, a
   if (volo.durata_minuti) riga("Durata", `${volo.durata_minuti} min`);
   if (volo.altezza_max) riga("Altezza massima", `${volo.altezza_max} m`);
   if (volo.cliente) riga("Cliente", volo.cliente);
-  if (volo.osservatore != null) riga("Osservatore", volo.osservatore ? "presente" : "non presente");
+  if (volo.osservatore != null) riga("Osservatore", volo.osservatore ? `presente${volo.dettagli?.osservatore?.nome ? ` · ${volo.dettagli.osservatore.nome}${volo.dettagli.osservatore.firma ? " (firmato)" : ""}` : ""}` : "non presente");
   if (volo.visore) riga("Visore FPV", volo.visore);
   if (volo.note) riga("Note", volo.note);
   if (volo.dettagli && CAMPI_DETTAGLI[volo.tipo_attivita]) {
@@ -17464,7 +17496,7 @@ function RegistroVoli({ azioneDaFare, onAzioneFatta, spazio, azienda, droni, isp
                         {Array.isArray(v.batterie_ids) && v.batterie_ids.length > 0 ? riga("Batterie", v.batterie_ids.map((id) => ((batterie || []).find((b) => b.id === id) || {}).nome).filter(Boolean).join(", ") || "—") : null}
                         {v.altezza_max ? riga("Altezza max", `${v.altezza_max} m`) : null}
                         {v.cliente ? riga("Cliente", v.cliente) : null}
-                        {v.osservatore != null ? riga("Osservatore", v.osservatore ? "presente" : "non presente") : null}
+                        {v.osservatore != null ? riga("Osservatore", v.osservatore ? `presente${v.dettagli?.osservatore?.nome ? ` · ${v.dettagli.osservatore.nome}${v.dettagli.osservatore.firma ? " ✍️" : ""}` : ""}` : "non presente") : null}
                         {v.visore ? riga("Visore", v.visore) : null}
                         {v.canale_video ? riga("Canale video", v.canale_video) : null}
                         {v.coordinate_gps ? (
@@ -17932,7 +17964,19 @@ function NumeriStartup({ onIndietro }) {
 
 // Home: chi vola ma non è in «Trova un pilota» vede l'invito ad attivare la sua pagina (si chiude con la ×)
 // la × non lo toglie per sempre: torna dopo 14 giorni (vale anche per chi l'aveva chiuso prima con la vecchia chiave)
-function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "" }) {
+// una scelta sola: le cartelle dell'app (moduli) e i servizi della pagina pilota si riempiono a vicenda
+const SERVIZI_PER_MODULO = {
+  riprese: ["Riprese aeree foto e video", "Matrimoni ed eventi", "Immobiliare e turismo", "Video per aziende"],
+  fpv: ["Riprese FPV"],
+  ispezioni: ["Ispezioni termografiche fotovoltaico", "Ispezioni tetti e facciate"],
+  rilievi: ["Rilievi e fotogrammetria", "Monitoraggio cantieri"],
+  agricoltura: ["Agricoltura di precisione", "Trattamenti agricoli con drone (Agras)"],
+};
+const serviziDaModuli = (moduli) => [...new Set(moduliDa(moduli).flatMap((m) => SERVIZI_PER_MODULO[m] || []))];
+const moduliDaServizi = (servizi) => Object.keys(SERVIZI_PER_MODULO).filter((m) => SERVIZI_PER_MODULO[m].some((x) => (servizi || []).includes(x)));
+
+function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "", moduli, onSalvaModuli }) {
+  const [daCartelle, setDaCartelle] = useState(false);
   const [riga, setRiga] = useState(undefined); // undefined = carico · null = nessuna pagina · oggetto = la pagina salvata
   const [aperto, setAperto] = useState(false);
   const [f, setF] = useState({ nome: "", citta: "", provincia: "", servizi: [], accetto: false });
@@ -17944,16 +17988,20 @@ function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "" }) {
       .then(({ data, error }) => {
         if (error) return;
         setRiga(data || null);
-        setF({ nome: data?.nome || nomeAzienda || "", citta: data?.citta || "", provincia: data?.provincia || "", servizi: data?.servizi || [], accetto: !!data?.codice_firmato_il });
+        const giaScelti = data?.servizi && data.servizi.length ? data.servizi : serviziDaModuli(moduli);
+        setDaCartelle(!(data?.servizi && data.servizi.length) && giaScelti.length > 0);
+        setF({ nome: data?.nome || nomeAzienda || "", citta: data?.citta || "", provincia: data?.provincia || "", servizi: giaScelti, accetto: !!data?.codice_firmato_il });
       }, () => {});
   }, [chiuso]);
   // il nome dell'attività arriva dal profilo anche dopo: lo metto se il campo è ancora vuoto
   useEffect(() => { if (nomeAzienda) setF((x) => (x.nome ? x : { ...x, nome: nomeAzienda })); }, [nomeAzienda, riga]);
+  // le cartelle arrivano dopo (o cambiano): se i servizi non li ha ancora toccati, li prendo da lì
+  useEffect(() => { const d = serviziDaModuli(moduli); if (d.length) setF((x) => (x.servizi.length && !daCartelle ? x : { ...x, servizi: d })); if (d.length && riga !== undefined && !(riga?.servizi || []).length) setDaCartelle(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [moduli]);
   if (chiuso || riga === undefined) return null;
   const giaAttiva = riga && riga.attiva && riga.in_elenco !== false;
   if (giaAttiva && esito !== "ok") return null;
   const aMeta = !!riga && !giaAttiva;
-  const alterna = (sv) => setF({ ...f, servizi: f.servizi.includes(sv) ? f.servizi.filter((x) => x !== sv) : [...f.servizi, sv] });
+  const alterna = (sv) => { setDaCartelle(false); setF({ ...f, servizi: f.servizi.includes(sv) ? f.servizi.filter((x) => x !== sv) : [...f.servizi, sv] }); };
 
   // pagina in un minuto: nome, città, provincia, servizi e codice di condotta. Foto e contatti si aggiungono dopo.
   const attiva = async () => {
@@ -17979,6 +18027,9 @@ function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "" }) {
     if (error) { setEsito("Non sono riuscito a salvare: riprova tra poco."); return; }
     setRiga(data);
     setEsito("ok");
+    // i servizi scelti aprono anche le cartelle giuste nell'app
+    const attuali = moduliDa(moduli), nuovi = moduliDaServizi(f.servizi).filter((m) => !attuali.includes(m));
+    if (nuovi.length && onSalvaModuli) onSalvaModuli([...attuali, ...nuovi].join(","));
   };
 
   const sc = { background: "#10141f", border: "1px solid #343e57", color: "#e7eaee", borderRadius: 8, padding: "9px 11px", fontSize: 14, width: "100%" };
@@ -18012,7 +18063,7 @@ function InvitoPaginaPilota({ onNav, nome: nomeAzienda = "" }) {
             <label style={{ fontSize: 12, color: "#8b95a3", display: "grid", gap: 4, flex: "1 1 150px" }}>Provincia<select id="attiva-provincia" value={f.provincia} onChange={(e) => setF({ ...f, provincia: e.target.value })} style={sc}><option value="">Scegli…</option>{PROVINCE_IN_ORDINE.map(([sg, n]) => <option key={sg} value={sg}>{n}</option>)}</select></label>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 6 }}>Cosa fai <span style={{ opacity: .8 }}>· ti arrivano i lavori di questi servizi</span></div>
+            <div style={{ fontSize: 12, color: "#8b95a3", marginBottom: 6 }}>Cosa fai <span style={{ opacity: .8 }}>· {daCartelle ? "già presi dalle tue cartelle, puoi cambiarli" : "ti arrivano i lavori di questi servizi"}</span></div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {SERVIZI_PILOTA.map((sv) => <button key={sv} type="button" onClick={() => alterna(sv)} aria-pressed={f.servizi.includes(sv)} style={{ background: f.servizi.includes(sv) ? "#ff8c4222" : "none", border: `1px solid ${f.servizi.includes(sv) ? "#ff8c42" : "#343e57"}`, color: f.servizi.includes(sv) ? "#ffb48f" : "#c3cad4", borderRadius: 14, padding: "5px 10px", fontSize: 12 }}>{sv}</button>)}
             </div>
