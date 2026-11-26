@@ -4,7 +4,7 @@ import MappaCampi from "./MappaCampi.jsx";
 import { TestataPagina } from "./VoloHero.jsx";
 import { pdfConsegnaAgricoltura } from "./reportConsegna.js";
 import FascicoloScia, { controlliScia, unisci } from "./FascicoloScia.jsx";
-import { leggiTabella, trovaIntestazione, riconosciColonne, fattoreEttari, numero, dataOra, CAMPI_IMPORT } from "./importaLavori.js";
+import { leggiTabella, trovaIntestazione, riconosciColonne, fattoreEttari, numero, dataOra, CAMPI_IMPORT, ettariCella, unitaCella, tipoCella } from "./importaLavori.js";
 import { leggiFileConfini, campiInKml, fasceRispetto, CATEGORIE_RISPETTO, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
 
 // Agricoltura (fase 1): appezzamenti con i confini sulla mappa, registro dei trattamenti con PDF,
@@ -219,12 +219,16 @@ function ImportaLavori({ supabase, inputStyle, campi, trattamenti, onFatto, onCh
   const cella = (r, k) => (mappa[k] != null ? r[mappa[k]] ?? "" : "");
   const lavori = !tab ? [] : tab.righe.slice(tab.h + 1).filter((r) => r.some((x) => String(x).trim())).map((r) => {
     const quando = dataOra(cella(r, "data"));
-    const fine = dataOra(cella(r, "ora_fine"));
-    const ha = numero(cella(r, "ettari"));
+    const finePropria = dataOra(cella(r, "ora_fine"));
+    // SmartFarm Web scrive inizio e fine nella stessa cella: «2023/4/20 17:25:24-17:40:10»
+    const intervallo = String(cella(r, "data")).match(/\d{1,2}:\d{2}(?::\d{2})?\s*[-–~]\s*(\d{1,2}):(\d{2})/);
+    const fine = finePropria.ora ? finePropria : { ora: intervallo ? `${intervallo[1].padStart(2, "0")}:${intervallo[2]}` : null };
+    const ha = ettariCella(cella(r, "ettari"), Number(fattore));
     const nomeCampo = cella(r, "campo");
     const c = campoPerNome(nomeCampo);
     return {
-      data: quando.data, ora_inizio: quando.ora, ora_fine: fine.ora, ettari: ha != null ? Math.round(ha * Number(fattore) * 100) / 100 : null,
+      data: quando.data, ora_inizio: quando.ora, ora_fine: fine.ora, ettari: ha,
+      tipo: tipoCella(cella(r, "tipo")) || opz.tipo, unitaQ: unitaCella(cella(r, "quantita")) || opz.unita,
       quantita_totale: numero(cella(r, "quantita")), campo_nome: c ? c.nome : nomeCampo || null, appezzamento_id: c ? c.id : null, azienda: c ? c.azienda : null, coltura: c ? c.coltura : null,
       operatore: cella(r, "pilota") || null, drone_nome: cella(r, "drone") || null, prodotto: cella(r, "prodotto") || opz.prodotto.trim() || null,
       durata: cella(r, "durata"),
@@ -238,8 +242,8 @@ function ImportaLavori({ supabase, inputStyle, campi, trattamenti, onFatto, onCh
   const importaTutto = async () => {
     if (!nuovi.length) return;
     setSalvando(true);
-    const righe = nuovi.map(({ durata, ...l }) => ({
-      ...l, tipo: opz.tipo, unita: opz.unita === "kg" ? "kg/ha" : "l/ha",
+    const righe = nuovi.map(({ durata, unitaQ, ...l }) => ({
+      ...l, unita: unitaQ === "kg" ? "kg/ha" : "l/ha",
       dose: l.quantita_totale != null && l.ettari ? Math.round((l.quantita_totale / l.ettari) * 100) / 100 : null,
       note: ["Importato da file", tab.nome, durata ? `durata ${durata}` : null].filter(Boolean).join(" · "),
     }));
@@ -285,13 +289,14 @@ function ImportaLavori({ supabase, inputStyle, campi, trattamenti, onFatto, onCh
           </div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead><tr style={{ color: "#8b95a3", textAlign: "left" }}>{["Data", "Campo", "Ettari", "Quantità", "Pilota", "Drone"].map((t) => <th key={t} style={{ padding: "4px 6px", borderBottom: "1px solid #2a3349", whiteSpace: "nowrap" }}>{t}</th>)}</tr></thead>
+              <thead><tr style={{ color: "#8b95a3", textAlign: "left" }}>{["Data", "Lavoro", "Campo", "Ettari", "Quantità", "Pilota", "Drone"].map((t) => <th key={t} style={{ padding: "4px 6px", borderBottom: "1px solid #2a3349", whiteSpace: "nowrap" }}>{t}</th>)}</tr></thead>
               <tbody>{lavori.slice(0, 6).map((l, i) => (
                 <tr key={i} style={{ opacity: giaCe(l) ? 0.45 : 1 }}>
                   <td style={{ padding: "4px 6px", whiteSpace: "nowrap" }}>{l.data}{l.ora_inizio ? ` ${l.ora_inizio}` : ""}</td>
+                  <td style={{ padding: "4px 6px", whiteSpace: "nowrap" }}>{(TIPI_LAVORO.find((t) => t.key === l.tipo) || {}).emoji} {etichettaLavoro(l.tipo)}</td>
                   <td style={{ padding: "4px 6px" }}>{l.campo_nome || "—"}{l.appezzamento_id ? " ✓" : ""}</td>
                   <td style={{ padding: "4px 6px" }}>{l.ettari != null ? formattaEttari(l.ettari) : "—"}</td>
-                  <td style={{ padding: "4px 6px" }}>{l.quantita_totale != null ? `${l.quantita_totale} ${opz.unita}` : "—"}</td>
+                  <td style={{ padding: "4px 6px" }}>{l.quantita_totale != null ? `${l.quantita_totale} ${l.unitaQ}` : "—"}</td>
                   <td style={{ padding: "4px 6px" }}>{l.operatore || "—"}</td>
                   <td style={{ padding: "4px 6px" }}>{l.drone_nome || "—"}</td>
                 </tr>))}</tbody>

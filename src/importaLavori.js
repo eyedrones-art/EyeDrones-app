@@ -7,8 +7,9 @@ const pulito = (s) => String(s ?? "").replace(/^﻿/, "").trim();
 // --- CSV ---------------------------------------------------------------------------------------------
 export function leggiCsv(testo) {
   const t = pulito(testo).replace(/\r\n?/g, "\n");
-  const prima = t.split("\n").find((r) => r.trim()) || "";
-  const sep = [";", "\t", ","].map((s) => [s, prima.split(s).length]).sort((a, b) => b[1] - a[1])[0][0];
+  // il separatore che compare di più nelle prime righe (sopra la tabella ci possono essere titoli)
+  const prime = t.split("\n").filter((r) => r.trim()).slice(0, 15);
+  const sep = [";", "\t", ","].map((x) => [x, Math.max(0, ...prime.map((r) => r.split(x).length - 1))]).sort((a, b) => b[1] - a[1])[0][0];
   const righe = [];
   let riga = [], campo = "", tra = false;
   for (let i = 0; i < t.length; i++) {
@@ -64,10 +65,11 @@ export async function leggiTabella(file) {
 
 // --- riconoscimento delle colonne ------------------------------------------------------------------------
 export const CAMPI_IMPORT = [
-  { k: "data", label: "Data", parole: ["data", "date", "giorno", "日期", "作业时间", "operation time", "start time", "inizio", "ora"] },
+  { k: "tipo", label: "Tipo di lavoro", parole: ["work type", "wrok type", "task type", "tipo di lavoro", "tipo lavoro", "lavorazione", "作业类型"] },
+  { k: "data", label: "Data", parole: ["work time", "wrok time", "data", "date", "giorno", "日期", "作业时间", "operation time", "start time", "inizio", "ora"] },
   { k: "ora_fine", label: "Ora di fine", parole: ["fine", "end time", "结束"] },
-  { k: "ettari", label: "Superficie", parole: ["superficie", "area", "ettari", "ha", "acre", "mu", "面积", "亩"] },
-  { k: "quantita", label: "Prodotto o miscela usata", parole: ["dosaggio", "dosage", "dose", "quantit", "litri", "volume", "consumo", "usage", "spray", "用量", "用药", "kg"] },
+  { k: "ettari", label: "Superficie", parole: ["work area", "wrok area", "superficie", "area", "ettari", "ha", "acre", "mu", "面积", "亩"] },
+  { k: "quantita", label: "Prodotto o miscela usata", parole: ["work usage", "wrok usage", "dosaggio", "dosage", "dose", "quantit", "litri", "volume", "consumo", "usage", "spray", "用量", "用药", "kg"] },
   { k: "campo", label: "Campo", parole: ["campo", "field", "plot", "appezzamento", "terreno", "parcella", "lotto", "地块", "田块", "name", "nome"] },
   { k: "pilota", label: "Pilota", parole: ["pilota", "pilot", "operatore", "operator", "飞手", "account", "utente", "user"] },
   { k: "drone", label: "Drone", parole: ["drone", "aircraft", "velivolo", "aeromobile", "uav", "sn", "serial", "nickname", "飞机", "无人机", "model", "modello"] },
@@ -76,7 +78,15 @@ export const CAMPI_IMPORT = [
 ];
 
 const norma = (s) => pulito(s).toLowerCase();
+// la riga dei titoli: tra le prime 15, quella in cui riconosco più colonne (sopra possono esserci titoli e note)
 export function trovaIntestazione(righe) {
+  let migliore = -1, punti = 0;
+  righe.slice(0, 15).forEach((r, i) => {
+    if (r.filter((x) => pulito(x)).length < 2) return;
+    const n = Object.keys(riconosciColonne(r)).length;
+    if (n > punti) { punti = n; migliore = i; }
+  });
+  if (migliore >= 0) return migliore;
   const i = righe.findIndex((r) => r.filter((x) => pulito(x)).length >= 3);
   return i < 0 ? 0 : i;
 }
@@ -84,7 +94,7 @@ export function riconosciColonne(intestazione) {
   const usate = new Set();
   const mappa = {};
   // prima i campi con parole più precise, così «Pilot name» va al pilota e non al campo
-  const ordine = ["pilota", "drone", "prodotto", "durata", "ora_fine", "quantita", "ettari", "data", "campo"];
+  const ordine = ["tipo", "pilota", "drone", "prodotto", "durata", "ora_fine", "quantita", "ettari", "data", "campo"];
   for (const campo of ordine.map((k) => CAMPI_IMPORT.find((c) => c.k === k))) {
     let migliore = -1, punti = 0;
     intestazione.forEach((h, i) => {
@@ -138,4 +148,24 @@ export function dataOra(v) {
   m = s.match(/^(\d{1,2}):(\d{2})/);
   if (m) return { data: null, ora: `${m[1].padStart(2, "0")}:${m[2]}` };
   return { data: null, ora: null };
+}
+
+// SmartFarm Web scrive l'unità dentro la cella («4.4 acres», «6.5 liters», «17.05 kg»): la uso riga per riga
+export function ettariCella(v, fattoreScelto = 1) {
+  const n = numero(v);
+  if (n == null) return null;
+  const t = pulito(v).toLowerCase();
+  const f = /acre/.test(t) ? 0.404686 : /亩|\bmu\b/.test(t) ? 1 / 15 : /m2|m²|mq/.test(t) ? 0.0001 : /\bha\b|ettar|hectare/.test(t) ? 1 : fattoreScelto;
+  return Math.round(n * f * 100) / 100;
+}
+export const unitaCella = (v) => (/\bkg\b|chil|公斤/.test(pulito(v).toLowerCase()) ? "kg" : /\bl\b|liter|litre|litri|升/.test(pulito(v).toLowerCase()) ? "l" : null);
+// «Spraying work» → trattamento, «Sowing work» → semina, «Spreading» → concimazione, mappatura → rilievo
+export function tipoCella(v) {
+  const t = pulito(v).toLowerCase();
+  if (!t) return null;
+  if (/spray|irror|tratt|喷/.test(t)) return "trattamento";
+  if (/sow|seed|semin|播种/.test(t)) return "semina";
+  if (/spread|fertil|conc|granul|播撒|施肥/.test(t)) return "concimazione";
+  if (/map|survey|rilie|测绘/.test(t)) return "rilievo";
+  return null;
 }
