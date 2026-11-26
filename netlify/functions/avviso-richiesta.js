@@ -44,6 +44,7 @@ function componiEmail(r) {
   const telefono = pulisci(r.telefono, 30);
   const wa = numeroWhatsapp(telefono);
   const linkApp = `${APP_URL}/?vai=richieste`;
+  const squadra = pulisci(r.squadra_di, 80); // «👥 Squadra»: la copia per il collega del titolare della pagina
 
   const oggetto = `Nuova richiesta di preventivo da ${nome}${servizio ? ` · ${servizio}` : ""}`;
 
@@ -58,7 +59,7 @@ function componiEmail(r) {
   const testo = [
     `Ciao${r.pilota_nome ? ` ${pulisci(r.pilota_nome, 80)}` : ""},`,
     "",
-    `${nome} ti ha chiesto un preventivo dalla tua pagina Eyedrones.`,
+    squadra ? `${nome} ha chiesto un preventivo alla pagina di ${squadra}, nella vostra squadra.` : `${nome} ti ha chiesto un preventivo dalla tua pagina Eyedrones.`,
     "",
     ...righe.map(([k, v]) => `${k}: ${v}`),
     ...(descrizione ? ["", descrizione] : []),
@@ -78,7 +79,7 @@ function componiEmail(r) {
 <tr><td style="padding:24px 24px 8px 24px;">
   <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#e0552f;">Nuova richiesta di preventivo</div>
   <h1 style="font-size:21px;line-height:1.3;margin:6px 0 4px 0;">${html(nome)}</h1>
-  <p style="font-size:14px;color:#5b6572;margin:0;">ti ha scritto dalla tua pagina Eyedrones.</p>
+  <p style="font-size:14px;color:#5b6572;margin:0;">${squadra ? `ha scritto alla pagina di ${html(squadra)}, nella vostra squadra.` : "ti ha scritto dalla tua pagina Eyedrones."}</p>
 </td></tr>
 <tr><td style="padding:12px 24px 4px 24px;">
   <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;font-size:14px;">
@@ -96,7 +97,7 @@ function componiEmail(r) {
   Rispondere entro poche ore aumenta molto le probabilità di ottenere il lavoro.
 </td></tr>
 </table>
-<p style="font-size:11.5px;color:#9aa4b2;margin:14px 0 0 0;">Ricevi questo avviso perché hai una pagina pubblica su Eyedrones. Puoi spegnerlo da «La mia pagina».</p>
+<p style="font-size:11.5px;color:#9aa4b2;margin:14px 0 0 0;">${squadra ? "Ricevi questo avviso perché sei nella squadra di questo pilota su Eyedrones." : "Ricevi questo avviso perché hai una pagina pubblica su Eyedrones. Puoi spegnerlo da «La mia pagina»."}</p>
 </td></tr></table>
 </body></html>`;
 

@@ -29,7 +29,82 @@ const stLabel = { fontSize: 11, color: "#6b7480", display: "block", marginBottom
 const stLink = { fontSize: 12, color: "#3d8bfd", textDecoration: "none", border: "1px solid #2a3349", borderRadius: 5, padding: "4px 8px" };
 const VUOTO = { nome: "", citta: "", provincia: "", raggio_km: 50, servizi: [], attestati: [], droni: "", esperienza: "", disponibilita: "", portfolio: "", telefono: "", email: "", stato: "contatto", note: "" };
 
-export default function Collaboratori({ supabase, inputStyle, servizi = [] }) {
+// «👥 Squadra»: un collega con la sua partita IVA che lavora sugli stessi lavori (supabase/squadra.sql)
+const emailOk = (v) => /^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$/.test(String(v || "").trim());
+export function SquadraBox({ supabase, inputStyle, piano }) {
+  const [mia, setMia] = useState(undefined); // undefined = carico, null = script non eseguito
+  const [email, setEmail] = useState("");
+  const [msg, setMsg] = useState(null);
+  const [lavoro, setLavoro] = useState(false);
+  const [conferma, setConferma] = useState(false);
+  const carica = async () => {
+    const { data, error } = await supabase.rpc("squadra_mia");
+    setMia(error ? null : data || { ruolo: null });
+  };
+  useEffect(() => { carica(); }, []);
+  const invita = async () => {
+    if (!emailOk(email)) { setMsg({ t: "Scrivi un'email valida.", ok: false }); return; }
+    setLavoro(true); setMsg(null);
+    const { data, error } = await supabase.rpc("squadra_invita", { p_email: email.trim() });
+    setLavoro(false);
+    if (error || (data && data.errore)) { setMsg({ t: (data && data.errore) || "Invito non riuscito, riprova.", ok: false }); return; }
+    setMsg({ t: `Invito mandato a ${email.trim()}. Quando accetta, vedete gli stessi lavori.`, ok: true }); setEmail(""); carica();
+  };
+  const togli = async () => {
+    setLavoro(true);
+    const { data, error } = await supabase.rpc("squadra_togli");
+    setLavoro(false); setConferma(false);
+    if (error || (data && data.errore)) { setMsg({ t: (data && data.errore) || "Non riuscito, riprova.", ok: false }); return; }
+    setMsg({ t: "Fatto: ora ognuno vede solo i suoi lavori.", ok: true }); carica();
+    setTimeout(() => window.location.reload(), 1200); // ricarico i lavori: quelli del collega spariscono
+  };
+  if (mia === undefined || mia === null) return null;
+  const btn = (principale) => ({ background: principale ? "#ff8c42" : "transparent", color: principale ? "#10141f" : "#e7eaee", border: principale ? "none" : "1px solid #343e57", borderRadius: 7, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: lavoro ? "wait" : "pointer", opacity: lavoro ? 0.6 : 1 });
+  const chiudi = conferma ? (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
+      <span style={{ fontSize: 12.5, color: "#f5b942" }}>{mia.ruolo === "membro" ? "Sicuro di uscire? Non vedrai più i lavori della squadra." : mia.stato === "attivo" ? "Sicuro? Il collega non vedrà più i lavori della squadra." : "Annullo l'invito?"}</span>
+      <button type="button" disabled={lavoro} onClick={togli} style={btn(true)}>Sì</button>
+      <button type="button" onClick={() => setConferma(false)} style={btn(false)}>No</button>
+    </div>
+  ) : null;
+  return (
+    <div style={{ ...stCard, marginBottom: 16, borderColor: "#7e3af266", background: "linear-gradient(135deg, rgba(126,58,242,0.14), rgba(255,140,66,0.08)), #151b2b" }} data-squadra>
+      <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>👥 Squadra</div>
+      {mia.ruolo === null && (
+        <>
+          <div style={{ fontSize: 13, color: "#c3cad4", lineHeight: 1.5, marginBottom: 10 }}>Lavori con un collega che ha la sua partita IVA? Invitalo: vedrete e modificherete tutti e due le stesse <b>richieste, preventivi, clienti e piani di volo</b>, e le email dei clienti arriveranno a tutti e due. Registro voli, droni, attestati e fatture restano di ognuno.</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && invita()} placeholder="Email del collega" aria-label="Email del collega" style={{ ...inputStyle, flex: "1 1 200px", minWidth: 0 }} />
+            <button type="button" disabled={lavoro} onClick={invita} style={btn(true)}>Invita in squadra</button>
+          </div>
+          <div style={{ fontSize: 11.5, color: "#8b95a3", marginTop: 8 }}>{piano === "pro" ? "Incluso nel tuo piano: un collega in squadra." : "Inclusa nel piano Pro: un collega in squadra."}</div>
+        </>
+      )}
+      {mia.ruolo === "titolare" && mia.stato === "invitato" && (
+        <>
+          <div style={{ fontSize: 13, color: "#c3cad4", lineHeight: 1.5 }}>Invito mandato a <b>{mia.email}</b>: aspettiamo che accetti dal link nell'email.</div>
+          {!conferma && <div style={{ marginTop: 10 }}><button type="button" onClick={() => setConferma(true)} style={btn(false)}>Annulla l'invito</button></div>}
+        </>
+      )}
+      {mia.ruolo === "titolare" && mia.stato === "attivo" && (
+        <>
+          <div style={{ fontSize: 13, color: "#c3cad4", lineHeight: 1.5 }}>Sei in squadra con <b>{mia.collega}</b>. Vedete gli stessi lavori: quelli fatti dal collega hanno l'etichetta «👥 del collega».</div>
+          {!conferma && <div style={{ marginTop: 10 }}><button type="button" onClick={() => setConferma(true)} style={btn(false)}>Togli dalla squadra</button></div>}
+        </>
+      )}
+      {mia.ruolo === "membro" && (
+        <>
+          <div style={{ fontSize: 13, color: "#c3cad4", lineHeight: 1.5 }}>Sei nella squadra di <b>{mia.collega}</b>. Vedete gli stessi lavori: quelli fatti dal collega hanno l'etichetta «👥 del collega».</div>
+          {!conferma && <div style={{ marginTop: 10 }}><button type="button" onClick={() => setConferma(true)} style={btn(false)}>Esci dalla squadra</button></div>}
+        </>
+      )}
+      {chiudi}
+      {msg && <div role="status" style={{ fontSize: 12.5, marginTop: 10, color: msg.ok ? "#4ade80" : "#ff9c9c" }}>{msg.t}</div>}
+    </div>
+  );
+}
+
+export default function Collaboratori({ supabase, inputStyle, servizi = [], piano }) {
   const [righe, setRighe] = useState(null);
   const [errore, setErrore] = useState(null);
   const [form, setForm] = useState(null);
@@ -95,6 +170,7 @@ export default function Collaboratori({ supabase, inputStyle, servizi = [] }) {
       <TestataPagina titolo="Collaboratori" sigla="TEAM · PILOTI CON CUI LAVORI" icona={Handshake} info="I piloti con cui lavori o vorresti lavorare: dove sono, fin dove si spostano, cosa fanno e con quali attestati. Li vedi solo tu.">
         <button type="button" onClick={() => { setForm(form ? null : { ...VUOTO }); setEditingId(null); }} style={{ background: form ? "transparent" : "#ff8c42", color: form ? "#8b95a3" : "#10141f", border: form ? "1px solid #343e57" : "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600 }}>{form ? "Annulla" : "+ Nuovo collaboratore"}</button>
       </TestataPagina>
+      <SquadraBox supabase={supabase} inputStyle={inputStyle} piano={piano} />
       {errore && <div style={{ ...stCard, color: "#f5b942", fontSize: 12.5, marginBottom: 12 }}>{errore}</div>}
 
       {form && (

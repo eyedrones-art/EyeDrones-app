@@ -47,6 +47,12 @@ const PostiVicini = pigro(() => import("./Posti.jsx"), "PostiVicini");
 const GiroGiornata = pigro(() => import("./GiroGiornata.jsx"));
 const QuiEOra = pigro(() => import("./QuiEOra.jsx"));
 const Collaboratori = pigro(() => import("./Collaboratori.jsx"));
+// «👥 Squadra» (supabase/squadra.sql): chi sono io, per riconoscere le righe fatte dal collega di squadra
+let MIO_ID = null;
+const invitoSquadraInAttesa = () => { try { return /^[a-f0-9]{32}$/.test(localStorage.getItem(CODICE_SQUADRA) || ""); } catch { return false; } };
+const delCollega = (riga) => !!(riga && riga.user_id && MIO_ID && riga.user_id !== MIO_ID);
+const EtichettaCollega = ({ riga }) => (delCollega(riga) ? <span title="Fatto dal tuo collega di squadra" style={{ fontSize: 10.5, fontWeight: 700, background: "#7e3af233", color: "#c4b5fd", border: "1px solid #7e3af266", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle", whiteSpace: "nowrap" }}>👥 del collega</span> : null);
+const CODICE_SQUADRA = "eyedrones_squadra";
 const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
 const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
 const PraticaEnac = pigro(() => import("./PraticaEnac.jsx"));
@@ -1897,6 +1903,9 @@ function AppAutenticata() {
     // senza ?ref provo a capirlo dal sito da cui arriva (articolo di DronEzine, Instagram, Facebook, Google…)
     const ref = refParam || (refSalvato() ? null : provenienzaDaSito());
     if (ref) { try { localStorage.setItem("eyedrones_ref", ref); } catch { /* memoria del browser non disponibile */ } }
+    // invito in squadra (?squadra=codice): lo tengo finché non entra, poi AppShell lo accetta
+    const codiceSquadra = new URLSearchParams(window.location.search).get("squadra");
+    if (/^[a-f0-9]{32}$/.test(codiceSquadra || "")) { try { localStorage.setItem(CODICE_SQUADRA, codiceSquadra); } catch { /* niente */ } }
 
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: listener } = supabase.auth.onAuthStateChange((evento, s) => {
@@ -1927,6 +1936,11 @@ function AppAutenticata() {
             <button type="button" onClick={() => setCopiaAperta(true)} style={{ background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 13, fontWeight: 700 }}>Mostra i documenti</button>
           </div>
         )}
+        {invitoSquadraInAttesa() && (
+          <div style={{ position: "sticky", top: 0, zIndex: 899, background: "#2a1a52", borderBottom: "1px solid #7e3af2", padding: "10px 16px", fontSize: 13.5, color: "#e7eaee", textAlign: "center" }}>
+            👥 Sei stato invitato in una squadra su EyeDrones. Entra con il tuo account, o crealo: l'invito si accetta da solo.
+          </div>
+        )}
         <Accesso />
       </>
     );
@@ -1938,6 +1952,7 @@ function AppAutenticata() {
 }
 
 function AppShell({ session }) {
+  MIO_ID = session && session.user ? session.user.id : null;
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
   const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "funzioni", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
@@ -1973,6 +1988,22 @@ function AppShell({ session }) {
     fetch("/.netlify/functions/analisi-foto").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.aperto === true) setEspertoAperto(true); }).catch(() => { /* resta spento */ });
   }, [adminAI]);
   useEffect(() => { if (vaiARichieste || vaiAControllo || vaiAQui || vaiAVoli || vaiAltro) window.history.replaceState(null, "", window.location.pathname); }, []);
+  // «👥 Squadra»: se è arrivato dal link dell'invito, appena è dentro lo accetto
+  const [esitoSquadra, setEsitoSquadra] = useState(null);
+  useEffect(() => {
+    let codice = null;
+    try { codice = localStorage.getItem(CODICE_SQUADRA); } catch { /* niente */ }
+    if (new URLSearchParams(window.location.search).get("squadra")) window.history.replaceState(null, "", window.location.pathname);
+    if (!/^[a-f0-9]{32}$/.test(codice || "")) return;
+    supabase.rpc("squadra_accetta", { p_codice: codice }).then(({ data, error }) => {
+      if (error && /function|schema cache/i.test(error.message || "")) return; // script non ancora eseguito: riprovo al prossimo accesso
+      try { localStorage.removeItem(CODICE_SQUADRA); } catch { /* niente */ }
+      if (error || !data || data.errore) { setEsitoSquadra({ ok: false, testo: (data && data.errore) || "Non sono riuscito ad accettare l'invito: chiedi al collega di mandartene uno nuovo." }); return; }
+      setEsitoSquadra({ ok: true, testo: `👥 Ora sei nella squadra di ${data.collega || "un collega"}: vedete gli stessi lavori.` });
+      setPage("collaboratori");
+      loadData(); caricaClienti();
+    }, () => {});
+  }, []);
   // primi passi: il tasto Controllo è «provato» appena si apre la sua pagina
   useEffect(() => { if (page === "documenti-controllo") { try { localStorage.setItem("eyedrones_controllo_provato", new Date().toISOString()); } catch { /* niente */ } } }, [page]);
   const [paginaPrecedente, setPaginaPrecedente] = useState(null); // da dove si apre «Suggerimenti», per capire dove c'è un problema
@@ -2449,6 +2480,12 @@ function AppShell({ session }) {
             <button onClick={() => setPaginaRiaperta(false)} aria-label="Chiudi avviso" style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={16} /></button>
           </div>
         )}
+        {esitoSquadra && (
+          <div role="status" style={{ margin: 16, padding: "10px 14px", background: esitoSquadra.ok ? "#1e1638" : "#2a1616", border: `1px solid ${esitoSquadra.ok ? "#7e3af2" : "#5a2a2a"}`, borderRadius: 8, color: esitoSquadra.ok ? "#e7eaee" : "#ff9c9c", fontSize: 13, display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ flex: 1 }}>{esitoSquadra.testo}</span>
+            <button onClick={() => setEsitoSquadra(null)} aria-label="Chiudi avviso" style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={16} /></button>
+          </div>
+        )}
         {dbError && (
           <div style={{ margin: 16, padding: "10px 14px", background: "#2a1616", border: "1px solid #5a2a2a", borderRadius: 8, color: "#ff9c9c", fontSize: 12.5 }}>
             {typeof navigator !== "undefined" && navigator.onLine === false
@@ -2488,7 +2525,7 @@ function AppShell({ session }) {
         )}
         {page === "collaboratori" && (
           <Suspense fallback={<LoadingBlock />}>
-            <Collaboratori supabase={supabase} inputStyle={inputStyle} servizi={SERVIZI_PILOTA} />
+            <Collaboratori supabase={supabase} inputStyle={inputStyle} servizi={SERVIZI_PILOTA} piano={piano} />
           </Suspense>
         )}
         {page === "qui" && (
@@ -5744,7 +5781,7 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
               <div key={c.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "12px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center", cursor: "pointer" }} onClick={() => setEspanso(aperta ? null : c.id)}>
                   <div>
-                    <div style={{ fontSize: 14.5, fontWeight: 700 }}>{c.nome}</div>
+                    <div style={{ fontSize: 14.5, fontWeight: 700 }}>{c.nome}<EtichettaCollega riga={c} /></div>
                     <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
                       {suoi.length > 0 ? `${suoi.length} ${suoi.length === 1 ? "preventivo" : "preventivi"}` : "Nessun preventivo"}
                       {incassato > 0 && <> · <span style={{ color: "#4ade80" }}>incassato {euro(incassato)}</span></>}
@@ -5787,7 +5824,7 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
                     )}
                     <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                       <button type="button" onClick={() => modifica(c)} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Modifica</button>
-                      <button type="button" onClick={() => elimina(c)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Togli dalla rubrica</button>
+                      {!delCollega(c) && <button type="button" onClick={() => elimina(c)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Togli dalla rubrica</button>}
                     </div>
                   </div>
                 )}
@@ -6367,7 +6404,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
             return (
               <div key={p.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.cliente} {p.numero && <span style={{ color: "#6b7480", fontWeight: 400, fontSize: 12 }}>· {p.numero}</span>}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.cliente} {p.numero && <span style={{ color: "#6b7480", fontWeight: 400, fontSize: 12 }}>· {p.numero}</span>}<EtichettaCollega riga={p} /></div>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
                     {p.luogo_intervento && <>{p.luogo_intervento} &middot; </>}{formatData(p.data)} &middot; <span className="mono">{Number(p.prezzo).toFixed(2)} €</span>
                   </div>
@@ -6408,9 +6445,9 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
                   <button onClick={() => scaricaPDF(p)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     <FileDown size={12} /> PDF
                   </button>
-                  <button onClick={() => eliminaPreventivo(p.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  {!delCollega(p) && <button onClick={() => eliminaPreventivo(p.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     Elimina
-                  </button>
+                  </button>}
                 </div>
               </div>
             );
@@ -10772,7 +10809,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
                   })} style={{ background: "#241d16", border: "1px solid #ff8c42", color: "#ffb877", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, fontWeight: 600 }}>📷 Aggiungi foto/video</button>
                   <PulsantiNavigatore piano={p} />
                   <button onClick={() => apriPiano(p)} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Apri / Modifica</button>
-                  <button onClick={() => eliminaPiano(p.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
+                  {!delCollega(p) && <button onClick={() => eliminaPiano(p.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>}
                 </div>
               </div>
             ))}
@@ -13935,7 +13972,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
     return (
       <div key={r.id} style={{ background: "#151b2b", border: `1px solid ${evidenziata ? "#ff8c4288" : "#2a3349"}`, borderRadius: 10, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{r.nome}{evidenziata && <span style={{ fontSize: 10.5, fontWeight: 700, background: "#ff8c42", color: "#10141f", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle" }}>NUOVA</span>}</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{r.nome}<EtichettaCollega riga={r} />{evidenziata && <span style={{ fontSize: 10.5, fontWeight: 700, background: "#ff8c42", color: "#10141f", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle" }}>NUOVA</span>}</div>
           <div style={{ fontSize: 12, color: "#8b95a3" }}>{new Date(r.created_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
         </div>
         <div style={{ fontSize: 13, color: "#c3cad4", display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
@@ -13954,7 +13991,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
           {r.stato === "archiviata"
             ? <button onClick={() => aggiornaRichiesta(r, "letta")} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 11px", fontSize: 12 }}>Ripristina</button>
             : <button onClick={() => aggiornaRichiesta(r, "archiviata")} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 11px", fontSize: 12 }}>Archivia</button>}
-          <button onClick={() => eliminaRichiesta(r)} aria-label={`Elimina la richiesta di ${r.nome}`} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 9px", fontSize: 12 }}><X size={13} /></button>
+          {!delCollega(r) && <button onClick={() => eliminaRichiesta(r)} aria-label={`Elimina la richiesta di ${r.nome}`} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 9px", fontSize: 12 }}><X size={13} /></button>}
         </div>
       </div>
     );

@@ -14,6 +14,10 @@
 //   protetto_problema   al pilota (e Telegram all'amministratore): il cliente ha segnalato un problema, soldi fermi
 //   protetto_rimborsato al cliente: i soldi gli sono stati restituiti
 //   fattura_dati        al pilota: il cliente ha scritto i dati per la fattura (consegna-e-fattura.sql)
+//   squadra_invito      al collega: un pilota lo invita nella sua squadra (squadra.sql), con il link per accettare
+//   squadra_accettata   al titolare: il collega ha accettato, ora lavorate sugli stessi lavori
+//   squadra_tolta       all'altro: la squadra è stata sciolta
+// «cc» (squadra.sql): l'email del compagno di squadra del destinatario, che riceve la stessa email
 // Alle email per i clienti il database aggiunge «cliente»: il codice del loro link «I miei lavori».
 // Variabili su Netlify: RESEND_API_KEY, AVVISO_SEGRETO, AVVISO_MITTENTE (facoltativa), come per avviso-richiesta.js
 // Se ci sono anche TELEGRAM_TOKEN e TELEGRAM_CHAT_ID (assistente-telegram.js), all'amministratore arriva un messaggio
@@ -437,6 +441,43 @@ function componiEmail(d) {
     });
     return { a: [d.a], oggetto: "La tua richiesta: ci servono alcuni dettagli", ...m };
   }
+  if (d.tipo === "squadra_invito") {
+    if (!/^[a-f0-9]{32}$/.test(String(d.codice_squadra || ""))) return null;
+    const chi = pulisci(d.titolare, 80) || "Un pilota";
+    const m = impagina({
+      etichetta: "Invito in squadra",
+      titolo: `${chi} ti invita nella sua squadra`,
+      sottotitolo: "Su EyeDrones lavorerete sugli stessi lavori: richieste dei clienti, preventivi, clienti e piani di volo. Ognuno con il suo account e la sua partita IVA.",
+      righe: [["Condivisi", "richieste, preventivi, clienti, piani di volo"], ["Restano tuoi", "registro voli, droni, attestati, documenti, fatture"]],
+      bottone: { href: `${APP_URL}/?squadra=${d.codice_squadra}`, testo: "Accetta l'invito" },
+      nota: "Se non hai ancora un account, lo crei dal link e poi accetti. Puoi uscire dalla squadra quando vuoi. Se non conosci chi ti ha invitato, ignora questa email.",
+      piede: "EyeDrones · l'app per piloti di droni · app.eyedrones.it",
+    });
+    return { a: [d.a], oggetto: `${chi} ti invita nella sua squadra su EyeDrones`, ...m };
+  }
+  if (d.tipo === "squadra_accettata") {
+    const chi = pulisci(d.collega, 80) || "Il tuo collega";
+    const m = impagina({
+      etichetta: "Squadra",
+      titolo: `${chi} è entrato nella tua squadra`,
+      sottotitolo: "Da ora vedete e modificate tutti e due le stesse richieste, preventivi, clienti e piani di volo. Le email dei clienti arrivano a tutti e due.",
+      bottone: { href: `${APP_URL}/?vai=collaboratori`, testo: "Apri la squadra" },
+      nota: "Puoi togliere il collega dalla squadra quando vuoi, da «Collaboratori».",
+      piede: "EyeDrones · l'app per piloti di droni · app.eyedrones.it",
+    });
+    return { a: [d.a], oggetto: `${chi} è entrato nella tua squadra`, ...m };
+  }
+  if (d.tipo === "squadra_tolta") {
+    const chi = pulisci(d.collega, 80) || "Il tuo collega";
+    const m = impagina({
+      etichetta: "Squadra",
+      titolo: "La squadra è stata sciolta",
+      sottotitolo: `${chi} ha sciolto la squadra. Da ora ognuno vede solo i suoi lavori; i tuoi voli e i tuoi dati restano tutti tuoi.`,
+      bottone: { href: APP_URL, testo: "Apri EyeDrones" },
+      piede: "EyeDrones · l'app per piloti di droni · app.eyedrones.it",
+    });
+    return { a: [d.a], oggetto: "La squadra su EyeDrones è stata sciolta", ...m };
+  }
   if (d.tipo === "miei_lavori") {
     if (!linkMiei) return null;
     const m = impagina({
@@ -544,6 +585,8 @@ exports.handler = async (event) => {
   if (d.tipo === "problema" || d.tipo === "dettagli_aggiunti") return risposta(200, "Avviso inviato"); // solo Telegram, nessuna email
   const m = componiEmail(d);
   if (!m) return risposta(400, "Tipo sconosciuto");
+  // «👥 Squadra»: la stessa email arriva anche al compagno di squadra del pilota
+  if (emailValida(d.cc) && m.a.length === 1 && m.a[0] === d.a && !m.a.includes(d.cc)) m.a.push(d.cc);
   const a = m.a.filter(emailValida);
   if (!a.length) { await registraAvviso(segreto, d, 0, 0, 0); return risposta(200, "Nessun destinatario"); }
 
