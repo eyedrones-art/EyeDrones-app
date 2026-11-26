@@ -10,7 +10,7 @@ import { btn, scheda, campo, Etichetta, griglia, oggi, Linguette, Scorciatoie, F
 const CHIAVE_VISTA = "eyedrones_fpv_vista";
 export const apriFpv = (vista) => { try { sessionStorage.setItem(CHIAVE_VISTA, vista); } catch { /* niente */ } };
 
-export default function Fpv({ supabase, inputStyle, onNav, onVoliCambiati }) {
+export default function Fpv({ supabase, inputStyle, onNav, onVoliCambiati, onNuovoVolo }) {
   const [vista, setVista] = useState(() => { try { const v = sessionStorage.getItem(CHIAVE_VISTA); sessionStorage.removeItem(CHIAVE_VISTA); return v || "osservatore"; } catch { return "osservatore"; } });
   const voci = [["osservatore", "👀 Osservatore"], ["percorso", "🗺️ Percorso sulla piantina"], ["lipo", "🔋 Batterie LiPo"], ["frequenze", "📡 Canali video"], ["stabilizza", "🎥 Stabilizzazione"]];
   return (
@@ -26,7 +26,7 @@ export default function Fpv({ supabase, inputStyle, onNav, onVoliCambiati }) {
           ["📈", "Telemetria sul video", () => onNav("telemetria")],
         ]} />
         <Linguette voci={voci} attiva={vista} onCambia={setVista} />
-        {vista === "osservatore" && <Osservatore supabase={supabase} onCambiati={onVoliCambiati} />}
+        {vista === "osservatore" && <Osservatore supabase={supabase} onCambiati={onVoliCambiati} onNuovoVolo={onNuovoVolo} />}
         {vista === "percorso" && <Percorso supabase={supabase} />}
         {vista === "lipo" && <Lipo supabase={supabase} />}
         {vista === "frequenze" && <Frequenze supabase={supabase} />}
@@ -38,7 +38,7 @@ export default function Fpv({ supabase, inputStyle, onNav, onVoliCambiati }) {
 
 // --- osservatore: nome e firma nel volo (voli.osservatore + voli.dettagli.osservatore) ---------------------
 const eFpv = (v) => v.tipo_attivita === "fpv" || v.osservatore != null || !!v.visore || !!v.canale_video;
-function Osservatore({ supabase, onCambiati }) {
+function Osservatore({ supabase, onCambiati, onNuovoVolo }) {
   const [voli, setVoli] = useState(null);
   const [tutti, setTutti] = useState(false);
   const [sel, setSel] = useState(null);
@@ -61,9 +61,9 @@ function Osservatore({ supabase, onCambiati }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start" }} data-osservatore>
       <div style={{ ...scheda, flex: "1 1 340px", minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 12.5, color: "#c3cad4" }}>Con il visore serve un osservatore accanto a te che tenga sempre il drone in vista. Scegli il volo: l'osservatore scrive il nome e firma col dito. Resta nel registro voli e nel fascicolo.</div>
+        <div style={{ fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5 }}>Con il visore serve un osservatore accanto a te che tenga sempre il drone in vista. Così resta scritto chi era:<br />1️⃣ registri il volo FPV · 2️⃣ lo scegli qui sotto · 3️⃣ l'osservatore scrive il nome e firma col dito. Lo trovi nel registro voli e nel fascicolo, se ti chiedono spiegazioni.</div>
         <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12.5, color: "#8b95a3" }}><input type="checkbox" checked={tutti} onChange={(e) => setTutti(e.target.checked)} />Mostra anche i voli non FPV</label>
-        {voli === null ? <div style={{ color: "#8b95a3" }}>Carico…</div> : !lista.length ? <div style={{ fontSize: 12.5, color: "#8b95a3" }}>Nessun volo FPV nel registro. Registra il volo con tipo «FPV» oppure spunta «Mostra anche i voli non FPV».</div> : lista.slice(0, 40).map((v) => (
+        {voli === null ? <div style={{ color: "#8b95a3" }}>Carico…</div> : !lista.length ? <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12.5, color: "#8b95a3" }}>Nessun volo FPV nel registro. Prima registri il volo (tipo «FPV»), poi torni qui e l'osservatore firma.{onNuovoVolo && <button type="button" onClick={onNuovoVolo} style={{ ...btn(true), alignSelf: "flex-start" }} data-nuovo-volo-fpv>📒 Registra un volo FPV</button>}</div> : lista.slice(0, 40).map((v) => (
           <button key={v.id} type="button" onClick={() => scegli(v)} style={{ display: "flex", gap: 8, alignItems: "center", textAlign: "left", background: sel === v.id ? "#241d16" : "#10141f", border: `1px solid ${sel === v.id ? "#ff8c42" : "#232b3f"}`, borderRadius: 8, padding: "8px 10px", color: "#e7eaee", fontSize: 13 }} data-volo-fpv>
             <span style={{ flex: 1 }}>{String(v.data || "").split("-").reverse().join("/")} · {v.luogo || "Volo"}{v.drone_nome ? ` · ${v.drone_nome}` : ""}</span>
             <span style={{ fontSize: 11.5, color: v.dettagli?.osservatore?.nome ? "#4ade80" : "#8b95a3" }}>{v.dettagli?.osservatore?.nome ? `👀 ${v.dettagli.osservatore.nome}${v.dettagli.osservatore.firma ? " ✍️" : ""}` : "senza osservatore"}</span>

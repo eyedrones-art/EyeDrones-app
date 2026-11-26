@@ -2619,7 +2619,7 @@ function AppShell({ session }) {
         )}
         {page === "fpv" && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
-            <Fpv supabase={supabase} inputStyle={inputStyle} onNav={vai} onVoliCambiati={caricaVoli} />
+            <Fpv supabase={supabase} inputStyle={inputStyle} onNav={vai} onVoliCambiati={caricaVoli} onNuovoVolo={() => { setPrefillVolo({ tipo_attivita: "fpv" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); window.scrollTo(0, 0); }} />
           </Suspense>
         )}
         {page === "campi" && (
