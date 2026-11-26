@@ -2588,7 +2588,7 @@ function AppShell({ session }) {
         {page === "rilievi" && <PaginaRilievi voli={voliDashboard} droni={droni} azienda={azienda} piano={piano} onCambiato={caricaVoli} onNav={vai} onNuovo={() => { setPrefillVolo({ tipo_attivita: "rilievo" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
         {page === "termocamera" && (
           <Suspense fallback={<LoadingBlock />}>
-            <Termocamera supabase={supabase} piano={piano} />
+            <Termocamera supabase={supabase} piano={piano} impianti={impianti} ispezioni={ispezioni} onReload={loadData} onApriImpianto={(id) => { const i = impianti.find((x) => x.id === id); if (i) { setImpiantoAttivo(i); setPage("impianto"); } }} />
           </Suspense>
         )}
         {page === "specific" && (
