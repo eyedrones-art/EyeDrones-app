@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { TestataPagina } from "./VoloHero.jsx";
+import { consegnaAllAI } from "./passaggioAI.js";
 
 // «🌡️ Termocamera»: come il DJI Thermal Analysis Tool, ma nel telefono. Carichi le foto termiche originali (R-JPEG DJI),
 // il server legge con l'SDK DJI la temperatura di ogni pixel (thermal-repalette.js, modalità «dati»); qui cambi palette,
@@ -56,7 +57,36 @@ function decodifica(dati) {
   return new Int16Array(b.buffer);
 }
 
-export default function Termocamera({ supabase, piano, impianti = [], ispezioni = [], onReload, onApriImpianto }) {
+// una foto termica colorata per l'AI (scala automatica, niente segni) e le sue temperature misurate
+function perAI(ff, palette, eNuova, trNuova) {
+  const e0 = Number(ff.par.emissivity) || 1, tr0 = Number(ff.par.reflection ?? 23);
+  const e1 = eNuova || e0, tr1 = trNuova ?? tr0;
+  let vmin = Infinity, vmax = -Infinity, somma = 0, imx = 0;
+  for (let i = 0; i < ff.t.length; i++) { const v = ff.t[i]; if (v < vmin) vmin = v; if (v > vmax) { vmax = v; imx = i; } somma += v; }
+  const c = (v) => correggi(v / 10, e0, tr0, e1, tr1);
+  const lo = c(vmin), hi = c(vmax), span = hi - lo || 1, L = lut(palette);
+  const tab = new Uint8Array(vmax - vmin + 1); const tC = new Float32Array(vmax - vmin + 1);
+  for (let v = vmin; v <= vmax; v++) { const t = c(v); tC[v - vmin] = t; tab[v - vmin] = Math.max(0, Math.min(255, Math.round(((t - lo) / span) * 255))); }
+  const cv = document.createElement("canvas"); cv.width = ff.w; cv.height = ff.h;
+  const ctx = cv.getContext("2d"), img = ctx.createImageData(ff.w, ff.h), d = img.data;
+  for (let i = 0; i < ff.t.length; i++) { const k = tab[ff.t[i] - vmin] * 3; d[i * 4] = L[k]; d[i * 4 + 1] = L[k + 1]; d[i * 4 + 2] = L[k + 2]; d[i * 4 + 3] = 255; }
+  ctx.putImageData(img, 0, 0);
+  const media = c(somma / ff.t.length);
+  const px = (imx % ff.w) / ff.w, py = Math.floor(imx / ff.w) / ff.h;
+  const dove = `${py < 0.33 ? "in alto" : py > 0.66 ? "in basso" : "al centro"}${px < 0.33 ? " a sinistra" : px > 0.66 ? " a destra" : ""}`;
+  const dati = `Foto radiometrica: temperature vere lette dal file originale (emissività ${e1.toFixed(2)}, temperatura riflessa ${tr1.toFixed(1)} °C). Massima ${hi.toFixed(1)} °C ${dove} (x ${px.toFixed(2)}, y ${py.toFixed(2)}), minima ${lo.toFixed(1)} °C, media della foto ${media.toFixed(1)} °C. Colori: palette ${PALETTE[palette].nome}, scala da ${lo.toFixed(1)} a ${hi.toFixed(1)} °C.`;
+  // temperatura dentro un riquadro (x, y, larghezza, altezza da 0 a 1)
+  const tempRiquadro = (q) => {
+    const xa = Math.max(0, Math.floor(q.x * ff.w)), ya = Math.max(0, Math.floor(q.y * ff.h));
+    const xb = Math.min(ff.w - 1, Math.ceil((q.x + q.larghezza) * ff.w)), yb = Math.min(ff.h - 1, Math.ceil((q.y + q.altezza) * ff.h));
+    let mx = -Infinity, s = 0, n = 0;
+    for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) { const t = tC[ff.t[y * ff.w + x] - vmin]; if (t > mx) mx = t; s += t; n++; }
+    return n ? { max: mx, media: s / n, mediaFoto: media } : null;
+  };
+  return { url: cv.toDataURL("image/jpeg", 0.88), w: ff.w, h: ff.h, dati, tempRiquadro };
+}
+
+export default function Termocamera({ supabase, piano, impianti = [], ispezioni = [], onReload, onApriImpianto, usaAI, onAI }) {
   const [foto, setFoto] = useState([]); // [{ nome, stato, errore, w, h, t: Int16Array, par }]
   const [scelta, setScelta] = useState(0);
   const [palette, setPalette] = useState(() => { try { return localStorage.getItem("eyedrones_palette") || "ironbow"; } catch { return "ironbow"; } });
@@ -258,6 +288,13 @@ export default function Termocamera({ supabase, piano, impianti = [], ispezioni 
     }
   };
 
+  const pronte = foto.filter((x) => x.stato === "ok");
+  const mandaAllAI = () => {
+    const eN = corr.e === "" ? null : e1, trN = corr.tr === "" ? null : tr1;
+    consegnaAllAI({ tipo: "fotovoltaico", foto: pronte.map((x) => ({ nome: x.nome, ...perAI(x, palette, eN, trN) })) });
+    onAI && onAI();
+  };
+
   if (piano !== "pro") {
     return <div style={{ padding: "28px 32px" }}><TestataPagina titolo="Termocamera" sigla="R-JPEG · TEMPERATURE · PALETTE" /><div style={{ ...scheda, maxWidth: 460 }}>Legge la temperatura di ogni punto dalle foto termiche originali DJI e cambia la palette: è inclusa nel piano Pro.</div></div>;
   }
@@ -270,6 +307,7 @@ export default function Termocamera({ supabase, piano, impianti = [], ispezioni 
           <label style={{ ...btn(true), cursor: "pointer" }}>📷 Carica foto termiche (R-JPEG)
             <input type="file" accept=".jpg,.jpeg,image/jpeg" multiple onChange={(e) => { carica(e.target.files || []); e.target.value = ""; }} style={{ display: "none" }} aria-label="Foto termiche" />
           </label>
+          {usaAI && onAI && pronte.length > 0 && <button type="button" onClick={mandaAllAI} style={{ ...btn(false), borderColor: "#7c5cff", color: "#d6ccff" }} data-manda-ai>🤖 Controlla con l'AI ({pronte.length === 1 ? "1 foto" : `${pronte.length} foto`})</button>}
           <span style={{ fontSize: 12, color: "#8b95a3" }}>Le foto originali con «_T» nel nome (Mavic 3T, Matrice 30T, Matrice 4T, H20T…), non modificate.</span>
         </div>
         {foto.length > 0 && (

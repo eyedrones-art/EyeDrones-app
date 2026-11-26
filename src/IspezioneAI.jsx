@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ScanSearch } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { TestataPagina } from "./VoloHero.jsx";
+import { ritiraPerAI } from "./passaggioAI.js";
 
 // Ispezione con AI: il pilota carica tutte le foto di un'ispezione, l'AI propone le segnalazioni foto per foto
 // (netlify/functions/ispezione-ai.js), il pilota le conferma, toglie o corregge, poi esce il PDF con il suo logo.
@@ -29,6 +30,8 @@ const PACCHETTI = [
 const MAX_FOTO = 300;
 const LATO_MAX = 1568;
 const IN_PARALLELO = 2;
+
+const testoTemp = (t) => `max ${t.max.toFixed(1)} °C · media ${t.media.toFixed(1)} °C nel riquadro (${t.max - t.mediaFoto >= 0 ? "+" : ""}${(t.max - t.mediaFoto).toFixed(1)} °C sulla media della foto)`;
 
 // foto → JPG leggero per l'AI e per il PDF
 function comprimi(file) {
@@ -74,11 +77,13 @@ function fotoConRiquadri(f, segn) {
 }
 
 export default function IspezioneAI({ supabase, azienda, inputStyle, admin }) {
-  const [tipo, setTipo] = useState("fotovoltaico");
+  // foto arrivate dalla Termocamera: già colorate, con le temperature misurate
+  const [dallaTermo] = useState(() => ritiraPerAI());
+  const [tipo, setTipo] = useState(dallaTermo?.tipo || "fotovoltaico");
   const [titolo, setTitolo] = useState("");
   const [cliente, setCliente] = useState("");
   const [nota, setNota] = useState("");
-  const [foto, setFoto] = useState([]); // [{ id, nome, url, w, h, stato: "attesa"|"analisi"|"fatta"|"errore", errore, sintesi, qualita, notaQualita, segn: [{..., stato: "proposta"|"confermata"|"tolta"}] }]
+  const [foto, setFoto] = useState(() => (dallaTermo ? dallaTermo.foto.map((f, i) => ({ id: `t${Date.now()}-${i}`, nome: f.nome, url: f.url, w: f.w, h: f.h, dati: f.dati, tempRiquadro: f.tempRiquadro, stato: "attesa", segn: [] })) : [])); // [{ id, nome, url, w, h, stato: "attesa"|"analisi"|"fatta"|"errore", errore, sintesi, qualita, notaQualita, segn: [{..., stato: "proposta"|"confermata"|"tolta"}] }]
   const [lavoro, setLavoro] = useState(null); // null | "carico" | "analisi" | "fermo"
   const [crediti, setCrediti] = useState(null);
   const [errore, setErrore] = useState(null);
@@ -127,7 +132,7 @@ export default function IspezioneAI({ supabase, azienda, inputStyle, admin }) {
         const r = await fetch("/.netlify/functions/ispezione-ai", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ tipo, immagine: f.url, nota }),
+          body: JSON.stringify({ tipo, immagine: f.url, nota, dati: f.dati || "" }),
         });
         const j = await r.json().catch(() => null);
         // 503 con un messaggio (es. «manca la chiave sul server») non passa riprovando: lo mostro subito
@@ -136,7 +141,7 @@ export default function IspezioneAI({ supabase, azienda, inputStyle, admin }) {
         if (r.status === 402) { stop.current = true; aggiorna(f.id, { stato: "attesa" }); setErrore("Hai finito i crediti: scegli un pacchetto e poi tocca «Continua l'analisi»."); setCrediti(0); return; }
         if (!r.ok || !j?.esito) { aggiorna(f.id, { stato: "errore", errore: j?.errore || `Errore ${r.status}` }); return; }
         const e = j.esito;
-        aggiorna(f.id, { stato: "fatta", sintesi: e.sintesi, qualita: e.qualita_foto, notaQualita: e.nota_qualita, segn: (e.segnalazioni || []).map((s) => ({ ...s, stato: "proposta" })) });
+        aggiorna(f.id, { stato: "fatta", sintesi: e.sintesi, qualita: e.qualita_foto, notaQualita: e.nota_qualita, segn: (e.segnalazioni || []).map((s) => ({ ...s, temp: f.tempRiquadro ? f.tempRiquadro(s) : null, stato: "proposta" })) });
         if (typeof j.crediti === "number") setCrediti(j.crediti);
         return;
       } catch { await new Promise((ok) => setTimeout(ok, 3000)); }
@@ -203,7 +208,7 @@ export default function IspezioneAI({ supabase, azienda, inputStyle, admin }) {
       });
       y += 4;
       doc.setFontSize(8.5); doc.setTextColor(120, 120, 120);
-      doc.text(doc.splitTextToSize("Bassa: da tenere d'occhio · Media: da sistemare con calma · Alta: da sistemare presto · Critica: rischio per la sicurezza o danni in corso. Le segnalazioni sono state proposte con l'aiuto dell'intelligenza artificiale e controllate una per una dal pilota. Posizioni indicative; le temperature lette sulle immagini a colori non sono misure.", 180), 15, y);
+      doc.text(doc.splitTextToSize(`Bassa: da tenere d'occhio · Media: da sistemare con calma · Alta: da sistemare presto · Critica: rischio per la sicurezza o danni in corso. Le segnalazioni sono state proposte con l'aiuto dell'intelligenza artificiale e controllate una per una dal pilota. Posizioni indicative; le temperature lette sulle immagini a colori non sono misure${fatte.some((f) => f.dati) ? ", tranne quelle indicate come «misurate», lette dai file termici originali" : ""}.`, 180), 15, y);
 
       // una pagina per ogni foto con segnalazioni confermate (numerate)
       let num = 0;
@@ -220,13 +225,14 @@ export default function IspezioneAI({ supabase, azienda, inputStyle, admin }) {
         let yy = 18 + alt + 12;
         segn.forEach((s, i) => {
           const righeD = doc.splitTextToSize(s.descrizione || "", 168), righeC = doc.splitTextToSize(s.consiglio ? `Consiglio: ${s.consiglio}` : "", 168);
-          const servono = 7 + righeD.length * 4.4 + righeC.length * 4.4 + 4;
+          const servono = (s.temp ? 5 : 0) + 7 + righeD.length * 4.4 + righeC.length * 4.4 + 4;
           if (yy + servono > 285) { doc.addPage(); yy = 18; }
           doc.setFillColor(...(GRAVITA[s.gravita]?.rgb || [230, 110, 40])); doc.circle(18, yy - 1.3, 3, "F");
           doc.setTextColor(255, 255, 255); doc.setFontSize(8.5); doc.text(String(i + 1), 18, yy, { align: "center" });
           doc.setTextColor(30, 30, 30); doc.setFontSize(11); doc.text(`${s.tipo || "Segnalazione"}`, 24, yy);
           doc.setFontSize(9); doc.setTextColor(...(GRAVITA[s.gravita]?.rgb || [0, 0, 0])); doc.text(`Gravità: ${GRAVITA[s.gravita]?.nome || "—"}`, 195, yy, { align: "right" });
           yy += 6;
+          if (s.temp) { doc.setTextColor(170, 80, 20); doc.setFontSize(9.5); doc.text(`Temperatura misurata: ${testoTemp(s.temp)}`, 24, yy); yy += 4.8; }
           doc.setTextColor(60, 60, 60); doc.setFontSize(9.5); doc.text(righeD, 24, yy); yy += righeD.length * 4.4;
           if (righeC.length && righeC[0]) { doc.setTextColor(30, 90, 50); doc.text(righeC, 24, yy); yy += righeC.length * 4.4; }
           yy += 4;
@@ -257,9 +263,9 @@ export default function IspezioneAI({ supabase, azienda, inputStyle, admin }) {
   const fotoAperta = foto.find((f) => f.id === aperta);
 
   return (
-    <div style={{ paddingBottom: 40 }}>
+    <div style={{ padding: "0 16px 40px" }}>
       <TestataPagina titolo="Ispezione con AI" sigla="AI · REPORT DI ISPEZIONE" icona={ScanSearch} info="Carichi le foto dell'ispezione, l'AI propone i difetti foto per foto e tu li controlli uno per uno. Poi esce il report in PDF con il tuo logo. Le foto restano nel telefono." />
-      <div style={{ padding: "0 16px" }}>
+      <div>
         {/* 1. l'ispezione */}
         <section style={st.box}>
           <h2 style={st.titolo}>1 · Che ispezione è?</h2>
@@ -276,6 +282,8 @@ export default function IspezioneAI({ supabase, azienda, inputStyle, admin }) {
         {/* 2. le foto */}
         <section style={st.box}>
           <h2 style={st.titolo}>2 · Le foto {foto.length ? <span style={{ color: "#8b95a3", fontWeight: 600, fontSize: 13 }}>· {foto.length}</span> : null}</h2>
+          {dallaTermo ? <p style={{ fontSize: 12.5, color: "#86efac", margin: "0 0 10px 0" }} data-da-termo>🌡️ {dallaTermo.foto.length === 1 ? "1 foto arriva" : `${dallaTermo.foto.length} foto arrivano`} dalla Termocamera, con le temperature vere: l'AI le usa e sotto ogni segnalazione scrivo la temperatura misurata nel riquadro.</p>
+            : tipo === "fotovoltaico" || tipo === "facciata" ? <p style={{ fontSize: 12, color: "#8b95a3", margin: "0 0 10px 0" }}>Hai le foto termiche originali DJI («_T»)? Aprile prima nella Termocamera e tocca «Controlla con l'AI»: così l'AI ha le temperature vere.</p> : null}
           <label style={{ ...st.secondario, display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
             📷 {foto.length ? "Aggiungi altre foto" : "Scegli le foto"}
             <input type="file" accept="image/*" multiple onChange={scegliFoto} style={{ display: "none" }} disabled={lavoro === "analisi" || lavoro === "carico"} />
@@ -360,6 +368,7 @@ export default function IspezioneAI({ supabase, azienda, inputStyle, admin }) {
                     <input value={s.tipo} onChange={(e) => cambiaSegn(fotoAperta.id, i, { tipo: e.target.value })} placeholder="Che difetto è" style={{ ...inputStyle, flex: "1 1 160px", padding: "6px 9px" }} />
                     <select value={s.gravita} onChange={(e) => cambiaSegn(fotoAperta.id, i, { gravita: e.target.value })} style={{ ...inputStyle, width: "auto", padding: "6px 9px" }}>{ORDINE_GRAVITA.map((g) => <option key={g} value={g}>{GRAVITA[g].nome}</option>)}</select>
                   </div>
+                  {s.temp && <div style={{ fontSize: 12.5, color: "#ffb877" }} data-temp-segn>🌡️ {testoTemp(s.temp)}</div>}
                   <textarea rows={2} value={s.descrizione} onChange={(e) => cambiaSegn(fotoAperta.id, i, { descrizione: e.target.value })} placeholder="Cosa si vede" style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
                   <input value={s.consiglio} onChange={(e) => cambiaSegn(fotoAperta.id, i, { consiglio: e.target.value })} placeholder="Consiglio per il cliente" style={inputStyle} />
                   <div style={{ display: "flex", gap: 6 }}>
