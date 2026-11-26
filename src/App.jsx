@@ -5658,6 +5658,15 @@ const PACCHETTI_PREVENTIVO = [
   ] },
 ];
 
+// Preventivi a ettaro per l'agricoltura: un modello per lavoro, con le voci tipiche e il prezzo €/ha (che ricordo per la volta dopo)
+const MODELLI_ETTARO = [
+  { key: "trattamento", emoji: "🧪", nome: "Trattamento", oggetto: "Trattamento fitosanitario con drone", voce: "Trattamento fitosanitario con drone", extra: ["Verifica di meteo, vento e Delta T prima del volo", "Registrazione nel registro trattamenti con PDF per l'azienda", "Prodotto fitosanitario fornito dal cliente"] },
+  { key: "concimazione", emoji: "🌱", nome: "Concimazione", oggetto: "Concimazione con drone", voce: "Distribuzione di concime con drone", extra: ["Taratura dello spandiconcime sul prodotto", "Concime fornito dal cliente", "Registrazione del lavoro con PDF per l'azienda"] },
+  { key: "semina", emoji: "🌾", nome: "Semina", oggetto: "Semina con drone", voce: "Semina con drone (es. cover crop, prato, risaia)", extra: ["Taratura sulla dose di seme", "Seme fornito dal cliente", "Registrazione del lavoro con PDF per l'azienda"] },
+  { key: "rilievo", emoji: "🛰️", nome: "Rilievo / NDVI", oggetto: "Rilievo e mappatura dei campi con drone", voce: "Volo di rilievo e mappatura (RGB o multispettrale)", extra: ["Elaborazione delle mappe (ortofoto, indici di vigore)", "Consegna delle mappe in PDF e file per il gestionale"] },
+];
+const leggiPrezziEttaro = () => { try { return JSON.parse(localStorage.getItem("eyedrones_prezzi_ettaro") || "{}"); } catch { return {}; } };
+
 const VOCI_MODELLO_RIPRESE = [
   "Sopralluogo e pianificazione del volo",
   "Ripresa aerea — foto",
@@ -6082,6 +6091,26 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
     const vociPulite = voci.filter((v) => v.descrizione || v.importo);
     setVoci([...vociPulite, ...nuoveVoci]);
   };
+  // preventivo a ettaro: voce principale (ettari × €/ha), uscita minima, trasferta e voci tipiche senza importo
+  const [ettaro, setEttaro] = useState(() => ({ modello: "trattamento", ettari: "", ...(leggiPrezziEttaro()) }));
+  const prezzoModello = (k) => ettaro[`p_${k}`] ?? "";
+  const aggiungiVociEttaro = () => {
+    const m = MODELLI_ETTARO.find((x) => x.key === ettaro.modello) || MODELLI_ETTARO[0];
+    const ha = Number(String(ettaro.ettari).replace(",", ".")) || 0;
+    const prezzo = Number(String(prezzoModello(m.key)).replace(",", ".")) || 0;
+    if (ha <= 0) return;
+    const minimo = Number(String(ettaro.minimo || "").replace(",", ".")) || 0;
+    const trasferta = Number(String(ettaro.trasferta || "").replace(",", ".")) || 0;
+    const fmt = (n) => n.toLocaleString("it-IT", { maximumFractionDigits: 2 });
+    const lavoro = ha * prezzo;
+    const nuove = [{ descrizione: `${m.voce}: ${fmt(ha)} ha × ${fmt(prezzo)} €/ha`, importo: prezzo ? lavoro.toFixed(2) : "" }];
+    if (minimo && prezzo && lavoro < minimo) nuove.push({ descrizione: `Integrazione all'uscita minima (${fmt(minimo)} €)`, importo: (minimo - lavoro).toFixed(2) });
+    if (trasferta) nuove.push({ descrizione: "Trasferta e trasporto del drone", importo: trasferta.toFixed(2) });
+    m.extra.forEach((d) => nuove.push({ descrizione: d, importo: "" }));
+    setVoci([...voci.filter((v) => v.descrizione || v.importo), ...nuove]);
+    if (!oggetto.trim()) setOggetto(m.oggetto);
+    try { const { modello, ettari, ...prezzi } = ettaro; localStorage.setItem("eyedrones_prezzi_ettaro", JSON.stringify(prezzi)); } catch { /* niente */ }
+  };
   // modello per riprese (video/foto/FPV): solo le voci tipiche, senza importo — lo scegli tu in base al lavoro
   const aggiungiVociRiprese = () => {
     const vociPulite = voci.filter((v) => v.descrizione || v.importo);
@@ -6305,6 +6334,23 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
               </button>
             </div>
             <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Usa le tue tariffe da Impostazioni ({Number(azienda.tariffaBase) || 0}€ base + {Number(azienda.tariffaKwp) || 0}€/kWp) e aggiunge le righe qui sotto, che restano modificabili.</p>
+          </div>
+
+          <div style={{ background: "#10141f", border: "1px solid #a3e63544", borderRadius: 6, padding: "10px 12px" }} data-preventivo-ettaro>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 6 }}>🌾 Preventivo a ettaro per l'agricoltura (opzionale)</label>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+              {MODELLI_ETTARO.map((m) => (
+                <button key={m.key} type="button" aria-pressed={ettaro.modello === m.key} onClick={() => setEttaro({ ...ettaro, modello: m.key })} style={{ background: ettaro.modello === m.key ? "#1d2a12" : "#232b3f", border: `1px solid ${ettaro.modello === m.key ? "#a3e635" : "#343e57"}`, color: ettaro.modello === m.key ? "#d9f99d" : "#c3cad4", borderRadius: 6, padding: "7px 11px", fontSize: 12.5, fontWeight: 600 }}>{m.emoji} {m.nome}</button>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8, alignItems: "end" }}>
+              <label style={{ fontSize: 11, color: "#8b95a3" }}>Ettari<input inputMode="decimal" value={ettaro.ettari} onChange={(e) => setEttaro({ ...ettaro, ettari: e.target.value })} placeholder="es. 12,5" style={{ ...inputStyle, marginTop: 4 }} /></label>
+              <label style={{ fontSize: 11, color: "#8b95a3" }}>€ a ettaro<input inputMode="decimal" value={prezzoModello(ettaro.modello)} onChange={(e) => setEttaro({ ...ettaro, [`p_${ettaro.modello}`]: e.target.value })} placeholder="il tuo prezzo" style={{ ...inputStyle, marginTop: 4 }} /></label>
+              <label style={{ fontSize: 11, color: "#8b95a3" }}>Uscita minima €<input inputMode="decimal" value={ettaro.minimo || ""} onChange={(e) => setEttaro({ ...ettaro, minimo: e.target.value })} placeholder="facoltativa" style={{ ...inputStyle, marginTop: 4 }} /></label>
+              <label style={{ fontSize: 11, color: "#8b95a3" }}>Trasferta €<input inputMode="decimal" value={ettaro.trasferta || ""} onChange={(e) => setEttaro({ ...ettaro, trasferta: e.target.value })} placeholder="facoltativa" style={{ ...inputStyle, marginTop: 4 }} /></label>
+              <button type="button" onClick={aggiungiVociEttaro} disabled={!ettaro.ettari} style={{ background: ettaro.ettari ? "#a3e635" : "#343e57", color: ettaro.ettari ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 12.5, fontWeight: 700 }}>Aggiungi voci</button>
+            </div>
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Calcola ettari × prezzo, aggiunge uscita minima e trasferta se le scrivi, e le voci tipiche del lavoro. I prezzi li ricorda per la prossima volta. Per il costo vero a ettaro usa il calcolatore Agras in Calcolatori.</p>
           </div>
 
           <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: "10px 12px" }}>
@@ -9931,6 +9977,26 @@ function StrumentiLavoro({ tipo, drone, altezzaZona }) {
 }
 
 // scheda del lavoro salvata nel volo (colonna voli.dettagli, script supabase/dettagli-lavoro.sql)
+// Agricoltura nel registro voli: il volume davvero distribuito e quello che danno portata, larghezza e velocità
+const numeroIt = (v) => { const n = Number(String(v ?? "").replace(",", ".").replace(/[^\d.]/g, "")); return Number.isFinite(n) && n > 0 ? n : null; };
+function ControlloVolumeAgricolo({ d }) {
+  const ha = numeroIt(d.superficie_ha), q = numeroIt(d.quantita), portata = numeroIt(d.portata), larg = numeroIt(d.larghezza), vel = numeroIt(d.velocita);
+  const reale = ha && q ? q / ha : null;
+  const impostato = portata && larg && vel ? (portata * 10000) / (larg * vel * 60) : null;
+  const resa = larg && vel ? (larg * vel * 3600) / 10000 : null; // ettari all'ora senza giri e pieni
+  if (!reale && !impostato && !resa) return null;
+  const scarto = reale && impostato ? Math.round(((reale - impostato) / impostato) * 100) : null;
+  return (
+    <div style={{ width: "100%", fontSize: 12, color: "#c3cad4", background: "#101a14", border: "1px solid #a3e63544", borderRadius: 6, padding: "8px 10px", lineHeight: 1.5 }} data-controllo-volume>
+      {reale && <div>💧 Volume distribuito: <b>{reale.toFixed(1)} l/ha</b> (o kg/ha)</div>}
+      {impostato && <div>⚙️ Con portata, larghezza e velocità: <b>{impostato.toFixed(1)} l/ha</b>{resa ? ` · resa teorica ${resa.toFixed(1)} ha/ora` : ""}</div>}
+      {!impostato && resa && <div>⚙️ Resa teorica: <b>{resa.toFixed(1)} ha/ora</b> (senza giri e pieni)</div>}
+      {scarto != null && Math.abs(scarto) >= 10 && <div style={{ color: "#f5b942" }}>⚠️ Differenza del {scarto > 0 ? "+" : ""}{scarto}%: controlla ugelli, flussimetro o la superficie davvero trattata.</div>}
+      {scarto != null && Math.abs(scarto) < 10 && <div style={{ color: "#4ade80" }}>✓ Distribuzione in linea con le impostazioni.</div>}
+    </div>
+  );
+}
+
 const CAMPI_DETTAGLI = {
   rilievo: [
     ["area_ha", "Area rilevata (ha)"], ["gsd", "GSD (cm/px)"], ["foto", "Numero di foto"], ["gcp", "Punti di controllo (GCP)"],
@@ -9938,7 +10004,9 @@ const CAMPI_DETTAGLI = {
   ],
   agricoltura: [
     ["coltura", "Coltura"], ["superficie_ha", "Superficie (ha)"], ["lavoro", "Lavoro (mappatura NDVI, trattamento...)"],
-    ["prodotto", "Prodotto usato"], ["dose", "Volume o dose per ettaro"], ["note_campo", "Appezzamento / note"],
+    ["prodotto", "Prodotto usato"], ["dose", "Volume o dose per ettaro"], ["quantita", "Miscela o prodotto distribuito (l o kg)"],
+    ["portata", "Portata (l/min)"], ["larghezza", "Larghezza di lavoro (m)"], ["velocita", "Velocità (m/s)"], ["pieni", "Pieni del serbatoio"],
+    ["note_campo", "Appezzamento / note"],
   ],
   pulizia: [
     ["superficie_m2", "Superficie pulita (m²)"], ["oggetto", "Cosa (facciata, pannelli, tetto...)"], ["detergente", "Detergente"],
@@ -17251,6 +17319,7 @@ function RegistroVoli({ azioneDaFare, onAzioneFatta, spazio, azienda, droni, isp
                   <input type="text" value={(form.dettagli || {})[k] || ""} onChange={(e) => setForm({ ...form, dettagli: { ...(form.dettagli || {}), [k]: e.target.value } })} style={inputStyle} />
                 </div>
               ))}
+              {form.tipo_attivita === "agricoltura" && <ControlloVolumeAgricolo d={form.dettagli || {}} />}
               {form.tipo_attivita === "agricoltura" && <p style={{ fontSize: 10.5, color: "#8b95a3", margin: 0, width: "100%" }}>Per i trattamenti questi dati ti servono anche per il registro dei trattamenti dell'azienda agricola.</p>}
             </div>
           )}
