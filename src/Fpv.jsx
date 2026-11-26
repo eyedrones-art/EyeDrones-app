@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
 import { TestataPagina } from "./VoloHero.jsx";
+import { scenaVuota } from "./Scene.jsx";
 import { btn, scheda, campo, Etichetta, griglia, oggi, Linguette, Scorciatoie, Firma, useDocumenti, AvvisoSql, riduciImmagine, condividiPdf } from "./lavoroComune.jsx";
 
 // Cartella «🥽 FPV»: osservatore con firma nel registro voli, percorso disegnato sulla piantina, batterie LiPo,
@@ -84,29 +85,44 @@ function Osservatore({ supabase, onCambiati }) {
   );
 }
 
-// --- percorso sulla piantina ----------------------------------------------------------------------------
+// --- percorso sulla piantina: più scene (ognuna una linea col suo colore), segni con le note --------------
 const SEGNI = { partenza: ["🛫", "Partenza", "#4ade80"], arrivo: ["🏁", "Arrivo", "#f5b942"], stretto: ["⚠️", "Punto stretto", "#ff4d4d"], persone: ["👥", "Persone", "#3d8bfd"], luce: ["💡", "Luce", "#ffd27a"], nota: ["📝", "Nota", "#c4b5fd"] };
+const COLORI_SCENA = ["#ff8c42", "#3d8bfd", "#4ade80", "#e879f9", "#facc15", "#f87171", "#22d3ee", "#a3e635"];
+const nuovaScena = (n) => ({ id: Math.random().toString(36).slice(2, 8), nome: `Scena ${n}`, colore: COLORI_SCENA[(n - 1) % COLORI_SCENA.length], punti: [] });
+const PERCORSO_VUOTO = () => ({ titolo: "", img: null, w: 0, h: 0, scene: [nuovaScena(1)], segni: [] });
+// i percorsi salvati prima avevano una linea sola («punti»)
+const daSalvato = (d) => { const x = { ...PERCORSO_VUOTO(), titolo: d.titolo || "", ...d.dati }; if (!x.scene || !x.scene.length) x.scene = [{ ...nuovaScena(1), punti: d.dati?.punti || [] }]; delete x.punti; return x; };
+
 function Percorso({ supabase }) {
   const docs = useDocumenti(supabase, "percorso");
-  const [p, setP] = useState({ titolo: "", img: null, w: 0, h: 0, punti: [], segni: [] });
+  const [p, setP] = useState(PERCORSO_VUOTO);
   const [id, setId] = useState(null);
+  const [attiva, setAttiva] = useState(0);
   const [strumento, setStrumento] = useState("percorso");
   const [msg, setMsg] = useState("");
+  const [piani, setPiani] = useState(null);
   const svg = useRef(null);
-  const carica = async (file) => { if (!file) return; try { const r = await riduciImmagine(file, 1600); setP({ ...p, img: r.url, w: r.w, h: r.h, punti: [], segni: [] }); } catch (e) { setMsg(e.message); } };
+  const scena = p.scene[Math.min(attiva, p.scene.length - 1)];
+  const carica = async (file) => { if (!file) return; try { const r = await riduciImmagine(file, 1600); setP({ ...p, img: r.url, w: r.w, h: r.h, scene: [nuovaScena(1)], segni: [] }); setAttiva(0); setMsg(""); } catch (e) { setMsg(e.message); } };
+  const cambiaScena = (k, cambi) => setP((x) => ({ ...x, scene: x.scene.map((sc, j) => (j === k ? { ...sc, ...cambi } : sc)) }));
   const tocca = (ev) => {
     if (!p.img) return;
     const r = svg.current.getBoundingClientRect();
     const x = Math.round(((ev.clientX - r.left) / r.width) * p.w), y = Math.round(((ev.clientY - r.top) / r.height) * p.h);
-    if (strumento === "percorso") setP({ ...p, punti: [...p.punti, [x, y]] });
+    if (strumento === "percorso") cambiaScena(attiva, { punti: [...scena.punti, [x, y]] });
     else setP({ ...p, segni: [...p.segni, { tipo: strumento, x, y, nota: "" }] });
   };
+  const aggiungiScena = () => { setP({ ...p, scene: [...p.scene, nuovaScena(p.scene.length + 1)] }); setAttiva(p.scene.length); setStrumento("percorso"); };
+  const togliScena = (k) => { if (p.scene.length <= 1) { cambiaScena(0, { punti: [] }); return; } setP({ ...p, scene: p.scene.filter((_, j) => j !== k) }); setAttiva(0); };
   const s = p.w / 800 || 1;
   const disegnaPng = () => new Promise((ok) => {
     const c = document.createElement("canvas"); c.width = p.w; c.height = p.h; const g = c.getContext("2d"); const i = new Image();
     i.onload = () => {
       g.drawImage(i, 0, 0);
-      if (p.punti.length > 1) { g.strokeStyle = "#ff8c42"; g.lineWidth = 5 * s; g.lineJoin = "round"; g.setLineDash([14 * s, 8 * s]); g.beginPath(); p.punti.forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke(); g.setLineDash([]); }
+      p.scene.forEach((sc, n) => {
+        if (sc.punti.length > 1) { g.strokeStyle = sc.colore; g.lineWidth = 5 * s; g.lineJoin = "round"; g.setLineDash([14 * s, 8 * s]); g.beginPath(); sc.punti.forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke(); g.setLineDash([]); }
+        if (sc.punti.length) { const [x, y] = sc.punti[0]; g.fillStyle = sc.colore; g.beginPath(); g.arc(x, y, 13 * s, 0, Math.PI * 2); g.fill(); g.fillStyle = "#10141f"; g.font = `bold ${14 * s}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(`S${n + 1}`, x, y + 1); }
+      });
       p.segni.forEach((m, k) => { const [e, , col] = SEGNI[m.tipo]; g.fillStyle = "#0d111c"; g.strokeStyle = col; g.lineWidth = 3 * s; g.beginPath(); g.arc(m.x, m.y, 16 * s, 0, Math.PI * 2); g.fill(); g.stroke(); g.font = `${18 * s}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(e, m.x, m.y + 1); g.fillStyle = "#fff"; g.font = `bold ${13 * s}px sans-serif`; g.fillText(String(k + 1), m.x + 20 * s, m.y - 16 * s); });
       ok(c.toDataURL("image/jpeg", 0.88));
     };
@@ -115,57 +131,102 @@ function Percorso({ supabase }) {
   const pdf = async () => {
     const img = await disegnaPng(); const doc = new jsPDF({ unit: "mm", format: "a4" });
     doc.setFontSize(15); doc.text(p.titolo || "Percorso FPV", 15, 16);
-    const larg = 180, alt = Math.min(190, (larg * p.h) / p.w), l2 = (alt * p.w) / p.h;
+    const larg = 180, alt = Math.min(180, (larg * p.h) / p.w), l2 = (alt * p.w) / p.h;
     doc.addImage(img, "JPEG", 15 + (larg - l2) / 2, 22, l2, alt);
-    let y = 22 + alt + 8; doc.setFontSize(10);
-    p.segni.forEach((m, k) => { if (y > 285) { doc.addPage(); y = 20; } doc.text(`${k + 1}. ${SEGNI[m.tipo][1]}${m.nota ? `: ${m.nota}` : ""}`, 15, y); y += 5.5; });
-    doc.setFontSize(8); doc.setTextColor(120); doc.text("Linea arancione: il percorso del drone. Tenere libere le zone segnate durante il volo.", 15, 290);
+    let y = 22 + alt + 8;
+    const riga = (t, col) => { if (y > 285) { doc.addPage(); y = 20; } if (col) { const n = parseInt(col.slice(1), 16); doc.setFillColor((n >> 16) & 255, (n >> 8) & 255, n & 255); doc.rect(15, y - 3, 4, 4, "F"); } doc.text(t, col ? 22 : 15, y); y += 5.5; };
+    doc.setFontSize(11); riga("Scene"); doc.setFontSize(10);
+    p.scene.filter((sc) => sc.punti.length).forEach((sc, n) => riga(`S${n + 1} · ${sc.nome}${sc.note ? `: ${sc.note}` : ""}`, sc.colore));
+    if (p.segni.length) { y += 2; doc.setFontSize(11); riga("Punti segnati"); doc.setFontSize(10); p.segni.forEach((m, k) => riga(`${k + 1}. ${SEGNI[m.tipo][1]}${m.nota ? `: ${m.nota}` : ""}`)); }
+    doc.setFontSize(8); doc.setTextColor(120); doc.text("Linee tratteggiate: il percorso del drone per ogni scena. Tenere libere le zone segnate durante il volo.", 15, 290);
     await condividiPdf(doc, `Percorso-${(p.titolo || "FPV").replace(/[^\w-]+/g, "-")}.pdf`);
   };
-  const salva = async () => { if (!p.img) return; try { const r = await docs.salva({ id, titolo: p.titolo || "Percorso FPV", dati: p }); setId(r.id); setMsg("✅ Salvato"); } catch (e) { setMsg("Non salvato: " + (e.message || e)); } };
+  const salva = async () => { if (!p.img) return; try { const r = await docs.salva({ id, titolo: p.titolo || "Percorso FPV", dati: p }); setId(r.id); setMsg("✅ Salvato: lo ritrovi in «Percorsi salvati» qui sotto. Puoi anche mettere le scene nella scaletta di un piano."); } catch (e) { setMsg("Non salvato: " + (e.message || e)); } };
+  const caricaPiani = async () => { const { data } = await supabase.from("piani_volo").select("id, impianto_nome, data_prevista, checklist_stato").order("data_prevista", { ascending: true }).limit(100); setPiani((data || []).filter((x) => !x.checklist_stato?.fatto)); };
+  const nellaScaletta = async (pianoId) => {
+    const piano = (piani || []).find((x) => String(x.id) === String(pianoId)); if (!piano) return;
+    const nuove = p.scene.filter((sc) => sc.punti.length).map((sc) => ({ ...scenaVuota("fpv"), titolo: sc.nome, note: [`Percorso «${p.titolo || "FPV"}» (vedi il PDF del percorso)`, sc.note].filter(Boolean).join(" · ") }));
+    if (!nuove.length) { setMsg("Disegna almeno una scena."); return; }
+    const cs = piano.checklist_stato || {};
+    const { error } = await supabase.from("piani_volo").update({ checklist_stato: { ...cs, scene: [...(cs.scene || []), ...nuove] } }).eq("id", piano.id);
+    setMsg(error ? "Non riesco a metterle nel piano: " + error.message : `✅ ${nuove.length === 1 ? "1 scena aggiunta" : `${nuove.length} scene aggiunte`} alla scaletta di «${piano.impianto_nome || "piano"}»`);
+  };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-percorso>
       {docs.manca && <AvvisoSql />}
       <div style={{ ...scheda, display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ fontSize: 12.5, color: "#c3cad4" }}>Per i voli dentro capannoni, negozi e case: carica la piantina (anche una foto del foglio), tocca per disegnare il percorso e segna i punti stretti. Poi mandi il PDF al cliente e allo staff.</div>
+        <div style={{ fontSize: 12.5, color: "#c3cad4" }}>Per i voli dentro capannoni, negozi e case: carica la piantina (anche una foto del foglio). Ogni <b>scena</b> è un percorso con il suo colore: tocca la piantina per disegnarla, poi «＋ Nuova scena» per la successiva. Segna i punti stretti e manda il PDF al cliente e allo staff.</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
           <Etichetta t="Nome del lavoro"><input value={p.titolo} onChange={(e) => setP({ ...p, titolo: e.target.value })} placeholder="es. Capannone Rossi, fly-through" style={{ ...campo, minWidth: 220 }} /></Etichetta>
-          <label style={{ ...btn(true), cursor: "pointer", display: "inline-flex", alignItems: "center" }}>🖼️ {p.img ? "Cambia piantina" : "Carica la piantina"}<input type="file" accept="image/*" onChange={(e) => { carica(e.target.files?.[0]); e.target.value = ""; }} style={{ display: "none" }} aria-label="Piantina" /></label>
+          <label style={{ ...btn(!p.img), cursor: "pointer", display: "inline-flex", alignItems: "center" }}>🖼️ {p.img ? "Cambia piantina" : "Carica la piantina"}<input type="file" accept="image/*" onChange={(e) => { carica(e.target.files?.[0]); e.target.value = ""; }} style={{ display: "none" }} aria-label="Piantina" /></label>
+          {(p.img || id) && <button type="button" onClick={() => { setP(PERCORSO_VUOTO()); setId(null); setAttiva(0); setMsg(""); }} style={btn(false)}>Nuovo percorso</button>}
         </div>
-        {p.img && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <button type="button" aria-pressed={strumento === "percorso"} onClick={() => setStrumento("percorso")} style={{ ...btn(strumento === "percorso") }}>〰️ Percorso</button>
-            {Object.entries(SEGNI).map(([k, [e, t]]) => <button key={k} type="button" aria-pressed={strumento === k} onClick={() => setStrumento(k)} style={{ ...btn(strumento === k) }}>{e} {t}</button>)}
-            <button type="button" onClick={() => setP(strumento === "percorso" ? { ...p, punti: p.punti.slice(0, -1) } : { ...p, segni: p.segni.slice(0, -1) })} style={btn(false)}>↩️ Annulla l'ultimo</button>
+        {p.img && (<>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }} data-scene>
+            {p.scene.map((sc, k) => (
+              <button key={sc.id} type="button" aria-pressed={k === attiva && strumento === "percorso"} onClick={() => { setAttiva(k); setStrumento("percorso"); }} style={{ ...btn(false), display: "inline-flex", alignItems: "center", gap: 6, borderColor: k === attiva && strumento === "percorso" ? sc.colore : "#343e57", background: k === attiva && strumento === "percorso" ? "#241d16" : "#1a2133" }}>
+                <span style={{ width: 12, height: 12, borderRadius: 3, background: sc.colore }} />S{k + 1} {sc.nome}{sc.punti.length ? ` · ${sc.punti.length}` : ""}
+              </button>
+            ))}
+            <button type="button" onClick={aggiungiScena} style={btn(false)} data-nuova-scena>＋ Nuova scena</button>
           </div>
-        )}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {Object.entries(SEGNI).map(([k, [e, t]]) => <button key={k} type="button" aria-pressed={strumento === k} onClick={() => setStrumento(k)} style={{ ...btn(strumento === k) }}>{e} {t}</button>)}
+            <button type="button" onClick={() => (strumento === "percorso" ? cambiaScena(attiva, { punti: scena.punti.slice(0, -1) }) : setP({ ...p, segni: p.segni.slice(0, -1) }))} style={btn(false)}>↩️ Annulla l'ultimo</button>
+          </div>
+          <div style={{ fontSize: 12, color: "#8b95a3" }}>{strumento === "percorso" ? <>Stai disegnando <b style={{ color: scena.colore }}>S{attiva + 1} {scena.nome}</b>: tocca la piantina per aggiungere i punti.</> : <>Tocca la piantina per mettere «{SEGNI[strumento][0]} {SEGNI[strumento][1]}». Per tornare a disegnare tocca una scena.</>}</div>
+        </>)}
       </div>
       {p.img && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start" }}>
           <div style={{ flex: "1 1 520px", minWidth: 0 }}>
             <svg ref={svg} viewBox={`0 0 ${p.w} ${p.h}`} onClick={tocca} style={{ width: "100%", height: "auto", display: "block", borderRadius: 10, border: "1px solid #2a3349", cursor: "crosshair", touchAction: "manipulation", background: "#fff" }} aria-label="Piantina: tocca per disegnare" data-piantina>
               <image href={p.img} x="0" y="0" width={p.w} height={p.h} />
-              {p.punti.length > 1 && <polyline points={p.punti.map((q) => q.join(",")).join(" ")} fill="none" stroke="#ff8c42" strokeWidth={5 * s} strokeDasharray={`${14 * s} ${8 * s}`} strokeLinejoin="round" />}
-              {p.punti.map(([x, y], k) => <circle key={k} cx={x} cy={y} r={5 * s} fill="#ff8c42" />)}
+              {p.scene.map((sc, n) => (
+                <g key={sc.id} opacity={strumento === "percorso" && n !== attiva ? 0.55 : 1}>
+                  {sc.punti.length > 1 && <polyline points={sc.punti.map((q) => q.join(",")).join(" ")} fill="none" stroke={sc.colore} strokeWidth={5 * s} strokeDasharray={`${14 * s} ${8 * s}`} strokeLinejoin="round" />}
+                  {sc.punti.map(([x, y], k) => <circle key={k} cx={x} cy={y} r={(k === 0 ? 13 : 5) * s} fill={sc.colore} />)}
+                  {sc.punti.length > 0 && <text x={sc.punti[0][0]} y={sc.punti[0][1] + 5 * s} textAnchor="middle" fontSize={13 * s} fontWeight="bold" fill="#10141f">S{n + 1}</text>}
+                </g>
+              ))}
               {p.segni.map((m, k) => (
                 <g key={k}><circle cx={m.x} cy={m.y} r={16 * s} fill="#0d111c" stroke={SEGNI[m.tipo][2]} strokeWidth={3 * s} /><text x={m.x} y={m.y + 6 * s} textAnchor="middle" fontSize={18 * s}>{SEGNI[m.tipo][0]}</text><text x={m.x + 20 * s} y={m.y - 14 * s} fontSize={13 * s} fontWeight="bold" fill="#111" stroke="#fff" strokeWidth={3 * s} paintOrder="stroke">{k + 1}</text></g>
               ))}
             </svg>
           </div>
-          <div style={{ ...scheda, flex: "1 1 280px", minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ fontWeight: 700 }}>Punti segnati</div>
-            {!p.segni.length && <div style={{ fontSize: 12.5, color: "#8b95a3" }}>Scegli un segno (⚠️ punto stretto, 👥 persone…) e tocca la piantina.</div>}
-            {p.segni.map((m, k) => (
-              <div key={k} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <span style={{ fontSize: 13, width: 54 }}>{k + 1}. {SEGNI[m.tipo][0]}</span>
-                <input value={m.nota} onChange={(e) => setP({ ...p, segni: p.segni.map((x, j) => (j === k ? { ...x, nota: e.target.value } : x)) })} placeholder={SEGNI[m.tipo][1]} style={campo} aria-label={`Nota ${k + 1}`} />
-                <button type="button" onClick={() => setP({ ...p, segni: p.segni.filter((_, j) => j !== k) })} style={{ background: "none", border: "none", color: "#ff9c9c" }} aria-label="Togli">✕</button>
-              </div>
-            ))}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-              <button type="button" onClick={salva} style={btn(true)}>💾 Salva</button>
+          <div style={{ flex: "1 1 280px", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ ...scheda, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontWeight: 700 }}>Scene</div>
+              {p.scene.map((sc, k) => (
+                <div key={sc.id} style={{ display: "flex", flexDirection: "column", gap: 4, paddingBottom: 6, borderBottom: "1px solid #232b3f" }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span style={{ width: 14, height: 14, borderRadius: 3, background: sc.colore, flex: "none" }} />
+                    <input value={sc.nome} onChange={(e) => cambiaScena(k, { nome: e.target.value })} style={campo} aria-label={`Nome scena ${k + 1}`} />
+                    <button type="button" onClick={() => togliScena(k)} style={{ background: "none", border: "none", color: "#ff9c9c" }} aria-label="Togli la scena">✕</button>
+                  </div>
+                  <input value={sc.note || ""} onChange={(e) => cambiaScena(k, { note: e.target.value })} placeholder="Note (velocità, altezza, cosa riprendere)" style={{ ...campo, fontSize: 12.5 }} aria-label={`Note scena ${k + 1}`} />
+                </div>
+              ))}
+            </div>
+            <div style={{ ...scheda, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontWeight: 700 }}>Punti segnati</div>
+              {!p.segni.length && <div style={{ fontSize: 12.5, color: "#8b95a3" }}>Scegli un segno (⚠️ punto stretto, 👥 persone…) e tocca la piantina.</div>}
+              {p.segni.map((m, k) => (
+                <div key={k} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 13, width: 54, flex: "none" }}>{k + 1}. {SEGNI[m.tipo][0]}</span>
+                  <input value={m.nota} onChange={(e) => setP({ ...p, segni: p.segni.map((x, j) => (j === k ? { ...x, nota: e.target.value } : x)) })} placeholder={SEGNI[m.tipo][1]} style={campo} aria-label={`Nota ${k + 1}`} />
+                  <button type="button" onClick={() => setP({ ...p, segni: p.segni.filter((_, j) => j !== k) })} style={{ background: "none", border: "none", color: "#ff9c9c" }} aria-label="Togli">✕</button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={salva} style={btn(true)} data-salva-percorso>💾 Salva</button>
               <button type="button" onClick={pdf} style={btn(false)} data-pdf-percorso>📄 PDF per cliente e staff</button>
             </div>
+            <select defaultValue="" onFocus={() => { if (!piani) caricaPiani(); }} onClick={() => { if (!piani) caricaPiani(); }} onChange={(e) => { if (e.target.value) { nellaScaletta(e.target.value); e.target.value = ""; } }} style={{ ...campo, maxWidth: "100%" }} aria-label="Metti nella scaletta">
+              <option value="">🎬 Metti le scene nella scaletta di un piano…</option>
+              {(piani || []).map((x) => <option key={x.id} value={x.id}>{x.impianto_nome || "Piano"} · {x.data_prevista || ""}</option>)}
+            </select>
             {msg && <span style={{ fontSize: 12.5, color: msg.startsWith("✅") ? "#4ade80" : "#ffb877" }}>{msg}</span>}
           </div>
         </div>
@@ -175,7 +236,8 @@ function Percorso({ supabase }) {
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Percorsi salvati</div>
           {docs.lista.map((d) => (
             <div key={d.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 0", borderBottom: "1px solid #232b3f", fontSize: 13 }}>
-              <button type="button" onClick={() => { setP({ titolo: d.titolo || "", ...d.dati }); setId(d.id); }} style={{ background: "none", border: "none", color: "#9cc3ff", textAlign: "left", flex: 1 }}>{d.titolo}</button>
+              <button type="button" onClick={() => { setP(daSalvato(d)); setId(d.id); setAttiva(0); setStrumento("percorso"); setMsg(""); window.scrollTo(0, 0); }} style={{ background: "none", border: "none", color: "#9cc3ff", textAlign: "left", flex: 1 }}>{d.titolo}</button>
+              <span style={{ fontSize: 11.5, color: "#8b95a3" }}>{(d.dati?.scene || []).length || 1} {((d.dati?.scene || []).length || 1) === 1 ? "scena" : "scene"} · {new Date(d.updated_at || d.created_at).toLocaleDateString("it-IT")}</span>
               <button type="button" onClick={() => docs.togli(d.id)} style={{ background: "none", border: "none", color: "#ff9c9c" }} aria-label="Elimina">✕</button>
             </div>
           ))}
