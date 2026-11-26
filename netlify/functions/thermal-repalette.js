@@ -106,6 +106,18 @@ exports.handler = async (event) => {
     }
 
     const { width, height, parameters, data } = risultato;
+
+    // «Termocamera» dell'app: mando le temperature di ogni pixel (decimi di °C, interi a 16 bit con segno),
+    // così il telefono cambia palette, legge il punto toccato e misura le aree senza richiamare il server
+    if (body.dati === true) {
+      const t = new Int16Array(data.length);
+      for (let i = 0; i < data.length; i++) t[i] = data[i] > 32767 ? data[i] - 65536 : data[i];
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ width, height, parametri: parameters, temperature: Buffer.from(t.buffer).toString("base64") }),
+      };
+    }
         let min = Infinity, max = -Infinity;
     for (let i = 0; i < data.length; i++) {
       const t = data[i] / 10;

@@ -47,9 +47,38 @@ const PostiVicini = pigro(() => import("./Posti.jsx"), "PostiVicini");
 const GiroGiornata = pigro(() => import("./GiroGiornata.jsx"));
 const QuiEOra = pigro(() => import("./QuiEOra.jsx"));
 const Collaboratori = pigro(() => import("./Collaboratori.jsx"));
+// «👥 Squadra» (supabase/squadra.sql): chi sono io, per riconoscere le righe fatte dal collega di squadra
+let MIO_ID = null;
+const invitoSquadraInAttesa = () => { try { return /^[a-f0-9]{32}$/.test(localStorage.getItem(CODICE_SQUADRA) || ""); } catch { return false; } };
+const delCollega = (riga) => !!(riga && riga.user_id && MIO_ID && riga.user_id !== MIO_ID);
+const EtichettaCollega = ({ riga }) => (delCollega(riga) ? <span title="Fatto dal tuo collega di squadra" style={{ fontSize: 10.5, fontWeight: 700, background: "#7e3af233", color: "#c4b5fd", border: "1px solid #7e3af266", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle", whiteSpace: "nowrap" }}>👥 del collega</span> : null);
+const CODICE_SQUADRA = "eyedrones_squadra";
+let IN_SQUADRA = false; // lo aggiorna AppShell: solo in squadra compare «🔒 Solo mio»
+// «🔒 Solo mio»: sulle mie righe, quando sono in squadra, scelgo se il collega le vede
+function SoloMio({ riga, tabella }) {
+  const [solo, setSolo] = useState(!!(riga && riga.solo_mio));
+  const [lavoro, setLavoro] = useState(false);
+  useEffect(() => { setSolo(!!(riga && riga.solo_mio)); }, [riga && riga.solo_mio]);
+  if (!IN_SQUADRA || !riga || delCollega(riga)) return null;
+  const cambia = async (e) => {
+    e.stopPropagation();
+    setLavoro(true);
+    const { error } = await supabase.from(tabella).update({ solo_mio: !solo }).eq("id", riga.id);
+    setLavoro(false);
+    if (!error) { setSolo(!solo); riga.solo_mio = !solo; }
+  };
+  return (
+    <button type="button" onClick={cambia} disabled={lavoro} aria-pressed={solo} title={solo ? "Solo tuo: il collega non lo vede. Tocca per condividerlo." : "Condiviso con il collega. Tocca per tenerlo solo tuo."}
+      style={{ fontSize: 10.5, fontWeight: 700, background: solo ? "#3a2a12" : "#16233a", color: solo ? "#ffb877" : "#9cc4ff", border: `1px solid ${solo ? "#ff8c4266" : "#3d8bfd55"}`, borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle", whiteSpace: "nowrap", cursor: "pointer" }}>
+      {solo ? "🔒 Solo mio" : "👥 Condiviso"}
+    </button>
+  );
+}
 const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
 const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
 const PraticaEnac = pigro(() => import("./PraticaEnac.jsx"));
+const SpecificSora = pigro(() => import("./SpecificSora.jsx"));
+const Termocamera = pigro(() => import("./Termocamera.jsx"));
 const AnalisiAI = pigro(() => import("./AnalisiAI.jsx"));
 const IspezioneAI = pigro(() => import("./IspezioneAI.jsx"));
 const Anteprima3D = pigro(() => import("./Anteprima3D.jsx"));
@@ -1897,6 +1926,9 @@ function AppAutenticata() {
     // senza ?ref provo a capirlo dal sito da cui arriva (articolo di DronEzine, Instagram, Facebook, Google…)
     const ref = refParam || (refSalvato() ? null : provenienzaDaSito());
     if (ref) { try { localStorage.setItem("eyedrones_ref", ref); } catch { /* memoria del browser non disponibile */ } }
+    // invito in squadra (?squadra=codice): lo tengo finché non entra, poi AppShell lo accetta
+    const codiceSquadra = new URLSearchParams(window.location.search).get("squadra");
+    if (/^[a-f0-9]{32}$/.test(codiceSquadra || "")) { try { localStorage.setItem(CODICE_SQUADRA, codiceSquadra); } catch { /* niente */ } }
 
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: listener } = supabase.auth.onAuthStateChange((evento, s) => {
@@ -1927,6 +1959,11 @@ function AppAutenticata() {
             <button type="button" onClick={() => setCopiaAperta(true)} style={{ background: "#3d8bfd", color: "#fff", border: "none", borderRadius: 6, padding: "7px 12px", fontSize: 13, fontWeight: 700 }}>Mostra i documenti</button>
           </div>
         )}
+        {invitoSquadraInAttesa() && (
+          <div style={{ position: "sticky", top: 0, zIndex: 899, background: "#2a1a52", borderBottom: "1px solid #7e3af2", padding: "10px 16px", fontSize: 13.5, color: "#e7eaee", textAlign: "center" }}>
+            👥 Sei stato invitato in una squadra su EyeDrones. Entra con il tuo account, o crealo: l'invito si accetta da solo.
+          </div>
+        )}
         <Accesso />
       </>
     );
@@ -1938,8 +1975,9 @@ function AppAutenticata() {
 }
 
 function AppShell({ session }) {
+  MIO_ID = session && session.user ? session.user.id : null;
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "funzioni", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "specific", "termocamera", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "funzioni", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -1973,6 +2011,26 @@ function AppShell({ session }) {
     fetch("/.netlify/functions/analisi-foto").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.aperto === true) setEspertoAperto(true); }).catch(() => { /* resta spento */ });
   }, [adminAI]);
   useEffect(() => { if (vaiARichieste || vaiAControllo || vaiAQui || vaiAVoli || vaiAltro) window.history.replaceState(null, "", window.location.pathname); }, []);
+  // «👥 Squadra»: se è arrivato dal link dell'invito, appena è dentro lo accetto
+  const [esitoSquadra, setEsitoSquadra] = useState(null);
+  const [inSquadra, setInSquadra] = useState(false);
+  IN_SQUADRA = inSquadra;
+  const controllaSquadra = () => supabase.rpc("squadra_mia").then(({ data }) => setInSquadra(!!(data && data.stato === "attivo")), () => {});
+  useEffect(() => { controllaSquadra(); }, []);
+  useEffect(() => {
+    let codice = null;
+    try { codice = localStorage.getItem(CODICE_SQUADRA); } catch { /* niente */ }
+    if (new URLSearchParams(window.location.search).get("squadra")) window.history.replaceState(null, "", window.location.pathname);
+    if (!/^[a-f0-9]{32}$/.test(codice || "")) return;
+    supabase.rpc("squadra_accetta", { p_codice: codice }).then(({ data, error }) => {
+      if (error && /function|schema cache/i.test(error.message || "")) return; // script non ancora eseguito: riprovo al prossimo accesso
+      try { localStorage.removeItem(CODICE_SQUADRA); } catch { /* niente */ }
+      if (error || !data || data.errore) { setEsitoSquadra({ ok: false, testo: (data && data.errore) || "Non sono riuscito ad accettare l'invito: chiedi al collega di mandartene uno nuovo." }); return; }
+      setEsitoSquadra({ ok: true, testo: `👥 Ora sei nella squadra di ${data.collega || "un collega"}: vedete gli stessi lavori.` });
+      setPage("collaboratori");
+      loadData(); caricaClienti(); controllaSquadra();
+    }, () => {});
+  }, []);
   // primi passi: il tasto Controllo è «provato» appena si apre la sua pagina
   useEffect(() => { if (page === "documenti-controllo") { try { localStorage.setItem("eyedrones_controllo_provato", new Date().toISOString()); } catch { /* niente */ } } }, [page]);
   const [paginaPrecedente, setPaginaPrecedente] = useState(null); // da dove si apre «Suggerimenti», per capire dove c'è un problema
@@ -2449,6 +2507,12 @@ function AppShell({ session }) {
             <button onClick={() => setPaginaRiaperta(false)} aria-label="Chiudi avviso" style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={16} /></button>
           </div>
         )}
+        {esitoSquadra && (
+          <div role="status" style={{ margin: 16, padding: "10px 14px", background: esitoSquadra.ok ? "#1e1638" : "#2a1616", border: `1px solid ${esitoSquadra.ok ? "#7e3af2" : "#5a2a2a"}`, borderRadius: 8, color: esitoSquadra.ok ? "#e7eaee" : "#ff9c9c", fontSize: 13, display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ flex: 1 }}>{esitoSquadra.testo}</span>
+            <button onClick={() => setEsitoSquadra(null)} aria-label="Chiudi avviso" style={{ background: "none", border: "none", color: "#8b95a3" }}><X size={16} /></button>
+          </div>
+        )}
         {dbError && (
           <div style={{ margin: 16, padding: "10px 14px", background: "#2a1616", border: "1px solid #5a2a2a", borderRadius: 8, color: "#ff9c9c", fontSize: 12.5 }}>
             {typeof navigator !== "undefined" && navigator.onLine === false
@@ -2488,7 +2552,7 @@ function AppShell({ session }) {
         )}
         {page === "collaboratori" && (
           <Suspense fallback={<LoadingBlock />}>
-            <Collaboratori supabase={supabase} inputStyle={inputStyle} servizi={SERVIZI_PILOTA} />
+            <Collaboratori supabase={supabase} inputStyle={inputStyle} servizi={SERVIZI_PILOTA} piano={piano} />
           </Suspense>
         )}
         {page === "qui" && (
@@ -2522,6 +2586,16 @@ function AppShell({ session }) {
           </Suspense>
         )}
         {page === "rilievi" && <PaginaRilievi voli={voliDashboard} droni={droni} azienda={azienda} piano={piano} onCambiato={caricaVoli} onNav={vai} onNuovo={() => { setPrefillVolo({ tipo_attivita: "rilievo" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "termocamera" && (
+          <Suspense fallback={<LoadingBlock />}>
+            <Termocamera supabase={supabase} piano={piano} impianti={impianti} ispezioni={ispezioni} onReload={loadData} onApriImpianto={(id) => { const i = impianti.find((x) => x.id === id); if (i) { setImpiantoAttivo(i); setPage("impianto"); } }} usaAI={adminAI || espertoAperto} onAI={() => { setPage("ispezione-ai"); window.scrollTo(0, 0); }} />
+          </Suspense>
+        )}
+        {page === "specific" && (
+          <Suspense fallback={<LoadingBlock />}>
+            <SpecificSora inputStyle={inputStyle} droni={droni} azienda={azienda} />
+          </Suspense>
+        )}
         {page === "pratica-enac" && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
             <PraticaEnac supabase={supabase} inputStyle={inputStyle} azienda={azienda} attestati={attestati} droni={droni} emailUtente={session.user.email} />
@@ -3200,7 +3274,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
   ] : k === "ispezioni" ? [
     { intestazione: spazio.nome },
     { key: "impianti", label: "Impianti", icon: Sun },
-    { key: "nuova", label: "Nuova ispezione", icon: Plus },
+    { key: "nuova", label: "Nuova ispezione", icon: Plus }, { key: "termocamera", label: "Termocamera: temperature e palette", icon: Thermometer },
     ...(usaAI ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }, { key: "analisi-ai", label: "Esperto AI: problemi e consigli", icon: Sparkles }] : []),
   ] : k === "agricoltura" ? [
     { intestazione: spazio.nome },
@@ -3234,6 +3308,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ClipboardCheck },
     { key: "pratica-enac", label: "Pratica ENAC (STS)", icon: FileText },
+    { key: "specific", label: "Specific: SORA e NOTAM", icon: ShieldCheck },
     { key: "attestati", label: "Attestati", icon: Award },
     { key: "droni", label: "I miei droni", icon: Plane },
     { intestazione: "Lavoro" },
@@ -3253,7 +3328,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ...(usaIspezioni ? [
       { intestazione: "Ispezioni" },
       { key: "impianti", label: "Impianti", icon: Sun },
-      { key: "nuova", label: "Nuova ispezione", icon: Plus },
+      { key: "nuova", label: "Nuova ispezione", icon: Plus }, { key: "termocamera", label: "Termocamera: temperature e palette", icon: Thermometer },
     ] : []),
     ...(usaAgricoltura ? [
       { intestazione: "Agricoltura" },
@@ -3276,6 +3351,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ClipboardCheck },
     { key: "pratica-enac", label: "Pratica ENAC (STS)", icon: FileText },
+    { key: "specific", label: "Specific: SORA e NOTAM", icon: ShieldCheck },
     { key: "attestati", label: "Attestati", icon: Award },
     { key: "droni", label: "I miei droni", icon: Plane },
     { intestazione: "Lavoro" },
@@ -5079,6 +5155,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
           <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
             <div style={{ background: "#eef6ed", border: "1px solid #cfe8cc", borderRadius: 6, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
               <span style={{ fontSize: 11.5, color: "#2e5c2b" }}>🌡️ Vuoi cambiare palette o leggere la temperatura esatta di un punto?</span>
+              <a href="/?vai=termocamera" style={{ background: "#2e7d32", color: "#fff", fontSize: 11.5, fontWeight: 700, padding: "6px 12px", borderRadius: 5, textDecoration: "none" }}>Apri la Termocamera</a>
               <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ background: "#2e7d32", color: "#fff", fontSize: 11.5, fontWeight: 700, padding: "6px 12px", borderRadius: 5, textDecoration: "none", whiteSpace: "nowrap" }}>Apri DJI Thermal Analysis Tool ↗</a>
             </div>
           </div>
@@ -5596,6 +5673,15 @@ const PACCHETTI_PREVENTIVO = [
   ] },
 ];
 
+// Preventivi a ettaro per l'agricoltura: un modello per lavoro, con le voci tipiche e il prezzo €/ha (che ricordo per la volta dopo)
+const MODELLI_ETTARO = [
+  { key: "trattamento", emoji: "🧪", nome: "Trattamento", oggetto: "Trattamento fitosanitario con drone", voce: "Trattamento fitosanitario con drone", extra: ["Verifica di meteo, vento e Delta T prima del volo", "Registrazione nel registro trattamenti con PDF per l'azienda", "Prodotto fitosanitario fornito dal cliente"] },
+  { key: "concimazione", emoji: "🌱", nome: "Concimazione", oggetto: "Concimazione con drone", voce: "Distribuzione di concime con drone", extra: ["Taratura dello spandiconcime sul prodotto", "Concime fornito dal cliente", "Registrazione del lavoro con PDF per l'azienda"] },
+  { key: "semina", emoji: "🌾", nome: "Semina", oggetto: "Semina con drone", voce: "Semina con drone (es. cover crop, prato, risaia)", extra: ["Taratura sulla dose di seme", "Seme fornito dal cliente", "Registrazione del lavoro con PDF per l'azienda"] },
+  { key: "rilievo", emoji: "🛰️", nome: "Rilievo / NDVI", oggetto: "Rilievo e mappatura dei campi con drone", voce: "Volo di rilievo e mappatura (RGB o multispettrale)", extra: ["Elaborazione delle mappe (ortofoto, indici di vigore)", "Consegna delle mappe in PDF e file per il gestionale"] },
+];
+const leggiPrezziEttaro = () => { try { return JSON.parse(localStorage.getItem("eyedrones_prezzi_ettaro") || "{}"); } catch { return {}; } };
+
 const VOCI_MODELLO_RIPRESE = [
   "Sopralluogo e pianificazione del volo",
   "Ripresa aerea — foto",
@@ -5744,7 +5830,7 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
               <div key={c.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "12px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center", cursor: "pointer" }} onClick={() => setEspanso(aperta ? null : c.id)}>
                   <div>
-                    <div style={{ fontSize: 14.5, fontWeight: 700 }}>{c.nome}</div>
+                    <div style={{ fontSize: 14.5, fontWeight: 700 }}>{c.nome}<EtichettaCollega riga={c} /><SoloMio riga={c} tabella="clienti" /></div>
                     <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
                       {suoi.length > 0 ? `${suoi.length} ${suoi.length === 1 ? "preventivo" : "preventivi"}` : "Nessun preventivo"}
                       {incassato > 0 && <> · <span style={{ color: "#4ade80" }}>incassato {euro(incassato)}</span></>}
@@ -5787,7 +5873,7 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
                     )}
                     <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                       <button type="button" onClick={() => modifica(c)} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Modifica</button>
-                      <button type="button" onClick={() => elimina(c)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Togli dalla rubrica</button>
+                      {!delCollega(c) && <button type="button" onClick={() => elimina(c)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Togli dalla rubrica</button>}
                     </div>
                   </div>
                 )}
@@ -6020,6 +6106,26 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
     const vociPulite = voci.filter((v) => v.descrizione || v.importo);
     setVoci([...vociPulite, ...nuoveVoci]);
   };
+  // preventivo a ettaro: voce principale (ettari × €/ha), uscita minima, trasferta e voci tipiche senza importo
+  const [ettaro, setEttaro] = useState(() => ({ modello: "trattamento", ettari: "", ...(leggiPrezziEttaro()) }));
+  const prezzoModello = (k) => ettaro[`p_${k}`] ?? "";
+  const aggiungiVociEttaro = () => {
+    const m = MODELLI_ETTARO.find((x) => x.key === ettaro.modello) || MODELLI_ETTARO[0];
+    const ha = Number(String(ettaro.ettari).replace(",", ".")) || 0;
+    const prezzo = Number(String(prezzoModello(m.key)).replace(",", ".")) || 0;
+    if (ha <= 0) return;
+    const minimo = Number(String(ettaro.minimo || "").replace(",", ".")) || 0;
+    const trasferta = Number(String(ettaro.trasferta || "").replace(",", ".")) || 0;
+    const fmt = (n) => n.toLocaleString("it-IT", { maximumFractionDigits: 2 });
+    const lavoro = ha * prezzo;
+    const nuove = [{ descrizione: `${m.voce}: ${fmt(ha)} ha × ${fmt(prezzo)} €/ha`, importo: prezzo ? lavoro.toFixed(2) : "" }];
+    if (minimo && prezzo && lavoro < minimo) nuove.push({ descrizione: `Integrazione all'uscita minima (${fmt(minimo)} €)`, importo: (minimo - lavoro).toFixed(2) });
+    if (trasferta) nuove.push({ descrizione: "Trasferta e trasporto del drone", importo: trasferta.toFixed(2) });
+    m.extra.forEach((d) => nuove.push({ descrizione: d, importo: "" }));
+    setVoci([...voci.filter((v) => v.descrizione || v.importo), ...nuove]);
+    if (!oggetto.trim()) setOggetto(m.oggetto);
+    try { const { modello, ettari, ...prezzi } = ettaro; localStorage.setItem("eyedrones_prezzi_ettaro", JSON.stringify(prezzi)); } catch { /* niente */ }
+  };
   // modello per riprese (video/foto/FPV): solo le voci tipiche, senza importo — lo scegli tu in base al lavoro
   const aggiungiVociRiprese = () => {
     const vociPulite = voci.filter((v) => v.descrizione || v.importo);
@@ -6245,6 +6351,23 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
             <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Usa le tue tariffe da Impostazioni ({Number(azienda.tariffaBase) || 0}€ base + {Number(azienda.tariffaKwp) || 0}€/kWp) e aggiunge le righe qui sotto, che restano modificabili.</p>
           </div>
 
+          <div style={{ background: "#10141f", border: "1px solid #a3e63544", borderRadius: 6, padding: "10px 12px" }} data-preventivo-ettaro>
+            <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 6 }}>🌾 Preventivo a ettaro per l'agricoltura (opzionale)</label>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+              {MODELLI_ETTARO.map((m) => (
+                <button key={m.key} type="button" aria-pressed={ettaro.modello === m.key} onClick={() => setEttaro({ ...ettaro, modello: m.key })} style={{ background: ettaro.modello === m.key ? "#1d2a12" : "#232b3f", border: `1px solid ${ettaro.modello === m.key ? "#a3e635" : "#343e57"}`, color: ettaro.modello === m.key ? "#d9f99d" : "#c3cad4", borderRadius: 6, padding: "7px 11px", fontSize: 12.5, fontWeight: 600 }}>{m.emoji} {m.nome}</button>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8, alignItems: "end" }}>
+              <label style={{ fontSize: 11, color: "#8b95a3" }}>Ettari<input inputMode="decimal" value={ettaro.ettari} onChange={(e) => setEttaro({ ...ettaro, ettari: e.target.value })} placeholder="es. 12,5" style={{ ...inputStyle, marginTop: 4 }} /></label>
+              <label style={{ fontSize: 11, color: "#8b95a3" }}>€ a ettaro<input inputMode="decimal" value={prezzoModello(ettaro.modello)} onChange={(e) => setEttaro({ ...ettaro, [`p_${ettaro.modello}`]: e.target.value })} placeholder="il tuo prezzo" style={{ ...inputStyle, marginTop: 4 }} /></label>
+              <label style={{ fontSize: 11, color: "#8b95a3" }}>Uscita minima €<input inputMode="decimal" value={ettaro.minimo || ""} onChange={(e) => setEttaro({ ...ettaro, minimo: e.target.value })} placeholder="facoltativa" style={{ ...inputStyle, marginTop: 4 }} /></label>
+              <label style={{ fontSize: 11, color: "#8b95a3" }}>Trasferta €<input inputMode="decimal" value={ettaro.trasferta || ""} onChange={(e) => setEttaro({ ...ettaro, trasferta: e.target.value })} placeholder="facoltativa" style={{ ...inputStyle, marginTop: 4 }} /></label>
+              <button type="button" onClick={aggiungiVociEttaro} disabled={!ettaro.ettari} style={{ background: ettaro.ettari ? "#a3e635" : "#343e57", color: ettaro.ettari ? "#10141f" : "#6b7480", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 12.5, fontWeight: 700 }}>Aggiungi voci</button>
+            </div>
+            <p style={{ fontSize: 10.5, color: "#6b7480", margin: "6px 0 0 0" }}>Calcola ettari × prezzo, aggiunge uscita minima e trasferta se le scrivi, e le voci tipiche del lavoro. I prezzi li ricorda per la prossima volta. Per il costo vero a ettaro usa il calcolatore Agras in Calcolatori.</p>
+          </div>
+
           <div style={{ background: "#10141f", border: "1px solid #232b3f", borderRadius: 6, padding: "10px 12px" }}>
             <label style={{ fontSize: 11, color: "#6b7480", display: "block", marginBottom: 6 }}>Pacchetti pronti per riprese aeree (opzionale)</label>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -6367,7 +6490,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
             return (
               <div key={p.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.cliente} {p.numero && <span style={{ color: "#6b7480", fontWeight: 400, fontSize: 12 }}>· {p.numero}</span>}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.cliente} {p.numero && <span style={{ color: "#6b7480", fontWeight: 400, fontSize: 12 }}>· {p.numero}</span>}<EtichettaCollega riga={p} /><SoloMio riga={p} tabella="preventivi" /></div>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
                     {p.luogo_intervento && <>{p.luogo_intervento} &middot; </>}{formatData(p.data)} &middot; <span className="mono">{Number(p.prezzo).toFixed(2)} €</span>
                   </div>
@@ -6408,9 +6531,9 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
                   <button onClick={() => scaricaPDF(p)} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     <FileDown size={12} /> PDF
                   </button>
-                  <button onClick={() => eliminaPreventivo(p.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
+                  {!delCollega(p) && <button onClick={() => eliminaPreventivo(p.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>
                     Elimina
-                  </button>
+                  </button>}
                 </div>
               </div>
             );
@@ -7833,6 +7956,7 @@ function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
       { e: "🌅", t: "Meteo e ora d'oro", d: "Vento per il tuo drone, indice Kp, alba, tramonto e sole", k: "pianificazione", dove: "In Pianifica", c: "vento pioggia kp luce tramonto" },
       { e: "📐", t: "Volumi STS-01", d: "Disegni l'area o la importi da DJI Pilot 2: contingenza e buffer", k: "pianificazione", dove: "In Pianifica", c: "sts specific buffer contingenza" },
       { e: "🏛️", t: "Pratica ENAC (STS)", d: "La dichiarazione e il manuale operativo per lo scenario STS", k: "pratica-enac", c: "enac sts dichiarazione manuale" },
+      { e: "🧮", t: "Specific: SORA e NOTAM", d: "SORA guidata con ConOps, volumi e piano di emergenza in PDF, e la richiesta di NOTAM già scritta", k: "specific", c: "sora conops notam specific autorizzazione sail grc arc emergenza" },
       { e: "🧭", t: "Posti belli vicino a te", d: "Panorami, castelli e laghi con la zona già controllata", k: "posti", c: "luoghi panorami dove andare" },
     ] },
     { titolo: "Riprese e calcolatori", emoji: "🎬", voci: [
@@ -7869,6 +7993,7 @@ function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
       { e: "🎮", t: "Simulatore di volo", d: "Riprese GPS e FPV e missioni per clienti, senza rischiare il drone", esterno: "/simulatore/", c: "simulatore fpv prova" },
     ] },
     ...(usaAI ? [{ titolo: "Intelligenza artificiale", emoji: "✨", voci: [
+      { e: "🌡️", t: "Termocamera", d: "Foto termiche DJI: tocchi un punto e leggi la temperatura, misuri aree, cambi palette, esporti", k: "termocamera", c: "termica termografia temperatura palette rjpeg r-jpeg ironbow emissività dji thermal" },
       { e: "💬", t: "Esperto AI", d: "Carichi foto o video: ti dice cosa non va e come sistemarlo", k: "analisi-ai", c: "ai esperto foto video" },
       ...(usaIspezioni ? [{ e: "🔎", t: "Ispezione con AI", d: "Propone i difetti foto per foto e prepara il report", k: "ispezione-ai", c: "ai ispezione difetti" }] : []),
     ] }] : []),
@@ -9869,6 +9994,26 @@ function StrumentiLavoro({ tipo, drone, altezzaZona }) {
 }
 
 // scheda del lavoro salvata nel volo (colonna voli.dettagli, script supabase/dettagli-lavoro.sql)
+// Agricoltura nel registro voli: il volume davvero distribuito e quello che danno portata, larghezza e velocità
+const numeroIt = (v) => { const n = Number(String(v ?? "").replace(",", ".").replace(/[^\d.]/g, "")); return Number.isFinite(n) && n > 0 ? n : null; };
+function ControlloVolumeAgricolo({ d }) {
+  const ha = numeroIt(d.superficie_ha), q = numeroIt(d.quantita), portata = numeroIt(d.portata), larg = numeroIt(d.larghezza), vel = numeroIt(d.velocita);
+  const reale = ha && q ? q / ha : null;
+  const impostato = portata && larg && vel ? (portata * 10000) / (larg * vel * 60) : null;
+  const resa = larg && vel ? (larg * vel * 3600) / 10000 : null; // ettari all'ora senza giri e pieni
+  if (!reale && !impostato && !resa) return null;
+  const scarto = reale && impostato ? Math.round(((reale - impostato) / impostato) * 100) : null;
+  return (
+    <div style={{ width: "100%", fontSize: 12, color: "#c3cad4", background: "#101a14", border: "1px solid #a3e63544", borderRadius: 6, padding: "8px 10px", lineHeight: 1.5 }} data-controllo-volume>
+      {reale && <div>💧 Volume distribuito: <b>{reale.toFixed(1)} l/ha</b> (o kg/ha)</div>}
+      {impostato && <div>⚙️ Con portata, larghezza e velocità: <b>{impostato.toFixed(1)} l/ha</b>{resa ? ` · resa teorica ${resa.toFixed(1)} ha/ora` : ""}</div>}
+      {!impostato && resa && <div>⚙️ Resa teorica: <b>{resa.toFixed(1)} ha/ora</b> (senza giri e pieni)</div>}
+      {scarto != null && Math.abs(scarto) >= 10 && <div style={{ color: "#f5b942" }}>⚠️ Differenza del {scarto > 0 ? "+" : ""}{scarto}%: controlla ugelli, flussimetro o la superficie davvero trattata.</div>}
+      {scarto != null && Math.abs(scarto) < 10 && <div style={{ color: "#4ade80" }}>✓ Distribuzione in linea con le impostazioni.</div>}
+    </div>
+  );
+}
+
 const CAMPI_DETTAGLI = {
   rilievo: [
     ["area_ha", "Area rilevata (ha)"], ["gsd", "GSD (cm/px)"], ["foto", "Numero di foto"], ["gcp", "Punti di controllo (GCP)"],
@@ -9876,7 +10021,9 @@ const CAMPI_DETTAGLI = {
   ],
   agricoltura: [
     ["coltura", "Coltura"], ["superficie_ha", "Superficie (ha)"], ["lavoro", "Lavoro (mappatura NDVI, trattamento...)"],
-    ["prodotto", "Prodotto usato"], ["dose", "Volume o dose per ettaro"], ["note_campo", "Appezzamento / note"],
+    ["prodotto", "Prodotto usato"], ["dose", "Volume o dose per ettaro"], ["quantita", "Miscela o prodotto distribuito (l o kg)"],
+    ["portata", "Portata (l/min)"], ["larghezza", "Larghezza di lavoro (m)"], ["velocita", "Velocità (m/s)"], ["pieni", "Pieni del serbatoio"],
+    ["note_campo", "Appezzamento / note"],
   ],
   pulizia: [
     ["superficie_m2", "Superficie pulita (m²)"], ["oggetto", "Cosa (facciata, pannelli, tetto...)"], ["detergente", "Detergente"],
@@ -10746,7 +10893,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
             {pianiSalvati.map((p) => (
               <div key={p.id} style={{ background: "#151b2b", border: editingId === p.id ? "1px solid #ff8c42" : "1px solid #232b3f", borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.impianto_nome} {editingId === p.id && <span style={{ color: "#ff8c42", fontWeight: 400, fontSize: 11.5 }}>— in modifica</span>}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.impianto_nome}<EtichettaCollega riga={p} /><SoloMio riga={p} tabella="piani_volo" /> {editingId === p.id && <span style={{ color: "#ff8c42", fontWeight: 400, fontSize: 11.5 }}>— in modifica</span>}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3" }}>{formatData(p.data_prevista)}{p.ora_prevista ? ` · ore ${String(p.ora_prevista).slice(0, 5)}` : ""} · {ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione}</div>
                   {p.checklist_stato?.zona && (() => {
                     const zz = p.checklist_stato.zona.zone || [];
@@ -10772,7 +10919,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
                   })} style={{ background: "#241d16", border: "1px solid #ff8c42", color: "#ffb877", borderRadius: 5, padding: "5px 10px", fontSize: 11.5, fontWeight: 600 }}>📷 Aggiungi foto/video</button>
                   <PulsantiNavigatore piano={p} />
                   <button onClick={() => apriPiano(p)} style={{ background: "none", border: "1px solid #343e57", color: "#c3cad4", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Apri / Modifica</button>
-                  <button onClick={() => eliminaPiano(p.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>
+                  {!delCollega(p) && <button onClick={() => eliminaPiano(p.id)} style={{ background: "none", border: "1px solid #343e57", color: "#ff9c9c", borderRadius: 5, padding: "5px 10px", fontSize: 11.5 }}>Elimina</button>}
                 </div>
               </div>
             ))}
@@ -13935,7 +14082,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
     return (
       <div key={r.id} style={{ background: "#151b2b", border: `1px solid ${evidenziata ? "#ff8c4288" : "#2a3349"}`, borderRadius: 10, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{r.nome}{evidenziata && <span style={{ fontSize: 10.5, fontWeight: 700, background: "#ff8c42", color: "#10141f", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle" }}>NUOVA</span>}</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{r.nome}<EtichettaCollega riga={r} /><SoloMio riga={r} tabella="richieste_preventivo" />{evidenziata && <span style={{ fontSize: 10.5, fontWeight: 700, background: "#ff8c42", color: "#10141f", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle" }}>NUOVA</span>}</div>
           <div style={{ fontSize: 12, color: "#8b95a3" }}>{new Date(r.created_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
         </div>
         <div style={{ fontSize: 13, color: "#c3cad4", display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
@@ -13954,7 +14101,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
           {r.stato === "archiviata"
             ? <button onClick={() => aggiornaRichiesta(r, "letta")} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 11px", fontSize: 12 }}>Ripristina</button>
             : <button onClick={() => aggiornaRichiesta(r, "archiviata")} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 11px", fontSize: 12 }}>Archivia</button>}
-          <button onClick={() => eliminaRichiesta(r)} aria-label={`Elimina la richiesta di ${r.nome}`} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 9px", fontSize: 12 }}><X size={13} /></button>
+          {!delCollega(r) && <button onClick={() => eliminaRichiesta(r)} aria-label={`Elimina la richiesta di ${r.nome}`} style={{ background: "none", border: "1px solid #343e57", color: "#8b95a3", borderRadius: 6, padding: "6px 9px", fontSize: 12 }}><X size={13} /></button>}
         </div>
       </div>
     );
@@ -17189,6 +17336,7 @@ function RegistroVoli({ azioneDaFare, onAzioneFatta, spazio, azienda, droni, isp
                   <input type="text" value={(form.dettagli || {})[k] || ""} onChange={(e) => setForm({ ...form, dettagli: { ...(form.dettagli || {}), [k]: e.target.value } })} style={inputStyle} />
                 </div>
               ))}
+              {form.tipo_attivita === "agricoltura" && <ControlloVolumeAgricolo d={form.dettagli || {}} />}
               {form.tipo_attivita === "agricoltura" && <p style={{ fontSize: 10.5, color: "#8b95a3", margin: 0, width: "100%" }}>Per i trattamenti questi dati ti servono anche per il registro dei trattamenti dell'azienda agricola.</p>}
             </div>
           )}
@@ -18756,8 +18904,9 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         <div>
           {tipoIspezione !== "danni" && (
             <div style={{ maxWidth: 460, background: "#16211a", border: "1px solid #2e5c2b", borderRadius: 8, padding: "12px 14px", marginBottom: 14 }}>
-              <p style={{ fontSize: 12, color: "#c3cad4", margin: "0 0 8px 0" }}>🌡️ Per cambiare palette o leggere la temperatura esatta di un punto, apri la foto originale (R-JPEG) sul computer, senza costi. Qui carichi l'immagine così com'è.</p>
-              <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ display: "inline-block", background: "#4ade80", color: "#0a1a0f", fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 6, textDecoration: "none" }}>Apri DJI Thermal Analysis Tool ↗</a>
+              <p style={{ fontSize: 12, color: "#c3cad4", margin: "0 0 8px 0" }}>🌡️ Per cambiare palette o leggere la temperatura esatta di un punto, apri le foto originali (R-JPEG) nella Termocamera di EyeDrones, anche dal telefono. Qui carichi l'immagine così com'è.</p>
+              <a href="/?vai=termocamera" style={{ display: "inline-block", background: "#4ade80", color: "#0a1a0f", fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 6, textDecoration: "none", marginRight: 8 }}>Apri la Termocamera</a>
+              <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ display: "inline-block", background: "#4ade80", color: "#0a1a0f", fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 6, textDecoration: "none", opacity: 0.85 }}>Oppure DJI Thermal Analysis Tool (computer) ↗</a>
             </div>
           )}
           {foto.length === 0 ? (

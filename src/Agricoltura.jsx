@@ -4,6 +4,9 @@ import MappaCampi from "./MappaCampi.jsx";
 import { TestataPagina } from "./VoloHero.jsx";
 import { pdfConsegnaAgricoltura } from "./reportConsegna.js";
 import FascicoloScia, { controlliScia, unisci } from "./FascicoloScia.jsx";
+import MappeCampo from "./MappeCampo.jsx";
+import SpecificSora from "./SpecificSora.jsx";
+import { leggiTabella, trovaIntestazione, riconosciColonne, fattoreEttari, numero, dataOra, CAMPI_IMPORT, ettariCella, unitaCella, tipoCella } from "./importaLavori.js";
 import { leggiFileConfini, campiInKml, fasceRispetto, CATEGORIE_RISPETTO, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
 
 // Agricoltura (fase 1): appezzamenti con i confini sulla mappa, registro dei trattamenti con PDF,
@@ -111,9 +114,14 @@ export function HomeAgricoltura({ supabase, onNav }) {
         </button>
       )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-        {bott("🧪 Registra un trattamento", "trattamenti", true)}
+        {bott("📋 Ordini di lavoro", "ordini", true)}
+        {bott("🧪 Registra un trattamento", "trattamenti")}
+        {bott("📥 Importa da SmartFarm", "importa")}
+        {bott("🛰️ Mappe NDVI e scouting", "mappe")}
+        {bott("🧮 SORA e NOTAM", "specific")}
         {bott("🌦️ Meteo per irrorare", "meteo")}
         {bott("🗺️ Appezzamenti", "campi")}
+        <button type="button" onClick={() => onNav("preventivi")} style={btn(false)}>💶 Preventivo a ettaro</button>
       </div>
     </section>
   );
@@ -121,13 +129,17 @@ export function HomeAgricoltura({ supabase, onNav }) {
 
 export default function Agricoltura({ supabase, inputStyle, clienti = [], droni = [], azienda = {} }) {
   // dalla Home dello spazio Agricoltura si può arrivare direttamente a una scheda (es. il fascicolo SCIA)
-  const [vista, setVista] = useState(() => { try { const v = sessionStorage.getItem(CHIAVE_VISTA); sessionStorage.removeItem(CHIAVE_VISTA); return v || "campi"; } catch { return "campi"; } });
+  const [apriImporta, setApriImporta] = useState(false);
+  const [vista, setVistaInterna] = useState(() => { try { const v = sessionStorage.getItem(CHIAVE_VISTA); sessionStorage.removeItem(CHIAVE_VISTA); return v || "campi"; } catch { return "campi"; } });
+  const setVista = (v) => { if (v === "importa") { setApriImporta(true); setVistaInterna("trattamenti"); } else setVistaInterna(v); };
+  useEffect(() => { if (vista === "importa") setVista("importa"); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
   const [campi, setCampi] = useState(null);
   const [trattamenti, setTrattamenti] = useState([]);
   const [mancaTabella, setMancaTabella] = useState(false);
   const [selezionato, setSelezionato] = useState(null);
   const [campoMeteo, setCampoMeteo] = useState(null);
   const [nuovoLavoro, setNuovoLavoro] = useState(null); // dati iniziali del modulo trattamento
+  const [ordini, setOrdini] = useState(null); // null = tabella non ancora creata (ordini-lavoro.sql)
 
   const carica = async () => {
     const [a, t] = await Promise.all([
@@ -137,14 +149,18 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
     if ((a.error && manca(a.error.message)) || (t.error && manca(t.error.message))) { setMancaTabella(true); setCampi([]); return; }
     setCampi(a.data || []);
     setTrattamenti(t.data || []);
+    const o = await supabase.from("ordini_lavoro").select("*").order("data", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false }).limit(500);
+    setOrdini(o.error ? null : o.data || []);
   };
   useEffect(() => { carica(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const nomeCliente = (id) => (clienti.find((c) => c.id === id) || {}).nome || "";
-  const apriLavoro = (campo) => { setNuovoLavoro(campo ? { campo } : {}); setVista("trattamenti"); window.scrollTo(0, 0); };
+  const apriLavoro = (campo, dati) => { setNuovoLavoro(campo || dati ? { campo, dati } : {}); setVista("trattamenti"); window.scrollTo(0, 0); };
+  const [nuovoOrdine, setNuovoOrdine] = useState(null);
+  const apriOrdine = (campo) => { setNuovoOrdine({ campo }); setVista("ordini"); window.scrollTo(0, 0); };
   const apriMeteo = (campo) => { setCampoMeteo(campo ? campo.id : null); setVista("meteo"); window.scrollTo(0, 0); };
 
-  const linguette = [["campi", "🗺️ Appezzamenti"], ["trattamenti", "🧪 Registro lavori"], ["meteo", "🌦️ Meteo trattamenti"], ["scia", "📁 Fascicolo SCIA"]];
+  const linguette = [["campi", "🗺️ Appezzamenti"], ["ordini", `📋 Ordini di lavoro${ordini && ordini.filter((o) => o.stato === "da_fare").length ? ` (${ordini.filter((o) => o.stato === "da_fare").length})` : ""}`], ["trattamenti", "🧪 Registro lavori"], ["mappe", "🛰️ Mappe e scouting"], ["specific", "🧮 SORA e NOTAM"], ["meteo", "🌦️ Meteo trattamenti"], ["scia", "📁 Fascicolo SCIA"]];
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
@@ -158,6 +174,12 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
           </div>
         )}
 
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginBottom: 14 }} data-scorciatoie>
+          {[["📋", "Nuovo ordine di lavoro", () => apriOrdine(null)], ["🧪", "Registra un lavoro", () => apriLavoro(null)], ["📥", "Importa da SmartFarm o Excel", () => setVista("importa")], ["🛰️", "Carica mappa NDVI", () => setVista("mappe")], ["🧮", "SORA e NOTAM", () => setVista("specific")], ["🌦️", "Meteo per irrorare", () => setVista("meteo")]].map(([e, t, f]) => (
+            <button key={t} type="button" onClick={f} style={{ display: "flex", alignItems: "center", gap: 10, textAlign: "left", background: "#10141f", border: "1px solid #2a3349", borderRadius: 10, padding: "11px 12px", color: "#e7eaee", fontSize: 13, fontWeight: 700 }}><span style={{ fontSize: 20 }}>{e}</span>{t}</button>
+          ))}
+        </div>
+
         <div role="tablist" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
           {linguette.map(([k, t]) => (
             <button key={k} role="tab" aria-selected={vista === k} type="button" onClick={() => setVista(k)} style={{ ...btn(false), background: vista === k ? "#241d16" : "#1a2133", border: vista === k ? "1px solid #ff8c42" : "1px solid #343e57", fontWeight: 600 }}>{t}</button>
@@ -165,9 +187,15 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
         </div>
 
         {campi === null ? <p style={{ color: "#8b95a3" }}>Carico…</p> : vista === "campi" ? (
-          <Appezzamenti supabase={supabase} inputStyle={inputStyle} clienti={clienti} campi={campi} trattamenti={trattamenti} selezionato={selezionato} setSelezionato={setSelezionato} onCambiati={carica} onLavoro={apriLavoro} onMeteo={apriMeteo} nomeCliente={nomeCliente} bloccato={mancaTabella} />
+          <Appezzamenti onOrdine={ordini === null ? null : apriOrdine} supabase={supabase} inputStyle={inputStyle} clienti={clienti} campi={campi} trattamenti={trattamenti} selezionato={selezionato} setSelezionato={setSelezionato} onCambiati={carica} onLavoro={apriLavoro} onMeteo={apriMeteo} nomeCliente={nomeCliente} bloccato={mancaTabella} />
+        ) : vista === "ordini" ? (
+          <OrdiniLavoro supabase={supabase} inputStyle={inputStyle} campi={campi} ordini={ordini} droni={droni} azienda={azienda} trattamenti={trattamenti} iniziale={nuovoOrdine} onIniziale={() => setNuovoOrdine(null)} onCambiati={carica} onRegistra={(campo, dati) => apriLavoro(campo, dati)} />
+        ) : vista === "specific" ? (
+          <SpecificSora inputStyle={inputStyle} droni={droni} azienda={azienda} incorporata />
+        ) : vista === "mappe" ? (
+          <MappeCampo supabase={supabase} inputStyle={inputStyle} campi={campi} />
         ) : vista === "trattamenti" ? (
-          <RegistroLavori supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} droni={droni} azienda={azienda} iniziale={nuovoLavoro} onIniziale={() => setNuovoLavoro(null)} onCambiati={carica} bloccato={mancaTabella} />
+          <RegistroLavori apriImporta={apriImporta} onImportaAperto={() => setApriImporta(false)} supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} droni={droni} azienda={azienda} iniziale={nuovoLavoro} onIniziale={() => setNuovoLavoro(null)} onCambiati={carica} bloccato={mancaTabella} />
         ) : vista === "scia" ? (
           <FascicoloScia supabase={supabase} inputStyle={inputStyle} campi={campi} droni={droni} azienda={azienda} />
         ) : (
@@ -178,9 +206,273 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
   );
 }
 
+// --- Importazione dei lavori da file (DJI SmartFarm, altri gestionali): CSV o Excel ------------------------
+const UNITA_SUPERFICIE = [["1", "ettari (ha)"], [String(1 / 15), "mu (亩)"], ["0.404686", "acri"], ["0.0001", "m²"]];
+function ImportaLavori({ supabase, inputStyle, campi, trattamenti, onFatto, onChiudi }) {
+  const [tab, setTab] = useState(null); // { righe, h }
+  const [mappa, setMappa] = useState({});
+  const [fattore, setFattore] = useState("1");
+  const [opz, setOpz] = useState({ tipo: "trattamento", prodotto: "", unita: "l" });
+  const [errore, setErrore] = useState("");
+  const [esito, setEsito] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  const scegli = async (file) => {
+    setErrore(""); setEsito("");
+    if (!file) return;
+    try {
+      const righe = await leggiTabella(file);
+      const h = trovaIntestazione(righe);
+      if (righe.length <= h + 1) throw new Error("Nel file non ci sono righe di lavori.");
+      const m = riconosciColonne(righe[h]);
+      setTab({ righe, h, nome: file.name });
+      setMappa(m);
+      setFattore(String(m.ettari != null ? fattoreEttari(righe[h][m.ettari]) : 1));
+    } catch (e) { setErrore(e.message || "File non leggibile."); setTab(null); }
+  };
+
+  const campoPerNome = (nome) => {
+    const n = String(nome || "").trim().toLowerCase();
+    if (!n) return null;
+    return campi.find((c) => c.nome.toLowerCase() === n) || campi.find((c) => n.includes(c.nome.toLowerCase()) || c.nome.toLowerCase().includes(n)) || null;
+  };
+  const cella = (r, k) => (mappa[k] != null ? r[mappa[k]] ?? "" : "");
+  const lavori = !tab ? [] : tab.righe.slice(tab.h + 1).filter((r) => r.some((x) => String(x).trim())).map((r) => {
+    const quando = dataOra(cella(r, "data"));
+    const finePropria = dataOra(cella(r, "ora_fine"));
+    // SmartFarm Web scrive inizio e fine nella stessa cella: «2023/4/20 17:25:24-17:40:10»
+    const intervallo = String(cella(r, "data")).match(/\d{1,2}:\d{2}(?::\d{2})?\s*[-–~]\s*(\d{1,2}):(\d{2})/);
+    const fine = finePropria.ora ? finePropria : { ora: intervallo ? `${intervallo[1].padStart(2, "0")}:${intervallo[2]}` : null };
+    const ha = ettariCella(cella(r, "ettari"), Number(fattore));
+    const nomeCampo = cella(r, "campo");
+    const c = campoPerNome(nomeCampo);
+    return {
+      data: quando.data, ora_inizio: quando.ora, ora_fine: fine.ora, ettari: ha,
+      tipo: tipoCella(cella(r, "tipo")) || opz.tipo, unitaQ: unitaCella(cella(r, "quantita")) || opz.unita,
+      quantita_totale: numero(cella(r, "quantita")), campo_nome: c ? c.nome : nomeCampo || null, appezzamento_id: c ? c.id : null, azienda: c ? c.azienda : null, coltura: c ? c.coltura : null,
+      operatore: cella(r, "pilota") || null, drone_nome: cella(r, "drone") || null, prodotto: cella(r, "prodotto") || opz.prodotto.trim() || null,
+      durata: cella(r, "durata"),
+    };
+  }).filter((l) => l.data && (l.ettari != null || l.quantita_totale != null));
+  // non importo due volte lo stesso lavoro (stessa data, campo ed ettari)
+  const giaCe = (l) => trattamenti.some((t) => t.data === l.data && (t.campo_nome || "") === (l.campo_nome || "") && Number(t.ettari || 0) === Number(l.ettari || 0));
+  const nuovi = lavori.filter((l) => !giaCe(l));
+  const collegati = nuovi.filter((l) => l.appezzamento_id).length;
+
+  const importaTutto = async () => {
+    if (!nuovi.length) return;
+    setSalvando(true);
+    const righe = nuovi.map(({ durata, unitaQ, ...l }) => ({
+      ...l, unita: unitaQ === "kg" ? "kg/ha" : "l/ha",
+      dose: l.quantita_totale != null && l.ettari ? Math.round((l.quantita_totale / l.ettari) * 100) / 100 : null,
+      note: ["Importato da file", tab.nome, durata ? `durata ${durata}` : null].filter(Boolean).join(" · "),
+    }));
+    let errori = 0;
+    for (let i = 0; i < righe.length; i += 200) {
+      const { error } = await supabase.from("trattamenti").insert(righe.slice(i, i + 200));
+      if (error) { errori++; setErrore(`Non riuscito: ${error.message}`); }
+    }
+    setSalvando(false);
+    if (!errori) { setEsito(`Fatto: ${righe.length} lavori aggiunti al registro.`); setTimeout(onFatto, 900); }
+  };
+
+  return (
+    <div style={{ ...scheda, border: "1px solid #3d8bfd66", marginBottom: 14, display: "flex", flexDirection: "column", gap: 10 }} data-importa>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+        <div style={{ fontWeight: 700 }}>📥 Importa i lavori da un file</div>
+        <button type="button" onClick={onChiudi} style={{ ...btn(false), padding: "5px 10px" }}>Chiudi</button>
+      </div>
+      <div style={{ fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5 }}>Da <b>DJI SmartFarm</b> (o dal tuo gestionale) esporta i record dei lavori in <b>Excel (.xlsx)</b> o <b>CSV</b> e caricalo qui. Riconosco da solo le colonne: se qualcosa non torna, la scegli tu qui sotto.</div>
+      <input type="file" accept=".csv,.xlsx,.txt,.xls" onChange={(e) => scegli(e.target.files && e.target.files[0])} aria-label="File dei lavori" style={{ fontSize: 13 }} />
+      {errore && <div style={{ fontSize: 12.5, color: "#ff9c9c" }}>{errore}</div>}
+      {tab && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
+            {CAMPI_IMPORT.map((c) => (
+              <label key={c.k} style={{ fontSize: 11.5, color: "#8b95a3", display: "flex", flexDirection: "column", gap: 3 }}>{c.label}
+                <select value={mappa[c.k] ?? ""} onChange={(e) => setMappa({ ...mappa, [c.k]: e.target.value === "" ? undefined : Number(e.target.value) })} style={{ ...inputStyle, padding: "6px 8px", fontSize: 12.5 }}>
+                  <option value="">— nessuna —</option>
+                  {tab.righe[tab.h].map((h, i) => <option key={i} value={i}>{h || `Colonna ${i + 1}`}</option>)}
+                </select>
+              </label>
+            ))}
+            <label style={{ fontSize: 11.5, color: "#8b95a3", display: "flex", flexDirection: "column", gap: 3 }}>Superficie in
+              <select value={fattore} onChange={(e) => setFattore(e.target.value)} style={{ ...inputStyle, padding: "6px 8px", fontSize: 12.5 }}>{UNITA_SUPERFICIE.map(([v, t]) => <option key={t} value={v}>{t}</option>)}</select>
+            </label>
+            <label style={{ fontSize: 11.5, color: "#8b95a3", display: "flex", flexDirection: "column", gap: 3 }}>Lavoro
+              <select value={opz.tipo} onChange={(e) => setOpz({ ...opz, tipo: e.target.value })} style={{ ...inputStyle, padding: "6px 8px", fontSize: 12.5 }}>{TIPI_LAVORO.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}</select>
+            </label>
+            <label style={{ fontSize: 11.5, color: "#8b95a3", display: "flex", flexDirection: "column", gap: 3 }}>Quantità in
+              <select value={opz.unita} onChange={(e) => setOpz({ ...opz, unita: e.target.value })} style={{ ...inputStyle, padding: "6px 8px", fontSize: 12.5 }}><option value="l">litri</option><option value="kg">kg</option></select>
+            </label>
+            {mappa.prodotto == null && <label style={{ fontSize: 11.5, color: "#8b95a3", display: "flex", flexDirection: "column", gap: 3 }}>Prodotto (per tutti)<input value={opz.prodotto} onChange={(e) => setOpz({ ...opz, prodotto: e.target.value })} placeholder="facoltativo" style={{ ...inputStyle, padding: "6px 8px", fontSize: 12.5 }} /></label>}
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead><tr style={{ color: "#8b95a3", textAlign: "left" }}>{["Data", "Lavoro", "Campo", "Ettari", "Quantità", "Pilota", "Drone"].map((t) => <th key={t} style={{ padding: "4px 6px", borderBottom: "1px solid #2a3349", whiteSpace: "nowrap" }}>{t}</th>)}</tr></thead>
+              <tbody>{lavori.slice(0, 6).map((l, i) => (
+                <tr key={i} style={{ opacity: giaCe(l) ? 0.45 : 1 }}>
+                  <td style={{ padding: "4px 6px", whiteSpace: "nowrap" }}>{l.data}{l.ora_inizio ? ` ${l.ora_inizio}` : ""}</td>
+                  <td style={{ padding: "4px 6px", whiteSpace: "nowrap" }}>{(TIPI_LAVORO.find((t) => t.key === l.tipo) || {}).emoji} {etichettaLavoro(l.tipo)}</td>
+                  <td style={{ padding: "4px 6px" }}>{l.campo_nome || "—"}{l.appezzamento_id ? " ✓" : ""}</td>
+                  <td style={{ padding: "4px 6px" }}>{l.ettari != null ? formattaEttari(l.ettari) : "—"}</td>
+                  <td style={{ padding: "4px 6px" }}>{l.quantita_totale != null ? `${l.quantita_totale} ${l.unitaQ}` : "—"}</td>
+                  <td style={{ padding: "4px 6px" }}>{l.operatore || "—"}</td>
+                  <td style={{ padding: "4px 6px" }}>{l.drone_nome || "—"}</td>
+                </tr>))}</tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: 12.5, color: "#c3cad4" }}>{lavori.length ? <>Trovati <b>{lavori.length}</b> lavori{lavori.length - nuovi.length ? `, di cui ${lavori.length - nuovi.length} già nel registro` : ""}. {collegati ? `${collegati} collegati ai tuoi campi (✓).` : ""}</> : "Non trovo righe con data e superficie: controlla le colonne qui sopra."}</div>
+          {esito && <div role="status" style={{ fontSize: 12.5, color: "#4ade80" }}>{esito}</div>}
+          <button type="button" disabled={!nuovi.length || salvando} onClick={importaTutto} style={{ ...btn(true), alignSelf: "flex-start", opacity: nuovi.length ? 1 : 0.5 }}>{salvando ? "Importo…" : `Aggiungi ${nuovi.length} lavori al registro`}</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- Ordini di lavoro (supabase/ordini-lavoro.sql) --------------------------------------------------------
+// Il lavoro preparato prima: campo, tipo, data, drone, pilota, prodotto e dose. Fatto → diventa una riga del registro.
+const ORDINE_VUOTO = { appezzamento_id: "", tipo: "trattamento", data: "", ora: "", coltura: "", avversita: "", prodotto: "", dose: "", unita: "l/ha", volume_ha: "", ettari: "", drone_id: "", pilota: "", note: "" };
+const L = ({ t, children }) => <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "#8b95a3", minWidth: 0 }}>{t}{children}</label>;
+const dataBreve = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" }) : "senza data");
+
+function OrdiniLavoro({ supabase, inputStyle, campi, ordini, droni, azienda, trattamenti, iniziale, onIniziale, onCambiati, onRegistra }) {
+  const [form, setForm] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+  const [conferma, setConferma] = useState(null);
+  const [mostraFatti, setMostraFatti] = useState(false);
+  const campoDi = (id) => campi.find((c) => c.id === id) || null;
+  const piloti = useMemo(() => [...new Set([azienda.nome, ...trattamenti.map((t) => t.operatore), ...(ordini || []).map((o) => o.pilota)].filter(Boolean))].slice(0, 12), [azienda.nome, trattamenti, ordini]);
+
+  const nuovo = (campo) => setForm({ ...ORDINE_VUOTO, data: oggi(), pilota: piloti[0] || "", ...(campo ? { appezzamento_id: campo.id, coltura: campo.coltura || "", ettari: campo.ettari != null ? String(campo.ettari) : "" } : {}) });
+  useEffect(() => { if (!iniziale) return; nuovo(iniziale.campo || null); onIniziale(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [iniziale]);
+
+  if (ordini === null) {
+    return <div style={{ ...scheda, border: "1px solid #f5b94266", background: "#211a0c", fontSize: 13, color: "#ffe2a8" }}>⚙️ Per usare gli ordini di lavoro serve una cosa da fare <strong>una volta sola</strong>: in Supabase apri <strong>SQL Editor</strong>, incolla lo script <strong>supabase/ordini-lavoro.sql</strong> e premi <strong>Run</strong>.</div>;
+  }
+
+  const cambiaCampo = (id) => { const c = campoDi(id); setForm({ ...form, appezzamento_id: id, coltura: form.coltura || c?.coltura || "", ettari: c?.ettari != null ? String(c.ettari) : form.ettari }); };
+  const salva = async () => {
+    const f = form;
+    const c = campoDi(f.appezzamento_id);
+    if (!c && !testo(f.note)) { alert("Scegli il campo (o scrivi nelle note dove si lavora)."); return; }
+    const drone = droni.find((d) => String(d.id) === String(f.drone_id));
+    const dati = {
+      appezzamento_id: c ? c.id : null, campo_nome: c ? c.nome : null, azienda: c ? c.azienda : null, tipo: f.tipo, data: f.data || null, ora: testo(f.ora),
+      coltura: testo(f.coltura), avversita: testo(f.avversita), prodotto: testo(f.prodotto), dose: num(f.dose), unita: f.unita || "l/ha", volume_ha: num(f.volume_ha),
+      ettari: num(f.ettari), drone_id: f.drone_id ? String(f.drone_id) : null, drone_nome: drone ? drone.nome : null, pilota: testo(f.pilota), note: testo(f.note),
+    };
+    setSalvando(true);
+    const { error } = f.id ? await supabase.from("ordini_lavoro").update(dati).eq("id", f.id) : await supabase.from("ordini_lavoro").insert(dati);
+    setSalvando(false);
+    if (error) { alert(`Salvataggio non riuscito: ${error.message}`); return; }
+    setForm(null); onCambiati();
+  };
+  const modifica = (o) => setForm({ ...ORDINE_VUOTO, ...Object.fromEntries(Object.keys(ORDINE_VUOTO).map((k) => [k, o[k] == null ? "" : String(o[k])])), id: o.id });
+  const fatto = async (o) => {
+    await supabase.from("ordini_lavoro").update({ stato: "fatto", fatto_il: new Date().toISOString() }).eq("id", o.id);
+    onCambiati();
+    // il registro lavori si apre già compilato: si aggiungono orari e meteo e si salva
+    onRegistra(campoDi(o.appezzamento_id), {
+      tipo: o.tipo || "trattamento", ...(o.coltura ? { coltura: o.coltura } : {}), avversita: o.avversita || "", prodotto: o.prodotto || "",
+      dose: o.dose != null ? String(o.dose) : "", unita: o.unita || "l/ha", volume_ha: o.volume_ha != null ? String(o.volume_ha) : "",
+      ...(o.ettari != null ? { ettari: String(o.ettari) } : {}), drone_id: o.drone_id || "", ...(o.pilota ? { operatore: o.pilota } : {}),
+      note: o.note || "", ...(o.data ? { data: o.data } : {}),
+    });
+  };
+  const riapri = async (o) => { await supabase.from("ordini_lavoro").update({ stato: "da_fare", fatto_il: null }).eq("id", o.id); onCambiati(); };
+  const elimina = async (o) => { await supabase.from("ordini_lavoro").delete().eq("id", o.id); setConferma(null); onCambiati(); };
+  const testoOrdine = (o) => [
+    `📋 Ordine di lavoro – ${etichettaLavoro(o.tipo)}`,
+    `📅 ${dataBreve(o.data)}${o.ora ? ` ore ${o.ora}` : ""}`,
+    o.campo_nome && `🌾 ${o.campo_nome}${o.azienda ? ` (${o.azienda})` : ""}${o.ettari != null ? ` · ${formattaEttari(o.ettari)}` : ""}`,
+    o.coltura && `Coltura: ${o.coltura}${o.avversita ? ` · ${o.avversita}` : ""}`,
+    o.prodotto && `Prodotto: ${o.prodotto}${o.dose != null ? ` · ${o.dose} ${o.unita || ""}` : ""}${o.volume_ha != null ? ` · acqua ${o.volume_ha} l/ha` : ""}`,
+    o.dose != null && o.ettari != null && `Totale prodotto: ${Math.round(o.dose * o.ettari * 100) / 100} ${String(o.unita || "l/ha").split("/")[0]}`,
+    o.drone_nome && `Drone: ${o.drone_nome}`,
+    o.pilota && `Pilota: ${o.pilota}`,
+    o.note && `Note: ${o.note}`,
+    (() => { const c = campoDi(o.appezzamento_id); return c && c.centro_lat != null ? `📍 https://maps.google.com/?q=${c.centro_lat},${c.centro_lon}` : null; })(),
+  ].filter(Boolean).join("\n");
+
+  const daFare = ordini.filter((o) => o.stato === "da_fare");
+  const fatti = ordini.filter((o) => o.stato === "fatto").sort((a, b) => String(b.fatto_il || "").localeCompare(String(a.fatto_il || "")));
+  const ettariDaFare = daFare.reduce((t, o) => t + (Number(o.ettari) || 0), 0);
+  const f = form;
+  const totale = f && num(f.dose) != null && num(f.ettari) != null ? Math.round(num(f.dose) * num(f.ettari) * 100) / 100 : null;
+  const acqua = f && num(f.volume_ha) != null && num(f.ettari) != null ? Math.round(num(f.volume_ha) * num(f.ettari)) : null;
+
+  const riga = (o) => {
+    const c = campoDi(o.appezzamento_id);
+    const oggiIso = oggi();
+    const ritardo = o.stato === "da_fare" && o.data && o.data < oggiIso;
+    return (
+      <div key={o.id} style={{ ...scheda, padding: 14, display: "flex", flexDirection: "column", gap: 6, border: `1px solid ${ritardo ? "#ff9c9c66" : o.data === oggiIso && o.stato === "da_fare" ? "#4ade8066" : "#2a3349"}`, opacity: o.stato === "fatto" ? 0.8 : 1 }} data-ordine>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5 }}>{(TIPI_LAVORO.find((t) => t.key === o.tipo) || {}).emoji || "📝"} {etichettaLavoro(o.tipo)}{o.campo_nome ? ` · ${o.campo_nome}` : ""}</div>
+          <div style={{ fontSize: 12, color: ritardo ? "#ff9c9c" : o.data === oggiIso ? "#4ade80" : "#8b95a3", fontWeight: 600 }}>{o.stato === "fatto" ? `✅ fatto ${o.fatto_il ? new Date(o.fatto_il).toLocaleDateString("it-IT", { day: "numeric", month: "short" }) : ""}` : `${ritardo ? "⚠️ " : ""}${o.data === oggiIso ? "oggi" : dataBreve(o.data)}${o.ora ? ` · ${o.ora}` : ""}`}</div>
+        </div>
+        <div style={{ fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5 }}>
+          {[o.azienda, o.ettari != null ? formattaEttari(o.ettari) : null, o.coltura, o.prodotto ? `${o.prodotto}${o.dose != null ? ` ${o.dose} ${o.unita || ""}` : ""}` : null].filter(Boolean).join(" · ")}
+        </div>
+        <div style={{ fontSize: 12, color: "#8b95a3" }}>{[o.drone_nome && `Drone: ${o.drone_nome}`, o.pilota && `Pilota: ${o.pilota}`].filter(Boolean).join(" · ") || "Drone e pilota da scegliere"}</div>
+        {o.note && <div style={{ fontSize: 12, color: "#aab3bf", fontStyle: "italic" }}>{o.note}</div>}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+          {o.stato === "da_fare" ? <button type="button" onClick={() => fatto(o)} style={btn(true)}>✅ Fatto: registra</button> : <button type="button" onClick={() => riapri(o)} style={btn(false)}>↩︎ Riapri</button>}
+          <a href={`https://wa.me/?text=${encodeURIComponent(testoOrdine(o))}`} target="_blank" rel="noopener noreferrer" style={{ ...btn(false), textDecoration: "none" }}>📤 Manda al pilota</a>
+          {c && c.centro_lat != null && <a href={`https://www.google.com/maps/dir/?api=1&destination=${c.centro_lat},${c.centro_lon}`} target="_blank" rel="noopener noreferrer" style={{ ...btn(false), textDecoration: "none" }}>📍 Portami</a>}
+          {o.stato === "da_fare" && <button type="button" onClick={() => modifica(o)} style={btn(false)}>Modifica</button>}
+          {conferma === o.id ? <><button type="button" onClick={() => elimina(o)} style={{ ...btn(false), color: "#ff9c9c" }}>Sì, elimina</button><button type="button" onClick={() => setConferma(null)} style={btn(false)}>No</button></> : <button type="button" onClick={() => setConferma(o.id)} style={{ ...btn(false), color: "#ff9c9c" }}>Elimina</button>}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {!f && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 13, color: "#c3cad4" }}><b>{daFare.length}</b> da fare{ettariDaFare ? ` · ${formattaEttari(ettariDaFare)}` : ""}</div>
+          <button type="button" onClick={() => nuovo(null)} style={btn(true)}>＋ Nuovo ordine</button>
+        </div>
+      )}
+      {f && (
+        <div style={{ ...scheda, border: "1px solid #ff8c4266", display: "flex", flexDirection: "column", gap: 10 }} data-modulo-ordine>
+          <div style={{ fontWeight: 700 }}>{f.id ? "Modifica ordine" : "Nuovo ordine di lavoro"}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
+            <L t="Campo"><select value={f.appezzamento_id} onChange={(e) => cambiaCampo(e.target.value)} style={inputStyle} aria-label="Campo"><option value="">— scegli —</option>{campi.map((c) => <option key={c.id} value={c.id}>{c.nome}{c.azienda ? ` · ${c.azienda}` : ""}{c.ettari != null ? ` · ${formattaEttari(c.ettari)}` : ""}</option>)}</select></L>
+            <L t="Lavoro"><select value={f.tipo} onChange={(e) => setForm({ ...f, tipo: e.target.value })} style={inputStyle}>{TIPI_LAVORO.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}</select></L>
+            <L t="Data"><input type="date" value={f.data} onChange={(e) => setForm({ ...f, data: e.target.value })} style={inputStyle} /></L>
+            <L t="Ora (facoltativa)"><input type="time" value={f.ora} onChange={(e) => setForm({ ...f, ora: e.target.value })} style={inputStyle} /></L>
+            <L t="Drone"><select value={f.drone_id} onChange={(e) => setForm({ ...f, drone_id: e.target.value })} style={inputStyle}><option value="">— da scegliere —</option>{droni.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}</select></L>
+            <L t="Pilota"><input list="piloti-ordine" value={f.pilota} onChange={(e) => setForm({ ...f, pilota: e.target.value })} placeholder="Chi vola" style={inputStyle} /><datalist id="piloti-ordine">{piloti.map((x) => <option key={x} value={x} />)}</datalist></L>
+            <L t="Coltura"><input value={f.coltura} onChange={(e) => setForm({ ...f, coltura: e.target.value })} style={inputStyle} /></L>
+            {f.tipo === "trattamento" && <L t="Avversità"><input value={f.avversita} onChange={(e) => setForm({ ...f, avversita: e.target.value })} placeholder="es. peronospora" style={inputStyle} /></L>}
+            {f.tipo !== "rilievo" && <L t={f.tipo === "semina" ? "Seme" : f.tipo === "concimazione" ? "Concime" : "Prodotto"}><input value={f.prodotto} onChange={(e) => setForm({ ...f, prodotto: e.target.value })} style={inputStyle} /></L>}
+            {f.tipo !== "rilievo" && <L t="Dose"><div style={{ display: "flex", gap: 6 }}><input inputMode="decimal" value={f.dose} onChange={(e) => setForm({ ...f, dose: e.target.value })} style={{ ...inputStyle, flex: 1, minWidth: 0 }} /><select value={f.unita} onChange={(e) => setForm({ ...f, unita: e.target.value })} style={{ ...inputStyle, width: 82 }}>{["l/ha", "kg/ha", "ml/ha", "g/ha"].map((u) => <option key={u}>{u}</option>)}</select></div></L>}
+            {f.tipo === "trattamento" && <L t="Acqua (l/ha)"><input inputMode="decimal" value={f.volume_ha} onChange={(e) => setForm({ ...f, volume_ha: e.target.value })} style={inputStyle} /></L>}
+            <L t="Ettari"><input inputMode="decimal" value={f.ettari} onChange={(e) => setForm({ ...f, ettari: e.target.value })} style={inputStyle} /></L>
+          </div>
+          {(totale != null || acqua != null) && <div style={{ fontSize: 12.5, color: "#4ade80" }}>{[totale != null && `Prodotto da portare: ${totale} ${String(f.unita).split("/")[0]}`, acqua != null && `Acqua: ${acqua} l`].filter(Boolean).join(" · ")}</div>}
+          <L t="Note per il pilota"><textarea rows={2} value={f.note} onChange={(e) => setForm({ ...f, note: e.target.value })} placeholder="es. Attenzione alla casa a nord, avvisare il cliente prima" style={{ ...inputStyle, resize: "vertical" }} /></L>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" disabled={salvando} onClick={salva} style={btn(true)}>{salvando ? "Salvo…" : "Salva ordine"}</button>
+            <button type="button" onClick={() => setForm(null)} style={btn(false)}>Annulla</button>
+          </div>
+        </div>
+      )}
+      {!f && daFare.length === 0 && <div style={{ ...scheda, textAlign: "center", color: "#8b95a3", fontSize: 13.5 }}>Nessun lavoro da fare. Prepara il prossimo: campo, data, drone, pilota e prodotto. Lo mandi al pilota su WhatsApp e quando è fatto diventa una riga del registro.</div>}
+      {!f && daFare.map(riga)}
+      {!f && fatti.length > 0 && <button type="button" onClick={() => setMostraFatti(!mostraFatti)} style={{ ...btn(false), alignSelf: "flex-start" }}>{mostraFatti ? "Nascondi" : "Mostra"} i fatti ({fatti.length})</button>}
+      {!f && mostraFatti && fatti.slice(0, 50).map(riga)}
+    </div>
+  );
+}
+
 // --- Appezzamenti ------------------------------------------------------------------------------------
 
-function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selezionato, setSelezionato, onCambiati, onLavoro, onMeteo, nomeCliente, bloccato }) {
+function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selezionato, setSelezionato, onCambiati, onLavoro, onOrdine, onMeteo, nomeCliente, bloccato }) {
   const [importati, setImportati] = useState(null); // anteprima del file di confini
   const [comuni, setComuni] = useState({ cliente_id: "", azienda: "", coltura: "" });
   const [errore, setErrore] = useState("");
@@ -324,6 +616,7 @@ function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selez
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
             <button type="button" onClick={() => onLavoro(campo)} style={btn(true)}>🧪 Registra un lavoro</button>
+            {onOrdine && <button type="button" onClick={() => onOrdine(campo)} style={btn(false)}>📋 Ordine di lavoro</button>}
             <button type="button" onClick={() => onMeteo(campo)} style={btn(false)}>🌦️ Si può trattare?</button>
             {campo.centro_lat != null && <a href={`https://www.google.com/maps/dir/?api=1&destination=${campo.centro_lat},${campo.centro_lon}`} target="_blank" rel="noreferrer" style={{ ...btn(false), textDecoration: "none" }}>🧭 Portami lì</a>}
             <button type="button" onClick={() => setModifica({ ...campo })} style={btn(false)}>✏️ Modifica</button>
@@ -404,23 +697,25 @@ function MiscelaSerbatoio({ dose, unita, volumeHa, ettari, inputStyle }) {
   );
 }
 
-function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azienda, iniziale, onIniziale, onCambiati, bloccato }) {
+function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azienda, iniziale, onIniziale, onCambiati, bloccato, apriImporta, onImportaAperto }) {
   const [form, setForm] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [meteoStato, setMeteoStato] = useState("");
   const [filtro, setFiltro] = useState({ campo: "", azienda: "", da: "", a: "" });
   const [consegna, setConsegna] = useState(null); // dati del report di consegna, quando il riquadro è aperto
+  const [importa, setImporta] = useState(!!apriImporta);
+  useEffect(() => { if (apriImporta) { setImporta(true); onImportaAperto && onImportaAperto(); } /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [apriImporta]);
 
   // arrivo da un campo («Registra un lavoro»): apro il modulo già compilato
   useEffect(() => {
     if (!iniziale) return;
-    nuovo(iniziale.campo || null);
+    nuovo(iniziale.campo || null, iniziale.dati || null);
     onIniziale();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iniziale]);
 
   const ultimoOperatore = trattamenti[0]?.operatore || azienda.nome || "";
-  const nuovo = (campo) => setForm({ ...LAVORO_VUOTO, data: oggi(), operatore: ultimoOperatore, ...(campo ? { appezzamento_id: campo.id, coltura: campo.coltura || "", ettari: campo.ettari != null ? String(campo.ettari) : "" } : {}) });
+  const nuovo = (campo, dati) => setForm({ ...LAVORO_VUOTO, data: oggi(), operatore: ultimoOperatore, ...(campo ? { appezzamento_id: campo.id, coltura: campo.coltura || "", ettari: campo.ettari != null ? String(campo.ettari) : "" } : {}), ...(dati || {}) });
   const campoDi = (id) => campi.find((c) => c.id === id) || null;
 
   const cambiaCampo = (id) => {
@@ -551,9 +846,11 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
     <div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <button type="button" onClick={() => nuovo(null)} disabled={bloccato} style={btn(true)}>➕ Nuovo lavoro</button>
+        <button type="button" onClick={() => setImporta(!importa)} disabled={bloccato} style={btn(false)}>📥 Importa da SmartFarm o Excel</button>
         <button type="button" onClick={() => pdfRegistro(filtrati, campi, azienda, filtro)} disabled={!filtrati.length} style={btn(false)}>📄 Scarica il registro in PDF</button>
         <button type="button" onClick={() => setConsegna(consegna ? null : { cliente: filtro.azienda || "", note: "", pilota: azienda?.nome || "", attestato: "", stato: "" })} disabled={!filtrati.length} style={btn(false)}>📦 Report di consegna</button>
       </div>
+      {importa && <ImportaLavori supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} onFatto={() => { setImporta(false); onCambiati(); }} onChiudi={() => setImporta(false)} />}
       {consegna && (
         <div style={{ ...scheda, marginBottom: 12 }}>
           <strong style={{ fontSize: 13.5 }}>📦 Report di consegna per il cliente</strong>

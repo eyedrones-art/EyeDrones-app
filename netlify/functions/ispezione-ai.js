@@ -29,6 +29,7 @@ Il tuo compito è proporre le segnalazioni: i difetti o le anomalie visibili nel
 Regole:
 - Segnala solo quello che si vede davvero nella foto. Se non c'è niente di anomalo, restituisci un elenco vuoto: è una risposta valida e frequente.
 - Non inventare misure, temperature o cause certe: scrivi «sembra», «probabile». Le temperature lette su un'immagine colorata non sono misure.
+- Se ti do le «temperature misurate» della foto, sono vere (lette dal file termico originale): usale per capire dove sono i punti caldi, ma non scrivere numeri nella descrizione, li aggiunge l'app.
 - Descrizione e consiglio in italiano semplice, frasi brevi, adatti a un cliente che non è un tecnico.
 - Il consiglio indica cosa fare (verifica da vicino, intervento di un tecnico, pulizia, sostituzione), mai prodotti o marche.
 - La gravità: bassa = da tenere d'occhio; media = da sistemare con calma; alta = da sistemare presto; critica = rischio per la sicurezza o danni in corso.
@@ -93,6 +94,7 @@ exports.handler = async (event) => {
   if (!immagine) return json(400, { errore: "Manca la foto." });
   if (Buffer.byteLength(immagine, "base64") > MAX_FOTO) return json(413, { errore: "Foto troppo grande." });
   const nota = String(dati.nota || "").replace(/\s+/g, " ").trim().slice(0, 400);
+  const misurate = String(dati.dati || "").replace(/\s+/g, " ").trim().slice(0, 700);
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   try {
@@ -108,7 +110,7 @@ exports.handler = async (event) => {
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: "image/jpeg", data: immagine } },
-          { type: "text", text: `Tipo di ispezione: ${COMPITI[tipo]}${nota ? `\n\nNota del pilota sull'ispezione: ${nota}` : ""}` },
+          { type: "text", text: `Tipo di ispezione: ${COMPITI[tipo]}${nota ? `\n\nNota del pilota sull'ispezione: ${nota}` : ""}${misurate ? `\n\nTemperature misurate di questa foto: ${misurate}` : ""}` },
         ],
       }],
     });

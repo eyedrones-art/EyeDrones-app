@@ -80,6 +80,9 @@ export function Privacy() {
         <H2>6. Dati delle persone che inserisci (clienti, persone riprese, collaboratori)</H2>
         <p>Quando inserisci dati di altre persone (rubrica clienti, liberatorie, collaboratori, foto in cui si riconoscono persone) <strong>sei tu il titolare di quei dati</strong>: devi avere una base valida (contratto, consenso, liberatoria) e informare le persone. EyeDrones li conserva solo per conto tuo, come responsabile del trattamento, e non li usa per altri scopi. Le regole di questo rapporto sono nelle condizioni d'uso.</p>
 
+        <H2>6-bis. Squadra e collaboratori</H2>
+        <p>Se inviti un collaboratore nella tua <strong>squadra</strong> e lui accetta dal link che riceve per email, vedrà e potrà modificare <strong>le richieste di preventivo, i preventivi, i clienti e i piani di volo</strong> della squadra, e riceverà anche lui le email di lavoro destinate a te (richieste, lavori scelti, messaggi dei clienti, pagamenti). I lavori che segni «Solo mio», o che crei quando hai scelto che i lavori nuovi restino tuoi, non li vede e non ne riceve le email. <strong>Il registro voli, i droni, le batterie, gli attestati, i permessi, i documenti e le fatture restano personali</strong> e non vengono condivisi. Ognuno resta titolare dei propri dati e responsabile della propria attività e dei propri obblighi fiscali. Prima di invitare un collaboratore, assicurati che i tuoi clienti possano essere seguiti anche da lui. Il titolare può togliere il collaboratore, e il collaboratore può uscire, in qualsiasi momento: da quel momento non vede più i dati della squadra. L'invito vale solo per l'email a cui è stato mandato e chi lo riceve può ignorarlo.</p>
+
         <H2>7. Memorie del browser e cookie</H2>
         <p>L'app usa solo memorie tecniche del browser (localStorage e sessionStorage) per tenerti collegato, ricordare le tue preferenze, salvare la copia dei documenti di controllo da usare senza campo, i progressi dei quiz e i file delle zone D-Flight. Non usiamo cookie di profilazione, pubblicità o strumenti di analisi di terze parti: per questo non serve un banner dei cookie. Uscendo dall'account la copia dei documenti viene cancellata dal telefono.</p>
 
@@ -133,6 +136,9 @@ export function Termini() {
           "In «Trova un pilota», quando un cliente sceglie la tua offerta, confermi entro 48 ore; se la commissione è attiva la paghi con la conferma, e solo per i lavori che ottieni. Se lasci scadere 2 scelte, o se il cliente ci dice che l'hai contattato fuori da EyeDrones dopo non aver confermato, non ricevi più richieste in zona. Dopo il lavoro il cliente può darti da 1 a 5 stelle con un breve commento: la media e i commenti si vedono nelle offerte, nell'elenco dei piloti e nella tua pagina.",
           "I posti che consigli sono visibili agli altri utenti registrati, senza il tuo nome.",
         ]} />
+
+        <H2>6-ter. Squadra</H2>
+        <p>Con la <strong>squadra</strong> (inclusa nel piano Pro, un collaboratore) due piloti, ognuno con il suo account e la sua partita IVA, lavorano sulle stesse richieste, preventivi, clienti e piani di volo. Il collaboratore entra solo accettando l'invito. Ciascuno resta responsabile dei lavori che fa, dei voli che esegue (che segna nel proprio registro) e delle proprie fatture: EyeDrones non è parte dei rapporti tra i membri della squadra. Chi invita un collaboratore gli dà accesso ai dati dei clienti condivisi e ne risponde come titolare del trattamento. Ognuno può sciogliere la squadra in qualsiasi momento.</p>
 
         <H2>6-bis. Pagamento protetto («Trova un pilota»)</H2>
         <Lista voci={[

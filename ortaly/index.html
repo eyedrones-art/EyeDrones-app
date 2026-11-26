@@ -496,6 +496,23 @@ form.nuovo .scelta input{width:18px;height:18px;flex:none;padding:0}
 .quando legend{font-weight:700;padding:0 4px}
 .pref-quando{font-size:13.5px;background:#fff7d6;border-radius:10px;padding:6px 10px;margin:4px 0}
 .pref-quando small{color:var(--tenue)}
+
+/* «Cosa cucini stasera?»: si capisce subito che si può partire da una ricetta */
+.tocca-cassa{margin:12px 0 0;text-align:center;font-size:13.5px;font-weight:700;color:var(--tuorlo)}
+.ricette-stagione{background:#fff7e6;border:1px solid #f6dfae;border-radius:20px;padding:18px 16px 16px;margin-top:16px}
+.ricette-stagione h2{font-size:24px}
+.ricette-stagione .sottotitolo{margin:6px 0 0;color:var(--tenue);font-size:14.5px}
+.tre-passi{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+@media (min-width:700px){.tre-passi{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.tre-passi li{display:flex;gap:10px;align-items:center;font-size:14px;background:var(--bianco);border-radius:12px;padding:8px 10px}
+.tre-passi b{flex:none;width:26px;height:26px;border-radius:50%;background:var(--foglia);color:var(--bianco);display:grid;place-items:center;font-size:14px}
+.ric-scorri{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(170px,46%);gap:12px;overflow-x:auto;scrollbar-width:none;padding:14px 2px 4px;scroll-snap-type:x mandatory}
+@media (min-width:700px){.ric-scorri{grid-auto-columns:calc(25% - 9px)}}
+.ric-card{scroll-snap-align:start;border:0;text-align:left;background:var(--bianco);border-radius:16px;box-shadow:var(--ombra);padding:12px;display:flex;flex-direction:column;gap:4px;cursor:pointer;font:inherit;color:inherit}
+.ric-card .ric-em{font-size:40px;line-height:1}
+.ric-card b{font-family:var(--titoli);font-size:16px;line-height:1.2}
+.ric-card small{color:var(--tenue);font-size:12.5px}
+.ric-card i{font-style:normal;color:var(--foglia);font-weight:700;font-size:13px;margin-top:auto;padding-top:4px}
 @media (prefers-reduced-motion:reduce){.ingresso,.anta{transition:opacity .3s!important}.ingresso.dentro{transform:none}}
 </style>
 <style>
@@ -659,6 +676,10 @@ details.problema summary{cursor:pointer;font-weight:700;font-size:14px;color:var
     <div class="cerca"><input id="cerca" type="search" placeholder="Cerca: zucca, toma, miele…" aria-label="Cerca un prodotto"></div>
   </div><aside class="hero-banco" id="heroBanco" aria-hidden="true"></aside></div></section>
   <div class="wrap">
+    <section class="sez ricette-stagione" id="sezCucini"><h2>🍳 Cosa cucini stasera?</h2>
+      <p class="sottotitolo">Non sai cosa comprare? Parti da una ricetta: ti prepariamo la spesa giusta dai produttori vicini.</p>
+      <ol class="tre-passi"><li><b>1</b><span>Scegli una ricetta di stagione</span></li><li><b>2</b><span>Ti diciamo cosa prendere, quanto e il prezzo: niente sprechi</span></li><li><b>3</b><span>Metti tutto nel cestino e cucini passo passo</span></li></ol>
+      <div class="ric-scorri" id="ricetteStagione"></div></section>
     <div id="boxInstallaCompro"></div>
     <div class="stagione" id="stagione"></div>
     <section class="sez" id="sezPreferiti" hidden><h2>❤️ I tuoi produttori <small>da chi compri sempre</small></h2><div class="preferiti" id="preferiti"></div></section>
@@ -938,13 +959,15 @@ function apriCucina(id){const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||
   d.addEventListener("touchend",e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>60&&!e.target.closest(".c-ing"))vai(dx<0?1:-1)});
   d.addEventListener("keydown",e=>{if(e.key==="ArrowRight")vai(1);else if(e.key==="ArrowLeft")vai(-1);else if(e.key==="Escape")chiudi()});
   disegna();setTimeout(()=>{try{d.querySelector(".c-av").focus()}catch(e){}},50)}
+function mostraRicetteStagione(){const el=$("ricetteStagione");if(!el)return;const m=new Date().getMonth();
+  el.innerHTML=BANCO_MESE[m].filter(([e,n])=>RICETTE_PRODOTTO[n]).map(([e,n])=>{const r=RICETTE_PRODOTTO[n][0];return `<button class="ric-card" data-ricette="${esc(n)}"><span class="ric-em">${e}</span><b>${esc(r.n)}</b><small>⏱ ${esc(r.t)} · con ${esc(n.toLowerCase())}</small><i>Vedi ricetta e spesa ›</i></button>`}).join("")}
 function mostraRicetteSalvate(){const el=$("ricetteSalvate");if(!el)return;const l=RIC_SALVATE().map(id=>{const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];return r?{n,r}:null}).filter(Boolean);
   $("sezRicette").hidden=!l.length;
   const V=VOTI();el.innerHTML=RIC_SALVATE().map(id=>{const [n,k]=id.split("|");const r=(RICETTE_PRODOTTO[n]||[])[+k];if(!r)return"";const v=V[id];return `<button class="ric-mini" data-ricette="${esc(n)}"><b>${esc(r.n)}</b><small>${esc(n)} · ⏱ ${esc(r.t)}</small>${v?`<span class="ric-stelle">${stelleTxt(v.stelle)}</span>${v.nota?`<small>«${esc(v.nota)}»</small>`:""}`:""}</button>`}).join("")}
 function mostraBancoTestata(){const el=$("heroBanco");if(!el)return;const m=new Date().getMonth();
   const cassa=([e,n])=>`<button type="button" class="cassa" data-ricette="${esc(n)}" aria-label="Ricette con ${esc(n)}"><div class="pila"><span>${e}</span><span>${e}</span><span>${e}</span></div><div class="assi"></div><div class="nome">${n}</div></button>`;
   const tre=BANCO_MESE[m];
-  el.removeAttribute("aria-hidden");el.innerHTML=`<div class="insegna"><b>Oggi al banco</b><small>${zona==="italia"?"specialità da tutta Italia":MESI[m].toLowerCase()+", di stagione"}</small></div><div class="ripiano">${tre.slice(0,3).map(cassa).join("")}</div><div class="ripiano">${tre.slice(3).map(cassa).join("")}</div>`}
+  el.removeAttribute("aria-hidden");el.innerHTML=`<div class="insegna"><b>Oggi al banco</b><small>${zona==="italia"?"specialità da tutta Italia":MESI[m].toLowerCase()+", di stagione"}</small></div><div class="ripiano">${tre.slice(0,3).map(cassa).join("")}</div><div class="ripiano">${tre.slice(3).map(cassa).join("")}</div><p class="tocca-cassa">👆 Tocca una cassetta: ricette e spesa pronta</p>`}
 function mostraStagione(){mostraBancoTestata();const m=new Date().getMonth();
   $("stagione").innerHTML=zona==="italia"?`<b>Dall'Italia</b><span>Specialità spedite dai produttori di tutta Italia: arrivano con il corriere in pochi giorni.</span>`:`<b>${MESI[m]}</b><span>È il momento di ${STAGIONI[m]}.</span>`}
 function mostraProduttori(){
@@ -990,7 +1013,7 @@ function mostraGriglia(){
     :`<div class="vuoto"><b>${t||cat!=="Tutto"||filtri.bio||filtri.casa||filtri.sped?"Nessun prodotto trovato":"Il banco è ancora vuoto qui"}</b>${altrove?`<button class="link" data-altrazona="1">${altrove===1?"C'è 1 prodotto":"Ci sono "+altrove+" prodotti"} ${zona==="italia"?"nella tua provincia":"in «Dall'Italia»"} ›</button>`:filtri.bio||filtri.casa||filtri.sped?"Prova a togliere qualche filtro.":t||cat!=="Tutto"?"Prova un'altra parola o un'altra categoria.":"Prova «Dall'Italia» o un'altra provincia."}</div>`;
   $("nCarrello").textContent=Object.values(carrello).reduce((s,q)=>s+q,0);
 }
-function aggiornaCompro(){try{mostraRicetteSalvate()}catch(e){};mostraStagione();try{mostraBoxApp()}catch(e){};mostraPreferiti();mostraProduttori();mostraCategorie();mostraGriglia()}
+function aggiornaCompro(){try{mostraRicetteSalvate();mostraRicetteStagione()}catch(e){};mostraStagione();try{mostraBoxApp()}catch(e){};mostraPreferiti();mostraProduttori();mostraCategorie();mostraGriglia()}
 // ── i produttori salvati dal cliente (solo su questo telefono) e «Ordina di nuovo» ──
 const PREF=()=>leggi("preferiti",[]);
 function salvaPref(id,on){const l=PREF().filter(x=>x!==id);if(on)l.unshift(id);salva("preferiti",l.slice(0,30));mostraPreferiti()}
