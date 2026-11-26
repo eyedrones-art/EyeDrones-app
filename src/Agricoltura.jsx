@@ -4,6 +4,7 @@ import MappaCampi from "./MappaCampi.jsx";
 import { TestataPagina } from "./VoloHero.jsx";
 import { pdfConsegnaAgricoltura } from "./reportConsegna.js";
 import FascicoloScia, { controlliScia, unisci } from "./FascicoloScia.jsx";
+import MappeCampo from "./MappeCampo.jsx";
 import { leggiTabella, trovaIntestazione, riconosciColonne, fattoreEttari, numero, dataOra, CAMPI_IMPORT, ettariCella, unitaCella, tipoCella } from "./importaLavori.js";
 import { leggiFileConfini, campiInKml, fasceRispetto, CATEGORIE_RISPETTO, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
 
@@ -150,7 +151,7 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
   const apriOrdine = (campo) => { setNuovoOrdine({ campo }); setVista("ordini"); window.scrollTo(0, 0); };
   const apriMeteo = (campo) => { setCampoMeteo(campo ? campo.id : null); setVista("meteo"); window.scrollTo(0, 0); };
 
-  const linguette = [["campi", "🗺️ Appezzamenti"], ["ordini", `📋 Ordini di lavoro${ordini && ordini.filter((o) => o.stato === "da_fare").length ? ` (${ordini.filter((o) => o.stato === "da_fare").length})` : ""}`], ["trattamenti", "🧪 Registro lavori"], ["meteo", "🌦️ Meteo trattamenti"], ["scia", "📁 Fascicolo SCIA"]];
+  const linguette = [["campi", "🗺️ Appezzamenti"], ["ordini", `📋 Ordini di lavoro${ordini && ordini.filter((o) => o.stato === "da_fare").length ? ` (${ordini.filter((o) => o.stato === "da_fare").length})` : ""}`], ["trattamenti", "🧪 Registro lavori"], ["mappe", "🛰️ Mappe e scouting"], ["meteo", "🌦️ Meteo trattamenti"], ["scia", "📁 Fascicolo SCIA"]];
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
@@ -174,6 +175,8 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
           <Appezzamenti onOrdine={ordini === null ? null : apriOrdine} supabase={supabase} inputStyle={inputStyle} clienti={clienti} campi={campi} trattamenti={trattamenti} selezionato={selezionato} setSelezionato={setSelezionato} onCambiati={carica} onLavoro={apriLavoro} onMeteo={apriMeteo} nomeCliente={nomeCliente} bloccato={mancaTabella} />
         ) : vista === "ordini" ? (
           <OrdiniLavoro supabase={supabase} inputStyle={inputStyle} campi={campi} ordini={ordini} droni={droni} azienda={azienda} trattamenti={trattamenti} iniziale={nuovoOrdine} onIniziale={() => setNuovoOrdine(null)} onCambiati={carica} onRegistra={(campo, dati) => apriLavoro(campo, dati)} />
+        ) : vista === "mappe" ? (
+          <MappeCampo supabase={supabase} inputStyle={inputStyle} campi={campi} />
         ) : vista === "trattamenti" ? (
           <RegistroLavori supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} droni={droni} azienda={azienda} iniziale={nuovoLavoro} onIniziale={() => setNuovoLavoro(null)} onCambiati={carica} bloccato={mancaTabella} />
         ) : vista === "scia" ? (

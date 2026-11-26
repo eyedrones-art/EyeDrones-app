@@ -54,7 +54,7 @@ grant execute on function public.squadra_vede(uuid) to authenticated;
 do $$
 declare t text;
 begin
-  foreach t in array array['richieste_preventivo', 'preventivi', 'clienti', 'piani_volo', 'ordini_lavoro', 'appezzamenti', 'trattamenti'] loop
+  foreach t in array array['richieste_preventivo', 'preventivi', 'clienti', 'piani_volo', 'ordini_lavoro', 'appezzamenti', 'trattamenti', 'mappe_campo', 'punti_scouting'] loop
     if to_regclass('public.' || t) is null then continue; end if;
     execute format('alter table public.%I add column if not exists solo_mio boolean not null default false', t);
     execute format('drop policy if exists "squadra_vede" on public.%I', t);
@@ -206,7 +206,7 @@ revoke all on function privato.metti_solo_mio() from public, anon, authenticated
 do $$
 declare t text;
 begin
-  foreach t in array array['richieste_preventivo', 'preventivi', 'clienti', 'piani_volo', 'ordini_lavoro', 'appezzamenti', 'trattamenti'] loop
+  foreach t in array array['richieste_preventivo', 'preventivi', 'clienti', 'piani_volo', 'ordini_lavoro', 'appezzamenti', 'trattamenti', 'mappe_campo', 'punti_scouting'] loop
     if to_regclass('public.' || t) is null then continue; end if;
     execute format('drop trigger if exists squadra_solo_mio on public.%I', t);
     execute format('create trigger squadra_solo_mio before insert on public.%I for each row execute function privato.metti_solo_mio()', t);
