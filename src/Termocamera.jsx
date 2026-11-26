@@ -61,6 +61,7 @@ export default function Termocamera({ supabase, piano }) {
   const [misure, setMisure] = useState({}); // per foto: [{ tipo, x, y, x2, y2 }]
   const [sotto, setSotto] = useState(null); // ultimo punto toccato { x, y }
   const [primoAngolo, setPrimoAngolo] = useState(null);
+  const [passa, setPassa] = useState(null); // al computer: temperatura sotto il mouse
   const canvas = useRef(null);
   useEffect(() => { try { localStorage.setItem("eyedrones_palette", palette); } catch { /* niente */ } }, [palette]);
 
@@ -188,7 +189,7 @@ export default function Termocamera({ supabase, piano }) {
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 980 }}>
-        <TestataPagina titolo="Termocamera" sigla="R-JPEG · TEMPERATURE · PALETTE" info="Carica le foto termiche originali DJI (R-JPEG): tocca un punto per leggere la temperatura, misura le aree, cambia palette ed esporta l'immagine con le misure." />
+        <TestataPagina titolo="Termocamera" sigla="R-JPEG · TEMPERATURE · PALETTE" info="Da telefono e da computer. Carica le foto termiche originali DJI (R-JPEG): tocca o clicca un punto per leggere la temperatura, misura le aree, cambia palette ed esporta l'immagine con le misure." />
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
           <label style={{ ...btn(true), cursor: "pointer" }}>📷 Carica foto termiche (R-JPEG)
             <input type="file" accept=".jpg,.jpeg,image/jpeg" multiple onChange={(e) => { carica(e.target.files || []); e.target.value = ""; }} style={{ display: "none" }} aria-label="Foto termiche" />
@@ -203,14 +204,18 @@ export default function Termocamera({ supabase, piano }) {
         {foto[scelta] && foto[scelta].stato === "errore" && <div style={{ ...scheda, color: "#ffb877", fontSize: 13, marginBottom: 12 }}>{foto[scelta].errore}</div>}
         {foto[scelta] && (foto[scelta].stato === "leggo" || foto[scelta].stato === "attesa") && <div style={{ fontSize: 13, color: "#9cc4ff", marginBottom: 12 }}>Leggo le temperature…</div>}
         {f && (
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }} data-termo>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start" }} data-termo>
+            <div style={{ flex: "1 1 520px", minWidth: 0, display: "flex", flexDirection: "column", gap: 10, position: "sticky", top: 8 }}>
             <div style={{ position: "relative" }}>
-              <canvas ref={canvas} onClick={tocca} style={{ width: "100%", height: "auto", borderRadius: 10, border: "1px solid #2a3349", cursor: "crosshair", touchAction: "manipulation", display: "block" }} aria-label="Foto termica: tocca per leggere la temperatura" />
+              <canvas ref={canvas} onClick={tocca} onPointerMove={(ev) => { if (f && ev.pointerType === "mouse") { const p = pixel(ev); setPassa({ ...p, t: temp(p.x, p.y), cx: ev.nativeEvent.offsetX, cy: ev.nativeEvent.offsetY }); } }} onPointerLeave={() => setPassa(null)} style={{ width: "100%", height: "auto", borderRadius: 10, border: "1px solid #2a3349", cursor: "crosshair", touchAction: "manipulation", display: "block" }} aria-label="Foto termica: tocca per leggere la temperatura" />
+              {passa && <div style={{ position: "absolute", left: passa.cx + 14, top: passa.cy + 14, background: "#0a0d16dd", border: "1px solid #343e57", borderRadius: 6, padding: "2px 7px", fontSize: 12.5, fontWeight: 700, color: "#e7eaee", pointerEvents: "none", whiteSpace: "nowrap" }} data-temp-mouse>{f1(passa.t)}</div>}
               {sotto && modo === "punto" && <div style={{ position: "absolute", top: 8, left: 8, background: "#0a0d16dd", border: "1px solid #4ade80", borderRadius: 8, padding: "6px 10px", fontSize: 15, fontWeight: 800, color: "#4ade80" }} data-temp-punto>{f1(valoreSotto)}</div>}
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", fontSize: 12.5, color: "#c3cad4" }}>
               <span>▲ max <b style={{ color: "#ff8080" }}>{f1(stat.max)}</b></span><span>▼ min <b style={{ color: "#9cc4ff" }}>{f1(stat.min)}</b></span><span>Δ {(stat.max - stat.min).toFixed(1)} °C</span>
             </div>
+            </div>
+            <div style={{ flex: "1 1 320px", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ ...scheda, display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {Object.entries(PALETTE).map(([k, p]) => { const L = lut(k); const g = [0, 64, 128, 192, 255].map((i) => `rgb(${L[i * 3]},${L[i * 3 + 1]},${L[i * 3 + 2]})`).join(","); return (
@@ -220,7 +225,7 @@ export default function Termocamera({ supabase, piano }) {
                 <button type="button" aria-pressed={modo === "punto"} onClick={() => { setModo("punto"); setPrimoAngolo(null); }} style={{ ...btn(modo === "punto") }}>🎯 Punto</button>
                 <button type="button" aria-pressed={modo === "area"} onClick={() => { setModo("area"); setSotto(null); }} style={{ ...btn(modo === "area") }}>⬚ Area</button>
                 {modo === "punto" && <button type="button" disabled={!sotto} onClick={fissa} style={{ ...btn(false), opacity: sotto ? 1 : 0.5 }}>📌 Fissa il punto</button>}
-                <span style={{ fontSize: 12, color: "#8b95a3" }}>{modo === "punto" ? "Tocca la foto per leggere la temperatura." : primoAngolo ? "Tocca l'angolo opposto." : "Tocca il primo angolo dell'area."}</span>
+                <span style={{ fontSize: 12, color: "#8b95a3" }}>{modo === "punto" ? "Tocca o clicca la foto per leggere la temperatura (al computer basta passarci sopra)." : primoAngolo ? "Tocca l'angolo opposto." : "Tocca il primo angolo dell'area."}</span>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, fontSize: 12, color: "#8b95a3" }}>
                 <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>Scala<select value={scala.auto ? "auto" : "man"} onChange={(e) => setScala({ ...scala, auto: e.target.value === "auto", min: scala.min || (stat.min).toFixed(1), max: scala.max || (stat.max).toFixed(1) })} style={{ background: "#10141f", color: "#e7eaee", border: "1px solid #343e57", borderRadius: 6, padding: 6 }}><option value="auto">Automatica</option><option value="man">Scelgo io</option></select></label>
@@ -245,6 +250,7 @@ export default function Termocamera({ supabase, piano }) {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="button" onClick={esporta} style={btn(true)}>⬇️ Scarica l'immagine con le misure</button>
               {lista.length > 0 && <button type="button" onClick={() => setMisure({ ...misure, [scelta]: [] })} style={btn(false)}>Togli le misure</button>}
+            </div>
             </div>
           </div>
         )}
