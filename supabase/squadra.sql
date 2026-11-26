@@ -1,7 +1,7 @@
 -- EYEDRONES — «👥 Squadra»: due piloti con due partite IVA lavorano sugli stessi lavori, come un'azienda.
 -- Il titolare (con il Pro, o durante il lancio) invita un collega per email da «Collaboratori». Il collega apre il link,
 -- entra con il suo account e accetta. Da quel momento tutti e due vedono e modificano gli stessi:
---   richieste di preventivo, preventivi, clienti, piani di volo.
+--   richieste di preventivo, preventivi, clienti, piani di volo e, se c'è l'agricoltura, campi, ordini e registro lavori.
 -- Restano personali: registro voli, droni, batterie, attestati, permessi, documenti e fatture.
 -- Le email per il pilota (richieste, lavori scelti, messaggi dei clienti, pagamenti) arrivano anche al collega.
 -- Un collega per squadra (incluso nel Pro). Chiunque dei due può sciogliere la squadra quando vuole.
@@ -54,7 +54,7 @@ grant execute on function public.squadra_vede(uuid) to authenticated;
 do $$
 declare t text;
 begin
-  foreach t in array array['richieste_preventivo', 'preventivi', 'clienti', 'piani_volo'] loop
+  foreach t in array array['richieste_preventivo', 'preventivi', 'clienti', 'piani_volo', 'ordini_lavoro', 'appezzamenti', 'trattamenti'] loop
     if to_regclass('public.' || t) is null then continue; end if;
     execute format('alter table public.%I add column if not exists solo_mio boolean not null default false', t);
     execute format('drop policy if exists "squadra_vede" on public.%I', t);
@@ -206,7 +206,7 @@ revoke all on function privato.metti_solo_mio() from public, anon, authenticated
 do $$
 declare t text;
 begin
-  foreach t in array array['richieste_preventivo', 'preventivi', 'clienti', 'piani_volo'] loop
+  foreach t in array array['richieste_preventivo', 'preventivi', 'clienti', 'piani_volo', 'ordini_lavoro', 'appezzamenti', 'trattamenti'] loop
     if to_regclass('public.' || t) is null then continue; end if;
     execute format('drop trigger if exists squadra_solo_mio on public.%I', t);
     execute format('create trigger squadra_solo_mio before insert on public.%I for each row execute function privato.metti_solo_mio()', t);

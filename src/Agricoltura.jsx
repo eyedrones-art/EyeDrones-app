@@ -128,6 +128,7 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
   const [selezionato, setSelezionato] = useState(null);
   const [campoMeteo, setCampoMeteo] = useState(null);
   const [nuovoLavoro, setNuovoLavoro] = useState(null); // dati iniziali del modulo trattamento
+  const [ordini, setOrdini] = useState(null); // null = tabella non ancora creata (ordini-lavoro.sql)
 
   const carica = async () => {
     const [a, t] = await Promise.all([
@@ -137,14 +138,18 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
     if ((a.error && manca(a.error.message)) || (t.error && manca(t.error.message))) { setMancaTabella(true); setCampi([]); return; }
     setCampi(a.data || []);
     setTrattamenti(t.data || []);
+    const o = await supabase.from("ordini_lavoro").select("*").order("data", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false }).limit(500);
+    setOrdini(o.error ? null : o.data || []);
   };
   useEffect(() => { carica(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const nomeCliente = (id) => (clienti.find((c) => c.id === id) || {}).nome || "";
-  const apriLavoro = (campo) => { setNuovoLavoro(campo ? { campo } : {}); setVista("trattamenti"); window.scrollTo(0, 0); };
+  const apriLavoro = (campo, dati) => { setNuovoLavoro(campo || dati ? { campo, dati } : {}); setVista("trattamenti"); window.scrollTo(0, 0); };
+  const [nuovoOrdine, setNuovoOrdine] = useState(null);
+  const apriOrdine = (campo) => { setNuovoOrdine({ campo }); setVista("ordini"); window.scrollTo(0, 0); };
   const apriMeteo = (campo) => { setCampoMeteo(campo ? campo.id : null); setVista("meteo"); window.scrollTo(0, 0); };
 
-  const linguette = [["campi", "🗺️ Appezzamenti"], ["trattamenti", "🧪 Registro lavori"], ["meteo", "🌦️ Meteo trattamenti"], ["scia", "📁 Fascicolo SCIA"]];
+  const linguette = [["campi", "🗺️ Appezzamenti"], ["ordini", `📋 Ordini di lavoro${ordini && ordini.filter((o) => o.stato === "da_fare").length ? ` (${ordini.filter((o) => o.stato === "da_fare").length})` : ""}`], ["trattamenti", "🧪 Registro lavori"], ["meteo", "🌦️ Meteo trattamenti"], ["scia", "📁 Fascicolo SCIA"]];
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
@@ -165,7 +170,9 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
         </div>
 
         {campi === null ? <p style={{ color: "#8b95a3" }}>Carico…</p> : vista === "campi" ? (
-          <Appezzamenti supabase={supabase} inputStyle={inputStyle} clienti={clienti} campi={campi} trattamenti={trattamenti} selezionato={selezionato} setSelezionato={setSelezionato} onCambiati={carica} onLavoro={apriLavoro} onMeteo={apriMeteo} nomeCliente={nomeCliente} bloccato={mancaTabella} />
+          <Appezzamenti onOrdine={ordini === null ? null : apriOrdine} supabase={supabase} inputStyle={inputStyle} clienti={clienti} campi={campi} trattamenti={trattamenti} selezionato={selezionato} setSelezionato={setSelezionato} onCambiati={carica} onLavoro={apriLavoro} onMeteo={apriMeteo} nomeCliente={nomeCliente} bloccato={mancaTabella} />
+        ) : vista === "ordini" ? (
+          <OrdiniLavoro supabase={supabase} inputStyle={inputStyle} campi={campi} ordini={ordini} droni={droni} azienda={azienda} trattamenti={trattamenti} iniziale={nuovoOrdine} onIniziale={() => setNuovoOrdine(null)} onCambiati={carica} onRegistra={(campo, dati) => apriLavoro(campo, dati)} />
         ) : vista === "trattamenti" ? (
           <RegistroLavori supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} droni={droni} azienda={azienda} iniziale={nuovoLavoro} onIniziale={() => setNuovoLavoro(null)} onCambiati={carica} bloccato={mancaTabella} />
         ) : vista === "scia" ? (
@@ -178,9 +185,148 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
   );
 }
 
+// --- Ordini di lavoro (supabase/ordini-lavoro.sql) --------------------------------------------------------
+// Il lavoro preparato prima: campo, tipo, data, drone, pilota, prodotto e dose. Fatto → diventa una riga del registro.
+const ORDINE_VUOTO = { appezzamento_id: "", tipo: "trattamento", data: "", ora: "", coltura: "", avversita: "", prodotto: "", dose: "", unita: "l/ha", volume_ha: "", ettari: "", drone_id: "", pilota: "", note: "" };
+const L = ({ t, children }) => <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "#8b95a3", minWidth: 0 }}>{t}{children}</label>;
+const dataBreve = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" }) : "senza data");
+
+function OrdiniLavoro({ supabase, inputStyle, campi, ordini, droni, azienda, trattamenti, iniziale, onIniziale, onCambiati, onRegistra }) {
+  const [form, setForm] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+  const [conferma, setConferma] = useState(null);
+  const [mostraFatti, setMostraFatti] = useState(false);
+  const campoDi = (id) => campi.find((c) => c.id === id) || null;
+  const piloti = useMemo(() => [...new Set([azienda.nome, ...trattamenti.map((t) => t.operatore), ...(ordini || []).map((o) => o.pilota)].filter(Boolean))].slice(0, 12), [azienda.nome, trattamenti, ordini]);
+
+  const nuovo = (campo) => setForm({ ...ORDINE_VUOTO, data: oggi(), pilota: piloti[0] || "", ...(campo ? { appezzamento_id: campo.id, coltura: campo.coltura || "", ettari: campo.ettari != null ? String(campo.ettari) : "" } : {}) });
+  useEffect(() => { if (!iniziale) return; nuovo(iniziale.campo || null); onIniziale(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [iniziale]);
+
+  if (ordini === null) {
+    return <div style={{ ...scheda, border: "1px solid #f5b94266", background: "#211a0c", fontSize: 13, color: "#ffe2a8" }}>⚙️ Per usare gli ordini di lavoro serve una cosa da fare <strong>una volta sola</strong>: in Supabase apri <strong>SQL Editor</strong>, incolla lo script <strong>supabase/ordini-lavoro.sql</strong> e premi <strong>Run</strong>.</div>;
+  }
+
+  const cambiaCampo = (id) => { const c = campoDi(id); setForm({ ...form, appezzamento_id: id, coltura: form.coltura || c?.coltura || "", ettari: c?.ettari != null ? String(c.ettari) : form.ettari }); };
+  const salva = async () => {
+    const f = form;
+    const c = campoDi(f.appezzamento_id);
+    if (!c && !testo(f.note)) { alert("Scegli il campo (o scrivi nelle note dove si lavora)."); return; }
+    const drone = droni.find((d) => String(d.id) === String(f.drone_id));
+    const dati = {
+      appezzamento_id: c ? c.id : null, campo_nome: c ? c.nome : null, azienda: c ? c.azienda : null, tipo: f.tipo, data: f.data || null, ora: testo(f.ora),
+      coltura: testo(f.coltura), avversita: testo(f.avversita), prodotto: testo(f.prodotto), dose: num(f.dose), unita: f.unita || "l/ha", volume_ha: num(f.volume_ha),
+      ettari: num(f.ettari), drone_id: f.drone_id ? String(f.drone_id) : null, drone_nome: drone ? drone.nome : null, pilota: testo(f.pilota), note: testo(f.note),
+    };
+    setSalvando(true);
+    const { error } = f.id ? await supabase.from("ordini_lavoro").update(dati).eq("id", f.id) : await supabase.from("ordini_lavoro").insert(dati);
+    setSalvando(false);
+    if (error) { alert(`Salvataggio non riuscito: ${error.message}`); return; }
+    setForm(null); onCambiati();
+  };
+  const modifica = (o) => setForm({ ...ORDINE_VUOTO, ...Object.fromEntries(Object.keys(ORDINE_VUOTO).map((k) => [k, o[k] == null ? "" : String(o[k])])), id: o.id });
+  const fatto = async (o) => {
+    await supabase.from("ordini_lavoro").update({ stato: "fatto", fatto_il: new Date().toISOString() }).eq("id", o.id);
+    onCambiati();
+    // il registro lavori si apre già compilato: si aggiungono orari e meteo e si salva
+    onRegistra(campoDi(o.appezzamento_id), {
+      tipo: o.tipo || "trattamento", ...(o.coltura ? { coltura: o.coltura } : {}), avversita: o.avversita || "", prodotto: o.prodotto || "",
+      dose: o.dose != null ? String(o.dose) : "", unita: o.unita || "l/ha", volume_ha: o.volume_ha != null ? String(o.volume_ha) : "",
+      ...(o.ettari != null ? { ettari: String(o.ettari) } : {}), drone_id: o.drone_id || "", ...(o.pilota ? { operatore: o.pilota } : {}),
+      note: o.note || "", ...(o.data ? { data: o.data } : {}),
+    });
+  };
+  const riapri = async (o) => { await supabase.from("ordini_lavoro").update({ stato: "da_fare", fatto_il: null }).eq("id", o.id); onCambiati(); };
+  const elimina = async (o) => { await supabase.from("ordini_lavoro").delete().eq("id", o.id); setConferma(null); onCambiati(); };
+  const testoOrdine = (o) => [
+    `📋 Ordine di lavoro – ${etichettaLavoro(o.tipo)}`,
+    `📅 ${dataBreve(o.data)}${o.ora ? ` ore ${o.ora}` : ""}`,
+    o.campo_nome && `🌾 ${o.campo_nome}${o.azienda ? ` (${o.azienda})` : ""}${o.ettari != null ? ` · ${formattaEttari(o.ettari)}` : ""}`,
+    o.coltura && `Coltura: ${o.coltura}${o.avversita ? ` · ${o.avversita}` : ""}`,
+    o.prodotto && `Prodotto: ${o.prodotto}${o.dose != null ? ` · ${o.dose} ${o.unita || ""}` : ""}${o.volume_ha != null ? ` · acqua ${o.volume_ha} l/ha` : ""}`,
+    o.dose != null && o.ettari != null && `Totale prodotto: ${Math.round(o.dose * o.ettari * 100) / 100} ${String(o.unita || "l/ha").split("/")[0]}`,
+    o.drone_nome && `Drone: ${o.drone_nome}`,
+    o.pilota && `Pilota: ${o.pilota}`,
+    o.note && `Note: ${o.note}`,
+    (() => { const c = campoDi(o.appezzamento_id); return c && c.centro_lat != null ? `📍 https://maps.google.com/?q=${c.centro_lat},${c.centro_lon}` : null; })(),
+  ].filter(Boolean).join("\n");
+
+  const daFare = ordini.filter((o) => o.stato === "da_fare");
+  const fatti = ordini.filter((o) => o.stato === "fatto").sort((a, b) => String(b.fatto_il || "").localeCompare(String(a.fatto_il || "")));
+  const ettariDaFare = daFare.reduce((t, o) => t + (Number(o.ettari) || 0), 0);
+  const f = form;
+  const totale = f && num(f.dose) != null && num(f.ettari) != null ? Math.round(num(f.dose) * num(f.ettari) * 100) / 100 : null;
+  const acqua = f && num(f.volume_ha) != null && num(f.ettari) != null ? Math.round(num(f.volume_ha) * num(f.ettari)) : null;
+
+  const riga = (o) => {
+    const c = campoDi(o.appezzamento_id);
+    const oggiIso = oggi();
+    const ritardo = o.stato === "da_fare" && o.data && o.data < oggiIso;
+    return (
+      <div key={o.id} style={{ ...scheda, padding: 14, display: "flex", flexDirection: "column", gap: 6, border: `1px solid ${ritardo ? "#ff9c9c66" : o.data === oggiIso && o.stato === "da_fare" ? "#4ade8066" : "#2a3349"}`, opacity: o.stato === "fatto" ? 0.8 : 1 }} data-ordine>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5 }}>{(TIPI_LAVORO.find((t) => t.key === o.tipo) || {}).emoji || "📝"} {etichettaLavoro(o.tipo)}{o.campo_nome ? ` · ${o.campo_nome}` : ""}</div>
+          <div style={{ fontSize: 12, color: ritardo ? "#ff9c9c" : o.data === oggiIso ? "#4ade80" : "#8b95a3", fontWeight: 600 }}>{o.stato === "fatto" ? `✅ fatto ${o.fatto_il ? new Date(o.fatto_il).toLocaleDateString("it-IT", { day: "numeric", month: "short" }) : ""}` : `${ritardo ? "⚠️ " : ""}${o.data === oggiIso ? "oggi" : dataBreve(o.data)}${o.ora ? ` · ${o.ora}` : ""}`}</div>
+        </div>
+        <div style={{ fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5 }}>
+          {[o.azienda, o.ettari != null ? formattaEttari(o.ettari) : null, o.coltura, o.prodotto ? `${o.prodotto}${o.dose != null ? ` ${o.dose} ${o.unita || ""}` : ""}` : null].filter(Boolean).join(" · ")}
+        </div>
+        <div style={{ fontSize: 12, color: "#8b95a3" }}>{[o.drone_nome && `Drone: ${o.drone_nome}`, o.pilota && `Pilota: ${o.pilota}`].filter(Boolean).join(" · ") || "Drone e pilota da scegliere"}</div>
+        {o.note && <div style={{ fontSize: 12, color: "#aab3bf", fontStyle: "italic" }}>{o.note}</div>}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+          {o.stato === "da_fare" ? <button type="button" onClick={() => fatto(o)} style={btn(true)}>✅ Fatto: registra</button> : <button type="button" onClick={() => riapri(o)} style={btn(false)}>↩︎ Riapri</button>}
+          <a href={`https://wa.me/?text=${encodeURIComponent(testoOrdine(o))}`} target="_blank" rel="noopener noreferrer" style={{ ...btn(false), textDecoration: "none" }}>📤 Manda al pilota</a>
+          {c && c.centro_lat != null && <a href={`https://www.google.com/maps/dir/?api=1&destination=${c.centro_lat},${c.centro_lon}`} target="_blank" rel="noopener noreferrer" style={{ ...btn(false), textDecoration: "none" }}>📍 Portami</a>}
+          {o.stato === "da_fare" && <button type="button" onClick={() => modifica(o)} style={btn(false)}>Modifica</button>}
+          {conferma === o.id ? <><button type="button" onClick={() => elimina(o)} style={{ ...btn(false), color: "#ff9c9c" }}>Sì, elimina</button><button type="button" onClick={() => setConferma(null)} style={btn(false)}>No</button></> : <button type="button" onClick={() => setConferma(o.id)} style={{ ...btn(false), color: "#ff9c9c" }}>Elimina</button>}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {!f && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 13, color: "#c3cad4" }}><b>{daFare.length}</b> da fare{ettariDaFare ? ` · ${formattaEttari(ettariDaFare)}` : ""}</div>
+          <button type="button" onClick={() => nuovo(null)} style={btn(true)}>＋ Nuovo ordine</button>
+        </div>
+      )}
+      {f && (
+        <div style={{ ...scheda, border: "1px solid #ff8c4266", display: "flex", flexDirection: "column", gap: 10 }} data-modulo-ordine>
+          <div style={{ fontWeight: 700 }}>{f.id ? "Modifica ordine" : "Nuovo ordine di lavoro"}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
+            <L t="Campo"><select value={f.appezzamento_id} onChange={(e) => cambiaCampo(e.target.value)} style={inputStyle} aria-label="Campo"><option value="">— scegli —</option>{campi.map((c) => <option key={c.id} value={c.id}>{c.nome}{c.azienda ? ` · ${c.azienda}` : ""}{c.ettari != null ? ` · ${formattaEttari(c.ettari)}` : ""}</option>)}</select></L>
+            <L t="Lavoro"><select value={f.tipo} onChange={(e) => setForm({ ...f, tipo: e.target.value })} style={inputStyle}>{TIPI_LAVORO.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}</select></L>
+            <L t="Data"><input type="date" value={f.data} onChange={(e) => setForm({ ...f, data: e.target.value })} style={inputStyle} /></L>
+            <L t="Ora (facoltativa)"><input type="time" value={f.ora} onChange={(e) => setForm({ ...f, ora: e.target.value })} style={inputStyle} /></L>
+            <L t="Drone"><select value={f.drone_id} onChange={(e) => setForm({ ...f, drone_id: e.target.value })} style={inputStyle}><option value="">— da scegliere —</option>{droni.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}</select></L>
+            <L t="Pilota"><input list="piloti-ordine" value={f.pilota} onChange={(e) => setForm({ ...f, pilota: e.target.value })} placeholder="Chi vola" style={inputStyle} /><datalist id="piloti-ordine">{piloti.map((x) => <option key={x} value={x} />)}</datalist></L>
+            <L t="Coltura"><input value={f.coltura} onChange={(e) => setForm({ ...f, coltura: e.target.value })} style={inputStyle} /></L>
+            {f.tipo === "trattamento" && <L t="Avversità"><input value={f.avversita} onChange={(e) => setForm({ ...f, avversita: e.target.value })} placeholder="es. peronospora" style={inputStyle} /></L>}
+            {f.tipo !== "rilievo" && <L t={f.tipo === "semina" ? "Seme" : f.tipo === "concimazione" ? "Concime" : "Prodotto"}><input value={f.prodotto} onChange={(e) => setForm({ ...f, prodotto: e.target.value })} style={inputStyle} /></L>}
+            {f.tipo !== "rilievo" && <L t="Dose"><div style={{ display: "flex", gap: 6 }}><input inputMode="decimal" value={f.dose} onChange={(e) => setForm({ ...f, dose: e.target.value })} style={{ ...inputStyle, flex: 1, minWidth: 0 }} /><select value={f.unita} onChange={(e) => setForm({ ...f, unita: e.target.value })} style={{ ...inputStyle, width: 82 }}>{["l/ha", "kg/ha", "ml/ha", "g/ha"].map((u) => <option key={u}>{u}</option>)}</select></div></L>}
+            {f.tipo === "trattamento" && <L t="Acqua (l/ha)"><input inputMode="decimal" value={f.volume_ha} onChange={(e) => setForm({ ...f, volume_ha: e.target.value })} style={inputStyle} /></L>}
+            <L t="Ettari"><input inputMode="decimal" value={f.ettari} onChange={(e) => setForm({ ...f, ettari: e.target.value })} style={inputStyle} /></L>
+          </div>
+          {(totale != null || acqua != null) && <div style={{ fontSize: 12.5, color: "#4ade80" }}>{[totale != null && `Prodotto da portare: ${totale} ${String(f.unita).split("/")[0]}`, acqua != null && `Acqua: ${acqua} l`].filter(Boolean).join(" · ")}</div>}
+          <L t="Note per il pilota"><textarea rows={2} value={f.note} onChange={(e) => setForm({ ...f, note: e.target.value })} placeholder="es. Attenzione alla casa a nord, avvisare il cliente prima" style={{ ...inputStyle, resize: "vertical" }} /></L>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" disabled={salvando} onClick={salva} style={btn(true)}>{salvando ? "Salvo…" : "Salva ordine"}</button>
+            <button type="button" onClick={() => setForm(null)} style={btn(false)}>Annulla</button>
+          </div>
+        </div>
+      )}
+      {!f && daFare.length === 0 && <div style={{ ...scheda, textAlign: "center", color: "#8b95a3", fontSize: 13.5 }}>Nessun lavoro da fare. Prepara il prossimo: campo, data, drone, pilota e prodotto. Lo mandi al pilota su WhatsApp e quando è fatto diventa una riga del registro.</div>}
+      {!f && daFare.map(riga)}
+      {!f && fatti.length > 0 && <button type="button" onClick={() => setMostraFatti(!mostraFatti)} style={{ ...btn(false), alignSelf: "flex-start" }}>{mostraFatti ? "Nascondi" : "Mostra"} i fatti ({fatti.length})</button>}
+      {!f && mostraFatti && fatti.slice(0, 50).map(riga)}
+    </div>
+  );
+}
+
 // --- Appezzamenti ------------------------------------------------------------------------------------
 
-function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selezionato, setSelezionato, onCambiati, onLavoro, onMeteo, nomeCliente, bloccato }) {
+function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selezionato, setSelezionato, onCambiati, onLavoro, onOrdine, onMeteo, nomeCliente, bloccato }) {
   const [importati, setImportati] = useState(null); // anteprima del file di confini
   const [comuni, setComuni] = useState({ cliente_id: "", azienda: "", coltura: "" });
   const [errore, setErrore] = useState("");
@@ -324,6 +470,7 @@ function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selez
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
             <button type="button" onClick={() => onLavoro(campo)} style={btn(true)}>🧪 Registra un lavoro</button>
+            {onOrdine && <button type="button" onClick={() => onOrdine(campo)} style={btn(false)}>📋 Ordine di lavoro</button>}
             <button type="button" onClick={() => onMeteo(campo)} style={btn(false)}>🌦️ Si può trattare?</button>
             {campo.centro_lat != null && <a href={`https://www.google.com/maps/dir/?api=1&destination=${campo.centro_lat},${campo.centro_lon}`} target="_blank" rel="noreferrer" style={{ ...btn(false), textDecoration: "none" }}>🧭 Portami lì</a>}
             <button type="button" onClick={() => setModifica({ ...campo })} style={btn(false)}>✏️ Modifica</button>
@@ -414,13 +561,13 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
   // arrivo da un campo («Registra un lavoro»): apro il modulo già compilato
   useEffect(() => {
     if (!iniziale) return;
-    nuovo(iniziale.campo || null);
+    nuovo(iniziale.campo || null, iniziale.dati || null);
     onIniziale();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iniziale]);
 
   const ultimoOperatore = trattamenti[0]?.operatore || azienda.nome || "";
-  const nuovo = (campo) => setForm({ ...LAVORO_VUOTO, data: oggi(), operatore: ultimoOperatore, ...(campo ? { appezzamento_id: campo.id, coltura: campo.coltura || "", ettari: campo.ettari != null ? String(campo.ettari) : "" } : {}) });
+  const nuovo = (campo, dati) => setForm({ ...LAVORO_VUOTO, data: oggi(), operatore: ultimoOperatore, ...(campo ? { appezzamento_id: campo.id, coltura: campo.coltura || "", ettari: campo.ettari != null ? String(campo.ettari) : "" } : {}), ...(dati || {}) });
   const campoDi = (id) => campi.find((c) => c.id === id) || null;
 
   const cambiaCampo = (id) => {
