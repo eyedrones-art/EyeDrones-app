@@ -4394,22 +4394,17 @@ function Cartelle({ spazi, impianti = [], voli = [], onApri, onAggiungi }) {
   };
   const avviso = { ispezioni: anomalie > 0, rilievi: daFare > 0 };
   return (
-    <section style={{ marginBottom: 22 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "#c3cad4", marginBottom: 10 }}>📁 Le tue cartelle</div>
-      <div className="cartelle">
+    <section style={{ marginBottom: 18 }} data-cartelle>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8b95a3", marginBottom: 8 }}>📁 Le tue cartelle</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {spazi.map((x) => (
-          <button key={x.key} type="button" onClick={() => onApri(x.key)} className="cartella">
-            <span className="cartella-linguetta" aria-hidden="true" />
-            <span style={{ fontSize: 30, lineHeight: 1 }}>{x.emoji}</span>
-            <span style={{ display: "block", fontSize: 15.5, fontWeight: 800, marginTop: 8 }}>{x.nome}</span>
-            <span style={{ display: "block", fontSize: 12, color: avviso[x.key] ? "#f5b942" : "#8b95a3", marginTop: 3, lineHeight: 1.35 }}>{riga[x.key]}</span>
+          <button key={x.key} type="button" onClick={() => onApri(x.key)} title={riga[x.key]} style={{ display: "flex", alignItems: "center", gap: 8, background: "#151b2b", border: `1px solid ${avviso[x.key] ? "#f5b94288" : "#ff8c4255"}`, borderRadius: 999, padding: "7px 14px 7px 10px", color: "#e7eaee", fontSize: 13.5, fontWeight: 700, minHeight: 40, maxWidth: "100%" }}>
+            <span style={{ fontSize: 18, lineHeight: 1 }}>{x.emoji}</span>{x.nome}
+            {avviso[x.key] && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#f5b942" }} aria-label={riga[x.key]} />}
           </button>
         ))}
         {spazi.length < SPAZI.length && (
-          <button type="button" onClick={onAggiungi} className="cartella cartella-nuova">
-            <span style={{ fontSize: 26, lineHeight: 1, color: "#6b7480" }}>＋</span>
-            <span style={{ display: "block", fontSize: 13.5, fontWeight: 700, marginTop: 8, color: "#8b95a3" }}>Aggiungi una cartella</span>
-          </button>
+          <button type="button" onClick={onAggiungi} style={{ background: "transparent", border: "1px dashed #343e57", borderRadius: 999, padding: "7px 14px", color: "#8b95a3", fontSize: 13, fontWeight: 700, minHeight: 40 }}>＋ Aggiungi</button>
         )}
       </div>
     </section>

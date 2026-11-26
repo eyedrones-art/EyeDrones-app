@@ -13,6 +13,8 @@ const STRATI = {
 const fermo = () => {
   try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches || localStorage.getItem("eyedrones_animazioni") === "no"; } catch { return false; }
 };
+// sul telefono l'immagine che si muove scorrendo sfarfalla: resta ferma (l'effetto resta al computer)
+const fermoScorrendo = () => { try { return fermo() || window.matchMedia("(pointer: coarse), (max-width: 760px)").matches; } catch { return false; } };
 
 export default function VoloHero({ data, titolo, sottotitolo, children }) {
   const radice = useRef(null);
@@ -148,7 +150,7 @@ export function TestataPagina({ titolo, sigla, foto, sotto, icona: Icona, info, 
   const [aperta, setAperta] = useState(false);
   const radice = useRef(null), img = useRef(null), testo = useRef(null);
   useEffect(() => {
-    if (fermo()) return undefined;
+    if (fermoScorrendo()) return undefined;
     let giro = 0;
     const disegna = () => {
       giro = 0;
