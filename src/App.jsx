@@ -53,6 +53,27 @@ const invitoSquadraInAttesa = () => { try { return /^[a-f0-9]{32}$/.test(localSt
 const delCollega = (riga) => !!(riga && riga.user_id && MIO_ID && riga.user_id !== MIO_ID);
 const EtichettaCollega = ({ riga }) => (delCollega(riga) ? <span title="Fatto dal tuo collega di squadra" style={{ fontSize: 10.5, fontWeight: 700, background: "#7e3af233", color: "#c4b5fd", border: "1px solid #7e3af266", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle", whiteSpace: "nowrap" }}>👥 del collega</span> : null);
 const CODICE_SQUADRA = "eyedrones_squadra";
+let IN_SQUADRA = false; // lo aggiorna AppShell: solo in squadra compare «🔒 Solo mio»
+// «🔒 Solo mio»: sulle mie righe, quando sono in squadra, scelgo se il collega le vede
+function SoloMio({ riga, tabella }) {
+  const [solo, setSolo] = useState(!!(riga && riga.solo_mio));
+  const [lavoro, setLavoro] = useState(false);
+  useEffect(() => { setSolo(!!(riga && riga.solo_mio)); }, [riga && riga.solo_mio]);
+  if (!IN_SQUADRA || !riga || delCollega(riga)) return null;
+  const cambia = async (e) => {
+    e.stopPropagation();
+    setLavoro(true);
+    const { error } = await supabase.from(tabella).update({ solo_mio: !solo }).eq("id", riga.id);
+    setLavoro(false);
+    if (!error) { setSolo(!solo); riga.solo_mio = !solo; }
+  };
+  return (
+    <button type="button" onClick={cambia} disabled={lavoro} aria-pressed={solo} title={solo ? "Solo tuo: il collega non lo vede. Tocca per condividerlo." : "Condiviso con il collega. Tocca per tenerlo solo tuo."}
+      style={{ fontSize: 10.5, fontWeight: 700, background: solo ? "#3a2a12" : "#16233a", color: solo ? "#ffb877" : "#9cc4ff", border: `1px solid ${solo ? "#ff8c4266" : "#3d8bfd55"}`, borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle", whiteSpace: "nowrap", cursor: "pointer" }}>
+      {solo ? "🔒 Solo mio" : "👥 Condiviso"}
+    </button>
+  );
+}
 const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
 const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
 const PraticaEnac = pigro(() => import("./PraticaEnac.jsx"));
@@ -1990,6 +2011,10 @@ function AppShell({ session }) {
   useEffect(() => { if (vaiARichieste || vaiAControllo || vaiAQui || vaiAVoli || vaiAltro) window.history.replaceState(null, "", window.location.pathname); }, []);
   // «👥 Squadra»: se è arrivato dal link dell'invito, appena è dentro lo accetto
   const [esitoSquadra, setEsitoSquadra] = useState(null);
+  const [inSquadra, setInSquadra] = useState(false);
+  IN_SQUADRA = inSquadra;
+  const controllaSquadra = () => supabase.rpc("squadra_mia").then(({ data }) => setInSquadra(!!(data && data.stato === "attivo")), () => {});
+  useEffect(() => { controllaSquadra(); }, []);
   useEffect(() => {
     let codice = null;
     try { codice = localStorage.getItem(CODICE_SQUADRA); } catch { /* niente */ }
@@ -2001,7 +2026,7 @@ function AppShell({ session }) {
       if (error || !data || data.errore) { setEsitoSquadra({ ok: false, testo: (data && data.errore) || "Non sono riuscito ad accettare l'invito: chiedi al collega di mandartene uno nuovo." }); return; }
       setEsitoSquadra({ ok: true, testo: `👥 Ora sei nella squadra di ${data.collega || "un collega"}: vedete gli stessi lavori.` });
       setPage("collaboratori");
-      loadData(); caricaClienti();
+      loadData(); caricaClienti(); controllaSquadra();
     }, () => {});
   }, []);
   // primi passi: il tasto Controllo è «provato» appena si apre la sua pagina
@@ -5781,7 +5806,7 @@ function Clienti({ clienti, preventivi = [], onCambiati, onApriPreventivi }) {
               <div key={c.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, padding: "12px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center", cursor: "pointer" }} onClick={() => setEspanso(aperta ? null : c.id)}>
                   <div>
-                    <div style={{ fontSize: 14.5, fontWeight: 700 }}>{c.nome}<EtichettaCollega riga={c} /></div>
+                    <div style={{ fontSize: 14.5, fontWeight: 700 }}>{c.nome}<EtichettaCollega riga={c} /><SoloMio riga={c} tabella="clienti" /></div>
                     <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
                       {suoi.length > 0 ? `${suoi.length} ${suoi.length === 1 ? "preventivo" : "preventivi"}` : "Nessun preventivo"}
                       {incassato > 0 && <> · <span style={{ color: "#4ade80" }}>incassato {euro(incassato)}</span></>}
@@ -6404,7 +6429,7 @@ function Preventivi({ preventivi, clienti = [], onClientiCambiati, azienda, pian
             return (
               <div key={p.id} style={{ background: "#151b2b", border: "1px solid #2a3349", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.24)", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.cliente} {p.numero && <span style={{ color: "#6b7480", fontWeight: 400, fontSize: 12 }}>· {p.numero}</span>}<EtichettaCollega riga={p} /></div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.cliente} {p.numero && <span style={{ color: "#6b7480", fontWeight: 400, fontSize: 12 }}>· {p.numero}</span>}<EtichettaCollega riga={p} /><SoloMio riga={p} tabella="preventivi" /></div>
                   <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 2 }}>
                     {p.luogo_intervento && <>{p.luogo_intervento} &middot; </>}{formatData(p.data)} &middot; <span className="mono">{Number(p.prezzo).toFixed(2)} €</span>
                   </div>
@@ -10783,7 +10808,7 @@ function PianificazioneVolo({ tipoPredefinito, azienda, impianti, onVaiRegistroC
             {pianiSalvati.map((p) => (
               <div key={p.id} style={{ background: "#151b2b", border: editingId === p.id ? "1px solid #ff8c42" : "1px solid #232b3f", borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.impianto_nome} {editingId === p.id && <span style={{ color: "#ff8c42", fontWeight: 400, fontSize: 11.5 }}>— in modifica</span>}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.impianto_nome}<EtichettaCollega riga={p} /><SoloMio riga={p} tabella="piani_volo" /> {editingId === p.id && <span style={{ color: "#ff8c42", fontWeight: 400, fontSize: 11.5 }}>— in modifica</span>}</div>
                   <div style={{ fontSize: 12, color: "#8b95a3" }}>{formatData(p.data_prevista)}{p.ora_prevista ? ` · ore ${String(p.ora_prevista).slice(0, 5)}` : ""} · {ETICHETTE_TIPO_PIANO[p.tipo_ispezione] || p.tipo_ispezione}</div>
                   {p.checklist_stato?.zona && (() => {
                     const zz = p.checklist_stato.zona.zone || [];
@@ -13972,7 +13997,7 @@ function LaMiaPagina({ schedaIniziale = "pagina", azienda, attestati, piano, onR
     return (
       <div key={r.id} style={{ background: "#151b2b", border: `1px solid ${evidenziata ? "#ff8c4288" : "#2a3349"}`, borderRadius: 10, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{r.nome}<EtichettaCollega riga={r} />{evidenziata && <span style={{ fontSize: 10.5, fontWeight: 700, background: "#ff8c42", color: "#10141f", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle" }}>NUOVA</span>}</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{r.nome}<EtichettaCollega riga={r} /><SoloMio riga={r} tabella="richieste_preventivo" />{evidenziata && <span style={{ fontSize: 10.5, fontWeight: 700, background: "#ff8c42", color: "#10141f", borderRadius: 10, padding: "1px 7px", marginLeft: 8, verticalAlign: "middle" }}>NUOVA</span>}</div>
           <div style={{ fontSize: 12, color: "#8b95a3" }}>{new Date(r.created_at).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
         </div>
         <div style={{ fontSize: 13, color: "#c3cad4", display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>

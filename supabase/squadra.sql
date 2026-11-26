@@ -5,6 +5,8 @@
 -- Restano personali: registro voli, droni, batterie, attestati, permessi, documenti e fatture.
 -- Le email per il pilota (richieste, lavori scelti, messaggi dei clienti, pagamenti) arrivano anche al collega.
 -- Un collega per squadra (incluso nel Pro). Chiunque dei due può sciogliere la squadra quando vuole.
+-- «🔒 Solo mio»: ogni lavoro si può tenere privato (il collega non lo vede), e ognuno può scegliere che i suoi
+-- lavori nuovi nascano già privati.
 -- Serve aver già eseguito trova-pilota.sql e avviso-richieste-email.sql. Da eseguire una volta: SQL Editor → Run.
 -- Si può rieseguire.
 
@@ -19,6 +21,8 @@ create table if not exists public.squadra (
   creato_il timestamptz not null default now(),
   accettato_il timestamptz
 );
+alter table public.squadra add column if not exists privato_titolare boolean not null default false;
+alter table public.squadra add column if not exists privato_membro boolean not null default false;
 create unique index if not exists squadra_un_titolare on public.squadra (titolare);
 create unique index if not exists squadra_un_membro on public.squadra (membro) where membro is not null;
 alter table public.squadra enable row level security;
@@ -44,17 +48,19 @@ $$;
 revoke all on function public.squadra_vede(uuid) from public, anon;
 grant execute on function public.squadra_vede(uuid) to authenticated;
 
--- 4) le regole in più: il compagno vede e modifica (non cancella) richieste, preventivi, clienti e piani di volo.
+-- 4) le regole in più: il compagno vede e modifica (non cancella) richieste, preventivi, clienti e piani di volo,
+--    tranne quelli segnati «🔒 Solo mio» (solo_mio).
 --    Si aggiungono a quelle che ci sono già (ognuno continua a vedere le sue cose come prima).
 do $$
 declare t text;
 begin
   foreach t in array array['richieste_preventivo', 'preventivi', 'clienti', 'piani_volo'] loop
     if to_regclass('public.' || t) is null then continue; end if;
+    execute format('alter table public.%I add column if not exists solo_mio boolean not null default false', t);
     execute format('drop policy if exists "squadra_vede" on public.%I', t);
     execute format('drop policy if exists "squadra_modifica" on public.%I', t);
-    execute format('create policy "squadra_vede" on public.%I for select to authenticated using (public.squadra_vede(user_id))', t);
-    execute format('create policy "squadra_modifica" on public.%I for update to authenticated using (public.squadra_vede(user_id)) with check (public.squadra_vede(user_id))', t);
+    execute format('create policy "squadra_vede" on public.%I for select to authenticated using (public.squadra_vede(user_id) and not solo_mio)', t);
+    execute format('create policy "squadra_modifica" on public.%I for update to authenticated using (public.squadra_vede(user_id) and not solo_mio) with check (public.squadra_vede(user_id))', t);
   end loop;
 end $$;
 
@@ -76,10 +82,10 @@ begin
   if s.titolare = v_uid then
     return jsonb_build_object('ruolo', 'titolare', 'stato', s.stato, 'email', s.email,
       'collega', case when s.membro is not null then privato.squadra_nome(s.membro) end,
-      'collega_id', s.membro, 'dal', coalesce(s.accettato_il, s.creato_il));
+      'collega_id', s.membro, 'dal', coalesce(s.accettato_il, s.creato_il), 'solo_miei', s.privato_titolare);
   end if;
   return jsonb_build_object('ruolo', 'membro', 'stato', s.stato, 'collega', privato.squadra_nome(s.titolare),
-    'collega_id', s.titolare, 'dal', s.accettato_il);
+    'collega_id', s.titolare, 'dal', s.accettato_il, 'solo_miei', s.privato_membro);
 end $$;
 revoke all on function public.squadra_mia() from public, anon;
 grant execute on function public.squadra_mia() to authenticated;
@@ -168,6 +174,45 @@ end $$;
 revoke all on function public.squadra_togli() from public, anon;
 grant execute on function public.squadra_togli() to authenticated;
 
+-- 9-bis) «🔒 Solo mio»: i miei lavori nuovi nascono già privati? (ognuno sceglie per sé)
+create or replace function privato.nuovi_solo_miei(p_uid uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select case when s.titolare = p_uid then s.privato_titolare else s.privato_membro end
+    from public.squadra s where s.stato = 'attivo' and (s.titolare = p_uid or s.membro = p_uid) limit 1), false);
+$$;
+revoke all on function privato.nuovi_solo_miei(uuid) from public, anon, authenticated;
+
+create or replace function public.squadra_solo_miei(p_si boolean)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_uid uuid := auth.uid();
+begin
+  if v_uid is null then return jsonb_build_object('errore', 'Entra nell''app.'); end if;
+  update public.squadra set privato_titolare = coalesce(p_si, false) where titolare = v_uid;
+  update public.squadra set privato_membro = coalesce(p_si, false) where membro = v_uid;
+  return jsonb_build_object('ok', true);
+end $$;
+revoke all on function public.squadra_solo_miei(boolean) from public, anon;
+grant execute on function public.squadra_solo_miei(boolean) to authenticated;
+
+create or replace function privato.metti_solo_mio()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if not new.solo_mio and privato.nuovi_solo_miei(new.user_id) then new.solo_mio := true; end if;
+  return new;
+exception when others then return new;
+end $$;
+revoke all on function privato.metti_solo_mio() from public, anon, authenticated;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['richieste_preventivo', 'preventivi', 'clienti', 'piani_volo'] loop
+    if to_regclass('public.' || t) is null then continue; end if;
+    execute format('drop trigger if exists squadra_solo_mio on public.%I', t);
+    execute format('create trigger squadra_solo_mio before insert on public.%I for each row execute function privato.metti_solo_mio()', t);
+  end loop;
+end $$;
+
 -- 10) le email per il pilota arrivano anche al compagno di squadra: chi è il compagno di questa email?
 create or replace function privato.email_compagno(p_email text)
 returns text language sql stable security definer set search_path = public as $$
@@ -177,6 +222,7 @@ returns text language sql stable security definer set search_path = public as $$
   where lower(btrim(coalesce(p_email, ''))) <> ''
     and (lower(u.email) = lower(btrim(p_email)) or lower(nullif(p.email, '')) = lower(btrim(p_email)))
     and privato.compagno(u.id) is not null
+    and not privato.nuovi_solo_miei(u.id)
   limit 1;
 $$;
 revoke all on function privato.email_compagno(text) from public, anon, authenticated;
@@ -212,6 +258,7 @@ create or replace function public.avvisa_richiesta_squadra()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare v_url text; v_segreto text; v_compagno uuid; v_email text; v_nome text;
 begin
+  if new.solo_mio then return new; end if;  -- «🔒 Solo mio»: il collega non la vede, niente email
   v_compagno := privato.compagno(new.user_id);
   if v_compagno is null then return new; end if;
   v_email := privato.pilota_contatto(v_compagno) ->> 'email';

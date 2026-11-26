@@ -50,6 +50,13 @@ export function SquadraBox({ supabase, inputStyle, piano }) {
     if (error || (data && data.errore)) { setMsg({ t: (data && data.errore) || "Invito non riuscito, riprova.", ok: false }); return; }
     setMsg({ t: `Invito mandato a ${email.trim()}. Quando accetta, vedete gli stessi lavori.`, ok: true }); setEmail(""); carica();
   };
+  const soloMiei = async (si) => {
+    setLavoro(true);
+    const { data, error } = await supabase.rpc("squadra_solo_miei", { p_si: si });
+    setLavoro(false);
+    if (error || (data && data.errore)) { setMsg({ t: "Non riuscito, riprova.", ok: false }); return; }
+    setMia({ ...mia, solo_miei: si });
+  };
   const togli = async () => {
     setLavoro(true);
     const { data, error } = await supabase.rpc("squadra_togli");
@@ -88,15 +95,21 @@ export function SquadraBox({ supabase, inputStyle, piano }) {
       )}
       {mia.ruolo === "titolare" && mia.stato === "attivo" && (
         <>
-          <div style={{ fontSize: 13, color: "#c3cad4", lineHeight: 1.5 }}>Sei in squadra con <b>{mia.collega}</b>. Vedete gli stessi lavori: quelli fatti dal collega hanno l'etichetta «👥 del collega».</div>
+          <div style={{ fontSize: 13, color: "#c3cad4", lineHeight: 1.5 }}>Sei in squadra con <b>{mia.collega}</b>. Vedete gli stessi lavori, tranne quelli segnati «🔒 Solo mio». Quelli fatti dal collega hanno l'etichetta «👥 del collega».</div>
           {!conferma && <div style={{ marginTop: 10 }}><button type="button" onClick={() => setConferma(true)} style={btn(false)}>Togli dalla squadra</button></div>}
         </>
       )}
       {mia.ruolo === "membro" && (
         <>
-          <div style={{ fontSize: 13, color: "#c3cad4", lineHeight: 1.5 }}>Sei nella squadra di <b>{mia.collega}</b>. Vedete gli stessi lavori: quelli fatti dal collega hanno l'etichetta «👥 del collega».</div>
+          <div style={{ fontSize: 13, color: "#c3cad4", lineHeight: 1.5 }}>Sei nella squadra di <b>{mia.collega}</b>. Vedete gli stessi lavori, tranne quelli segnati «🔒 Solo mio». Quelli fatti dal collega hanno l'etichetta «👥 del collega».</div>
           {!conferma && <div style={{ marginTop: 10 }}><button type="button" onClick={() => setConferma(true)} style={btn(false)}>Esci dalla squadra</button></div>}
         </>
+      )}
+      {mia.stato === "attivo" && (
+        <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 12, fontSize: 12.5, color: "#c3cad4", lineHeight: 1.45, cursor: "pointer" }}>
+          <input type="checkbox" checked={!!mia.solo_miei} disabled={lavoro} onChange={(e) => soloMiei(e.target.checked)} style={{ marginTop: 2 }} />
+          <span><b>🔒 I lavori nuovi che creo restano solo miei.</b> Su ogni lavoro puoi comunque toccare «🔒 Solo mio» o «👥 Condiviso» per cambiare. Le email dei tuoi lavori privati non arrivano al collega.</span>
+        </label>
       )}
       {chiudi}
       {msg && <div role="status" style={{ fontSize: 12.5, marginTop: 10, color: msg.ok ? "#4ade80" : "#ff9c9c" }}>{msg.t}</div>}
