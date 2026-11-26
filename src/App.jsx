@@ -77,6 +77,7 @@ function SoloMio({ riga, tabella }) {
 const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
 const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
 const PraticaEnac = pigro(() => import("./PraticaEnac.jsx"));
+const SpecificSora = pigro(() => import("./SpecificSora.jsx"));
 const AnalisiAI = pigro(() => import("./AnalisiAI.jsx"));
 const IspezioneAI = pigro(() => import("./IspezioneAI.jsx"));
 const Anteprima3D = pigro(() => import("./Anteprima3D.jsx"));
@@ -1975,7 +1976,7 @@ function AppAutenticata() {
 function AppShell({ session }) {
   MIO_ID = session && session.user ? session.user.id : null;
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "funzioni", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "specific", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "funzioni", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2584,6 +2585,11 @@ function AppShell({ session }) {
           </Suspense>
         )}
         {page === "rilievi" && <PaginaRilievi voli={voliDashboard} droni={droni} azienda={azienda} piano={piano} onCambiato={caricaVoli} onNav={vai} onNuovo={() => { setPrefillVolo({ tipo_attivita: "rilievo" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "specific" && (
+          <Suspense fallback={<LoadingBlock />}>
+            <SpecificSora inputStyle={inputStyle} droni={droni} azienda={azienda} />
+          </Suspense>
+        )}
         {page === "pratica-enac" && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
             <PraticaEnac supabase={supabase} inputStyle={inputStyle} azienda={azienda} attestati={attestati} droni={droni} emailUtente={session.user.email} />
@@ -3296,6 +3302,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ClipboardCheck },
     { key: "pratica-enac", label: "Pratica ENAC (STS)", icon: FileText },
+    { key: "specific", label: "Specific: SORA e NOTAM", icon: ShieldCheck },
     { key: "attestati", label: "Attestati", icon: Award },
     { key: "droni", label: "I miei droni", icon: Plane },
     { intestazione: "Lavoro" },
@@ -3338,6 +3345,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     { key: "dflight", label: "D-Flight", icon: MapPin, esterno: "https://www.d-flight.it/web-app/" },
     { key: "permessi", label: "Permessi", icon: ClipboardCheck },
     { key: "pratica-enac", label: "Pratica ENAC (STS)", icon: FileText },
+    { key: "specific", label: "Specific: SORA e NOTAM", icon: ShieldCheck },
     { key: "attestati", label: "Attestati", icon: Award },
     { key: "droni", label: "I miei droni", icon: Plane },
     { intestazione: "Lavoro" },
@@ -7941,6 +7949,7 @@ function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
       { e: "🌅", t: "Meteo e ora d'oro", d: "Vento per il tuo drone, indice Kp, alba, tramonto e sole", k: "pianificazione", dove: "In Pianifica", c: "vento pioggia kp luce tramonto" },
       { e: "📐", t: "Volumi STS-01", d: "Disegni l'area o la importi da DJI Pilot 2: contingenza e buffer", k: "pianificazione", dove: "In Pianifica", c: "sts specific buffer contingenza" },
       { e: "🏛️", t: "Pratica ENAC (STS)", d: "La dichiarazione e il manuale operativo per lo scenario STS", k: "pratica-enac", c: "enac sts dichiarazione manuale" },
+      { e: "🧮", t: "Specific: SORA e NOTAM", d: "SORA guidata con ConOps, volumi e piano di emergenza in PDF, e la richiesta di NOTAM già scritta", k: "specific", c: "sora conops notam specific autorizzazione sail grc arc emergenza" },
       { e: "🧭", t: "Posti belli vicino a te", d: "Panorami, castelli e laghi con la zona già controllata", k: "posti", c: "luoghi panorami dove andare" },
     ] },
     { titolo: "Riprese e calcolatori", emoji: "🎬", voci: [
