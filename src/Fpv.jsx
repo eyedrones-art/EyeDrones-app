@@ -89,33 +89,46 @@ function Osservatore({ supabase, onCambiati }) {
 const SEGNI = { partenza: ["🛫", "Partenza", "#4ade80"], arrivo: ["🏁", "Arrivo", "#f5b942"], stretto: ["⚠️", "Punto stretto", "#ff4d4d"], persone: ["👥", "Persone", "#3d8bfd"], luce: ["💡", "Luce", "#ffd27a"], nota: ["📝", "Nota", "#c4b5fd"] };
 const COLORI_SCENA = ["#ff8c42", "#3d8bfd", "#4ade80", "#e879f9", "#facc15", "#f87171", "#22d3ee", "#a3e635"];
 const nuovaScena = (n) => ({ id: Math.random().toString(36).slice(2, 8), nome: `Scena ${n}`, colore: COLORI_SCENA[(n - 1) % COLORI_SCENA.length], punti: [] });
-const PERCORSO_VUOTO = () => ({ titolo: "", img: null, w: 0, h: 0, scene: [nuovaScena(1)], segni: [] });
-// i percorsi salvati prima avevano una linea sola («punti»)
-const daSalvato = (d) => { const x = { ...PERCORSO_VUOTO(), titolo: d.titolo || "", ...d.dati }; if (!x.scene || !x.scene.length) x.scene = [{ ...nuovaScena(1), punti: d.dati?.punti || [] }]; delete x.punti; return x; };
+const nuovaPiantina = (n) => ({ id: Math.random().toString(36).slice(2, 8), nome: n === 1 ? "Piano terra" : `Piantina ${n}`, img: null, w: 0, h: 0, scene: [nuovaScena(1)], segni: [] });
+const PERCORSO_VUOTO = () => ({ titolo: "", piantine: [nuovaPiantina(1)] });
+// i percorsi salvati prima avevano una piantina sola (e ancora prima una linea sola, «punti»)
+const daSalvato = (d) => {
+  const x = d.dati || {};
+  if (Array.isArray(x.piantine) && x.piantine.length) return { titolo: d.titolo || x.titolo || "", piantine: x.piantine };
+  const una = { ...nuovaPiantina(1), img: x.img || null, w: x.w || 0, h: x.h || 0, segni: x.segni || [], scene: x.scene && x.scene.length ? x.scene : [{ ...nuovaScena(1), punti: x.punti || [] }] };
+  return { titolo: d.titolo || x.titolo || "", piantine: [una] };
+};
 
 function Percorso({ supabase }) {
   const docs = useDocumenti(supabase, "percorso");
   const [p, setP] = useState(PERCORSO_VUOTO);
   const [id, setId] = useState(null);
+  const [ip, setIp] = useState(0); // piantina aperta
   const [attiva, setAttiva] = useState(0);
   const [strumento, setStrumento] = useState("percorso");
   const [msg, setMsg] = useState("");
   const [piani, setPiani] = useState(null);
   const svg = useRef(null);
-  const scena = p.scene[Math.min(attiva, p.scene.length - 1)];
-  const carica = async (file) => { if (!file) return; try { const r = await riduciImmagine(file, 1600); setP({ ...p, img: r.url, w: r.w, h: r.h, scene: [nuovaScena(1)], segni: [] }); setAttiva(0); setMsg(""); } catch (e) { setMsg(e.message); } };
-  const cambiaScena = (k, cambi) => setP((x) => ({ ...x, scene: x.scene.map((sc, j) => (j === k ? { ...sc, ...cambi } : sc)) }));
+  const q = p.piantine[Math.min(ip, p.piantine.length - 1)];
+  const setQ = (cambi) => setP((x) => ({ ...x, piantine: x.piantine.map((pi, k) => (k === Math.min(ip, x.piantine.length - 1) ? { ...pi, ...(typeof cambi === "function" ? cambi(pi) : cambi) } : pi)) }));
+  const scena = q.scene[Math.min(attiva, q.scene.length - 1)];
+  const apriPiantina = (k) => { setIp(k); setAttiva(0); setStrumento("percorso"); };
+  const aggiungiPiantina = () => { setP({ ...p, piantine: [...p.piantine, nuovaPiantina(p.piantine.length + 1)] }); apriPiantina(p.piantine.length); };
+  const togliPiantina = (k) => { if (p.piantine.length <= 1) { setP({ ...p, piantine: [nuovaPiantina(1)] }); apriPiantina(0); return; } setP({ ...p, piantine: p.piantine.filter((_, j) => j !== k) }); apriPiantina(0); };
+  const carica = async (file) => { if (!file) return; try { const r = await riduciImmagine(file, 1600); setQ({ img: r.url, w: r.w, h: r.h, scene: [nuovaScena(1)], segni: [] }); setAttiva(0); setMsg(""); } catch (e) { setMsg(e.message); } };
+  const cambiaScena = (k, cambi) => setQ((pi) => ({ scene: pi.scene.map((sc, j) => (j === k ? { ...sc, ...cambi } : sc)) }));
   const tocca = (ev) => {
-    if (!p.img) return;
+    if (!q.img) return;
     const r = svg.current.getBoundingClientRect();
-    const x = Math.round(((ev.clientX - r.left) / r.width) * p.w), y = Math.round(((ev.clientY - r.top) / r.height) * p.h);
+    const x = Math.round(((ev.clientX - r.left) / r.width) * q.w), y = Math.round(((ev.clientY - r.top) / r.height) * q.h);
     if (strumento === "percorso") cambiaScena(attiva, { punti: [...scena.punti, [x, y]] });
-    else setP({ ...p, segni: [...p.segni, { tipo: strumento, x, y, nota: "" }] });
+    else setQ({ segni: [...q.segni, { tipo: strumento, x, y, nota: "" }] });
   };
-  const aggiungiScena = () => { setP({ ...p, scene: [...p.scene, nuovaScena(p.scene.length + 1)] }); setAttiva(p.scene.length); setStrumento("percorso"); };
-  const togliScena = (k) => { if (p.scene.length <= 1) { cambiaScena(0, { punti: [] }); return; } setP({ ...p, scene: p.scene.filter((_, j) => j !== k) }); setAttiva(0); };
-  const s = p.w / 800 || 1;
-  const disegnaPng = () => new Promise((ok) => {
+  const aggiungiScena = () => { setQ({ scene: [...q.scene, nuovaScena(q.scene.length + 1)] }); setAttiva(q.scene.length); setStrumento("percorso"); };
+  const togliScena = (k) => { if (q.scene.length <= 1) { cambiaScena(0, { punti: [] }); return; } setQ({ scene: q.scene.filter((_, j) => j !== k) }); setAttiva(0); };
+  const s = q.w / 800 || 1;
+  const disegnaPng = (pi) => new Promise((ok) => {
+    const p = pi; const s = p.w / 800 || 1;
     const c = document.createElement("canvas"); c.width = p.w; c.height = p.h; const g = c.getContext("2d"); const i = new Image();
     i.onload = () => {
       g.drawImage(i, 0, 0);
@@ -129,23 +142,30 @@ function Percorso({ supabase }) {
     i.src = p.img;
   });
   const pdf = async () => {
-    const img = await disegnaPng(); const doc = new jsPDF({ unit: "mm", format: "a4" });
-    doc.setFontSize(15); doc.text(p.titolo || "Percorso FPV", 15, 16);
-    const larg = 180, alt = Math.min(180, (larg * p.h) / p.w), l2 = (alt * p.w) / p.h;
-    doc.addImage(img, "JPEG", 15 + (larg - l2) / 2, 22, l2, alt);
-    let y = 22 + alt + 8;
-    const riga = (t, col) => { if (y > 285) { doc.addPage(); y = 20; } if (col) { const n = parseInt(col.slice(1), 16); doc.setFillColor((n >> 16) & 255, (n >> 8) & 255, n & 255); doc.rect(15, y - 3, 4, 4, "F"); } doc.text(t, col ? 22 : 15, y); y += 5.5; };
-    doc.setFontSize(11); riga("Scene"); doc.setFontSize(10);
-    p.scene.filter((sc) => sc.punti.length).forEach((sc, n) => riga(`S${n + 1} · ${sc.nome}${sc.note ? `: ${sc.note}` : ""}`, sc.colore));
-    if (p.segni.length) { y += 2; doc.setFontSize(11); riga("Punti segnati"); doc.setFontSize(10); p.segni.forEach((m, k) => riga(`${k + 1}. ${SEGNI[m.tipo][1]}${m.nota ? `: ${m.nota}` : ""}`)); }
-    doc.setFontSize(8); doc.setTextColor(120); doc.text("Linee tratteggiate: il percorso del drone per ogni scena. Tenere libere le zone segnate durante il volo.", 15, 290);
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const conImg = p.piantine.filter((pi) => pi.img);
+    for (let n = 0; n < conImg.length; n++) {
+      const pi = conImg[n];
+      if (n) doc.addPage();
+      const img = await disegnaPng(pi);
+      doc.setTextColor(20); doc.setFontSize(15); doc.text(p.titolo || "Percorso FPV", 15, 16);
+      doc.setFontSize(11); doc.setTextColor(110); doc.text(pi.nome || `Piantina ${n + 1}`, 195, 16, { align: "right" });
+      const larg = 180, alt = Math.min(175, (larg * pi.h) / pi.w), l2 = (alt * pi.w) / pi.h;
+      doc.addImage(img, "JPEG", 15 + (larg - l2) / 2, 22, l2, alt);
+      let y = 22 + alt + 8; doc.setTextColor(20);
+      const riga = (t, col) => { if (y > 285) { doc.addPage(); y = 20; } if (col) { const c = parseInt(col.slice(1), 16); doc.setFillColor((c >> 16) & 255, (c >> 8) & 255, c & 255); doc.rect(15, y - 3, 4, 4, "F"); } doc.text(t, col ? 22 : 15, y); y += 5.5; };
+      doc.setFontSize(11); riga("Scene"); doc.setFontSize(10);
+      pi.scene.filter((sc) => sc.punti.length).forEach((sc, k) => riga(`S${k + 1} · ${sc.nome}${sc.note ? `: ${sc.note}` : ""}`, sc.colore));
+      if (pi.segni.length) { y += 2; doc.setFontSize(11); riga("Punti segnati"); doc.setFontSize(10); pi.segni.forEach((m, k) => riga(`${k + 1}. ${SEGNI[m.tipo][1]}${m.nota ? `: ${m.nota}` : ""}`)); }
+      doc.setFontSize(8); doc.setTextColor(120); doc.text("Linee tratteggiate: il percorso del drone per ogni scena. Tenere libere le zone segnate durante il volo.", 15, 290);
+    }
     await condividiPdf(doc, `Percorso-${(p.titolo || "FPV").replace(/[^\w-]+/g, "-")}.pdf`);
   };
-  const salva = async () => { if (!p.img) return; try { const r = await docs.salva({ id, titolo: p.titolo || "Percorso FPV", dati: p }); setId(r.id); setMsg("✅ Salvato: lo ritrovi in «Percorsi salvati» qui sotto. Puoi anche mettere le scene nella scaletta di un piano."); } catch (e) { setMsg("Non salvato: " + (e.message || e)); } };
+  const salva = async () => { if (!p.piantine.some((pi) => pi.img)) return; try { const r = await docs.salva({ id, titolo: p.titolo || "Percorso FPV", dati: p }); setId(r.id); setMsg("✅ Salvato: lo ritrovi in «Percorsi salvati» qui sotto. Puoi anche mettere le scene nella scaletta di un piano."); } catch (e) { setMsg("Non salvato: " + (e.message || e)); } };
   const caricaPiani = async () => { const { data } = await supabase.from("piani_volo").select("id, impianto_nome, data_prevista, checklist_stato").order("data_prevista", { ascending: true }).limit(100); setPiani((data || []).filter((x) => !x.checklist_stato?.fatto)); };
   const nellaScaletta = async (pianoId) => {
     const piano = (piani || []).find((x) => String(x.id) === String(pianoId)); if (!piano) return;
-    const nuove = p.scene.filter((sc) => sc.punti.length).map((sc) => ({ ...scenaVuota("fpv"), titolo: sc.nome, note: [`Percorso «${p.titolo || "FPV"}» (vedi il PDF del percorso)`, sc.note].filter(Boolean).join(" · ") }));
+    const nuove = p.piantine.flatMap((pi) => pi.scene.filter((sc) => sc.punti.length).map((sc) => ({ ...scenaVuota("fpv"), titolo: p.piantine.length > 1 ? `${pi.nome} · ${sc.nome}` : sc.nome, note: [`Percorso «${p.titolo || "FPV"}» (vedi il PDF del percorso)`, sc.note].filter(Boolean).join(" · ") })));
     if (!nuove.length) { setMsg("Disegna almeno una scena."); return; }
     const cs = piano.checklist_stato || {};
     const { error } = await supabase.from("piani_volo").update({ checklist_stato: { ...cs, scene: [...(cs.scene || []), ...nuove] } }).eq("id", piano.id);
@@ -155,15 +175,23 @@ function Percorso({ supabase }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }} data-percorso>
       {docs.manca && <AvvisoSql />}
       <div style={{ ...scheda, display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ fontSize: 12.5, color: "#c3cad4" }}>Per i voli dentro capannoni, negozi e case: carica la piantina (anche una foto del foglio). Ogni <b>scena</b> è un percorso con il suo colore: tocca la piantina per disegnarla, poi «＋ Nuova scena» per la successiva. Segna i punti stretti e manda il PDF al cliente e allo staff.</div>
+        <div style={{ fontSize: 12.5, color: "#c3cad4" }}>Per i voli dentro capannoni, negozi e case: carica la piantina (anche una foto del foglio); con «＋ Altra piantina» aggiungi gli altri piani. Ogni <b>scena</b> è un percorso con il suo colore: tocca la piantina per disegnarla, poi «＋ Nuova scena» per la successiva. Segna i punti stretti e manda il PDF al cliente e allo staff.</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
           <Etichetta t="Nome del lavoro"><input value={p.titolo} onChange={(e) => setP({ ...p, titolo: e.target.value })} placeholder="es. Capannone Rossi, fly-through" style={{ ...campo, minWidth: 220 }} /></Etichetta>
-          <label style={{ ...btn(!p.img), cursor: "pointer", display: "inline-flex", alignItems: "center" }}>🖼️ {p.img ? "Cambia piantina" : "Carica la piantina"}<input type="file" accept="image/*" onChange={(e) => { carica(e.target.files?.[0]); e.target.value = ""; }} style={{ display: "none" }} aria-label="Piantina" /></label>
-          {(p.img || id) && <button type="button" onClick={() => { setP(PERCORSO_VUOTO()); setId(null); setAttiva(0); setMsg(""); }} style={btn(false)}>Nuovo percorso</button>}
+          {(q.img || id) && <button type="button" onClick={() => { setP(PERCORSO_VUOTO()); setId(null); apriPiantina(0); setMsg(""); }} style={btn(false)}>Nuovo percorso</button>}
         </div>
-        {p.img && (<>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }} data-piantine>
+          {p.piantine.map((pi, k) => <button key={pi.id} type="button" aria-pressed={k === ip} onClick={() => apriPiantina(k)} style={{ ...btn(false), borderColor: k === ip ? "#ff8c42" : "#343e57", background: k === ip ? "#241d16" : "#1a2133" }}>🗺️ {pi.nome || `Piantina ${k + 1}`}{pi.img ? "" : " (vuota)"}</button>)}
+          <button type="button" onClick={aggiungiPiantina} style={btn(false)} data-nuova-piantina>＋ Altra piantina</button>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <Etichetta t="Nome di questa piantina"><input value={q.nome} onChange={(e) => setQ({ nome: e.target.value })} placeholder="es. Piano terra, Magazzino" style={{ ...campo, minWidth: 180 }} aria-label="Nome piantina" /></Etichetta>
+          <label style={{ ...btn(!q.img), cursor: "pointer", display: "inline-flex", alignItems: "center" }}>🖼️ {q.img ? "Cambia immagine" : "Carica la piantina"}<input type="file" accept="image/*" onChange={(e) => { carica(e.target.files?.[0]); e.target.value = ""; }} style={{ display: "none" }} aria-label="Piantina" /></label>
+          {p.piantine.length > 1 && <button type="button" onClick={() => togliPiantina(ip)} style={{ ...btn(false), color: "#ff9c9c" }}>Togli questa piantina</button>}
+        </div>
+        {q.img && (<>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }} data-scene>
-            {p.scene.map((sc, k) => (
+            {q.scene.map((sc, k) => (
               <button key={sc.id} type="button" aria-pressed={k === attiva && strumento === "percorso"} onClick={() => { setAttiva(k); setStrumento("percorso"); }} style={{ ...btn(false), display: "inline-flex", alignItems: "center", gap: 6, borderColor: k === attiva && strumento === "percorso" ? sc.colore : "#343e57", background: k === attiva && strumento === "percorso" ? "#241d16" : "#1a2133" }}>
                 <span style={{ width: 12, height: 12, borderRadius: 3, background: sc.colore }} />S{k + 1} {sc.nome}{sc.punti.length ? ` · ${sc.punti.length}` : ""}
               </button>
@@ -172,24 +200,24 @@ function Percorso({ supabase }) {
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {Object.entries(SEGNI).map(([k, [e, t]]) => <button key={k} type="button" aria-pressed={strumento === k} onClick={() => setStrumento(k)} style={{ ...btn(strumento === k) }}>{e} {t}</button>)}
-            <button type="button" onClick={() => (strumento === "percorso" ? cambiaScena(attiva, { punti: scena.punti.slice(0, -1) }) : setP({ ...p, segni: p.segni.slice(0, -1) }))} style={btn(false)}>↩️ Annulla l'ultimo</button>
+            <button type="button" onClick={() => (strumento === "percorso" ? cambiaScena(attiva, { punti: scena.punti.slice(0, -1) }) : setQ({ segni: q.segni.slice(0, -1) }))} style={btn(false)}>↩️ Annulla l'ultimo</button>
           </div>
           <div style={{ fontSize: 12, color: "#8b95a3" }}>{strumento === "percorso" ? <>Stai disegnando <b style={{ color: scena.colore }}>S{attiva + 1} {scena.nome}</b>: tocca la piantina per aggiungere i punti.</> : <>Tocca la piantina per mettere «{SEGNI[strumento][0]} {SEGNI[strumento][1]}». Per tornare a disegnare tocca una scena.</>}</div>
         </>)}
       </div>
-      {p.img && (
+      {q.img && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-start" }}>
           <div style={{ flex: "1 1 520px", minWidth: 0 }}>
-            <svg ref={svg} viewBox={`0 0 ${p.w} ${p.h}`} onClick={tocca} style={{ width: "100%", height: "auto", display: "block", borderRadius: 10, border: "1px solid #2a3349", cursor: "crosshair", touchAction: "manipulation", background: "#fff" }} aria-label="Piantina: tocca per disegnare" data-piantina>
-              <image href={p.img} x="0" y="0" width={p.w} height={p.h} />
-              {p.scene.map((sc, n) => (
+            <svg ref={svg} viewBox={`0 0 ${q.w} ${q.h}`} onClick={tocca} style={{ width: "100%", height: "auto", display: "block", borderRadius: 10, border: "1px solid #2a3349", cursor: "crosshair", touchAction: "manipulation", background: "#fff" }} aria-label="Piantina: tocca per disegnare" data-piantina>
+              <image href={q.img} x="0" y="0" width={q.w} height={q.h} />
+              {q.scene.map((sc, n) => (
                 <g key={sc.id} opacity={strumento === "percorso" && n !== attiva ? 0.55 : 1}>
                   {sc.punti.length > 1 && <polyline points={sc.punti.map((q) => q.join(",")).join(" ")} fill="none" stroke={sc.colore} strokeWidth={5 * s} strokeDasharray={`${14 * s} ${8 * s}`} strokeLinejoin="round" />}
                   {sc.punti.map(([x, y], k) => <circle key={k} cx={x} cy={y} r={(k === 0 ? 13 : 5) * s} fill={sc.colore} />)}
                   {sc.punti.length > 0 && <text x={sc.punti[0][0]} y={sc.punti[0][1] + 5 * s} textAnchor="middle" fontSize={13 * s} fontWeight="bold" fill="#10141f">S{n + 1}</text>}
                 </g>
               ))}
-              {p.segni.map((m, k) => (
+              {q.segni.map((m, k) => (
                 <g key={k}><circle cx={m.x} cy={m.y} r={16 * s} fill="#0d111c" stroke={SEGNI[m.tipo][2]} strokeWidth={3 * s} /><text x={m.x} y={m.y + 6 * s} textAnchor="middle" fontSize={18 * s}>{SEGNI[m.tipo][0]}</text><text x={m.x + 20 * s} y={m.y - 14 * s} fontSize={13 * s} fontWeight="bold" fill="#111" stroke="#fff" strokeWidth={3 * s} paintOrder="stroke">{k + 1}</text></g>
               ))}
             </svg>
@@ -197,7 +225,7 @@ function Percorso({ supabase }) {
           <div style={{ flex: "1 1 280px", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ ...scheda, display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ fontWeight: 700 }}>Scene</div>
-              {p.scene.map((sc, k) => (
+              {q.scene.map((sc, k) => (
                 <div key={sc.id} style={{ display: "flex", flexDirection: "column", gap: 4, paddingBottom: 6, borderBottom: "1px solid #232b3f" }}>
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                     <span style={{ width: 14, height: 14, borderRadius: 3, background: sc.colore, flex: "none" }} />
@@ -210,12 +238,12 @@ function Percorso({ supabase }) {
             </div>
             <div style={{ ...scheda, display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ fontWeight: 700 }}>Punti segnati</div>
-              {!p.segni.length && <div style={{ fontSize: 12.5, color: "#8b95a3" }}>Scegli un segno (⚠️ punto stretto, 👥 persone…) e tocca la piantina.</div>}
-              {p.segni.map((m, k) => (
+              {!q.segni.length && <div style={{ fontSize: 12.5, color: "#8b95a3" }}>Scegli un segno (⚠️ punto stretto, 👥 persone…) e tocca la piantina.</div>}
+              {q.segni.map((m, k) => (
                 <div key={k} style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <span style={{ fontSize: 13, width: 54, flex: "none" }}>{k + 1}. {SEGNI[m.tipo][0]}</span>
-                  <input value={m.nota} onChange={(e) => setP({ ...p, segni: p.segni.map((x, j) => (j === k ? { ...x, nota: e.target.value } : x)) })} placeholder={SEGNI[m.tipo][1]} style={campo} aria-label={`Nota ${k + 1}`} />
-                  <button type="button" onClick={() => setP({ ...p, segni: p.segni.filter((_, j) => j !== k) })} style={{ background: "none", border: "none", color: "#ff9c9c" }} aria-label="Togli">✕</button>
+                  <input value={m.nota} onChange={(e) => setQ({ segni: q.segni.map((x, j) => (j === k ? { ...x, nota: e.target.value } : x)) })} placeholder={SEGNI[m.tipo][1]} style={campo} aria-label={`Nota ${k + 1}`} />
+                  <button type="button" onClick={() => setQ({ segni: q.segni.filter((_, j) => j !== k) })} style={{ background: "none", border: "none", color: "#ff9c9c" }} aria-label="Togli">✕</button>
                 </div>
               ))}
             </div>
@@ -236,8 +264,8 @@ function Percorso({ supabase }) {
           <div style={{ fontWeight: 700, marginBottom: 6 }}>Percorsi salvati</div>
           {docs.lista.map((d) => (
             <div key={d.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 0", borderBottom: "1px solid #232b3f", fontSize: 13 }}>
-              <button type="button" onClick={() => { setP(daSalvato(d)); setId(d.id); setAttiva(0); setStrumento("percorso"); setMsg(""); window.scrollTo(0, 0); }} style={{ background: "none", border: "none", color: "#9cc3ff", textAlign: "left", flex: 1 }}>{d.titolo}</button>
-              <span style={{ fontSize: 11.5, color: "#8b95a3" }}>{(d.dati?.scene || []).length || 1} {((d.dati?.scene || []).length || 1) === 1 ? "scena" : "scene"} · {new Date(d.updated_at || d.created_at).toLocaleDateString("it-IT")}</span>
+              <button type="button" onClick={() => { setP(daSalvato(d)); setId(d.id); apriPiantina(0); setMsg(""); window.scrollTo(0, 0); }} style={{ background: "none", border: "none", color: "#9cc3ff", textAlign: "left", flex: 1 }}>{d.titolo}</button>
+              <span style={{ fontSize: 11.5, color: "#8b95a3" }}>{(d.dati?.piantine || [1]).length} {(d.dati?.piantine || [1]).length === 1 ? "piantina" : "piantine"} · {new Date(d.updated_at || d.created_at).toLocaleDateString("it-IT")}</span>
               <button type="button" onClick={() => docs.togli(d.id)} style={{ background: "none", border: "none", color: "#ff9c9c" }} aria-label="Elimina">✕</button>
             </div>
           ))}
