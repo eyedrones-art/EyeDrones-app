@@ -78,6 +78,7 @@ const Agricoltura = pigro(() => import("./Agricoltura.jsx"));
 const HomeAgricoltura = pigro(() => import("./Agricoltura.jsx"), "HomeAgricoltura");
 const PraticaEnac = pigro(() => import("./PraticaEnac.jsx"));
 const SpecificSora = pigro(() => import("./SpecificSora.jsx"));
+const Termocamera = pigro(() => import("./Termocamera.jsx"));
 const AnalisiAI = pigro(() => import("./AnalisiAI.jsx"));
 const IspezioneAI = pigro(() => import("./IspezioneAI.jsx"));
 const Anteprima3D = pigro(() => import("./Anteprima3D.jsx"));
@@ -1976,7 +1977,7 @@ function AppAutenticata() {
 function AppShell({ session }) {
   MIO_ID = session && session.user ? session.user.id : null;
   // se il telefono chiude e riapre la pagina (succede scegliendo foto o video), si torna dove si era
-  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "specific", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "funzioni", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
+  const PAGINE_RIPRISTINABILI = ["dashboard", "impianti", "pianificazione", "registro-voli", "documenti-controllo", "impostazioni", "abbonamento", "preventivi", "batterie", "permessi", "attestati", "droni", "pratica-enac", "specific", "termocamera", "suggerimenti", "guide", "impara", "posti", "clienti", "collaboratori", "pagina-pilota", "telemetria", "filtri-nd", "calcolatori", "funzioni", "campi", "analisi-ai", "ispezione-ai", "rilievi"];
   const leggiSessione = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
   // link dall'email di avviso (?vai=richieste): apre subito le richieste arrivate dalla pagina pubblica
   const [vaiARichieste] = useState(() => new URLSearchParams(window.location.search).get("vai") === "richieste");
@@ -2585,6 +2586,11 @@ function AppShell({ session }) {
           </Suspense>
         )}
         {page === "rilievi" && <PaginaRilievi voli={voliDashboard} droni={droni} azienda={azienda} piano={piano} onCambiato={caricaVoli} onNav={vai} onNuovo={() => { setPrefillVolo({ tipo_attivita: "rilievo" }); setVistaVoli("voli"); setNuovoVolo(true); setPage("registro-voli"); }} />}
+        {page === "termocamera" && (
+          <Suspense fallback={<LoadingBlock />}>
+            <Termocamera supabase={supabase} piano={piano} />
+          </Suspense>
+        )}
         {page === "specific" && (
           <Suspense fallback={<LoadingBlock />}>
             <SpecificSora inputStyle={inputStyle} droni={droni} azienda={azienda} />
@@ -3268,7 +3274,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
   ] : k === "ispezioni" ? [
     { intestazione: spazio.nome },
     { key: "impianti", label: "Impianti", icon: Sun },
-    { key: "nuova", label: "Nuova ispezione", icon: Plus },
+    { key: "nuova", label: "Nuova ispezione", icon: Plus }, { key: "termocamera", label: "Termocamera: temperature e palette", icon: Thermometer },
     ...(usaAI ? [{ key: "ispezione-ai", label: "Ispezione con AI", icon: ScanSearch }, { key: "analisi-ai", label: "Esperto AI: problemi e consigli", icon: Sparkles }] : []),
   ] : k === "agricoltura" ? [
     { intestazione: spazio.nome },
@@ -3322,7 +3328,7 @@ function Sidebar({ page, setPage, userEmail, usaAI, piano, reportQuestoMese, att
     ...(usaIspezioni ? [
       { intestazione: "Ispezioni" },
       { key: "impianti", label: "Impianti", icon: Sun },
-      { key: "nuova", label: "Nuova ispezione", icon: Plus },
+      { key: "nuova", label: "Nuova ispezione", icon: Plus }, { key: "termocamera", label: "Termocamera: temperature e palette", icon: Thermometer },
     ] : []),
     ...(usaAgricoltura ? [
       { intestazione: "Agricoltura" },
@@ -5149,6 +5155,7 @@ function VisualizzaReport({ impianto, ispezione, fotoIspezione, anomalieIspezion
           <div style={{ borderTop: "1px solid #e5e5e5", marginTop: 14, paddingTop: 14 }}>
             <div style={{ background: "#eef6ed", border: "1px solid #cfe8cc", borderRadius: 6, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
               <span style={{ fontSize: 11.5, color: "#2e5c2b" }}>🌡️ Vuoi cambiare palette o leggere la temperatura esatta di un punto?</span>
+              <a href="/?vai=termocamera" style={{ background: "#2e7d32", color: "#fff", fontSize: 11.5, fontWeight: 700, padding: "6px 12px", borderRadius: 5, textDecoration: "none" }}>Apri la Termocamera</a>
               <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ background: "#2e7d32", color: "#fff", fontSize: 11.5, fontWeight: 700, padding: "6px 12px", borderRadius: 5, textDecoration: "none", whiteSpace: "nowrap" }}>Apri DJI Thermal Analysis Tool ↗</a>
             </div>
           </div>
@@ -7986,6 +7993,7 @@ function elencoFunzioni({ usaAI, usaIspezioni, usaAgricoltura }) {
       { e: "🎮", t: "Simulatore di volo", d: "Riprese GPS e FPV e missioni per clienti, senza rischiare il drone", esterno: "/simulatore/", c: "simulatore fpv prova" },
     ] },
     ...(usaAI ? [{ titolo: "Intelligenza artificiale", emoji: "✨", voci: [
+      { e: "🌡️", t: "Termocamera", d: "Foto termiche DJI: tocchi un punto e leggi la temperatura, misuri aree, cambi palette, esporti", k: "termocamera", c: "termica termografia temperatura palette rjpeg r-jpeg ironbow emissività dji thermal" },
       { e: "💬", t: "Esperto AI", d: "Carichi foto o video: ti dice cosa non va e come sistemarlo", k: "analisi-ai", c: "ai esperto foto video" },
       ...(usaIspezioni ? [{ e: "🔎", t: "Ispezione con AI", d: "Propone i difetti foto per foto e prepara il report", k: "ispezione-ai", c: "ai ispezione difetti" }] : []),
     ] }] : []),
@@ -18896,8 +18904,9 @@ function NuovaIspezione({ onDone, azienda, impianti, onSaved, piano, reportQuest
         <div>
           {tipoIspezione !== "danni" && (
             <div style={{ maxWidth: 460, background: "#16211a", border: "1px solid #2e5c2b", borderRadius: 8, padding: "12px 14px", marginBottom: 14 }}>
-              <p style={{ fontSize: 12, color: "#c3cad4", margin: "0 0 8px 0" }}>🌡️ Per cambiare palette o leggere la temperatura esatta di un punto, apri la foto originale (R-JPEG) sul computer, senza costi. Qui carichi l'immagine così com'è.</p>
-              <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ display: "inline-block", background: "#4ade80", color: "#0a1a0f", fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 6, textDecoration: "none" }}>Apri DJI Thermal Analysis Tool ↗</a>
+              <p style={{ fontSize: 12, color: "#c3cad4", margin: "0 0 8px 0" }}>🌡️ Per cambiare palette o leggere la temperatura esatta di un punto, apri le foto originali (R-JPEG) nella Termocamera di EyeDrones, anche dal telefono. Qui carichi l'immagine così com'è.</p>
+              <a href="/?vai=termocamera" style={{ display: "inline-block", background: "#4ade80", color: "#0a1a0f", fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 6, textDecoration: "none", marginRight: 8 }}>Apri la Termocamera</a>
+              <a href={LINK_DJI_THERMAL_TOOL} target="_blank" rel="noreferrer" style={{ display: "inline-block", background: "#4ade80", color: "#0a1a0f", fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 6, textDecoration: "none", opacity: 0.85 }}>Oppure DJI Thermal Analysis Tool (computer) ↗</a>
             </div>
           )}
           {foto.length === 0 ? (
