@@ -4,6 +4,7 @@ import MappaCampi from "./MappaCampi.jsx";
 import { TestataPagina } from "./VoloHero.jsx";
 import { pdfConsegnaAgricoltura } from "./reportConsegna.js";
 import FascicoloScia, { controlliScia, unisci } from "./FascicoloScia.jsx";
+import { leggiTabella, trovaIntestazione, riconosciColonne, fattoreEttari, numero, dataOra, CAMPI_IMPORT } from "./importaLavori.js";
 import { leggiFileConfini, campiInKml, fasceRispetto, CATEGORIE_RISPETTO, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
 
 // Agricoltura (fase 1): appezzamenti con i confini sulla mappa, registro dei trattamenti con PDF,
@@ -181,6 +182,126 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
           <MeteoTrattamenti inputStyle={inputStyle} campi={campi} campoId={campoMeteo} setCampoId={setCampoMeteo} onLavoro={apriLavoro} />
         )}
       </div>
+    </div>
+  );
+}
+
+// --- Importazione dei lavori da file (DJI SmartFarm, altri gestionali): CSV o Excel ------------------------
+const UNITA_SUPERFICIE = [["1", "ettari (ha)"], [String(1 / 15), "mu (亩)"], ["0.404686", "acri"], ["0.0001", "m²"]];
+function ImportaLavori({ supabase, inputStyle, campi, trattamenti, onFatto, onChiudi }) {
+  const [tab, setTab] = useState(null); // { righe, h }
+  const [mappa, setMappa] = useState({});
+  const [fattore, setFattore] = useState("1");
+  const [opz, setOpz] = useState({ tipo: "trattamento", prodotto: "", unita: "l" });
+  const [errore, setErrore] = useState("");
+  const [esito, setEsito] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  const scegli = async (file) => {
+    setErrore(""); setEsito("");
+    if (!file) return;
+    try {
+      const righe = await leggiTabella(file);
+      const h = trovaIntestazione(righe);
+      if (righe.length <= h + 1) throw new Error("Nel file non ci sono righe di lavori.");
+      const m = riconosciColonne(righe[h]);
+      setTab({ righe, h, nome: file.name });
+      setMappa(m);
+      setFattore(String(m.ettari != null ? fattoreEttari(righe[h][m.ettari]) : 1));
+    } catch (e) { setErrore(e.message || "File non leggibile."); setTab(null); }
+  };
+
+  const campoPerNome = (nome) => {
+    const n = String(nome || "").trim().toLowerCase();
+    if (!n) return null;
+    return campi.find((c) => c.nome.toLowerCase() === n) || campi.find((c) => n.includes(c.nome.toLowerCase()) || c.nome.toLowerCase().includes(n)) || null;
+  };
+  const cella = (r, k) => (mappa[k] != null ? r[mappa[k]] ?? "" : "");
+  const lavori = !tab ? [] : tab.righe.slice(tab.h + 1).filter((r) => r.some((x) => String(x).trim())).map((r) => {
+    const quando = dataOra(cella(r, "data"));
+    const fine = dataOra(cella(r, "ora_fine"));
+    const ha = numero(cella(r, "ettari"));
+    const nomeCampo = cella(r, "campo");
+    const c = campoPerNome(nomeCampo);
+    return {
+      data: quando.data, ora_inizio: quando.ora, ora_fine: fine.ora, ettari: ha != null ? Math.round(ha * Number(fattore) * 100) / 100 : null,
+      quantita_totale: numero(cella(r, "quantita")), campo_nome: c ? c.nome : nomeCampo || null, appezzamento_id: c ? c.id : null, azienda: c ? c.azienda : null, coltura: c ? c.coltura : null,
+      operatore: cella(r, "pilota") || null, drone_nome: cella(r, "drone") || null, prodotto: cella(r, "prodotto") || opz.prodotto.trim() || null,
+      durata: cella(r, "durata"),
+    };
+  }).filter((l) => l.data && (l.ettari != null || l.quantita_totale != null));
+  // non importo due volte lo stesso lavoro (stessa data, campo ed ettari)
+  const giaCe = (l) => trattamenti.some((t) => t.data === l.data && (t.campo_nome || "") === (l.campo_nome || "") && Number(t.ettari || 0) === Number(l.ettari || 0));
+  const nuovi = lavori.filter((l) => !giaCe(l));
+  const collegati = nuovi.filter((l) => l.appezzamento_id).length;
+
+  const importaTutto = async () => {
+    if (!nuovi.length) return;
+    setSalvando(true);
+    const righe = nuovi.map(({ durata, ...l }) => ({
+      ...l, tipo: opz.tipo, unita: opz.unita === "kg" ? "kg/ha" : "l/ha",
+      dose: l.quantita_totale != null && l.ettari ? Math.round((l.quantita_totale / l.ettari) * 100) / 100 : null,
+      note: ["Importato da file", tab.nome, durata ? `durata ${durata}` : null].filter(Boolean).join(" · "),
+    }));
+    let errori = 0;
+    for (let i = 0; i < righe.length; i += 200) {
+      const { error } = await supabase.from("trattamenti").insert(righe.slice(i, i + 200));
+      if (error) { errori++; setErrore(`Non riuscito: ${error.message}`); }
+    }
+    setSalvando(false);
+    if (!errori) { setEsito(`Fatto: ${righe.length} lavori aggiunti al registro.`); setTimeout(onFatto, 900); }
+  };
+
+  return (
+    <div style={{ ...scheda, border: "1px solid #3d8bfd66", marginBottom: 14, display: "flex", flexDirection: "column", gap: 10 }} data-importa>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+        <div style={{ fontWeight: 700 }}>📥 Importa i lavori da un file</div>
+        <button type="button" onClick={onChiudi} style={{ ...btn(false), padding: "5px 10px" }}>Chiudi</button>
+      </div>
+      <div style={{ fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5 }}>Da <b>DJI SmartFarm</b> (o dal tuo gestionale) esporta i record dei lavori in <b>Excel (.xlsx)</b> o <b>CSV</b> e caricalo qui. Riconosco da solo le colonne: se qualcosa non torna, la scegli tu qui sotto.</div>
+      <input type="file" accept=".csv,.xlsx,.txt,.xls" onChange={(e) => scegli(e.target.files && e.target.files[0])} aria-label="File dei lavori" style={{ fontSize: 13 }} />
+      {errore && <div style={{ fontSize: 12.5, color: "#ff9c9c" }}>{errore}</div>}
+      {tab && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
+            {CAMPI_IMPORT.map((c) => (
+              <label key={c.k} style={{ fontSize: 11.5, color: "#8b95a3", display: "flex", flexDirection: "column", gap: 3 }}>{c.label}
+                <select value={mappa[c.k] ?? ""} onChange={(e) => setMappa({ ...mappa, [c.k]: e.target.value === "" ? undefined : Number(e.target.value) })} style={{ ...inputStyle, padding: "6px 8px", fontSize: 12.5 }}>
+                  <option value="">— nessuna —</option>
+                  {tab.righe[tab.h].map((h, i) => <option key={i} value={i}>{h || `Colonna ${i + 1}`}</option>)}
+                </select>
+              </label>
+            ))}
+            <label style={{ fontSize: 11.5, color: "#8b95a3", display: "flex", flexDirection: "column", gap: 3 }}>Superficie in
+              <select value={fattore} onChange={(e) => setFattore(e.target.value)} style={{ ...inputStyle, padding: "6px 8px", fontSize: 12.5 }}>{UNITA_SUPERFICIE.map(([v, t]) => <option key={t} value={v}>{t}</option>)}</select>
+            </label>
+            <label style={{ fontSize: 11.5, color: "#8b95a3", display: "flex", flexDirection: "column", gap: 3 }}>Lavoro
+              <select value={opz.tipo} onChange={(e) => setOpz({ ...opz, tipo: e.target.value })} style={{ ...inputStyle, padding: "6px 8px", fontSize: 12.5 }}>{TIPI_LAVORO.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}</select>
+            </label>
+            <label style={{ fontSize: 11.5, color: "#8b95a3", display: "flex", flexDirection: "column", gap: 3 }}>Quantità in
+              <select value={opz.unita} onChange={(e) => setOpz({ ...opz, unita: e.target.value })} style={{ ...inputStyle, padding: "6px 8px", fontSize: 12.5 }}><option value="l">litri</option><option value="kg">kg</option></select>
+            </label>
+            {mappa.prodotto == null && <label style={{ fontSize: 11.5, color: "#8b95a3", display: "flex", flexDirection: "column", gap: 3 }}>Prodotto (per tutti)<input value={opz.prodotto} onChange={(e) => setOpz({ ...opz, prodotto: e.target.value })} placeholder="facoltativo" style={{ ...inputStyle, padding: "6px 8px", fontSize: 12.5 }} /></label>}
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead><tr style={{ color: "#8b95a3", textAlign: "left" }}>{["Data", "Campo", "Ettari", "Quantità", "Pilota", "Drone"].map((t) => <th key={t} style={{ padding: "4px 6px", borderBottom: "1px solid #2a3349", whiteSpace: "nowrap" }}>{t}</th>)}</tr></thead>
+              <tbody>{lavori.slice(0, 6).map((l, i) => (
+                <tr key={i} style={{ opacity: giaCe(l) ? 0.45 : 1 }}>
+                  <td style={{ padding: "4px 6px", whiteSpace: "nowrap" }}>{l.data}{l.ora_inizio ? ` ${l.ora_inizio}` : ""}</td>
+                  <td style={{ padding: "4px 6px" }}>{l.campo_nome || "—"}{l.appezzamento_id ? " ✓" : ""}</td>
+                  <td style={{ padding: "4px 6px" }}>{l.ettari != null ? formattaEttari(l.ettari) : "—"}</td>
+                  <td style={{ padding: "4px 6px" }}>{l.quantita_totale != null ? `${l.quantita_totale} ${opz.unita}` : "—"}</td>
+                  <td style={{ padding: "4px 6px" }}>{l.operatore || "—"}</td>
+                  <td style={{ padding: "4px 6px" }}>{l.drone_nome || "—"}</td>
+                </tr>))}</tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: 12.5, color: "#c3cad4" }}>{lavori.length ? <>Trovati <b>{lavori.length}</b> lavori{lavori.length - nuovi.length ? `, di cui ${lavori.length - nuovi.length} già nel registro` : ""}. {collegati ? `${collegati} collegati ai tuoi campi (✓).` : ""}</> : "Non trovo righe con data e superficie: controlla le colonne qui sopra."}</div>
+          {esito && <div role="status" style={{ fontSize: 12.5, color: "#4ade80" }}>{esito}</div>}
+          <button type="button" disabled={!nuovi.length || salvando} onClick={importaTutto} style={{ ...btn(true), alignSelf: "flex-start", opacity: nuovi.length ? 1 : 0.5 }}>{salvando ? "Importo…" : `Aggiungi ${nuovi.length} lavori al registro`}</button>
+        </>
+      )}
     </div>
   );
 }
@@ -557,6 +678,7 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
   const [meteoStato, setMeteoStato] = useState("");
   const [filtro, setFiltro] = useState({ campo: "", azienda: "", da: "", a: "" });
   const [consegna, setConsegna] = useState(null); // dati del report di consegna, quando il riquadro è aperto
+  const [importa, setImporta] = useState(false);
 
   // arrivo da un campo («Registra un lavoro»): apro il modulo già compilato
   useEffect(() => {
@@ -698,9 +820,11 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
     <div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <button type="button" onClick={() => nuovo(null)} disabled={bloccato} style={btn(true)}>➕ Nuovo lavoro</button>
+        <button type="button" onClick={() => setImporta(!importa)} disabled={bloccato} style={btn(false)}>📥 Importa da SmartFarm o Excel</button>
         <button type="button" onClick={() => pdfRegistro(filtrati, campi, azienda, filtro)} disabled={!filtrati.length} style={btn(false)}>📄 Scarica il registro in PDF</button>
         <button type="button" onClick={() => setConsegna(consegna ? null : { cliente: filtro.azienda || "", note: "", pilota: azienda?.nome || "", attestato: "", stato: "" })} disabled={!filtrati.length} style={btn(false)}>📦 Report di consegna</button>
       </div>
+      {importa && <ImportaLavori supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} onFatto={() => { setImporta(false); onCambiati(); }} onChiudi={() => setImporta(false)} />}
       {consegna && (
         <div style={{ ...scheda, marginBottom: 12 }}>
           <strong style={{ fontSize: 13.5 }}>📦 Report di consegna per il cliente</strong>
