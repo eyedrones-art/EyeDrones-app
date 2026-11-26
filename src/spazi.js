@@ -5,7 +5,7 @@
 export const SPAZI = [
   { key: "video", modulo: "riprese", emoji: "🎬", nome: "Foto e video", testo: "Riprese, matrimoni, eventi, FPV: scaletta e manovre, colore, galleria per i clienti e liberatorie.", tab: { key: "galleria", label: "Galleria" }, tipoPiano: "video", link: "video" },
   { key: "ispezioni", modulo: "ispezioni", emoji: "🔍", nome: "Ispezioni", testo: "Fotovoltaico, tetti, facciate, impianti: termografia, anomalie e report PDF per il cliente.", tab: { key: "impianti", label: "Impianti" }, tipoPiano: "fotovoltaico", link: "ispezioni" },
-  { key: "agricoltura", modulo: "agricoltura", emoji: "🌾", nome: "Agricoltura", testo: "Appezzamenti con i confini, registro trattamenti, meteo per irrorare e fascicolo per la SCIA.", tab: { key: "campi", label: "Campi" }, tipoPiano: "agricoltura", link: "agri" },
+  { key: "agricoltura", modulo: "agricoltura", emoji: "🌾", nome: "Agricoltura", testo: "Campi con i confini, ordini di lavoro, registro trattamenti, importazione da SmartFarm, mappe NDVI e prescrizioni, meteo per irrorare, SORA e NOTAM, fascicolo SCIA.", tab: { key: "campi", label: "Campi" }, tipoPiano: "agricoltura", link: "agri" },
   { key: "rilievi", modulo: "rilievi", emoji: "📐", nome: "Fotogrammetria", testo: "Rilievi e ortofoto: GSD e sovrapposizioni, area STS e report di consegna con i file.", tab: { key: "rilievi", label: "Rilievi" }, tipoPiano: "rilievo", link: "rilievi" },
 ];
 

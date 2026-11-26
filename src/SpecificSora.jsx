@@ -209,12 +209,12 @@ function Notam({ inputStyle, azienda }) {
   );
 }
 
-export default function SpecificSora({ inputStyle, droni = [], azienda = {} }) {
+export default function SpecificSora({ inputStyle, droni = [], azienda = {}, incorporata = false }) {
   const [tab, setTab] = useState("sora");
   return (
-    <div style={{ padding: "28px 32px", overflow: "auto" }}>
+    <div style={incorporata ? {} : { padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 900 }}>
-        <TestataPagina titolo="Categoria Specific" sigla="SORA · CONOPS · NOTAM" info="SORA guidata con ConOps, volumi e piano di emergenza in PDF, e il testo della richiesta di NOTAM già pronto." />
+        {!incorporata && <TestataPagina titolo="Categoria Specific" sigla="SORA · CONOPS · NOTAM" info="SORA guidata con ConOps, volumi e piano di emergenza in PDF, e il testo della richiesta di NOTAM già pronto." />}
         <div role="tablist" style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
           {[["sora", "🧮 SORA guidata"], ["notam", "📡 Richiesta NOTAM"]].map(([k, t]) => <button key={k} role="tab" aria-selected={tab === k} type="button" onClick={() => setTab(k)} style={{ ...btn(false), background: tab === k ? "#241d16" : "#1a2133", borderColor: tab === k ? "#ff8c42" : "#343e57" }}>{t}</button>)}
         </div>

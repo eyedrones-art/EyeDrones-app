@@ -5,6 +5,7 @@ import { TestataPagina } from "./VoloHero.jsx";
 import { pdfConsegnaAgricoltura } from "./reportConsegna.js";
 import FascicoloScia, { controlliScia, unisci } from "./FascicoloScia.jsx";
 import MappeCampo from "./MappeCampo.jsx";
+import SpecificSora from "./SpecificSora.jsx";
 import { leggiTabella, trovaIntestazione, riconosciColonne, fattoreEttari, numero, dataOra, CAMPI_IMPORT, ettariCella, unitaCella, tipoCella } from "./importaLavori.js";
 import { leggiFileConfini, campiInKml, fasceRispetto, CATEGORIE_RISPETTO, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
 
@@ -113,9 +114,14 @@ export function HomeAgricoltura({ supabase, onNav }) {
         </button>
       )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-        {bott("🧪 Registra un trattamento", "trattamenti", true)}
+        {bott("📋 Ordini di lavoro", "ordini", true)}
+        {bott("🧪 Registra un trattamento", "trattamenti")}
+        {bott("📥 Importa da SmartFarm", "importa")}
+        {bott("🛰️ Mappe NDVI e scouting", "mappe")}
+        {bott("🧮 SORA e NOTAM", "specific")}
         {bott("🌦️ Meteo per irrorare", "meteo")}
         {bott("🗺️ Appezzamenti", "campi")}
+        <button type="button" onClick={() => onNav("preventivi")} style={btn(false)}>💶 Preventivo a ettaro</button>
       </div>
     </section>
   );
@@ -123,7 +129,10 @@ export function HomeAgricoltura({ supabase, onNav }) {
 
 export default function Agricoltura({ supabase, inputStyle, clienti = [], droni = [], azienda = {} }) {
   // dalla Home dello spazio Agricoltura si può arrivare direttamente a una scheda (es. il fascicolo SCIA)
-  const [vista, setVista] = useState(() => { try { const v = sessionStorage.getItem(CHIAVE_VISTA); sessionStorage.removeItem(CHIAVE_VISTA); return v || "campi"; } catch { return "campi"; } });
+  const [apriImporta, setApriImporta] = useState(false);
+  const [vista, setVistaInterna] = useState(() => { try { const v = sessionStorage.getItem(CHIAVE_VISTA); sessionStorage.removeItem(CHIAVE_VISTA); return v || "campi"; } catch { return "campi"; } });
+  const setVista = (v) => { if (v === "importa") { setApriImporta(true); setVistaInterna("trattamenti"); } else setVistaInterna(v); };
+  useEffect(() => { if (vista === "importa") setVista("importa"); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
   const [campi, setCampi] = useState(null);
   const [trattamenti, setTrattamenti] = useState([]);
   const [mancaTabella, setMancaTabella] = useState(false);
@@ -151,7 +160,7 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
   const apriOrdine = (campo) => { setNuovoOrdine({ campo }); setVista("ordini"); window.scrollTo(0, 0); };
   const apriMeteo = (campo) => { setCampoMeteo(campo ? campo.id : null); setVista("meteo"); window.scrollTo(0, 0); };
 
-  const linguette = [["campi", "🗺️ Appezzamenti"], ["ordini", `📋 Ordini di lavoro${ordini && ordini.filter((o) => o.stato === "da_fare").length ? ` (${ordini.filter((o) => o.stato === "da_fare").length})` : ""}`], ["trattamenti", "🧪 Registro lavori"], ["mappe", "🛰️ Mappe e scouting"], ["meteo", "🌦️ Meteo trattamenti"], ["scia", "📁 Fascicolo SCIA"]];
+  const linguette = [["campi", "🗺️ Appezzamenti"], ["ordini", `📋 Ordini di lavoro${ordini && ordini.filter((o) => o.stato === "da_fare").length ? ` (${ordini.filter((o) => o.stato === "da_fare").length})` : ""}`], ["trattamenti", "🧪 Registro lavori"], ["mappe", "🛰️ Mappe e scouting"], ["specific", "🧮 SORA e NOTAM"], ["meteo", "🌦️ Meteo trattamenti"], ["scia", "📁 Fascicolo SCIA"]];
   return (
     <div style={{ padding: "28px 32px", overflow: "auto" }}>
       <div style={{ maxWidth: 1000 }}>
@@ -165,6 +174,12 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
           </div>
         )}
 
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginBottom: 14 }} data-scorciatoie>
+          {[["📋", "Nuovo ordine di lavoro", () => apriOrdine(null)], ["🧪", "Registra un lavoro", () => apriLavoro(null)], ["📥", "Importa da SmartFarm o Excel", () => setVista("importa")], ["🛰️", "Carica mappa NDVI", () => setVista("mappe")], ["🧮", "SORA e NOTAM", () => setVista("specific")], ["🌦️", "Meteo per irrorare", () => setVista("meteo")]].map(([e, t, f]) => (
+            <button key={t} type="button" onClick={f} style={{ display: "flex", alignItems: "center", gap: 10, textAlign: "left", background: "#10141f", border: "1px solid #2a3349", borderRadius: 10, padding: "11px 12px", color: "#e7eaee", fontSize: 13, fontWeight: 700 }}><span style={{ fontSize: 20 }}>{e}</span>{t}</button>
+          ))}
+        </div>
+
         <div role="tablist" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
           {linguette.map(([k, t]) => (
             <button key={k} role="tab" aria-selected={vista === k} type="button" onClick={() => setVista(k)} style={{ ...btn(false), background: vista === k ? "#241d16" : "#1a2133", border: vista === k ? "1px solid #ff8c42" : "1px solid #343e57", fontWeight: 600 }}>{t}</button>
@@ -175,10 +190,12 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
           <Appezzamenti onOrdine={ordini === null ? null : apriOrdine} supabase={supabase} inputStyle={inputStyle} clienti={clienti} campi={campi} trattamenti={trattamenti} selezionato={selezionato} setSelezionato={setSelezionato} onCambiati={carica} onLavoro={apriLavoro} onMeteo={apriMeteo} nomeCliente={nomeCliente} bloccato={mancaTabella} />
         ) : vista === "ordini" ? (
           <OrdiniLavoro supabase={supabase} inputStyle={inputStyle} campi={campi} ordini={ordini} droni={droni} azienda={azienda} trattamenti={trattamenti} iniziale={nuovoOrdine} onIniziale={() => setNuovoOrdine(null)} onCambiati={carica} onRegistra={(campo, dati) => apriLavoro(campo, dati)} />
+        ) : vista === "specific" ? (
+          <SpecificSora inputStyle={inputStyle} droni={droni} azienda={azienda} incorporata />
         ) : vista === "mappe" ? (
           <MappeCampo supabase={supabase} inputStyle={inputStyle} campi={campi} />
         ) : vista === "trattamenti" ? (
-          <RegistroLavori supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} droni={droni} azienda={azienda} iniziale={nuovoLavoro} onIniziale={() => setNuovoLavoro(null)} onCambiati={carica} bloccato={mancaTabella} />
+          <RegistroLavori apriImporta={apriImporta} onImportaAperto={() => setApriImporta(false)} supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} droni={droni} azienda={azienda} iniziale={nuovoLavoro} onIniziale={() => setNuovoLavoro(null)} onCambiati={carica} bloccato={mancaTabella} />
         ) : vista === "scia" ? (
           <FascicoloScia supabase={supabase} inputStyle={inputStyle} campi={campi} droni={droni} azienda={azienda} />
         ) : (
@@ -680,13 +697,14 @@ function MiscelaSerbatoio({ dose, unita, volumeHa, ettari, inputStyle }) {
   );
 }
 
-function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azienda, iniziale, onIniziale, onCambiati, bloccato }) {
+function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azienda, iniziale, onIniziale, onCambiati, bloccato, apriImporta, onImportaAperto }) {
   const [form, setForm] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [meteoStato, setMeteoStato] = useState("");
   const [filtro, setFiltro] = useState({ campo: "", azienda: "", da: "", a: "" });
   const [consegna, setConsegna] = useState(null); // dati del report di consegna, quando il riquadro è aperto
-  const [importa, setImporta] = useState(false);
+  const [importa, setImporta] = useState(!!apriImporta);
+  useEffect(() => { if (apriImporta) { setImporta(true); onImportaAperto && onImportaAperto(); } /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [apriImporta]);
 
   // arrivo da un campo («Registra un lavoro»): apro il modulo già compilato
   useEffect(() => {
