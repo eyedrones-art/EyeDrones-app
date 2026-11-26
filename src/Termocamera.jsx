@@ -296,7 +296,7 @@ export default function Termocamera({ supabase, piano, impianti = [], ispezioni 
   };
 
   if (piano !== "pro") {
-    return <div style={{ padding: "28px 32px" }}><TestataPagina titolo="Termocamera" sigla="R-JPEG · TEMPERATURE · PALETTE" /><div style={{ ...scheda, maxWidth: 460 }}>Legge la temperatura di ogni punto dalle foto termiche originali DJI e cambia la palette: è inclusa nel piano Pro.</div></div>;
+    return <div style={{ padding: "28px 32px" }}><TestataPagina titolo="Termocamera" sigla="R-JPEG · TEMPERATURE · PALETTE" /><div style={{ ...scheda, maxWidth: 460 }}>Da telefono e da computer: legge la temperatura di ogni punto dalle foto termiche originali DJI e cambia la palette: è inclusa nel piano Pro.</div></div>;
   }
   const valoreSotto = sotto ? temp(sotto.x, sotto.y) : null;
   return (
@@ -414,7 +414,7 @@ export default function Termocamera({ supabase, piano, impianti = [], ispezioni 
             </div>
           </div>
         )}
-        {!foto.length && <div style={{ ...scheda, fontSize: 13, color: "#c3cad4", lineHeight: 1.6 }}>Come il DJI Thermal Analysis Tool, ma nel telefono: <b>tocca un punto</b> e leggi la temperatura, <b>misura un'area</b> (massima, minima e media), <b>cambia palette</b> e scala, <b>evidenzia</b> quello che supera una soglia, correggi <b>emissività</b> e <b>temperatura riflessa</b>, poi mettila nel report (anche affiancata alla foto normale) o scaricala. Carica insieme anche le foto normali («_W», «_Z», «_V»): si abbinano da sole.</div>}
+        {!foto.length && <div style={{ ...scheda, fontSize: 13, color: "#c3cad4", lineHeight: 1.6 }}>Come il DJI Thermal Analysis Tool, da telefono e da computer: <b>tocca un punto</b> e leggi la temperatura, <b>misura un'area</b> (massima, minima e media), <b>cambia palette</b> e scala, <b>evidenzia</b> quello che supera una soglia, correggi <b>emissività</b> e <b>temperatura riflessa</b>, poi mettila nel report (anche affiancata alla foto normale) o scaricala. Carica insieme anche le foto normali («_W», «_Z», «_V»): si abbinano da sole.</div>}
       </div>
     </div>
   );

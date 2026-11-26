@@ -2412,7 +2412,7 @@ function AppShell({ session }) {
         .impara-simulatore:hover { transform: translateY(-2px); border-color: #ff8c42; }
         .impara-simulatore-vai { display: inline-block; margin-top: 12px; background: #ff8c42; color: #140b06; font-weight: 800; border-radius: 12px; padding: 9px 16px; font-size: 13.5px; }
         /* sul telefono le pagine respirano meno ai lati: più spazio al contenuto */
-        @media (max-width: 680px) { .app-shell div[style*="padding: 28px 32px"] { padding: 16px 14px !important; } }
+        @media (max-width: 680px) { .app-shell div[style*="padding: 28px 32px"] { padding: 16px 16px !important; } }
         /* i titoli delle pagine: grandi, larghi, in maiuscolo, come nella Home */
         .app-shell h1 { font-family: 'Archivo', 'IBM Plex Sans', sans-serif; font-stretch: 115%; font-weight: 850; text-transform: uppercase; letter-spacing: 0; }
         .app-shell h1::after { content: ""; display: block; width: 38px; height: 2px; margin-top: 8px; background: #ff8c42; border-radius: 2px; }
@@ -2574,7 +2574,7 @@ function AppShell({ session }) {
           </Suspense>
         )}
         {page === "funzioni" && <TutteLeFunzioni onVai={(k) => { vai(k); window.scrollTo(0, 0); }} usaAI={adminAI || espertoAperto} usaIspezioni={usaIspezioni} usaAgricoltura={usaAgricoltura} />}
-        {page === "telemetria" && <Suspense fallback={<LoadingBlock />}><Telemetria /></Suspense>}
+        {page === "telemetria" && <div style={{ padding: "28px 32px" }}><Suspense fallback={<LoadingBlock />}><Telemetria /></Suspense></div>}
         {(page === "calcolatori" || page === "filtri-nd") && <PaginaCalcolatori onPianifica={() => { setPage("pianificazione"); window.scrollTo(0, 0); }} />}
         {page === "posti" && (
           <Suspense fallback={<LoadingBlock />}>
@@ -2606,9 +2606,11 @@ function AppShell({ session }) {
           </Suspense>
         )}
         {page === "pratica-enac" && (
+          <div style={{ padding: "28px 32px" }}>
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
             <PraticaEnac supabase={supabase} inputStyle={inputStyle} azienda={azienda} attestati={attestati} droni={droni} emailUtente={session.user.email} />
           </Suspense>
+          </div>
         )}
         {page === "foto-video" && (
           <Suspense fallback={<div style={{ padding: 32 }}><LoadingBlock /></div>}>
@@ -8084,6 +8086,7 @@ function PaginaCalcolatori({ onPianifica }) {
     </button>
   );
   return (
+    <div style={{ padding: "28px 32px" }}>
     <div style={{ maxWidth: 820 }}>
       <TestataPagina titolo="Calcolatori" sigla="CALC · ND, RILIEVI, AGRAS E PULIZIA" icona={Calculator} info="I calcoli che servono prima di volare, tutti in un posto. Gli stessi li trovi anche in Pianifica, dentro il tipo di lavoro." />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginTop: 14 }}>
@@ -8100,6 +8103,7 @@ function PaginaCalcolatori({ onPianifica }) {
         {scelto === "trattamento" && <><CalcolatoreTrattamento key="trattamento" /><div style={{ borderTop: "1px solid #232b3f", margin: "14px 0" }} /><CalcolatoreAgras key="agras" /></>}
         {scelto === "pulizia" && <CalcolatorePulizia key="pulizia" />}
       </div>
+    </div>
     </div>
   );
 }
