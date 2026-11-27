@@ -61,6 +61,7 @@ export function Privacy() {
           <><strong>Stripe</strong>: i pagamenti con carta, compreso il «Pagamento protetto» di «Trova un pilota». I dati della carta e, per i piloti, i documenti e il conto per ricevere i soldi li riceve solo Stripe: EyeDrones non li vede.</>,
           <><strong>OpenStreetMap, Nominatim e Overpass</strong>: mappe, ricerca degli indirizzi e dei posti. Ricevono il testo cercato o le coordinate.</>,
           <><strong>Open-Meteo</strong> e <strong>NOAA</strong>: meteo e indice geomagnetico. Ricevono solo le coordinate del luogo, nessun dato personale.</>,
+          <><strong>Copernicus Data Space Ecosystem</strong> (programma europeo Copernicus): mappe NDVI dal satellite Sentinel-2. Riceve solo il confine del campo, passando dal nostro server, nessun dato personale.</>,
           <><strong>Anthropic</strong>: l'intelligenza artificiale dell'Esperto e dell'assistente fotovoltaico. Riceve le foto o le domande inviate, non il tuo account.</>,
           <><strong>Commissione europea (PVGIS)</strong>: dati solari per la stima del fotovoltaico. Riceve solo le coordinate, nessun dato personale.</>,
           <><strong>Telegram</strong>: ci avvisa delle nuove richieste di preventivo fotovoltaico.</>,

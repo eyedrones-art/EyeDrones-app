@@ -193,7 +193,7 @@ export default function Agricoltura({ supabase, inputStyle, clienti = [], droni 
         ) : vista === "specific" ? (
           <SpecificSora inputStyle={inputStyle} droni={droni} azienda={azienda} incorporata />
         ) : vista === "mappe" ? (
-          <MappeCampo supabase={supabase} inputStyle={inputStyle} campi={campi} />
+          <MappeCampo supabase={supabase} inputStyle={inputStyle} campi={campi} azienda={azienda} />
         ) : vista === "trattamenti" ? (
           <RegistroLavori apriImporta={apriImporta} onImportaAperto={() => setApriImporta(false)} supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} droni={droni} azienda={azienda} iniziale={nuovoLavoro} onIniziale={() => setNuovoLavoro(null)} onCambiati={carica} bloccato={mancaTabella} />
         ) : vista === "scia" ? (
