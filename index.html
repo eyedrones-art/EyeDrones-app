@@ -58,9 +58,33 @@
       @media (prefers-reduced-motion: reduce) { .avvio img { animation: none; } }
     </style>
     <script>
-      // con JavaScript acceso si vede il logo di avvio; se l'app non parte entro 10 secondi torna il testo
+      // con JavaScript acceso si vede il logo di avvio. Se l'app non parte entro 9 secondi (browser vecchio,
+      // browser interno di Instagram/Facebook, rete che si blocca) spiego cosa fare e lo annoto in errori_app.
       document.documentElement.classList.add("js");
-      setTimeout(function () { if (document.querySelector(".avvio")) document.documentElement.classList.remove("js"); }, 10000);
+      var primoErrore = "";
+      window.addEventListener("error", function (e) { if (!primoErrore) primoErrore = String((e && (e.message || (e.error && e.error.message))) || "") + (e && e.filename ? " @ " + e.filename + ":" + e.lineno : ""); });
+      setTimeout(function () {
+        var a = document.querySelector(".avvio");
+        if (!a) return;
+        document.documentElement.classList.remove("js");
+        var dentroApp = /Instagram|FBAN|FBAV|FB_IAB|Line\/|WhatsApp|TikTok|musical_ly|Snapchat/i.test(navigator.userAgent);
+        var box = document.createElement("div");
+        box.setAttribute("role", "alert");
+        box.style.cssText = "max-width:520px;margin:24px auto 0;padding:18px 20px;border:1px solid #ff8c42;border-radius:14px;background:#1a1410;color:#f3e6d8;font:15px/1.5 system-ui,sans-serif";
+        box.innerHTML = "<b style='font-size:17px'>L'app non è riuscita ad aprirsi</b><br>" +
+          (dentroApp ? "Sei dentro un'altra app (Instagram, Facebook, WhatsApp…): tocca <b>⋯</b> in alto e scegli <b>Apri nel browser</b> (Chrome o Safari).<br>" : "Prova a ricaricare. Se non va, aggiorna il browser o apri <b>app.eyedrones.it</b> con Chrome o Safari aggiornati.<br>") +
+          "<button type='button' onclick='location.reload()' style='margin-top:12px;background:#ff8c42;color:#1a0a03;border:0;border-radius:8px;padding:10px 16px;font-weight:700;font-size:15px'>Ricarica</button>" +
+          "<div style='margin-top:10px;font-size:13px;color:#b9ad9f'>Se continua, scrivici: info@eyedrones.it</div>";
+        var root = document.getElementById("root");
+        if (root) root.insertBefore(box, root.firstChild);
+        try {
+          fetch("https://kywmesdqemxqjasixpzq.supabase.co/rest/v1/errori_app", {
+            method: "POST",
+            headers: { apikey: "sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ", Authorization: "Bearer sb_publishable_TuA4NliBCPZ8ggPAfIvF1w_JNd1qQcZ", "Content-Type": "application/json", Prefer: "return=minimal" },
+            body: JSON.stringify({ pagina: "avvio", messaggio: "L'app non è partita in 9 secondi" + (dentroApp ? " (browser interno di un'app)" : ""), dettagli: String(primoErrore).slice(0, 1500), indirizzo: location.pathname, dispositivo: String(navigator.userAgent).slice(0, 300) })
+          }).catch(function () {});
+        } catch (x) {}
+      }, 9000);
     </script>
   </head>
   <body>
