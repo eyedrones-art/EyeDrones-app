@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import L from "./leafletSicuro";
 import "leaflet/dist/leaflet.css";
+import { jsPDF } from "jspdf";
+import { condividiPdf } from "./lavoroComune.jsx";
 import { leggiMappaIndice, limitiDa, zoneVigore, prescrizioneGeoJson, prescrizioneKml, prescrizioneShapefile, scaricaFile, coloreCss, dentroConfine } from "./multispettrale.js";
 
 // «🛰️ Mappe e scouting» (supabase/multispettrale.sql): mappe NDVI/NDRE per campo con lo storico,
@@ -60,7 +62,57 @@ function MappaIndice({ campo, mappa, opacita, punti, zone, onTocca, altezza = 38
   return <div ref={box} style={{ height: altezza, borderRadius: 10, overflow: "hidden", border: "1px solid #2a3349", background: "#0a0d16", cursor: onTocca ? "crosshair" : "grab" }} />;
 }
 
-export default function MappeCampo({ supabase, inputStyle, campi }) {
+// grafico dell'NDVI dal satellite: un punto per ogni giorno sereno, tocca un punto per scegliere il giorno
+function GraficoSatellite({ serie, scelto, onScegli }) {
+  if (!serie.length) return null;
+  const W = 640, H = 170, pad = 28;
+  const t0 = new Date(serie[0].data).getTime(), t1 = new Date(serie[serie.length - 1].data).getTime() || t0 + 1;
+  const lo = Math.min(0, ...serie.map((x) => x.media)), hi = Math.max(1, ...serie.map((x) => x.media));
+  const X = (d) => pad + ((new Date(d).getTime() - t0) / Math.max(1, t1 - t0)) * (W - pad * 2);
+  const Y = (v) => H - pad + 6 - ((v - lo) / (hi - lo)) * (H - pad * 1.6);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }} role="img" aria-label="Andamento NDVI dal satellite" data-grafico-satellite>
+      {[0, 0.25, 0.5, 0.75, 1].filter((v) => v >= lo && v <= hi).map((v) => <g key={v}><line x1={pad} x2={W - pad} y1={Y(v)} y2={Y(v)} stroke="#232b3f" /><text x={4} y={Y(v) + 4} fontSize="11" fill="#6b7480">{v.toFixed(2)}</text></g>)}
+      <polyline points={serie.map((x) => `${X(x.data)},${Y(x.media)}`).join(" ")} fill="none" stroke="#a3e635" strokeWidth="2.5" />
+      {serie.map((x) => (
+        <g key={x.data} onClick={() => onScegli(x)} style={{ cursor: "pointer" }}>
+          <circle cx={X(x.data)} cy={Y(x.media)} r={scelto === x.data ? 8 : 5} fill={coloreCss((x.media - 0.1) / 0.8)} stroke={scelto === x.data ? "#fff" : "#10141f"} strokeWidth="2" />
+          <circle cx={X(x.data)} cy={Y(x.media)} r="14" fill="transparent" />
+        </g>
+      ))}
+      <text x={pad} y={H - 4} fontSize="11" fill="#8b95a3">{dataIt(serie[0].data)}</text>
+      <text x={W - pad} y={H - 4} fontSize="11" fill="#8b95a3" textAnchor="end">{dataIt(serie[serie.length - 1].data)}</text>
+    </svg>
+  );
+}
+
+// consigli automatici dal vigore, dalle zone e dallo scouting: il pilota li legge e li corregge prima del PDF
+function consigliAutomatici({ campo, mappa, zv, precedente, punti, serie }) {
+  const out = [];
+  const st = mappa && mappa.statistiche;
+  if (st) {
+    const m = Number(st.media);
+    out.push(m < 0.3 ? `Vigore medio basso (${m.toFixed(2)}): verificare in campo lo stato della coltura (emergenza, stress idrico o nutrizionale).` : m < 0.55 ? `Vigore medio discreto (${m.toFixed(2)}): ci sono margini di miglioramento nelle zone più deboli.` : `Vigore medio buono (${m.toFixed(2)}).`);
+  }
+  if (zv && zv.zone.length) {
+    const tot = zv.zone.reduce((t, z) => t + z.ha, 0) || 1, debole = zv.zone[0];
+    out.push(`La zona a vigore più basso copre ${(debole.ha).toFixed(2).replace(".", ",")} ha (${Math.round((debole.ha / tot) * 100)}% del campo): conviene un sopralluogo lì per capire la causa prima di decidere un intervento.`);
+  }
+  if (precedente && st && precedente.statistiche) {
+    const d = Number(st.media) - Number(precedente.statistiche.media);
+    if (Math.abs(d) > 0.02) out.push(`Rispetto alla mappa del ${dataIt(precedente.data)} il vigore medio è ${d > 0 ? "aumentato" : "diminuito"} di ${Math.abs(d).toFixed(2)}.`);
+  }
+  if (serie && serie.length >= 2) {
+    const a = serie[serie.length - 2], b = serie[serie.length - 1], d = b.media - a.media;
+    if (Math.abs(d) > 0.05) out.push(`Dal satellite: tra il ${dataIt(a.data)} e il ${dataIt(b.data)} l'NDVI medio è ${d > 0 ? "salito" : "sceso"} di ${Math.abs(d).toFixed(2)}.`);
+  }
+  const aperti = (punti || []).filter((p) => !p.risolto);
+  if (aperti.length) out.push(`Ci sono ${aperti.length} ${aperti.length === 1 ? "punto segnalato" : "punti segnalati"} durante lo scouting da controllare (vedi l'elenco).`);
+  out.push("Le eventuali scelte di trattamento o concimazione vanno decise con il tecnico agronomo.");
+  return out.join("\n");
+}
+
+export default function MappeCampo({ supabase, inputStyle, campi, azienda = {} }) {
   const conConfini = campi.filter((c) => c.confini || c.centro_lat != null);
   const [campoId, setCampoId] = useState(conConfini[0] ? conConfini[0].id : "");
   const [elenco, setElenco] = useState(null); // mappe salvate (senza immagine), null = tabella non creata
@@ -75,6 +127,8 @@ export default function MappeCampo({ supabase, inputStyle, campi }) {
   const [modoPunto, setModoPunto] = useState(false);
   const [presc, setPresc] = useState({ n: 3, dosi: ["", "", "", "", ""], unita: "l/ha", vedi: true });
   const campo = campi.find((c) => c.id === campoId) || null;
+  const [sat, setSat] = useState({ stato: "", serie: null, scelto: null, errore: "" });
+  const [rep, setRep] = useState({ aperto: false, consigli: "", scouting: true, zone: true, satellite: true, stato: "" });
 
   const carica = async () => {
     if (!campoId) return;
@@ -87,7 +141,7 @@ export default function MappeCampo({ supabase, inputStyle, campi }) {
     setPunti(b.data || []);
     if ((a.data || []).length && !nuova) apri(a.data[0].id); else if (!(a.data || []).length) setMappa(null);
   };
-  useEffect(() => { setMappa(null); setNuova(null); carica(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [campoId]);
+  useEffect(() => { setMappa(null); setNuova(null); setSat({ stato: "", serie: null, scelto: null, errore: "" }); setRep((x) => ({ ...x, aperto: false })); carica(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [campoId]);
   const apri = async (id) => {
     const { data } = await supabase.from("mappe_campo").select("*").eq("id", id).single();
     if (data) { setMappa(data); setNuova(null); }
@@ -158,6 +212,118 @@ export default function MappeCampo({ supabase, inputStyle, campi }) {
     if (tipo === "geojson") scaricaFile(JSON.stringify(prescrizioneGeoJson(zv.celle, dosiNum)), `${nomeFile}.geojson`, "application/geo+json");
   };
 
+  // --- satellite (netlify/functions/satellite-ndvi.js) ---
+  const chiamaSatellite = async (corpo) => {
+    const { data } = await supabase.auth.getSession();
+    const r = await fetch("/.netlify/functions/satellite-ndvi", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${data?.session?.access_token || ""}` }, body: JSON.stringify({ geometria: campo.confini, ...corpo }) });
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j) throw new Error((j && j.errore) || `Errore ${r.status}`);
+    return j;
+  };
+  const caricaStorico = async () => {
+    if (!campo || !campo.confini) { setSat({ ...sat, errore: "Serve il confine del campo: disegnalo o importalo negli Appezzamenti." }); return; }
+    setSat({ ...sat, stato: "storico", errore: "" });
+    try { const j = await chiamaSatellite({ azione: "storico", giorni: 150 }); setSat({ stato: "", serie: j.serie || [], scelto: null, errore: (j.serie || []).length ? "" : "In questi mesi il cielo sopra il campo è stato quasi sempre nuvoloso: riprova più avanti." }); }
+    catch (e) { setSat({ ...sat, stato: "", errore: e.message }); }
+  };
+  const mappaDelGiorno = async (punto) => {
+    setSat((x) => ({ ...x, scelto: punto.data, stato: "mappa", errore: "" }));
+    try {
+      const j = await chiamaSatellite({ azione: "mappa", data: punto.data });
+      const bin = atob(j.tiff), b = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+      const file = new File([b], `sentinel2-ndvi-${punto.data}.tif`, { type: "image/tiff" });
+      await leggiFile(file);
+      setMeta((m) => ({ ...m, indice: "NDVI", data: punto.data, fonte: "Satellite Sentinel-2 (10 m)" }));
+      setSat((x) => ({ ...x, stato: "" }));
+    } catch (e) { setSat((x) => ({ ...x, stato: "", errore: e.message })); }
+  };
+
+  // --- report PDF per l'agricoltore ---
+  const apriReport = () => setRep({ ...rep, aperto: true, consigli: consigliAutomatici({ campo, mappa, zv, precedente: mappa ? precedente(mappa) : null, punti, serie: sat.serie }) });
+  const immagineReport = (m) => new Promise((ok) => {
+    const W = 1200, b = limitiDa(m.angoli), [[la0, lo0], [la1, lo1]] = b;
+    const kx = Math.cos(((la0 + la1) / 2) * Math.PI / 180), H = Math.round(W * ((la1 - la0) / ((lo1 - lo0) * kx)));
+    const c = document.createElement("canvas"); c.width = W; c.height = Math.max(200, Math.min(1600, H)); const g = c.getContext("2d");
+    const XY = (lon, lat) => [((lon - lo0) / (lo1 - lo0)) * c.width, ((la1 - lat) / (la1 - la0)) * c.height];
+    g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
+    const i = new Image();
+    i.onload = () => {
+      g.imageSmoothingEnabled = false; g.drawImage(i, 0, 0, c.width, c.height);
+      if (rep.zone && zv) {
+        g.globalAlpha = 0.55;
+        zv.celle.forEach((ce) => { g.fillStyle = coloreCss(presc.n === 1 ? 0.5 : (ce.zona - 1) / (presc.n - 1)); g.beginPath(); ce.anello.forEach(([lon, lat], k) => { const [x, y] = XY(lon, lat); if (k) g.lineTo(x, y); else g.moveTo(x, y); }); g.fill(); });
+        g.globalAlpha = 1;
+      }
+      if (campo && campo.confini) {
+        const anelli = campo.confini.type === "Polygon" ? campo.confini.coordinates : campo.confini.type === "MultiPolygon" ? campo.confini.coordinates.flat() : [];
+        g.strokeStyle = "#111"; g.lineWidth = 5; g.setLineDash([16, 10]);
+        anelli.forEach((an) => { g.beginPath(); an.forEach(([lon, lat], k) => { const [x, y] = XY(lon, lat); if (k) g.lineTo(x, y); else g.moveTo(x, y); }); g.closePath(); g.stroke(); });
+        g.setLineDash([]);
+      }
+      if (rep.scouting) punti.filter((p) => !p.risolto).forEach((p, k) => { const [x, y] = XY(p.lon, p.lat); g.fillStyle = "#111"; g.beginPath(); g.arc(x, y, 18, 0, Math.PI * 2); g.fill(); g.fillStyle = "#fff"; g.font = "bold 20px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(k + 1), x, y + 1); });
+      ok({ url: c.toDataURL("image/jpeg", 0.9), w: c.width, h: c.height });
+    };
+    i.onerror = () => ok(null);
+    i.src = m.immagine;
+  });
+  const creaReport = async () => {
+    if (!mappa) return;
+    setRep((x) => ({ ...x, stato: "creo" }));
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const nomeAz = azienda.nome || "EyeDrones";
+    doc.setFillColor(16, 20, 31); doc.rect(0, 0, 210, 26, "F");
+    try { if (azienda.logo) doc.addImage(azienda.logo, "PNG", 12, 5, 16, 16); } catch { /* logo non leggibile */ }
+    doc.setTextColor(255, 255, 255); doc.setFontSize(15); doc.text("Report del campo", azienda.logo ? 32 : 12, 13);
+    doc.setFontSize(9.5); doc.setTextColor(255, 184, 119); doc.text(nomeAz, azienda.logo ? 32 : 12, 19.5);
+    let y = 36; doc.setTextColor(25, 25, 25);
+    doc.setFontSize(16); doc.text(campo ? campo.nome : "Campo", 12, y);
+    doc.setFontSize(10); doc.setTextColor(90, 90, 90);
+    doc.text([campo && campo.azienda ? `Azienda agricola: ${campo.azienda}` : null, campo && campo.ettari ? `Superficie: ${ha(Number(campo.ettari))}` : null, `Mappa del ${dataIt(mappa.data)} · ${mappa.indice}${mappa.fonte ? ` · ${mappa.fonte}` : ""}`].filter(Boolean).join("   ·   "), 12, y + 6, { maxWidth: 186 });
+    y += 13;
+    const im = await immagineReport(mappa);
+    let altImg = 0;
+    if (im) { const larg = 120, alt = Math.min(115, (larg * im.h) / im.w), l2 = (alt * im.w) / im.h; doc.addImage(im.url, "JPEG", 12, y, l2, alt); altImg = alt; }
+    // colonna a destra: legenda e numeri
+    const cx = 138; let cy = y + 2;
+    const st = mappa.statistiche;
+    doc.setTextColor(25, 25, 25); doc.setFontSize(11); doc.text("Vigore (" + mappa.indice + ")", cx, cy); cy += 4;
+    for (let k = 0; k < 60; k++) { const [rr, gg, bb] = coloreCss(k / 59).match(/\d+/g).map(Number); doc.setFillColor(rr, gg, bb); doc.rect(cx + k, cy, 1.05, 4, "F"); }
+    doc.setFontSize(8); doc.setTextColor(110, 110, 110); doc.text("basso", cx, cy + 8); doc.text("alto", cx + 60, cy + 8, { align: "right" }); cy += 14;
+    if (st) { doc.setFontSize(10); doc.setTextColor(40, 40, 40); [["Media", Number(st.media).toFixed(2)], ["Minimo", Number(st.min).toFixed(2)], ["Massimo", Number(st.max).toFixed(2)]].forEach(([a, b]) => { doc.text(a, cx, cy); doc.text(b, cx + 60, cy, { align: "right" }); cy += 5.5; }); }
+    const prec = precedente(mappa);
+    if (prec && st && prec.statistiche) { const d = Number(st.media) - Number(prec.statistiche.media); doc.setTextColor(d >= 0 ? 30 : 190, d >= 0 ? 140 : 50, d >= 0 ? 60 : 40); doc.text(`${d >= 0 ? "+" : ""}${d.toFixed(2)} dal ${dataIt(prec.data)}`, cx, cy); cy += 7; }
+    if (rep.zone && zv) {
+      doc.setTextColor(25, 25, 25); doc.setFontSize(11); doc.text("Zone di vigore", cx, cy + 2); cy += 7; doc.setFontSize(9.5);
+      const tot = zv.zone.reduce((t, z) => t + z.ha, 0) || 1;
+      zv.zone.forEach((z) => { const [rr, gg, bb] = coloreCss(presc.n === 1 ? 0.5 : (z.zona - 1) / (presc.n - 1)).match(/\d+/g).map(Number); doc.setFillColor(rr, gg, bb); doc.rect(cx, cy - 3, 4, 4, "F"); doc.setTextColor(40, 40, 40); doc.text(`Zona ${z.zona}`, cx + 6, cy); doc.text(`${ha(z.ha)} · ${Math.round((z.ha / tot) * 100)}%`, cx + 60, cy, { align: "right" }); cy += 5.5; });
+    }
+    y = Math.max(y + altImg + 10, cy + 6);
+    // andamento dal satellite
+    if (rep.satellite && sat.serie && sat.serie.length >= 2) {
+      doc.setTextColor(25, 25, 25); doc.setFontSize(11); doc.text("Andamento dal satellite (NDVI medio, Sentinel-2)", 12, y); y += 4;
+      const gx = 12, gw = 186, gh = 32, sr = sat.serie, t0 = new Date(sr[0].data).getTime(), t1 = new Date(sr[sr.length - 1].data).getTime() || t0 + 1;
+      doc.setDrawColor(220, 220, 220); doc.rect(gx, y, gw, gh);
+      const PX = (d) => gx + 3 + ((new Date(d).getTime() - t0) / Math.max(1, t1 - t0)) * (gw - 6), PY = (v) => y + gh - 3 - Math.max(0, Math.min(1, v)) * (gh - 6);
+      doc.setDrawColor(90, 160, 40); doc.setLineWidth(0.6);
+      for (let k = 1; k < sr.length; k++) doc.line(PX(sr[k - 1].data), PY(sr[k - 1].media), PX(sr[k].data), PY(sr[k].media));
+      doc.setLineWidth(0.2); doc.setFontSize(7.5); doc.setTextColor(120, 120, 120); doc.text(dataIt(sr[0].data), gx, y + gh + 4); doc.text(dataIt(sr[sr.length - 1].data), gx + gw, y + gh + 4, { align: "right" });
+      y += gh + 10;
+    }
+    const scriviBlocco = (titolo, righe) => {
+      if (y > 262) { doc.addPage(); y = 20; }
+      doc.setTextColor(25, 25, 25); doc.setFontSize(11); doc.text(titolo, 12, y); y += 5.5; doc.setFontSize(9.5); doc.setTextColor(55, 55, 55);
+      righe.forEach((t) => { const rr = doc.splitTextToSize(t, 184); if (y + rr.length * 4.4 > 282) { doc.addPage(); y = 20; } doc.text(rr, 14, y); y += rr.length * 4.4 + 1.5; });
+      y += 3;
+    };
+    const aperti = punti.filter((p) => !p.risolto);
+    if (rep.scouting && aperti.length) scriviBlocco("Punti segnalati in campo", aperti.map((p, k) => `${k + 1}. ${cat(p.categoria).t} · ${dataIt(p.data)}${p.nota ? ` · ${p.nota}` : ""} (${p.lat.toFixed(5)}, ${p.lon.toFixed(5)})`));
+    if (rep.consigli.trim()) scriviBlocco("Osservazioni e consigli", rep.consigli.split("\n").map((t) => t.trim()).filter(Boolean).map((t) => `• ${t}`));
+    const pagine = doc.getNumberOfPages();
+    for (let k = 1; k <= pagine; k++) { doc.setPage(k); doc.setFontSize(7.5); doc.setTextColor(140, 140, 140); doc.text(`${nomeAz} · report preparato con EyeDrones · l'indice di vigore è relativo al campo: le scelte agronomiche spettano al tecnico · pagina ${k} di ${pagine}`, 105, 292, { align: "center", maxWidth: 190 }); }
+    await condividiPdf(doc, `Report-${(campo ? campo.nome : "campo").replace(/[^\w-]+/g, "-")}-${mappa.data}.pdf`);
+    setRep((x) => ({ ...x, stato: "" }));
+  };
+
   if (!conConfini.length) return <div style={{ ...scheda, color: "#8b95a3", fontSize: 13.5 }}>Prima aggiungi un campo con il confine, nella scheda Appezzamenti: le mappe si appoggiano sul campo.</div>;
   if (elenco === null && campoId) {
     return <div style={{ ...scheda, border: "1px solid #f5b94266", background: "#211a0c", fontSize: 13, color: "#ffe2a8" }}>⚙️ Per usare mappe e scouting serve una cosa da fare <strong>una volta sola</strong>: in Supabase apri <strong>SQL Editor</strong>, incolla lo script <strong>supabase/multispettrale.sql</strong> e premi <strong>Run</strong>.</div>;
@@ -217,6 +383,47 @@ export default function MappeCampo({ supabase, inputStyle, campi }) {
               );
             })}
           </div>
+        </div>
+      )}
+
+      <div style={{ ...scheda, border: "1px solid #38bdf855" }} data-satellite>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+          <div style={{ fontWeight: 700 }}>🛰️ Satellite · NDVI senza volare</div>
+          <button type="button" onClick={caricaStorico} disabled={sat.stato === "storico"} style={btn(!sat.serie)} data-carica-satellite>{sat.stato === "storico" ? "Chiedo al satellite…" : sat.serie ? "↻ Aggiorna" : "Guarda gli ultimi 5 mesi"}</button>
+        </div>
+        <div style={{ fontSize: 12.5, color: "#c3cad4", lineHeight: 1.5 }}>Il satellite europeo Sentinel-2 passa sul campo ogni 2-5 giorni: qui vedi come cambia il vigore nei giorni senza nuvole (risoluzione 10 m). Tocca un giorno per caricare la mappa e metterla nello storico. Quando il vigore cala, è il momento di volare con il drone per vedere i dettagli.</div>
+        {sat.errore && <div style={{ fontSize: 12.5, color: "#ffb877", marginTop: 8 }}>{sat.errore}</div>}
+        {sat.serie && sat.serie.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <GraficoSatellite serie={sat.serie} scelto={sat.scelto} onScegli={mappaDelGiorno} />
+            <div style={{ fontSize: 12, color: "#8b95a3", marginTop: 4 }}>{sat.stato === "mappa" ? "Carico la mappa del giorno…" : `${sat.serie.length} giorni sereni · ultimo: ${dataIt(sat.serie[sat.serie.length - 1].data)}, NDVI medio ${sat.serie[sat.serie.length - 1].media.toFixed(2)}`}</div>
+          </div>
+        )}
+      </div>
+
+      {mappa && (
+        <div style={{ ...scheda, border: "1px solid #ff8c4255" }} data-report>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ fontWeight: 700 }}>📄 Report per l'agricoltore</div>
+            {!rep.aperto && <button type="button" onClick={apriReport} style={btn(true)} data-apri-report>Prepara il report</button>}
+          </div>
+          {!rep.aperto && <div style={{ fontSize: 12.5, color: "#c3cad4", marginTop: 6 }}>Un PDF con la mappa del {dataIt(mappa.data)}, le zone di vigore, il confronto con la mappa precedente, l'andamento dal satellite, i punti di scouting e i tuoi consigli. Con il tuo logo.</div>}
+          {rep.aperto && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13, color: "#c3cad4" }}>
+                <label style={{ display: "flex", gap: 6, alignItems: "center" }}><input type="checkbox" checked={rep.zone} onChange={(e) => setRep({ ...rep, zone: e.target.checked })} />Zone di vigore</label>
+                <label style={{ display: "flex", gap: 6, alignItems: "center" }}><input type="checkbox" checked={rep.scouting} onChange={(e) => setRep({ ...rep, scouting: e.target.checked })} />Punti di scouting</label>
+                <label style={{ display: "flex", gap: 6, alignItems: "center", opacity: sat.serie && sat.serie.length > 1 ? 1 : 0.5 }}><input type="checkbox" disabled={!(sat.serie && sat.serie.length > 1)} checked={rep.satellite && !!(sat.serie && sat.serie.length > 1)} onChange={(e) => setRep({ ...rep, satellite: e.target.checked })} />Andamento dal satellite{sat.serie ? "" : " (prima guardalo qui sopra)"}</label>
+              </div>
+              <label style={etichetta}>Osservazioni e consigli (li ho scritti io dai dati: correggili)
+                <textarea rows={6} value={rep.consigli} onChange={(e) => setRep({ ...rep, consigli: e.target.value })} style={{ ...inputStyle, fontFamily: "inherit", resize: "vertical" }} aria-label="Consigli del report" />
+              </label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" onClick={creaReport} disabled={rep.stato === "creo"} style={btn(true)} data-crea-report>{rep.stato === "creo" ? "Preparo il PDF…" : "📄 Crea il PDF"}</button>
+                <button type="button" onClick={() => setRep({ ...rep, aperto: false })} style={btn(false)}>Chiudi</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
