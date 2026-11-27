@@ -5,9 +5,10 @@ import { TestataPagina } from "./VoloHero.jsx";
 import { pdfConsegnaAgricoltura } from "./reportConsegna.js";
 import FascicoloScia, { controlliScia, unisci } from "./FascicoloScia.jsx";
 import MappeCampo from "./MappeCampo.jsx";
+import DisegnaConfine from "./DisegnaConfine.jsx";
 import SpecificSora from "./SpecificSora.jsx";
 import { leggiTabella, trovaIntestazione, riconosciColonne, fattoreEttari, numero, dataOra, CAMPI_IMPORT, ettariCella, unitaCella, tipoCella } from "./importaLavori.js";
-import { leggiFileConfini, campiInKml, fasceRispetto, CATEGORIE_RISPETTO, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
+import { centroDi, leggiFileConfini, campiInKml, fasceRispetto, CATEGORIE_RISPETTO, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
 
 // Agricoltura (fase 1): appezzamenti con i confini sulla mappa, registro dei trattamenti con PDF,
 // meteo per irrorare con soglie e Delta T. Tabelle in supabase/agricoltura.sql
@@ -510,6 +511,8 @@ function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selez
     if (!testo(m.nome)) { alert("Scrivi il nome del campo."); return; }
     const dati = { nome: testo(m.nome), cliente_id: m.cliente_id || null, azienda: testo(m.azienda), coltura: testo(m.coltura), ettari: num(m.ettari), note: testo(m.note) };
     if (m.punto) { const [la, lo] = String(m.punto).replace(/\s/g, "").split(/[,;]/).map(Number); if (!Number.isNaN(la) && !Number.isNaN(lo)) { dati.centro_lat = la; dati.centro_lon = lo; } }
+    // confine disegnato sulla mappa: lo salvo con il suo centro (per meteo, satellite e «Portami lì»)
+    if (m.confiniNuovi && m.confini) { const c = centroDi(m.confini); dati.confini = m.confini; if (c) { dati.centro_lat = c.lat; dati.centro_lon = c.lon; } }
     setSalvando(true);
     const { error } = m.id ? await supabase.from("appezzamenti").update(dati).eq("id", m.id) : await supabase.from("appezzamenti").insert(dati);
     setSalvando(false);
@@ -569,6 +572,18 @@ function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selez
     return (
       <div style={scheda}>
         <h3 style={{ fontSize: 15, margin: "0 0 12px 0" }}>{m.id ? "✏️ Modifica campo" : "➕ Nuovo campo"}</h3>
+        <div style={{ marginBottom: 12 }}>
+          {m.disegna ? (
+            <DisegnaConfine iniziale={m.confini} centro={m.centro_lat != null ? { lat: m.centro_lat, lon: m.centro_lon } : null} inputStyle={inputStyle}
+              onFatto={(g, ettari) => setModifica({ ...m, confini: g, confiniNuovi: true, disegna: false, ettari: m.ettari && !m.confiniNuovi && m.confini ? m.ettari : Math.round(ettari * 100) / 100 })}
+              onAnnulla={() => setModifica({ ...m, disegna: false })} />
+          ) : (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setModifica({ ...m, disegna: true })} style={btn(!m.confini)} data-disegna>{m.confini ? "✏️ Ridisegna il confine" : "✏️ Disegna il confine sulla mappa"}</button>
+              <span style={{ fontSize: 12, color: m.confini ? "#4ade80" : "#8b95a3" }}>{m.confini ? `✓ Confine di ${formattaEttari(ettariDi(m.confini))}${m.confiniNuovi ? " (da salvare)" : ""}` : "Serve per satellite, mappe NDVI, fasce di rispetto e KML per l'Agras."}</span>
+            </div>
+          )}
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
           <div><label style={etichetta}>Nome del campo</label><input value={m.nome} onChange={(e) => setModifica({ ...m, nome: e.target.value })} placeholder="es. Vigna sotto casa" style={inputStyle} /></div>
           <div><label style={etichetta}>Cliente</label>
@@ -596,6 +611,7 @@ function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selez
           📂 Importa confini (KML, KMZ, GeoJSON, SHP)
           <input type="file" accept=".kml,.kmz,.geojson,.json,.zip,.shp" disabled={bloccato} onChange={(e) => { scegliFile(e.target.files && e.target.files[0]); e.target.value = ""; }} style={{ display: "none" }} />
         </label>
+        <button type="button" onClick={() => setModifica({ nome: "", cliente_id: "", azienda: "", coltura: "", ettari: "", disegna: true })} disabled={bloccato} style={btn(false)} data-nuovo-disegnato>✏️ Disegna un campo</button>
         <button type="button" onClick={() => setModifica({ nome: "", cliente_id: "", azienda: "", coltura: "", ettari: "" })} disabled={bloccato} style={btn(false)}>➕ Campo senza confine</button>
         {visibili.some((c) => c.confini) && <button type="button" onClick={() => scarica(campiInKml(visibili, filtro ? `Campi · ${filtro}` : "Campi EyeDrones"), `campi${filtro ? `-${filtro.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : ""}-${oggi()}.kml`, "application/vnd.google-earth.kml+xml")} style={btn(false)}>⬇️ Esporta KML (per DJI)</button>}
       </div>
@@ -619,6 +635,7 @@ function Appezzamenti({ supabase, inputStyle, clienti, campi, trattamenti, selez
             {onOrdine && <button type="button" onClick={() => onOrdine(campo)} style={btn(false)}>📋 Ordine di lavoro</button>}
             <button type="button" onClick={() => onMeteo(campo)} style={btn(false)}>🌦️ Si può trattare?</button>
             {campo.centro_lat != null && <a href={`https://www.google.com/maps/dir/?api=1&destination=${campo.centro_lat},${campo.centro_lon}`} target="_blank" rel="noreferrer" style={{ ...btn(false), textDecoration: "none" }}>🧭 Portami lì</a>}
+            {!campo.confini && <button type="button" onClick={() => setModifica({ ...campo, disegna: true })} style={btn(false)}>🗺️ Disegna il confine</button>}
             <button type="button" onClick={() => setModifica({ ...campo })} style={btn(false)}>✏️ Modifica</button>
             {campo.confini && <button type="button" onClick={() => scarica(campiInKml([campo], campo.nome), `${String(campo.nome || "campo").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.kml`, "application/vnd.google-earth.kml+xml")} style={btn(false)}>⬇️ KML</button>}
             <button type="button" onClick={() => elimina(campo)} style={{ ...btn(false), color: "#ff9c9c" }}>Elimina</button>

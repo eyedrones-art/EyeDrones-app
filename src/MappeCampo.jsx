@@ -324,7 +324,7 @@ export default function MappeCampo({ supabase, inputStyle, campi, azienda = {} }
     setRep((x) => ({ ...x, stato: "" }));
   };
 
-  if (!conConfini.length) return <div style={{ ...scheda, color: "#8b95a3", fontSize: 13.5 }}>Prima aggiungi un campo con il confine, nella scheda Appezzamenti: le mappe si appoggiano sul campo.</div>;
+  if (!conConfini.length) return <div style={{ ...scheda, color: "#8b95a3", fontSize: 13.5 }}>Prima serve un campo con il confine: nella scheda «🗺️ Appezzamenti» tocca «✏️ Disegna un campo» (lo disegni sulla mappa col dito o col mouse) oppure, su un campo che c'è già, «🗺️ Disegna il confine». Le mappe e il satellite si appoggiano sul confine.</div>;
   if (elenco === null && campoId) {
     return <div style={{ ...scheda, border: "1px solid #f5b94266", background: "#211a0c", fontSize: 13, color: "#ffe2a8" }}>⚙️ Per usare mappe e scouting serve una cosa da fare <strong>una volta sola</strong>: in Supabase apri <strong>SQL Editor</strong>, incolla lo script <strong>supabase/multispettrale.sql</strong> e premi <strong>Run</strong>.</div>;
   }
