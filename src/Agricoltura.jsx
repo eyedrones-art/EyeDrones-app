@@ -7,8 +7,8 @@ import FascicoloScia, { controlliScia, unisci } from "./FascicoloScia.jsx";
 import MappeCampo from "./MappeCampo.jsx";
 import DisegnaConfine from "./DisegnaConfine.jsx";
 import SpecificSora from "./SpecificSora.jsx";
-import { leggiTabella, trovaIntestazione, riconosciColonne, fattoreEttari, numero, dataOra, CAMPI_IMPORT, ettariCella, unitaCella, tipoCella } from "./importaLavori.js";
-import { centroDi, leggiFileConfini, campiInKml, fasceRispetto, CATEGORIE_RISPETTO, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro } from "./campi.js";
+import { leggiTabella, trovaIntestazione, riconosciColonne, fattoreEttari, numero, dataOra, CAMPI_IMPORT, ettariCella, unitaCella, tipoCella, posizioneCelle } from "./importaLavori.js";
+import { centroDi, leggiFileConfini, campiInKml, fasceRispetto, CATEGORIE_RISPETTO, ettariDi, formattaEttari, meteoCampo, valutaOraTrattamento, deltaT, leggiSoglie, salvaSoglie, SOGLIE_BASE, daDove, TIPI_LAVORO, etichettaLavoro, meteoPassato, meteoPerLavori, oraDelLavoro, campoDelPunto, datiProdottoDaStorico } from "./campi.js";
 
 // Agricoltura (fase 1): appezzamenti con i confini sulla mappa, registro dei trattamenti con PDF,
 // meteo per irrorare con soglie e Delta T. Tabelle in supabase/agricoltura.sql
@@ -246,12 +246,18 @@ function ImportaLavori({ supabase, inputStyle, campi, trattamenti, onFatto, onCh
     const fine = finePropria.ora ? finePropria : { ora: intervallo ? `${intervallo[1].padStart(2, "0")}:${intervallo[2]}` : null };
     const ha = ettariCella(cella(r, "ettari"), Number(fattore));
     const nomeCampo = cella(r, "campo");
-    const c = campoPerNome(nomeCampo);
+    // prima la posizione (se il file ha le coordinate), poi il nome
+    const pos = posizioneCelle(cella(r, "lat"), cella(r, "lon"));
+    const daPunto = pos ? campoDelPunto(campi, pos.lat, pos.lon) : null;
+    const c = daPunto || campoPerNome(nomeCampo);
+    const prodotto = cella(r, "prodotto") || opz.prodotto.trim() || null;
+    const storico = datiProdottoDaStorico(trattamenti, prodotto);
     return {
+      daPosizione: !!daPunto, carenza_giorni: storico ? storico.carenza_giorni : null, rientro_ore: storico ? storico.rientro_ore : null, registrazione: storico ? storico.registrazione : null,
       data: quando.data, ora_inizio: quando.ora, ora_fine: fine.ora, ettari: ha,
       tipo: tipoCella(cella(r, "tipo")) || opz.tipo, unitaQ: unitaCella(cella(r, "quantita")) || opz.unita,
       quantita_totale: numero(cella(r, "quantita")), campo_nome: c ? c.nome : nomeCampo || null, appezzamento_id: c ? c.id : null, azienda: c ? c.azienda : null, coltura: c ? c.coltura : null,
-      operatore: cella(r, "pilota") || null, drone_nome: cella(r, "drone") || null, prodotto: cella(r, "prodotto") || opz.prodotto.trim() || null,
+      operatore: cella(r, "pilota") || null, drone_nome: cella(r, "drone") || null, prodotto,
       durata: cella(r, "durata"),
     };
   }).filter((l) => l.data && (l.ettari != null || l.quantita_totale != null));
@@ -260,21 +266,35 @@ function ImportaLavori({ supabase, inputStyle, campi, trattamenti, onFatto, onCh
   const nuovi = lavori.filter((l) => !giaCe(l));
   const collegati = nuovi.filter((l) => l.appezzamento_id).length;
 
+  const conCarenza = nuovi.filter((l) => l.carenza_giorni != null || l.rientro_ore != null).length;
+  const daPosizione = nuovi.filter((l) => l.daPosizione).length;
+
   const importaTutto = async () => {
     if (!nuovi.length) return;
     setSalvando(true);
-    const righe = nuovi.map(({ durata, unitaQ, ...l }) => ({
-      ...l, unita: unitaQ === "kg" ? "kg/ha" : "l/ha",
+    // il meteo dell'ora di ogni lavoro, dal centro del suo campo (Open-Meteo: previsioni e archivio)
+    setEsito("Cerco il meteo di ogni lavoro…");
+    const meteo = await meteoPerLavori(nuovi, campi).catch(() => nuovi.map(() => null));
+    const righe = nuovi.map(({ durata, unitaQ, daPosizione: _p, ...l }, i) => ({
+      ...l, ...(meteo[i] || {}), unita: unitaQ === "kg" ? "kg/ha" : "l/ha",
       dose: l.quantita_totale != null && l.ettari ? Math.round((l.quantita_totale / l.ettari) * 100) / 100 : null,
-      note: ["Importato da file", tab.nome, durata ? `durata ${durata}` : null].filter(Boolean).join(" · "),
+      note: ["Importato da file", tab.nome, durata ? `durata ${durata}` : null, meteo[i] ? "meteo Open-Meteo (non misurato)" : null].filter(Boolean).join(" · "),
     }));
+    const conMeteo = meteo.filter(Boolean).length;
     let errori = 0;
     for (let i = 0; i < righe.length; i += 200) {
-      const { error } = await supabase.from("trattamenti").insert(righe.slice(i, i + 200));
+      let pezzo = righe.slice(i, i + 200);
+      let { error } = await supabase.from("trattamenti").insert(pezzo);
+      // colonne di carenza e rientro non ancora create (supabase/agricoltura-carenza.sql): salvo il resto
+      if (error && /carenza_giorni|rientro_ore/.test(error.message || "")) {
+        pezzo = pezzo.map(({ carenza_giorni: _c, rientro_ore: _r, ...resto }) => resto);
+        ({ error } = await supabase.from("trattamenti").insert(pezzo));
+      }
       if (error) { errori++; setErrore(`Non riuscito: ${error.message}`); }
     }
     setSalvando(false);
-    if (!errori) { setEsito(`Fatto: ${righe.length} lavori aggiunti al registro.`); setTimeout(onFatto, 900); }
+    if (!errori) { setEsito(`Fatto: ${righe.length} lavori aggiunti al registro${conMeteo ? `, ${conMeteo} con il meteo dell'ora del lavoro` : ""}.`); setTimeout(onFatto, 1400); }
+    else setEsito("");
   };
 
   return (
@@ -323,7 +343,7 @@ function ImportaLavori({ supabase, inputStyle, campi, trattamenti, onFatto, onCh
                 </tr>))}</tbody>
             </table>
           </div>
-          <div style={{ fontSize: 12.5, color: "#c3cad4" }}>{lavori.length ? <>Trovati <b>{lavori.length}</b> lavori{lavori.length - nuovi.length ? `, di cui ${lavori.length - nuovi.length} già nel registro` : ""}. {collegati ? `${collegati} collegati ai tuoi campi (✓).` : ""}</> : "Non trovo righe con data e superficie: controlla le colonne qui sopra."}</div>
+          <div style={{ fontSize: 12.5, color: "#c3cad4" }}>{lavori.length ? <>Trovati <b>{lavori.length}</b> lavori{lavori.length - nuovi.length ? `, di cui ${lavori.length - nuovi.length} già nel registro` : ""}. {collegati ? `${collegati} collegati ai tuoi campi (✓)${daPosizione ? `, ${daPosizione} dalla posizione` : ""}.` : ""}{conCarenza ? ` Carenza e rientro presi dai lavori già fatti con lo stesso prodotto per ${conCarenza}.` : ""}{collegati ? " Il meteo di ogni lavoro lo aggiungo io dal suo campo." : ""}</> : "Non trovo righe con data e superficie: controlla le colonne qui sopra."}</div>
           {esito && <div role="status" style={{ fontSize: 12.5, color: "#4ade80" }}>{esito}</div>}
           <button type="button" disabled={!nuovi.length || salvando} onClick={importaTutto} style={{ ...btn(true), alignSelf: "flex-start", opacity: nuovi.length ? 1 : 0.5 }}>{salvando ? "Importo…" : `Aggiungi ${nuovi.length} lavori al registro`}</button>
         </>
@@ -746,10 +766,11 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
     if (!c || c.centro_lat == null) { setMeteoStato("Scegli un campo con la posizione."); return; }
     setMeteoStato("Cerco il meteo…");
     try {
-      const ore = await meteoCampo({ lat: c.centro_lat, lon: c.centro_lon });
-      const h = form.ora_inizio ? Number(form.ora_inizio.slice(0, 2)) : new Date().getHours();
+      const h = oraDelLavoro(form) ?? new Date().getHours();
+      const futuro = form.data > oggi();
+      const ore = futuro ? await meteoCampo({ lat: c.centro_lat, lon: c.centro_lon }) : await meteoPassato({ lat: c.centro_lat, lon: c.centro_lon }, form.data, form.data);
       const o = ore.find((x) => x.data === form.data && x.ora === h);
-      if (!o) { setMeteoStato("Per quella data il meteo non è disponibile (solo gli ultimi 7 giorni e i prossimi 3)."); return; }
+      if (!o || o.vento == null) { setMeteoStato(futuro ? "Per quella data non ci sono ancora previsioni (solo i prossimi 3 giorni)." : "Per quella data il meteo non è disponibile: scrivilo a mano."); return; }
       setForm((f) => ({ ...f, vento_kmh: o.vento != null ? String(Math.round(o.vento)) : "", direzione_vento: daDove(o.direzione), temperatura: o.temp != null ? String(Math.round(o.temp)) : "", umidita: o.ur != null ? String(Math.round(o.ur)) : "" }));
       setMeteoStato(`✓ Meteo delle ${String(h).padStart(2, "0")}:00 (previsione Open-Meteo per il centro del campo): controlla e correggi se hai misurato sul posto.`);
     } catch { setMeteoStato("Meteo non disponibile: riprova o scrivilo a mano."); }
@@ -785,6 +806,32 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
     onCambiati();
   };
 
+  // lavori già nel registro senza meteo (importati prima, o scritti di fretta): lo aggiungo dall'ora e dal campo
+  const [completa, setCompleta] = useState("");
+  const senzaMeteo = trattamenti.filter((t) => t.vento_kmh == null && t.temperatura == null && t.appezzamento_id && oraDelLavoro(t) != null && t.data <= oggi() && (campoDi(t.appezzamento_id) || {}).centro_lat != null);
+  const completaMeteo = async () => {
+    setCompleta(`Cerco il meteo di ${senzaMeteo.length} lavori…`);
+    const meteo = await meteoPerLavori(senzaMeteo, campi).catch(() => senzaMeteo.map(() => null));
+    let fatti = 0;
+    for (let i = 0; i < senzaMeteo.length; i++) {
+      if (!meteo[i]) continue;
+      const t = senzaMeteo[i];
+      const nota = [t.note, "meteo Open-Meteo (non misurato)"].filter(Boolean).join(" · ");
+      const { error } = await supabase.from("trattamenti").update({ ...meteo[i], note: nota }).eq("id", t.id);
+      if (!error) fatti++;
+    }
+    setCompleta(fatti ? `✓ Meteo aggiunto a ${fatti} ${fatti === 1 ? "lavoro" : "lavori"}.` : "Non ho trovato il meteo per questi lavori.");
+    if (fatti) onCambiati();
+  };
+  // carenza, rientro e n. registrazione già usati con lo stesso prodotto
+  const prodottoScritto = (nome) => {
+    if (!form || form.tipo !== "trattamento") return;
+    const d = datiProdottoDaStorico(trattamenti.filter((t) => t.id !== form.id), nome);
+    if (!d) return;
+    setForm((f) => ({ ...f, carenza_giorni: f.carenza_giorni || (d.carenza_giorni != null ? String(d.carenza_giorni) : ""), rientro_ore: f.rientro_ore || (d.rientro_ore != null ? String(d.rientro_ore) : ""), registrazione: f.registrazione || d.registrazione || "" }));
+    setMeteoStato(`Carenza, rientro e registrazione presi dal lavoro del ${dataIt(d.data)} con lo stesso prodotto: controlla sull'etichetta.`);
+  };
+
   const elimina = async (t) => {
     if (!window.confirm("Eliminare questo lavoro dal registro?")) return;
     await supabase.from("trattamenti").delete().eq("id", t.id);
@@ -813,7 +860,7 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
           {campo("ora_fine", "Ora fine", { type: "time" })}
           {campo("coltura", "Coltura", { placeholder: "es. Vite" })}
           {f.tipo === "trattamento" && campo("avversita", "Avversità / bersaglio", { placeholder: "es. Peronospora" })}
-          {campo("prodotto", f.tipo === "semina" ? "Seme / varietà" : "Prodotto", { placeholder: f.tipo === "concimazione" ? "es. Urea 46%" : "es. nome commerciale" })}
+          {campo("prodotto", f.tipo === "semina" ? "Seme / varietà" : "Prodotto", { placeholder: f.tipo === "concimazione" ? "es. Urea 46%" : "es. nome commerciale", onBlur: (e) => prodottoScritto(e.target.value) })}
           {f.tipo === "trattamento" && <p style={{ gridColumn: "1 / -1", fontSize: 11.5, color: "#9fb8e8", margin: 0 }}>⚖️ Fitosanitari con il drone: solo dove la sperimentazione o una deroga lo permettono. Vedi «Regole in breve» in alto.</p>}
           {f.tipo === "trattamento" && campo("registrazione", "N. registrazione", { placeholder: "Min. Salute" })}
           {f.tipo === "trattamento" && campo("carenza_giorni", `Tempo di carenza (giorni)${fineCarenza(f.data, num(f.carenza_giorni)) ? ` · raccolta dal ${dataIt(fineCarenza(f.data, num(f.carenza_giorni)))}` : ""}`, { inputMode: "numeric", placeholder: "dall'etichetta" })}
@@ -867,6 +914,14 @@ function RegistroLavori({ supabase, inputStyle, campi, trattamenti, droni, azien
         <button type="button" onClick={() => pdfRegistro(filtrati, campi, azienda, filtro)} disabled={!filtrati.length} style={btn(false)}>📄 Scarica il registro in PDF</button>
         <button type="button" onClick={() => setConsegna(consegna ? null : { cliente: filtro.azienda || "", note: "", pilota: azienda?.nome || "", attestato: "", stato: "" })} disabled={!filtrati.length} style={btn(false)}>📦 Report di consegna</button>
       </div>
+      {senzaMeteo.length > 0 && !importa && (
+        <div style={{ ...scheda, marginBottom: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", border: "1px solid #3d8bfd55" }} data-completa-meteo>
+          <span style={{ fontSize: 13, color: "#c3cad4", flex: "1 1 220px", minWidth: 0 }}>🌦️ {senzaMeteo.length === 1 ? "1 lavoro è" : `${senzaMeteo.length} lavori sono`} senza meteo. Lo aggiungo io dall'ora del lavoro e dalla posizione del campo.</span>
+          <button type="button" onClick={completaMeteo} disabled={bloccato || /^Cerco/.test(completa)} style={btn(false)}>Completa il meteo</button>
+          {completa && <span role="status" style={{ fontSize: 12.5, color: /^✓/.test(completa) ? "#4ade80" : "#8b95a3", flexBasis: "100%" }}>{completa}</span>}
+        </div>
+      )}
+      {!senzaMeteo.length && /^✓/.test(completa) && <div role="status" style={{ fontSize: 12.5, color: "#4ade80", marginBottom: 10 }}>{completa}</div>}
       {importa && <ImportaLavori supabase={supabase} inputStyle={inputStyle} campi={campi} trattamenti={trattamenti} onFatto={() => { setImporta(false); onCambiati(); }} onChiudi={() => setImporta(false)} />}
       {consegna && (
         <div style={{ ...scheda, marginBottom: 12 }}>

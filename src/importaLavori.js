@@ -75,7 +75,21 @@ export const CAMPI_IMPORT = [
   { k: "drone", label: "Drone", parole: ["drone", "aircraft", "velivolo", "aeromobile", "uav", "sn", "serial", "nickname", "飞机", "无人机", "model", "modello"] },
   { k: "prodotto", label: "Prodotto (nome)", parole: ["prodotto", "product", "pesticide", "fitofarmaco", "farmaco", "concime", "seme", "药剂"] },
   { k: "durata", label: "Durata", parole: ["durata", "duration", "flight time", "tempo di volo", "时长"] },
+  { k: "lat", label: "Latitudine (posizione)", parole: ["latitudine", "latitude", "lat", "纬度", "coordinate", "coordinates", "gps"] },
+  { k: "lon", label: "Longitudine", parole: ["longitudine", "longitude", "lon", "lng", "经度"] },
 ];
+
+// posizione da una o due celle: «45.0653» e «7.6675», oppure tutto in una («45.0653, 7.6675»)
+export function posizioneCelle(a, b) {
+  const nums = (v) => (String(v ?? "").match(/-?\d+(?:[.,]\d+)?/g) || []).map((x) => Number(x.replace(",", ".")));
+  const na = nums(a), nb = nums(b);
+  let lat = null, lon = null;
+  if (na.length >= 2 && !nb.length) [lat, lon] = na;
+  else if (na.length && nb.length) { lat = na[0]; lon = nb[0]; }
+  if (lat == null || lon == null || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (Math.abs(lat) > 90 && Math.abs(lon) <= 90) [lat, lon] = [lon, lat];
+  return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && (lat || lon) ? { lat, lon } : null;
+}
 
 const norma = (s) => pulito(s).toLowerCase();
 // la riga dei titoli: tra le prime 15, quella in cui riconosco più colonne (sopra possono esserci titoli e note)
@@ -94,7 +108,7 @@ export function riconosciColonne(intestazione) {
   const usate = new Set();
   const mappa = {};
   // prima i campi con parole più precise, così «Pilot name» va al pilota e non al campo
-  const ordine = ["tipo", "pilota", "drone", "prodotto", "durata", "ora_fine", "quantita", "ettari", "data", "campo"];
+  const ordine = ["lon", "lat", "tipo", "pilota", "drone", "prodotto", "durata", "ora_fine", "quantita", "ettari", "data", "campo"];
   for (const campo of ordine.map((k) => CAMPI_IMPORT.find((c) => c.k === k))) {
     let migliore = -1, punti = 0;
     intestazione.forEach((h, i) => {
