@@ -994,6 +994,7 @@ function MeteoTrattamenti({ inputStyle, campi, campoId, setCampoId, onLavoro }) 
   const [ore, setOre] = useState(null);
   const [stato, setStato] = useState("");
   const [mostraSoglie, setMostraSoglie] = useState(false);
+  const [scelta, setScelta] = useState(null); // l'ora toccata: ne mostro i motivi del colore
   const conPosizione = campi.filter((c) => c.centro_lat != null);
   const campo = conPosizione.find((c) => c.id === campoId) || null;
 
@@ -1058,19 +1059,30 @@ function MeteoTrattamenti({ inputStyle, campi, campoId, setCampoId, onLavoro }) 
               <div style={{ fontSize: 12.5, fontWeight: 700, color: "#c3cad4", marginBottom: 6, textTransform: "capitalize" }}>{nomeGiorno(d)}</div>
               <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 4 }}>
                 {lista.map((o) => (
-                  <div key={o.quando} title={o.v.motivi.join(", ") || o.v.testo} style={{ flex: "0 0 auto", width: 58, textAlign: "center", background: o.v.colore + "1f", border: `1px solid ${o.v.colore}66`, borderRadius: 6, padding: "5px 2px", fontSize: 10.5, color: "#c3cad4" }}>
+                  <button type="button" key={o.quando} data-ora-meteo={o.quando} aria-pressed={scelta === o.quando} onClick={() => setScelta(scelta === o.quando ? null : o.quando)} title={o.v.motivi.join(", ") || o.v.testo} style={{ flex: "0 0 auto", width: 58, textAlign: "center", background: o.v.colore + (scelta === o.quando ? "40" : "1f"), border: scelta === o.quando ? `2px solid ${o.v.colore}` : `1px solid ${o.v.colore}66`, borderRadius: 6, padding: "5px 2px", fontSize: 10.5, color: "#c3cad4", cursor: "pointer", fontFamily: "inherit" }}>
                     <div style={{ fontWeight: 700, color: "#e7eaee" }}>{String(o.ora).padStart(2, "0")}</div>
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: o.v.colore, margin: "3px auto" }} />
                     <div>💨{Math.round(o.vento ?? 0)} {daDove(o.direzione)}</div>
                     <div>🌡️{Math.round(o.temp ?? 0)}°</div>
                     <div>💧{Math.round(o.ur ?? 0)}%</div>
                     <div style={{ color: "#8b95a3" }}>ΔT {o.v.deltaT ?? "—"}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
+              {(() => {
+                const o = lista.find((x) => x.quando === scelta);
+                if (!o) return null;
+                return (
+                  <div data-motivi-ora style={{ marginTop: 6, background: "#121826", border: `1px solid ${o.v.colore}88`, borderLeft: `4px solid ${o.v.colore}`, borderRadius: 8, padding: "8px 10px", fontSize: 12.5, color: "#c3cad4" }}>
+                    <div style={{ fontWeight: 700, color: o.v.colore }}>Ore {String(o.ora).padStart(2, "0")}:00 · {o.v.testo}</div>
+                    <div style={{ marginTop: 3 }}>{o.v.motivi.length ? `Perché: ${o.v.motivi.join(", ")}.` : "Vento, temperatura, umidità e Delta T sono dentro le tue soglie."}</div>
+                    <div style={{ marginTop: 3, color: "#8b95a3" }}>Vento {Math.round(o.vento ?? 0)} km/h{o.raffiche != null ? `, raffiche ${Math.round(o.raffiche)} km/h` : ""} · {Math.round(o.temp ?? 0)} °C · umidità {Math.round(o.ur ?? 0)}%{o.probPioggia != null ? ` · pioggia ${o.probPioggia}%` : ""}</div>
+                  </div>
+                );
+              })()}
             </div>
           ))}
-          <p style={{ fontSize: 11, color: "#6b7480" }}>Previsioni Open-Meteo per il centro del campo, vento a 10 m in km/h. Passa il dito su un'ora per vedere i motivi del colore.</p>
+          <p style={{ fontSize: 11, color: "#6b7480" }}>Previsioni Open-Meteo per il centro del campo, vento a 10 m in km/h. Tocca un'ora (o clicca col mouse) per vedere perché ha quel colore.</p>
         </>
       )}
     </div>
