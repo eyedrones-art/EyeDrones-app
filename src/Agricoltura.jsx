@@ -998,6 +998,14 @@ function MeteoTrattamenti({ inputStyle, campi, campoId, setCampoId, onLavoro }) 
   const conPosizione = campi.filter((c) => c.centro_lat != null);
   const campo = conPosizione.find((c) => c.id === campoId) || null;
 
+  // nessun campo scelto: riapro l'ultimo usato, altrimenti il primo della lista
+  useEffect(() => {
+    if (campo || !conPosizione.length) return;
+    let ultimo = null; try { ultimo = localStorage.getItem("eyedrones_campo_meteo"); } catch { /* niente */ }
+    setCampoId((conPosizione.find((c) => c.id === ultimo) || conPosizione[0]).id);
+  }, [campo, conPosizione.length]);
+  useEffect(() => { if (campo) try { localStorage.setItem("eyedrones_campo_meteo", campo.id); } catch { /* niente */ } }, [campo && campo.id]);
+
   useEffect(() => {
     if (!campo) { setOre(null); return; }
     let annullato = false;
