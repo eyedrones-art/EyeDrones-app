@@ -151,18 +151,104 @@ export function valutaOraTrattamento(o, s = SOGLIE_BASE) {
   return { livello, colore: ["#4ade80", "#f5b942", "#ff4d4d"][livello], testo: ["Si può trattare", "Con attenzione", "Meglio di no"][livello], motivi, deltaT: dt };
 }
 
-// previsioni ora per ora per il punto del campo (anche i 7 giorni passati, per compilare il registro dopo il lavoro)
-export async function meteoCampo({ lat, lon }) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation,precipitation_probability&past_days=7&forecast_days=3&timezone=auto`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error("meteo non disponibile");
-  const j = await r.json();
-  const h = j.hourly || {};
+const ORARIE = "temperature_2m,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation";
+function oreDa(j) {
+  const h = (j && j.hourly) || {};
   return (h.time || []).map((t, i) => ({
     quando: t, data: t.slice(0, 10), ora: Number(t.slice(11, 13)),
     temp: h.temperature_2m?.[i], ur: h.relative_humidity_2m?.[i], vento: h.wind_speed_10m?.[i], raffiche: h.wind_gusts_10m?.[i],
     direzione: h.wind_direction_10m?.[i], pioggia: h.precipitation?.[i], probPioggia: h.precipitation_probability?.[i],
   }));
+}
+async function scarica(url) { const r = await fetch(url); if (!r.ok) throw new Error("meteo non disponibile"); return oreDa(await r.json()); }
+
+// previsioni ora per ora per il punto del campo (anche i 7 giorni passati, per compilare il registro dopo il lavoro)
+export function meteoCampo({ lat, lon }) {
+  return scarica(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=${ORARIE},precipitation_probability&past_days=7&forecast_days=3&timezone=auto`);
+}
+
+// meteo ora per ora di giorni passati, anche lontani: gli ultimi giorni dalle previsioni, quelli più vecchi
+// dall'archivio di Open-Meteo (che arriva con qualche giorno di ritardo)
+const isoGiorno = (d) => d.toISOString().slice(0, 10);
+export async function meteoPassato({ lat, lon }, dal, al) {
+  const oggiIso = isoGiorno(new Date());
+  const confine = isoGiorno(new Date(Date.now() - 6 * 86400000));
+  const pezzi = [];
+  if (dal < confine) pezzi.push(["https://archive-api.open-meteo.com/v1/archive", dal, al < confine ? al : confine]);
+  if (al >= confine) pezzi.push(["https://api.open-meteo.com/v1/forecast", dal > confine ? dal : confine, al > oggiIso ? oggiIso : al]);
+  const ore = [];
+  for (const [base, a, b] of pezzi) ore.push(...(await scarica(`${base}?latitude=${lat}&longitude=${lon}&hourly=${ORARIE}&start_date=${a}&end_date=${b}&timezone=auto`)));
+  return ore;
+}
+
+// l'ora che rappresenta il lavoro: a metà tra inizio e fine (se c'è la fine)
+export function oraDelLavoro(l) {
+  if (!l.ora_inizio) return null;
+  const a = Number(String(l.ora_inizio).slice(0, 2)), b = l.ora_fine ? Number(String(l.ora_fine).slice(0, 2)) : a;
+  return b >= a ? Math.round((a + b) / 2) : a;
+}
+
+// meteo per tanti lavori insieme (importati da SmartFarm o già nel registro): una richiesta per campo.
+// Restituisce, nello stesso ordine, { vento_kmh, direzione_vento, temperatura, umidita } oppure null.
+export async function meteoPerLavori(lavori, campi) {
+  const esito = lavori.map(() => null);
+  const perCampo = {};
+  lavori.forEach((l, i) => {
+    const c = campi.find((x) => x.id === l.appezzamento_id);
+    if (!c || c.centro_lat == null || !l.data || oraDelLavoro(l) == null) return;
+    (perCampo[c.id] = perCampo[c.id] || { c, righe: [] }).righe.push(i);
+  });
+  for (const { c, righe } of Object.values(perCampo)) {
+    // a gruppi di al massimo un anno, per non chiedere archivi enormi
+    const date = [...new Set(righe.map((i) => lavori[i].data))].sort();
+    const gruppi = [];
+    date.forEach((d) => { const g = gruppi[gruppi.length - 1]; if (g && (new Date(d) - new Date(g[0])) / 86400000 < 360) g[1] = d; else gruppi.push([d, d]); });
+    const ore = [];
+    for (const [a, b] of gruppi) { try { ore.push(...(await meteoPassato({ lat: c.centro_lat, lon: c.centro_lon }, a, b))); } catch { /* quel pezzo resta senza meteo */ } }
+    righe.forEach((i) => {
+      const l = lavori[i], h = oraDelLavoro(l);
+      const o = ore.find((x) => x.data === l.data && x.ora === h);
+      if (o && o.vento != null) esito[i] = { vento_kmh: Math.round(o.vento), direzione_vento: daDove(o.direzione) || null, temperatura: o.temp != null ? Math.round(o.temp) : null, umidita: o.ur != null ? Math.round(o.ur) : null };
+    });
+  }
+  return esito;
+}
+
+// --- campo dalla posizione (lavori importati con le coordinate) ------------------------------------------
+function puntoInAnello(lon, lat, r) {
+  let dentro = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const [xi, yi] = r[i], [xj, yj] = r[j];
+    if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) dentro = !dentro;
+  }
+  return dentro;
+}
+export function dentroCampo(g, lat, lon) {
+  if (!g || !g.coordinates) return false;
+  const poligoni = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
+  return poligoni.some((p) => puntoInAnello(lon, lat, p[0]) && !p.slice(1).some((buco) => puntoInAnello(lon, lat, buco)));
+}
+// il campo che contiene il punto; se nessuno lo contiene, il campo col centro più vicino entro 500 m
+export function campoDelPunto(campi, lat, lon) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  const dentro = campi.find((c) => dentroCampo(c.confini, lat, lon));
+  if (dentro) return dentro;
+  let migliore = null, dist = 500;
+  campi.forEach((c) => {
+    if (c.centro_lat == null) return;
+    const dx = (c.centro_lon - lon) * 111320 * Math.cos((lat * Math.PI) / 180), dy = (c.centro_lat - lat) * 110540;
+    const d = Math.hypot(dx, dy);
+    if (d < dist) { dist = d; migliore = c; }
+  });
+  return migliore;
+}
+
+// --- carenza e rientro dai lavori già fatti con lo stesso prodotto ----------------------------------------
+export function datiProdottoDaStorico(trattamenti, prodotto) {
+  const n = String(prodotto || "").trim().toLowerCase();
+  if (!n) return null;
+  const t = (trattamenti || []).find((x) => String(x.prodotto || "").trim().toLowerCase() === n && (x.carenza_giorni != null || x.rientro_ore != null || x.registrazione));
+  return t ? { carenza_giorni: t.carenza_giorni ?? null, rientro_ore: t.rientro_ore ?? null, registrazione: t.registrazione || null, data: t.data } : null;
 }
 
 export const PUNTI_CARDINALI = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
